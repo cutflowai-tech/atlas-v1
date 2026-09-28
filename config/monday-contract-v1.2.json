@@ -240,6 +240,7 @@
   },
   "quality_labels": {
     "mapping_version": "monday-performance-issues-v1.0",
+    "rule_version": "quality-v1.0",
     "column_id": "dropdown_mm3tyk8g",
     "column_title": "Performance Issues",
     "id_to_label": {
@@ -251,8 +252,23 @@
       "6": "Excessive Revisions",
       "7": "4- Recurring Mistakes"
     },
+    "historical_label_names": {
+      "3": [
+        "Quality Issue"
+      ],
+      "4": [
+        "Did Not Follow Instructions"
+      ],
+      "5": [
+        "Technical Issues"
+      ],
+      "7": [
+        "Recurring Mistakes"
+      ]
+    },
+    "historical_label_names_evidence": "Performance Issues activity logs show the same label IDs under earlier names without the numeric prefix; accepted only together with the same ID. See docs/evidence/REAL-001-STATUS.md.",
     "weighting": "one-occurrence-per-label-per-item-equal-weight",
-    "occurrence_basis": "label present on the item; evidence is the activity log that added it",
+    "occurrence_basis": "a label present in the item's current Monday value (a removed label is a correction and does not count); evidence is the activity log or creation value that added it, else the item snapshot",
     "unmapped_policy": "quarantine",
     "for_bonus": {
       "column_id": "dropdown_mm3tyvvc",
@@ -260,7 +276,8 @@
       "classification": "context-unclassified",
       "affects_quality": false,
       "status": "approved by Waset management 2026-09-28: not a positive or negative quality signal in V1"
-    }
+    },
+    "attribution": "the Editor of the item's first completed work cycle; unresolved Editor, missing cycle or unmapped label -> quarantined"
   },
   "deadline": {
     "rule_version": "deadline-v1.1",
