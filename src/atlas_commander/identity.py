@@ -24,6 +24,11 @@ MISSING_EDITOR = "MISSING_EDITOR"
 AMBIGUOUS_EDITOR = "AMBIGUOUS_EDITOR"
 UNMAPPED_EDITOR = "UNMAPPED_EDITOR"
 MISSING_EVIDENCE = "MISSING_EVIDENCE"
+# Monday reuses Editor Name dropdown labels for different people over time (e.g. label 5 was
+# "Ahmed", later "Anas"). A mapping entry that lists label_names only resolves observations
+# whose recorded label name is one of them.
+EDITOR_LABEL_NAME_MISMATCH = "EDITOR_LABEL_NAME_MISMATCH"
+EDITOR_LABEL_NAME_UNVERIFIED = "EDITOR_LABEL_NAME_UNVERIFIED"
 
 # Sources that describe the Editor at the time of the work. A current assignee
 # snapshot is only acceptable when it is pinned to a source event.
@@ -40,6 +45,7 @@ class MappingEntry:
     monday_person_id: str
     editor_id: str
     display_name: str
+    label_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -67,7 +73,10 @@ class IdentityMapping:
                 if not isinstance(value, str) or not value:
                     raise MappingError(f"entry {index} missing {key}")
                 values[key] = value
-            entries.append(MappingEntry(**values))
+            names = raw.get("label_names", [])
+            if not isinstance(names, list) or any(not isinstance(name, str) or not name for name in names):
+                raise MappingError(f"entry {index} label_names must be a list of names")
+            entries.append(MappingEntry(values["monday_person_id"], values["editor_id"], values["display_name"], tuple(names)))
         return cls(version, tuple(entries))
 
     @classmethod
@@ -94,6 +103,8 @@ class EditorObservation:
     source: str
     event_id: str | None = None
     observed_at: str | None = None
+    # Label names exactly as the source recorded them at observation time (activity-log chosenValues).
+    label_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -181,6 +192,13 @@ def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> 
             tuple(sorted({entry.editor_id for entry in candidates})),
         )
     entry = candidates[0]
+    if entry.label_names:
+        observed_names = tuple(name for name in observation.label_names if name)
+        if not observed_names:
+            return reject(EDITOR_LABEL_NAME_UNVERIFIED, "observation carries no recorded label name to verify against the mapping")
+        if any(name not in entry.label_names for name in observed_names):
+            return reject(EDITOR_LABEL_NAME_MISMATCH, f"label recorded as {list(observed_names)}, mapping {mapping.mapping_version} expects {list(entry.label_names)}",
+                          (entry.editor_id,))
     identity = {
         "contract_version": CONTRACT_VERSION,
         "editor_id": entry.editor_id,

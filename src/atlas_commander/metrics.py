@@ -37,6 +37,7 @@ COMPARABLE = "comparable"
 THRESHOLD_NOT_CONFIGURED = "minimum_sample_size_not_configured"
 INSUFFICIENT_SAMPLE = "insufficient_editor_sample"
 COHORT_NOT_BENCHMARK_ELIGIBLE = "cohort_not_benchmark_eligible"
+NO_OTHER_EDITORS = "no_other_editors_in_cohort"
 INSUFFICIENT_SAMPLE_CONCLUSION = "insufficient_sample"
 NOT_COMPARABLE_CONCLUSION = "not_comparable"
 NOT_CLASSIFIABLE_ETA_PRECISION = "not_classifiable_insufficient_eta_precision"
@@ -57,6 +58,7 @@ class MetricPolicy:
     video_type_column_id: str
     video_types: VideoTypeMapping | None = None
     benchmark_statistic: str = "median"
+    require_other_editor: bool = False
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> MetricPolicy:
@@ -74,7 +76,7 @@ class MetricPolicy:
             raise ValueError("only the median benchmark statistic is implemented")
         board = contract["source_board"]
         return cls(deadline["rule_version"], speed["rule_version"], minimum, board["status_column_id"], board["requested_eta_column_id"],
-                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic)
+                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic, bool(speed.get("peer_requirement")))
 
 
 def cohort_benchmark_eligibility(canonical_ids: Iterable[str], mapping: VideoTypeMapping | None) -> tuple[bool, list[str]]:
@@ -84,6 +86,16 @@ def cohort_benchmark_eligibility(canonical_ids: Iterable[str], mapping: VideoTyp
     classes = mapping.classification if mapping is not None else {}
     unconfirmed = [value for value in ids if value not in classes]
     return (bool(ids) and not unconfirmed and any(classes[value] == "base" for value in ids)), unconfirmed
+
+
+def quantile_seconds(values: Iterable[int], q: float) -> int | None:
+    """Linear-interpolation quantile, floored to whole seconds (descriptive context only)."""
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    position = (len(ordered) - 1) * q
+    low, high = math.floor(position), math.ceil(position)
+    return math.floor(ordered[low] + (ordered[high] - ordered[low]) * (position - low))
 
 
 def median_seconds(values: Iterable[int]) -> int | None:
@@ -236,15 +248,19 @@ def speed_benchmarks(editor_id: str, cycles: Iterable[CycleRecord], policy: Metr
         mine = [cycle for cycle in team if cycle.editor_id == editor_id]
         if not mine:
             continue
-        editor_median = median_seconds(cycle.duration_seconds for cycle in mine if cycle.duration_seconds is not None)
+        mine_durations = [cycle.duration_seconds for cycle in mine if cycle.duration_seconds is not None]
+        team_durations = [cycle.duration_seconds for cycle in team if cycle.duration_seconds is not None]
+        editor_median = median_seconds(mine_durations)
         assert editor_median is not None and mine[0].video_type is not None
         eligible, unconfirmed = cohort_benchmark_eligibility(mine[0].video_type.canonical_ids, policy.video_types)
         # The team population is every eligible Editor's first completed cycle in this exact cohort,
         # including the subject Editor (approved V1 rule); a cohort that is not a confirmed business
         # Video Type gets no team benchmark at all.
-        team_median = median_seconds(cycle.duration_seconds for cycle in team if cycle.duration_seconds is not None) if eligible else None
+        team_median = median_seconds(team_durations) if eligible else None
         if not eligible:
             status, conclusion = COHORT_NOT_BENCHMARK_ELIGIBLE, NOT_COMPARABLE_CONCLUSION
+        elif policy.require_other_editor and not any(cycle.editor_id != editor_id for cycle in team):
+            status, conclusion = NO_OTHER_EDITORS, NOT_COMPARABLE_CONCLUSION
         elif policy.minimum_editor_sample_size is None:
             status, conclusion = THRESHOLD_NOT_CONFIGURED, NOT_COMPARABLE_CONCLUSION
         elif len(mine) < policy.minimum_editor_sample_size:
@@ -264,6 +280,9 @@ def speed_benchmarks(editor_id: str, cycles: Iterable[CycleRecord], policy: Metr
             "team_editor_count": len({cycle.editor_id for cycle in team}) if eligible else None,
             "team_median_seconds": team_median,
             "editor_minus_team_median_seconds": editor_median - team_median if team_median is not None else None,
+            "editor_vs_team_median_pct": round(100 * (editor_median - team_median) / team_median, 1) if team_median else None,
+            "team_typical_range_seconds": {"p25": quantile_seconds(team_durations, 0.25), "p75": quantile_seconds(team_durations, 0.75)} if eligible else None,
+            "editor_range_seconds": {"min": min(mine_durations), "max": max(mine_durations)},
             "team_includes_subject_editor": True,
             "benchmark_statistic": policy.benchmark_statistic,
             "benchmark_eligible": eligible,
