@@ -21,7 +21,10 @@ integration:
 e2e:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_e2e.py' -v
 
-test: lint typecheck unit contract integration e2e
+monday-probe:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_monday_probe.py' -v
+
+test: lint typecheck unit contract integration e2e monday-probe
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
 runtime-health:

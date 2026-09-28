@@ -1,0 +1,17 @@
+{
+  "activity_logs_key_occurrences": 0,
+  "artifact": {
+    "bytes": 6044737,
+    "file": "ce2d38870381fcc8f92ed68f2c3de4babe08c5f9fa2e89e98b1f3bedb428e870.raw",
+    "sha256": "ce2d38870381fcc8f92ed68f2c3de4babe08c5f9fa2e89e98b1f3bedb428e870"
+  },
+  "board_id": "5091110326",
+  "editor_identity": "unverified",
+  "format": "markdown_export_not_original_api_json",
+  "items_returned_heading": 959,
+  "live_fetch": "blocked_no_scoped_credential_or_connector",
+  "redaction": "No names, item values, user IDs, or credential values included; source bytes unchanged in restricted external storage.",
+  "source_snapshot_date": "2026-07-25",
+  "task": "DATA-001",
+  "timestamp_lexeme_occurrences": 11742
+}
