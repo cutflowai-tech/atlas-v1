@@ -37,6 +37,7 @@ COMPARABLE = "comparable"
 THRESHOLD_NOT_CONFIGURED = "minimum_sample_size_not_configured"
 INSUFFICIENT_SAMPLE = "insufficient_editor_sample"
 COHORT_NOT_BENCHMARK_ELIGIBLE = "cohort_not_benchmark_eligible"
+NO_OTHER_EDITORS = "no_other_editors_in_cohort"
 INSUFFICIENT_SAMPLE_CONCLUSION = "insufficient_sample"
 NOT_COMPARABLE_CONCLUSION = "not_comparable"
 NOT_CLASSIFIABLE_ETA_PRECISION = "not_classifiable_insufficient_eta_precision"
@@ -57,6 +58,7 @@ class MetricPolicy:
     video_type_column_id: str
     video_types: VideoTypeMapping | None = None
     benchmark_statistic: str = "median"
+    require_other_editor: bool = False
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> MetricPolicy:
@@ -74,7 +76,7 @@ class MetricPolicy:
             raise ValueError("only the median benchmark statistic is implemented")
         board = contract["source_board"]
         return cls(deadline["rule_version"], speed["rule_version"], minimum, board["status_column_id"], board["requested_eta_column_id"],
-                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic)
+                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic, bool(speed.get("peer_requirement")))
 
 
 def cohort_benchmark_eligibility(canonical_ids: Iterable[str], mapping: VideoTypeMapping | None) -> tuple[bool, list[str]]:
@@ -257,6 +259,8 @@ def speed_benchmarks(editor_id: str, cycles: Iterable[CycleRecord], policy: Metr
         team_median = median_seconds(team_durations) if eligible else None
         if not eligible:
             status, conclusion = COHORT_NOT_BENCHMARK_ELIGIBLE, NOT_COMPARABLE_CONCLUSION
+        elif policy.require_other_editor and not any(cycle.editor_id != editor_id for cycle in team):
+            status, conclusion = NO_OTHER_EDITORS, NOT_COMPARABLE_CONCLUSION
         elif policy.minimum_editor_sample_size is None:
             status, conclusion = THRESHOLD_NOT_CONFIGURED, NOT_COMPARABLE_CONCLUSION
         elif len(mine) < policy.minimum_editor_sample_size:

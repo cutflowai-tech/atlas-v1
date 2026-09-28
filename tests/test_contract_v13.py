@@ -14,6 +14,8 @@ from atlas_commander.metrics import (
     FASTER,
     INSUFFICIENT_SAMPLE,
     INSUFFICIENT_SAMPLE_CONCLUSION,
+    NO_OTHER_EDITORS,
+    NOT_COMPARABLE_CONCLUSION,
     MetricPolicy,
     speed_benchmarks,
 )
@@ -98,6 +100,14 @@ class ContractV13Tests(unittest.TestCase):
         self.assertEqual((cohort["comparison_status"], cohort["conclusion"], cohort["editor_vs_team_median_pct"]), (COMPARABLE, FASTER, -33.3))
         self.assertEqual(cohort["team_typical_range_seconds"], {"p25": int(10.25 * 3600), "p75": int(19.75 * 3600)})
         self.assertEqual(cohort["editor_range_seconds"], {"min": 8 * 3600, "max": 12 * 3600})
+
+    def test_no_conclusion_when_the_editor_is_the_whole_team(self):
+        logs = many(WILL, (5,), (8, 9, 10, 11, 12), 1)
+        cohort = speed_benchmarks("editor-label-6", self.cycles(*logs), self.policy, NOW)["cohorts"][0]
+        self.assertEqual((cohort["comparison_status"], cohort["conclusion"]), (NO_OTHER_EDITORS, NOT_COMPARABLE_CONCLUSION))
+        self.assertEqual((cohort["editor_sample_size"], cohort["team_editor_count"], cohort["team_median_seconds"]), (5, 1, 10 * 3600))
+        v12 = MetricPolicy.from_contract(self.v12)
+        self.assertFalse(v12.require_other_editor)
 
     def test_four_projects_show_data_but_no_conclusion(self):
         logs = [*many(WILL, (4,), (8, 9, 10, 11), 1), *many(AHMED, (4,), (18, 19, 20, 21, 22), 11)]

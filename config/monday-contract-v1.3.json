@@ -345,6 +345,7 @@
     "benchmark_statistic_status": "approved by Waset management 2026-09-28 (median; evidence docs/evidence/BENCHMARK-STATISTIC-ANALYSIS.md)",
     "median_rounding": "median of durations; the mean of the two middle values is floored to whole seconds",
     "typical_range": "descriptive only: team P25-P75 of durations (linear interpolation, floored seconds); never used for a conclusion",
-    "percentage_difference": "(editor median - team median) / team median x 100, rounded to 0.1; null when not benchmark-eligible"
+    "percentage_difference": "(editor median - team median) / team median x 100, rounded to 0.1; null when not benchmark-eligible",
+    "peer_requirement": "a faster/slower conclusion also requires at least one other eligible Editor in the same exact cohort; when the team population is only the subject Editor, comparison_status is no_other_editors_in_cohort and the conclusion is not_comparable (data still shown)"
   }
 }

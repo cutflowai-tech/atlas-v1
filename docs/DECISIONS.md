@@ -51,6 +51,7 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 |---|---|---|
 | Editor of a cycle = Editor Name value in effect at Ready For Approval, from column events or the creation value. A change inside the cycle quarantines it. | Editor Name is sometimes edited after work starts. | Latest Editor Name value. |
 | A quality occurrence is attributed to the Editor of the item's first completed cycle; if that Editor is unresolved, the occurrence is quarantined. The current Monday value is authoritative (a removed label does not count). | A label sits on a project, not on a person. | Editor in effect when the label was added. |
+| A faster/slower conclusion also needs at least one other eligible Editor in the cohort; if the team is only the subject Editor, the result is `no_other_editors_in_cohort` / `not_comparable`, with all data shown. | On real data most cohorts contain only Will, so the "team median" would be his own median. | Conclude against the Editor's own median. |
 | Median of an even-sized sample = mean of the two middle values, floored to whole seconds. | The contract stores integer seconds. | — |
 
 ## Open decisions
