@@ -1,4 +1,4 @@
-.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard ingest sync-config monday-client ingest-runs json test runtime-health
+.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard ingest sync-config monday-client ingest-runs sync-run json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -66,13 +66,16 @@ monday-client:
 ingest-runs:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ingest_runs.py' -v
 
+sync-run:
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_sync_run.py' -v
+
 ingest:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ingest.py' -v
 
 json:
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
-test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard ingest sync-config monday-client ingest-runs json
+test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard ingest sync-config monday-client ingest-runs sync-run json
 
 runtime-health:
 	./scripts/runtime-health

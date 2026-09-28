@@ -50,8 +50,9 @@ def attribution_coverage(result: CycleReconstruction) -> dict[str, Any]:
             "not_attributed_by_reason": dict(sorted(reasons.items(), key=lambda pair: -pair[1]))}
 
 
-def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, monday_item_url: str | None = None) -> dict[str, Any]:
-    """One Editor Profile per Editor with attributed projects, plus the CEO Dashboard built from those profiles."""
+def build_profiles(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str,
+                   monday_item_url: str | None = None) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """One Editor Profile (JSON and HTML) per Editor with attributed projects, into ``out/profiles``."""
     (out / "profiles").mkdir(parents=True, exist_ok=True)
     profiles, pages = [], {}
     for editor in profiled_editors(result):
@@ -61,12 +62,24 @@ def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, 
         (out / "profiles" / f"{editor['editor_id']}.html").write_text(page)
         profiles.append(profile)
         pages[editor["editor_id"]] = page
+    return profiles, pages
+
+
+def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, profiles: list[dict[str, Any]],
+                          pages: dict[str, str], monday_item_url: str | None = None) -> dict[str, Any]:
+    """The CEO Dashboard (``dashboard.json`` and ``dashboard.html``) built from those profiles."""
     dashboard = build_dashboard(profiles, generated_at, mapped_editors=contract["editor_attribution"]["entries"],
                                 attribution_coverage=attribution_coverage(result),
                                 profile_refs={editor_id: f"profiles/{editor_id}.json" for editor_id in pages})
     (out / "dashboard.json").write_text(json.dumps(dashboard, indent=1) + "\n")
     (out / "dashboard.html").write_text(render_dashboard_html(dashboard, pages, monday_item_url))
     return dashboard
+
+
+def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, monday_item_url: str | None = None) -> dict[str, Any]:
+    """One Editor Profile per Editor with attributed projects, plus the CEO Dashboard built from those profiles."""
+    profiles, pages = build_profiles(result, contract, out, generated_at, monday_item_url)
+    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url)
 
 
 def main(argv: list[str] | None = None) -> int:

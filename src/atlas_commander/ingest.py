@@ -214,8 +214,19 @@ def _stats_delta(before: dict[str, Any] | None, after: dict[str, Any] | None) ->
             "failures_by_category": {key: n for key, n in sorted(categories.items()) if n}}
 
 
+def tracked_columns(board: dict[str, Any]) -> list[str]:
+    """The Monday columns every ingestion reads, from the contract's ``source_board``."""
+    return [board["status_column_id"], board["editor_column_id"], board["video_type_column_id"], board["requested_eta_column_id"],
+            board["performance_issues_column_id"], board["for_bonus_column_id"]]
+
+
 def failure_category(error: BaseException) -> str:
-    """A safe category for a failed run; never the exception text, which could echo request details."""
+    """A safe category for a failed run; never the exception text, which could echo request details.
+
+    An error type may declare its own safe category as a ``failure_category`` class attribute (e.g. a sync time budget)."""
+    declared = getattr(type(error), "failure_category", None)
+    if isinstance(declared, str):
+        return declared
     if isinstance(error, (MondayError, InvalidMondaySetting)):
         return error.category
     if isinstance(error, ReadOnlyViolation):
@@ -398,8 +409,7 @@ def main(argv: list[str] | None = None, client: ReadOnlyMondayClient | None = No
     from atlas_commander.runtime import load_contract
 
     board = load_contract()["source_board"]
-    default_columns = [board["status_column_id"], board["editor_column_id"], board["video_type_column_id"], board["requested_eta_column_id"],
-                       board["performance_issues_column_id"], board["for_bonus_column_id"]]
+    default_columns = tracked_columns(board)
     parser = argparse.ArgumentParser(prog="atlas-ingest", description="Read-only Monday ingestion into an immutable raw store outside git.")
     parser.add_argument("--board", default=board["board_id"])
     parser.add_argument("--since", required=True, help="UTC start, e.g. 2026-02-01T00:00:00Z")

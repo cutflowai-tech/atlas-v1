@@ -1,1 +1,1 @@
-"""Atlas production sync: deployment configuration for reading Monday.com on a schedule (read-only)."""
+"""Atlas production sync: deployment configuration and one-shot sync attempts (read-only Monday; staged builds only)."""

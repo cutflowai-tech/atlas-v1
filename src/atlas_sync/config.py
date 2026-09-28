@@ -25,6 +25,8 @@ ATLAS_SYNC_INTERVAL_SECONDS               no        Seconds between syncs (defau
 ATLAS_STALE_AFTER_SECONDS                 no        Data older than this is stale (default 7200).
 ATLAS_MAX_CONSECUTIVE_FAILURES            no        Failed syncs in a row before it is a failure
                                                     state (default 3).
+ATLAS_SYNC_MAX_DURATION_SECONDS           no        Time budget for one sync attempt; no new stage
+                                                    or Monday request starts after it (default 7200).
 ========================================  ========  ==============================================
 
 ``*`` Either ATLAS_DATA_DIR, or all three of ATLAS_RAW_DIR, ATLAS_BUILD_DIR and ATLAS_PUBLISH_DIR.
@@ -68,6 +70,7 @@ HISTORY_START_ENV = "ATLAS_HISTORY_START"
 INTERVAL_ENV = "ATLAS_SYNC_INTERVAL_SECONDS"
 STALE_ENV = "ATLAS_STALE_AFTER_SECONDS"
 FAILURES_ENV = "ATLAS_MAX_CONSECUTIVE_FAILURES"
+MAX_DURATION_ENV = "ATLAS_SYNC_MAX_DURATION_SECONDS"
 
 # Production sync runs only the contract validated live (REAL-004). Older contracts stay loadable for
 # reproducing historical results and fixtures, but never for production sync.
@@ -77,6 +80,8 @@ DEFAULT_HISTORY_START = "2026-02-01T00:00:00Z"
 DEFAULT_INTERVAL_SECONDS = 3600
 DEFAULT_STALE_AFTER_SECONDS = 7200
 DEFAULT_MAX_CONSECUTIVE_FAILURES = 3
+DEFAULT_MAX_DURATION_SECONDS = 7200
+MIN_MAX_DURATION_SECONDS = 60
 MIN_INTERVAL_SECONDS = 300
 MAX_INTERVAL_SECONDS = 86_400
 REDACTED = "<redacted>"
@@ -133,6 +138,7 @@ class SyncConfig:
     sync_interval_seconds: int
     stale_after_seconds: int
     max_consecutive_failures: int
+    max_sync_duration_seconds: int = DEFAULT_MAX_DURATION_SECONDS
 
     def require_monday_token(self) -> Secret:
         """The token, or MissingAccess (fail closed) when a Monday operation needs one and none is configured."""
@@ -162,6 +168,7 @@ class SyncConfig:
             "sync_interval_seconds": self.sync_interval_seconds,
             "stale_after_seconds": self.stale_after_seconds,
             "max_consecutive_failures": self.max_consecutive_failures,
+            "max_sync_duration_seconds": self.max_sync_duration_seconds,
         }
 
 
@@ -272,6 +279,7 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
     interval = _int(env, INTERVAL_ENV, DEFAULT_INTERVAL_SECONDS, MIN_INTERVAL_SECONDS, MAX_INTERVAL_SECONDS, problems)
     stale = _int(env, STALE_ENV, DEFAULT_STALE_AFTER_SECONDS, MIN_INTERVAL_SECONDS, None, problems)
     failures = _int(env, FAILURES_ENV, DEFAULT_MAX_CONSECUTIVE_FAILURES, 1, 100, problems)
+    max_duration = _int(env, MAX_DURATION_ENV, DEFAULT_MAX_DURATION_SECONDS, MIN_MAX_DURATION_SECONDS, MAX_INTERVAL_SECONDS, problems)
     if stale <= interval:
         problems.append(f"{STALE_ENV} ({stale}) must be greater than {INTERVAL_ENV} ({interval})")
 
@@ -279,4 +287,5 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
         raise ConfigError(problems or ["data directories are not configured"])
     return SyncConfig(monday_token=token, monday_token_source=source, monday_api_version=api_version, contract_version=contract_version,
                       board_id=board_id, raw_dir=raw_dir, build_dir=build_dir, publish_dir=publish_dir, history_start=history_start,
-                      sync_interval_seconds=interval, stale_after_seconds=stale, max_consecutive_failures=failures)
+                      sync_interval_seconds=interval, stale_after_seconds=stale, max_consecutive_failures=failures,
+                      max_sync_duration_seconds=max_duration)

@@ -78,5 +78,7 @@ jobs:
         run: make monday-client
       - name: Production ingestion run tests
         run: make ingest-runs
+      - name: One-shot sync orchestration tests
+        run: make sync-run
       - name: JSON syntax
         run: make json
