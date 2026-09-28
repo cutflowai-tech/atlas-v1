@@ -52,6 +52,14 @@ The command:
 
 Without `MONDAY_API_TOKEN` it stops with `MISSING_ACCESS` and writes nothing.
 
+Before using a run, verify it offline (it rechecks every SHA-256, window completeness below the API cap, window tiling, duplicate log IDs, item snapshots and history-completeness claims):
+
+```bash
+PYTHONPATH=src python3 -m atlas_commander.ingest_verify ~/.atlas/raw/monday/<run-id>
+```
+
+`scripts/compare_profiles.py <reference.json> <new.json>` lists per-project differences between two Editor Profiles. The full live-validation procedure is in `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md`.
+
 ## Editor Profile (V1)
 
 Build an evidence-backed profile for one verified Editor from a read-only Monday extract:

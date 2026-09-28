@@ -9,8 +9,11 @@ class ControlPlaneE2ETests(unittest.TestCase):
     def test_commander_can_plan_first_vertical_slice(self):
         output = subprocess.check_output([str(ROOT / "scripts/atlas"), "ready"], text=True)
         ready = {task["id"] for task in json.loads(output)}
-        self.assertIn("DATA-001", ready)
-        self.assertIn("METRICS-FIXTURE", ready)
+        dag = {task["id"]: task for task in json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]}
+        # The first vertical slice's fixture tasks are done; blocked tasks never enter the ready queue.
+        self.assertEqual({"DATA-001", "METRICS-FIXTURE"} & ready, set())
+        self.assertTrue(all(dag[task_id]["status"] in {"todo", "ready"} for task_id in ready))
+        self.assertEqual(dag["E2E-001"]["status"], "blocked")
 
     def test_mock_editor_profile_is_api_compatible(self):
         profile = json.loads((ROOT / "fixtures/good/editor-profile.json").read_text())

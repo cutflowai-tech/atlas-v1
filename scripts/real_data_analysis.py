@@ -111,7 +111,9 @@ def validation(result: Any, contract: dict[str, Any], calculated_at: str) -> dic
 def main(path: str, version: str = ACTIVE_CONTRACT_VERSION) -> dict[str, Any]:
     data = json.load(open(path))
     contract = load_contract_version(version)
-    result = reconstruct_cycles(data["activity"], contract, items_payload=data.get("items"), ingestion={"retrieved_at": data.get("retrieved_at")})
+    ingestion = dict(data.get("ingestion") or {})  # an ingestion-command extract carries its coverage window
+    ingestion.setdefault("retrieved_at", data.get("retrieved_at"))
+    result = reconstruct_cycles(data["activity"], contract, items_payload=data.get("items"), ingestion=ingestion)
     completed = [cycle for cycle in result.cycles if cycle.state == COMPLETED]
     timing_valid = [cycle for cycle in completed if cycle.cohort_key and not (set(cycle.exclusions) - ROBUSTNESS_EXCLUSIONS)]
     fully_eligible = [cycle for cycle in completed if cycle.cohort_key and not cycle.exclusions]
