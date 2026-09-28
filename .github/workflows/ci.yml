@@ -60,5 +60,7 @@ jobs:
         run: make cycles-metrics
       - name: Status normalization and source tests
         run: make status-sources
+      - name: Quality and revision context tests
+        run: make quality
       - name: JSON syntax
         run: make json
