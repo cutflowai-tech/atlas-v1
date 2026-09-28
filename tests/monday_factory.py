@@ -24,9 +24,26 @@ def _log(log_id, item, column, moment, previous, value, user=SHARED, column_type
             "created_at": ticks(moment), "data": json.dumps(data)}
 
 
-def status(log_id, item, moment, before, after, user=SHARED, undo=False):
-    label = lambda text: None if text is None else {"label": {"text": text, "index": 0}}
-    return _log(log_id, item, STATUS, moment, label(before), label(after), user, undo=undo)
+# Live Monday status label indexes (project_status settings and activity-log history).
+STATUS_INDEX = {"Internal Revisions": 0, "Done": 1, "Revisions": 2, "Ready For Approval": 3, "Ready To Send": 4, "Ready To Sent": 4,
+                "ready to sent": 4, "Waiting": 6, "Sent": 7, "Uploading": 8, "In Progress": 9, "Create File": 13, "Creat File": 13, "Editing Now": 14}
+
+
+def status(log_id, item, moment, before, after, user=SHARED, undo=False, before_index=None, after_index=None):
+    def label(text, index):
+        if text is None:
+            return None
+        if text == "":
+            return {}  # Monday's value for a cleared status
+        return {"label": {"text": text, "index": STATUS_INDEX.get(text, 0) if index is None else index}}
+    return _log(log_id, item, STATUS, moment, label(before, before_index), label(after, after_index), user, undo=undo)
+
+
+def create_pulse(log_id, item, moment, initial_values, duplicate=None):
+    """Monday create_pulse log whose column_values_json holds the item's initial column values."""
+    data = {"pulse_id": int(item), "board_id": int(BOARD), "pulse_name": "SYNTHETIC", "is_duplicate": duplicate,
+            "column_values_json": json.dumps(initial_values)}
+    return {"id": log_id, "event": "create_pulse", "entity": "pulse", "user_id": SHARED, "account_id": "1", "created_at": ticks(moment), "data": json.dumps(data)}
 
 
 def dropdown(log_id, item, column, moment, ids, names=None, previous=None):

@@ -62,11 +62,18 @@ DUPLICATE_TRANSITION = "DUPLICATE_TRANSITION"
 DISCONTINUOUS_TRANSITION = "DISCONTINUOUS_TRANSITION"
 UNDO_ACTION_IGNORED = "UNDO_ACTION_IGNORED"
 UNMAPPED_STATUS_IN_HISTORY = "UNMAPPED_STATUS_IN_HISTORY"
+UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW = "UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW"
+STATUS_CLEARED_IN_HISTORY = "STATUS_CLEARED_IN_HISTORY"
+UNRESOLVED_PREVIOUS_STATUS = "UNRESOLVED_PREVIOUS_STATUS"
+# Quarantine reasons that cannot hide a cycle boundary: exact duplicates (the first copy is kept)
+# and transitions into a cleared, label-less status (which cannot be In Progress or Ready For Approval).
+_HARMLESS_QUARANTINE = frozenset({"DUPLICATE_EVENT_ID", "STATUS_CLEARED"})
 CAPTIONS_WITHIN_CYCLE = "CAPTIONS_WITHIN_CYCLE"
 DELIVERED_BEFORE_READY_FOR_APPROVAL = "DELIVERED_BEFORE_READY_FOR_APPROVAL"
 READY_FOR_APPROVAL_BEFORE_START = "READY_FOR_APPROVAL_BEFORE_START"
 CLIENT_REVISION_WITHIN_CYCLE = "CLIENT_REVISION_WITHIN_CYCLE"
 VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL = "VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL"
+INITIAL_STATUS_AT_CREATION = "INITIAL_STATUS_AT_CREATION"
 
 
 def parse_time(value: str) -> datetime:
@@ -81,6 +88,7 @@ class CyclePolicy:
     editor_column_id: str
     video_type_column_id: str
     requested_eta_column_id: str
+    status_column_id: str = "project_status"
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> CyclePolicy:
@@ -91,7 +99,7 @@ class CyclePolicy:
         board = contract["source_board"]
         identity = IdentityMapping.from_dict({"mapping_version": contract["editor_attribution"]["mapping_version"], "entries": contract["editor_attribution"]["entries"]})
         return cls(attributes["policy_version"], identity, VideoTypeMapping.from_contract(contract), board["editor_column_id"],
-                   board["video_type_column_id"], board["requested_eta_column_id"])
+                   board["video_type_column_id"], board["requested_eta_column_id"], board["status_column_id"])
 
 
 @dataclass
@@ -109,6 +117,8 @@ class CycleRecord:
     editor_event_id: str | None = None
     video_type: VideoTypeResolution | None = None
     video_type_event_id: str | None = None
+    video_type_source: str | None = None
+    video_type_skipped_event_ids: list[str] = field(default_factory=list)
     requested_eta: str | None = None
     requested_eta_event_id: str | None = None
     requested_eta_issue: str | None = None
@@ -183,6 +193,8 @@ class CycleRecord:
             "editor_event_id": self.editor_event_id,
             "video_type": self.video_type.to_dict() if self.video_type else None,
             "video_type_event_id": self.video_type_event_id,
+            "video_type_source": self.video_type_source,
+            "video_type_skipped_event_ids": list(self.video_type_skipped_event_ids),
             "requested_eta": self.requested_eta,
             "requested_eta_event_id": self.requested_eta_event_id,
             "requested_eta_issue": self.requested_eta_issue,
@@ -225,17 +237,28 @@ def build_item_cycle(
     column_changes: Iterable[ColumnChange],
     policy: CyclePolicy,
     undo_event_ids: Iterable[str] = (),
-    quarantined_status_event_ids: Iterable[str] = (),
+    quarantined_status_logs: Iterable[Mapping[str, Any]] = (),
     eta_snapshot: Mapping[str, Any] | None = None,
     history_coverage: Mapping[str, Any] | None = None,
 ) -> CycleRecord | None:
-    """Reconstruct the single work cycle for one item from its accepted normalized status events."""
+    """Reconstruct the single work cycle for one item from its accepted normalized status events.
+
+    ``quarantined_status_logs`` are this item's normalization quarantine entries
+    (``{"reason", "raw_source"}``). An unmapped status, or any other quarantined log that
+    could hide a boundary, occurring at or before the cycle's Ready For Approval excludes the
+    cycle from metrics (``UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW``) instead of letting an unknown
+    state silently move its start or end.
+    """
     undo = {str(value) for value in undo_event_ids}
     all_events = sorted((event for event in status_events if event["monday_item_id"] == item_id), key=_event_key)
     if not all_events:
         return None
     record = CycleRecord(f"cycle:{board_id}:{item_id}", board_id, item_id, INVALID, policy.policy_version)
-    if list(quarantined_status_event_ids):
+    quarantined = list(quarantined_status_logs)
+    if any(entry.get("reason") == "STATUS_CLEARED" for entry in quarantined):
+        _add(record.flags, STATUS_CLEARED_IN_HISTORY)
+    blocking_quarantine = [entry for entry in quarantined if entry.get("reason") not in _HARMLESS_QUARANTINE]
+    if blocking_quarantine:
         _add(record.flags, UNMAPPED_STATUS_IN_HISTORY)
 
     timeline: list[Mapping[str, Any]] = []
@@ -281,6 +304,15 @@ def build_item_cycle(
         if event["to_status"] == CLIENT_REVISION_STATUS:
             _add(record.flags, CLIENT_REVISION_WITHIN_CYCLE)
     record.status_event_ids = [event["event_id"] for event in timeline[start_index:(end_index + 1 if end_index is not None else None)]]
+    window_end = parse_time(timeline[end_index]["occurred_at"]) if end_index is not None else None
+    for event in timeline[:(end_index + 1 if end_index is not None else None)]:
+        if event.get("from_status") is None and event.get("raw_from_status") is not None:
+            _add(record.flags, UNRESOLVED_PREVIOUS_STATUS)
+    for entry in blocking_quarantine:
+        source = entry.get("raw_source")
+        moment = source.get("occurred_at") if isinstance(source, Mapping) else None
+        if window_end is None or not isinstance(moment, str) or parse_time(moment) <= window_end:
+            _add(record.exclusions, UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW)
     if end_index is not None:
         later = timeline[end_index + 1:]
         record.post_cycle_event_ids = [event["event_id"] for event in later]
@@ -308,6 +340,9 @@ def build_item_cycle(
             _add(record.flags, UNDO_ACTION_IGNORED)
             continue
         by_column.setdefault(change.column_id, []).append(change)
+    # A status an item was created with (e.g. a duplicated item) is not a transition; it is kept as a flag only.
+    if any(change.source == "create_pulse" and change.value for change in by_column.get(policy.status_column_id, [])):
+        _add(record.flags, INITIAL_STATUS_AT_CREATION)
     _resolve_latest_eta(record, by_column.get(policy.requested_eta_column_id, []), eta_snapshot, history_coverage)
     if attribute_moment is None:
         return record
@@ -339,13 +374,29 @@ def _resolve_editor(record: CycleRecord, changes: list[ColumnChange], policy: Cy
 
 
 def _resolve_video_type(record: CycleRecord, changes: list[ColumnChange], policy: CyclePolicy, end: datetime) -> None:
-    current = _as_of(changes, end)
-    if current is None:
+    """Latest valid (non-empty) Video Type observed at or before Ready For Approval (approved rule).
+
+    A value set after Ready For Approval never changes the completed cycle's cohort. Empty
+    (cleared) observations are skipped and recorded as evidence; an unmapped value is not
+    skipped - it is the value in effect and is quarantined.
+    """
+    known = [change for change in changes if parse_time(change.occurred_at) <= end]
+    if not known:
         _add(record.exclusions, MISSING_VIDEO_TYPE_EVENT)
         return
+    valid = [change for change in known if dropdown_value_ids(change.value)]
+    record.video_type_skipped_event_ids = [change.log_id for change in known if not dropdown_value_ids(change.value) and (not valid or
+                                           parse_time(change.occurred_at) >= parse_time(valid[-1].occurred_at))]
+    if not valid:
+        record.video_type_event_id = known[-1].log_id
+        record.video_type = resolve_video_type(policy.video_types, ())
+        _add(record.exclusions, record.video_type.reason or MISSING_VIDEO_TYPE_EVENT)
+        return
+    current = valid[-1]
     record.video_type_event_id = current.log_id
+    record.video_type_source = current.source
     record.video_type = resolve_video_type(policy.video_types, dropdown_value_ids(current.value), dropdown_value_labels(current.value))
-    if changes[-1] is not current and dropdown_value_ids(changes[-1].value) != dropdown_value_ids(current.value):
+    if any(parse_time(change.occurred_at) > end and dropdown_value_ids(change.value) != dropdown_value_ids(current.value) for change in changes):
         _add(record.flags, VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL)
     if record.video_type.reason:
         _add(record.exclusions, record.video_type.reason)
@@ -378,7 +429,7 @@ def _resolve_latest_eta(record: CycleRecord, changes: list[ColumnChange], snapsh
     """
     for change in changes:
         eta, issue = requested_eta(change.value)
-        record.requested_eta_history.append({"source": "activity_log", "event_id": change.log_id, "occurred_at": change.occurred_at,
+        record.requested_eta_history.append({"source": "activity_log" if change.source == "update_column_value" else change.source, "event_id": change.log_id, "occurred_at": change.occurred_at,
                                              "source_changed_at": _changed_at(change.value), "retrieved_at": None, "requested_eta": eta,
                                              "issue": issue, "previous_value": change.previous_value, "value": change.value})
     latest_value: Any = None

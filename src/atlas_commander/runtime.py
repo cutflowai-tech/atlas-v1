@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from atlas_commander.identity import IdentityMapping, Resolution, resolve_editor
-from atlas_commander.normalization import NormalizationResult, normalize_events
+from atlas_commander.normalization import NormalizationResult, normalize_events, status_mapping_config
 from atlas_commander.video_type import VideoTypeMapping, VideoTypeResolution, resolve_video_type
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,13 +33,7 @@ def load_contract_version(version: str) -> dict[str, Any]:
 
 def normalize_contract_events(raw_events: Any, config: dict[str, Any] | None = None) -> NormalizationResult:
     contract = config or load_contract()
-    return normalize_events(
-        raw_events,
-        {
-            "version": contract["status_mapping_version"],
-            "statuses": contract["status_mapping"],
-        },
-    )
+    return normalize_events(raw_events, status_mapping_config(contract))
 
 
 def resolve_contract_editor(observation: Any, config: dict[str, Any] | None = None) -> Resolution:

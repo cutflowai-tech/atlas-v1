@@ -28,6 +28,10 @@ INVALID_VIDEO_TYPE_VALUE = "INVALID_VIDEO_TYPE_VALUE"
 class VideoTypeMapping:
     mapping_version: str
     label_to_id: Mapping[str, str]
+    # Former Monday names of the same label ID; used only to cross-check logs that also carry the ID.
+    historical_names: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    # Business classification per ID: "base", "modifier", or absent (unconfirmed).
+    classification: Mapping[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> VideoTypeMapping:
@@ -41,7 +45,17 @@ class VideoTypeMapping:
         ids = [str(value) for value in labels.values()]
         if len(set(ids)) != len(ids):
             raise ValueError("video type mapping assigns one Monday label ID to several labels")
-        return cls(version, {str(label): str(value) for label, value in labels.items()})
+        historical = {str(key): tuple(str(name) for name in names) for key, names in (section.get("historical_label_names") or {}).items()}
+        if any(key not in ids for key in historical):
+            raise ValueError("historical_label_names refers to an unmapped label ID")
+        classification: dict[str, str] = {}
+        for role, key in (("base", "confirmed_base_ids"), ("modifier", "confirmed_modifier_ids")):
+            for value in (section.get("classification") or {}).get(key) or []:
+                value = str(value)
+                if value not in ids or value in classification:
+                    raise ValueError(f"invalid or conflicting Video Type classification for label ID {value}")
+                classification[value] = role
+        return cls(version, {str(label): str(value) for label, value in labels.items()}, historical, classification)
 
     @property
     def id_to_label(self) -> dict[str, str]:
@@ -125,8 +139,12 @@ def resolve_video_type(mapping: VideoTypeMapping, ids: Iterable[Any] | Any = Non
             from_ids.append(value)
         else:
             unmapped.append(f"id:{value}")
+    # With IDs present, a text may be the current or a former name of one of those IDs.
+    names_for_ids = {name: value for value in raw_ids if value in id_to_label for name in (id_to_label[value], *mapping.historical_names.get(value, ()))}
     for label in raw_labels:
-        if label in mapping.label_to_id:
+        if raw_ids and label in names_for_ids:
+            from_labels.append(names_for_ids[label])
+        elif label in mapping.label_to_id:
             from_labels.append(mapping.label_to_id[label])
         else:
             unmapped.append(f"label:{label}")

@@ -24,7 +24,7 @@ from typing import Any
 from atlas_commander.attribution import TransitionRoleMapping, attribute_transitions
 from atlas_commander.cycles import CyclePolicy, CycleRecord, build_item_cycle
 from atlas_commander.monday_source import ColumnChange, item_column_snapshots, parse_column_changes, status_log_records
-from atlas_commander.normalization import normalize_events
+from atlas_commander.normalization import normalize_events, status_mapping_config
 
 
 @dataclass
@@ -46,8 +46,9 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
     status_column = board["status_column_id"]
     records = status_log_records(dict(activity_payload), status_column)
     undo_ids = {str(record["id"]) for record in records if record.get("is_undo_action")}
-    normalized = normalize_events(records, {"version": contract["status_mapping_version"], "statuses": contract["status_mapping"]})
-    tracked = frozenset({board["editor_column_id"], board["video_type_column_id"], board["requested_eta_column_id"], board["performance_issues_column_id"]})
+    normalized = normalize_events(records, status_mapping_config(contract))
+    tracked = frozenset({status_column, board["editor_column_id"], board["video_type_column_id"], board["requested_eta_column_id"],
+                         board["performance_issues_column_id"]})
     changes, rejected = parse_column_changes(dict(activity_payload), tracked)
     transitions = attribute_transitions(normalized.accepted, TransitionRoleMapping.from_contract(contract))
     meta = dict(ingestion or {})
@@ -55,11 +56,11 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
     complete_ids = {str(value) for value in meta.get("complete_history_item_ids") or []}
     result = CycleReconstruction(contract["contract_version"], normalized.accepted, normalized.quarantined, rejected, changes, transitions, snapshots, meta)
 
-    quarantined_by_item: dict[str, list[str]] = {}
+    quarantined_by_item: dict[str, list[dict[str, Any]]] = {}
     for entry in normalized.quarantined:
         raw: dict[str, Any] = entry["raw_source"] if isinstance(entry.get("raw_source"), dict) else {}
         data: dict[str, Any] = raw["data"] if isinstance(raw.get("data"), dict) else {}
-        quarantined_by_item.setdefault(str(data.get("pulse_id")), []).append(str(raw.get("id")))
+        quarantined_by_item.setdefault(str(data.get("pulse_id")), []).append(entry)
     items: dict[tuple[str, str], None] = {}
     for event in normalized.accepted:
         items.setdefault((event["monday_board_id"], event["monday_item_id"]), None)

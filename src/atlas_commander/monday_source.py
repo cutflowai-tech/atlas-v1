@@ -20,7 +20,11 @@ REQUESTED_ETA_INVALID = "REQUESTED_ETA_INVALID"
 
 @dataclass(frozen=True)
 class ColumnChange:
-    """One ``update_column_value`` activity log for a tracked column, exactly as reported."""
+    """One tracked column observation from an activity log, exactly as reported.
+
+    ``source`` is ``update_column_value`` for an edit, or ``create_pulse`` for the value the
+    item was created with (Monday's ``column_values_json``); a creation value has no previous value.
+    """
 
     log_id: str
     board_id: str
@@ -33,6 +37,7 @@ class ColumnChange:
     previous_value: Any
     value: Any
     is_undo_action: bool
+    source: str = "update_column_value"
 
     @property
     def sort_key(self) -> tuple[str, str]:
@@ -49,11 +54,19 @@ def _data(log: dict[str, Any]) -> dict[str, Any]:
 def parse_column_changes(payload: dict[str, Any], column_ids: set[str] | frozenset[str]) -> tuple[list[ColumnChange], list[dict[str, Any]]]:
     """Return tracked column changes in (item, time, log ID) order, plus unparseable logs.
 
-    Logs for other columns or other events are skipped without being counted as errors.
+    ``create_pulse`` logs contribute one creation observation per tracked column present in
+    the item's initial values. Logs for other columns or other events are skipped without
+    being counted as errors.
     """
     changes: list[ColumnChange] = []
     rejected: list[dict[str, Any]] = []
     for log in activity_logs(payload):
+        if log.get("event") == "create_pulse":
+            try:
+                changes.extend(_creation_observations(log, column_ids))
+            except (KeyError, TypeError, ValueError, AdapterError):
+                rejected.append({"log_id": log.get("id"), "reason": "INVALID_CREATE_PULSE_LOG"})
+            continue
         if log.get("event") != "update_column_value":
             continue
         try:
@@ -74,6 +87,22 @@ def parse_column_changes(payload: dict[str, Any], column_ids: set[str] | frozens
             rejected.append({"log_id": log.get("id"), "reason": "INVALID_ACTIVITY_LOG"})
     changes.sort(key=lambda change: (change.item_id, *change.sort_key))
     return changes, rejected
+
+
+def _creation_observations(log: dict[str, Any], column_ids: set[str] | frozenset[str]) -> list[ColumnChange]:
+    data = _data(log)
+    initial = data.get("initial_values")
+    if initial is None:
+        initial = data.get("column_values_json")
+        if isinstance(initial, str):
+            initial = json.loads(initial)
+    if not isinstance(initial, dict):
+        return []
+    occurred_at = monday_log_timestamp(str(log["created_at"]))
+    return [ColumnChange(log_id=str(log["id"]), board_id=str(data["board_id"]), item_id=str(data["pulse_id"]), column_id=column_id,
+                         column_type="create_pulse", user_id=str(log.get("user_id")), created_at_raw=str(log["created_at"]), occurred_at=occurred_at,
+                         previous_value=None, value=value, is_undo_action=False, source="create_pulse")
+            for column_id, value in sorted(initial.items()) if column_id in column_ids and value is not None]
 
 
 def status_log_records(payload: dict[str, Any], column_id: str) -> list[dict[str, Any]]:

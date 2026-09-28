@@ -1,5 +1,6 @@
 import json
 import unittest
+from datetime import timedelta
 
 import monday_factory as mf
 
@@ -7,9 +8,12 @@ from atlas_commander import cycles as c
 from atlas_commander.attribution import UNRESOLVED, TransitionRoleMapping
 from atlas_commander.contracts import validate
 from atlas_commander.metrics import (
+    COHORT_NOT_BENCHMARK_ELIGIBLE,
     COMPARABLE,
     FASTER,
     INSUFFICIENT_SAMPLE,
+    INSUFFICIENT_SAMPLE_CONCLUSION,
+    NOT_COMPARABLE_CONCLUSION,
     SLOWER,
     THRESHOLD_NOT_CONFIGURED,
     MetricPolicy,
@@ -49,9 +53,13 @@ class CycleFixture(unittest.TestCase):
     def cycles(self, *logs, contract=None):
         return {cycle.monday_item_id: cycle for cycle in reconstruct_cycles(mf.payload(*logs), contract or self.contract).cycles}
 
-    def with_minimum(self, minimum):
+    def with_minimum(self, minimum, base=("5", "8"), modifier=()):
+        """Test policy. The live contract confirms no base/modifier labels yet, so tests that exercise
+        comparable cohorts supply a hypothetical classification explicitly."""
         contract = json.loads(json.dumps(self.contract))
         contract["speed_benchmark"]["minimum_editor_sample_size"] = minimum
+        contract["video_type_cohorts"]["classification"]["confirmed_base_ids"] = list(base)
+        contract["video_type_cohorts"]["classification"]["confirmed_modifier_ids"] = list(modifier)
         return MetricPolicy.from_contract(contract)
 
 
@@ -268,42 +276,76 @@ class DeadlineTests(CycleFixture):
         self.assertEqual((plain["delta_seconds"], plain["metric"]["result"]), (revised["delta_seconds"], revised["metric"]["result"]))
 
 
+def durations(editor, video, hours, first_item):
+    """Items for one Editor in one cohort, each with a first cycle of the given elapsed hours."""
+    logs = []
+    for offset, value in enumerate(hours):
+        end = c.parse_time("2026-09-01T10:00:00Z") + timedelta(hours=value)
+        logs += item(str(first_item + offset), editor=editor, video=video, end=end.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    return logs
+
+
 class SpeedBenchmarkTests(CycleFixture):
     def team(self):
         return list(self.cycles(
-            *item("1", editor=AHMED, video=(8,), end="2026-09-01T14:00:00Z"),   # 4h
-            *item("2", editor=AHMED, video=(8,), end="2026-09-01T16:00:00Z"),   # 6h
-            *item("3", editor=MICHAEL, video=(8,), end="2026-09-01T20:00:00Z"),  # 10h
-            *item("4", editor=MICHAEL, video=(8,), end="2026-09-01T22:00:00Z"),  # 12h
-            *item("5", editor=MICHAEL, video=(5, 8), end="2026-09-01T11:00:00Z"),  # 1h, other cohort
-            *item("6", editor=AHMED, video=(5, 8), end="2026-09-02T10:00:00Z"),  # 24h, other cohort
+            *durations(AHMED, (8,), (2, 3, 4, 5, 6), 1),       # Ahmed, Class A+ x5: median 4h
+            *durations(MICHAEL, (8,), (8, 9, 10, 11, 12), 11),  # Michael, Class A+ x5: median 10h
+            *durations(AHMED, (5, 8), (20, 24), 21),            # Ahmed, [Class B + Class A+] x2
+            *durations(MICHAEL, (5, 8), (1,), 31),              # Michael, [Class B + Class A+] x1
         ).values())
 
     def test_cohorts_are_exact_and_never_mixed(self):
-        result = speed_benchmarks("editor-label-12", self.team(), self.with_minimum(2), NOW)
+        result = speed_benchmarks("editor-label-12", self.team(), self.with_minimum(5), NOW)
         by_key = {cohort["cohort_key"]: cohort for cohort in result["cohorts"]}
         self.assertEqual(set(by_key), {"8", "5:8"})
-        self.assertEqual((by_key["8"]["team_sample_size"], by_key["8"]["team_median_seconds"]), (4, 8 * 3600))
-        self.assertEqual((by_key["5:8"]["team_sample_size"], by_key["5:8"]["team_median_seconds"]), (2, int(12.5 * 3600)))
+        self.assertEqual((by_key["8"]["team_sample_size"], by_key["8"]["team_median_seconds"]), (10, 7 * 3600))
+        self.assertEqual((by_key["5:8"]["team_sample_size"], by_key["5:8"]["team_median_seconds"]), (3, 20 * 3600))
         for metric in result["metrics"]:
             self.assertEqual(metric["video_type"], metric["cohort_video_type"])
             self.assertEqual(validate(metric, "speed-metric.schema.json"), [])
 
-    def test_no_conclusion_until_minimum_sample_is_configured(self):
-        result = speed_benchmarks("editor-label-12", self.team(), self.policy, NOW)
-        self.assertIsNone(self.policy.minimum_editor_sample_size)
-        for cohort in result["cohorts"]:
-            self.assertEqual((cohort["comparison_status"], cohort["conclusion"]), (THRESHOLD_NOT_CONFIGURED, None))
+    def test_team_benchmark_includes_the_subject_editor(self):
+        cohort = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-12", self.team(), self.with_minimum(5), NOW)["cohorts"]}["8"]
+        self.assertTrue(cohort["team_includes_subject_editor"])
+        self.assertEqual(set(cohort["editor_cycle_ids"]) - set(cohort["team_cycle_ids"]), set())
+        self.assertEqual((cohort["team_sample_size"], cohort["team_editor_count"]), (10, 2))
+
+    def test_minimum_five_projects_before_any_conclusion(self):
+        ahmed = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-12", self.team(), self.with_minimum(5), NOW)["cohorts"]}
+        self.assertEqual((ahmed["8"]["editor_sample_size"], ahmed["8"]["comparison_status"], ahmed["8"]["conclusion"]), (5, COMPARABLE, FASTER))
+        self.assertEqual(ahmed["8"]["editor_minus_team_median_seconds"], -3 * 3600)
+        self.assertEqual((ahmed["5:8"]["editor_sample_size"], ahmed["5:8"]["comparison_status"], ahmed["5:8"]["conclusion"]),
+                         (2, INSUFFICIENT_SAMPLE, INSUFFICIENT_SAMPLE_CONCLUSION))
+        self.assertEqual(ahmed["5:8"]["editor_median_seconds"], 22 * 3600)  # observed value is still shown
+        michael = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-13", self.team(), self.with_minimum(5), NOW)["cohorts"]}
+        self.assertEqual(michael["8"]["conclusion"], SLOWER)
+        self.assertEqual(michael["5:8"]["conclusion"], INSUFFICIENT_SAMPLE_CONCLUSION)
+
+    def test_four_projects_are_insufficient(self):
+        cycles = list(self.cycles(*durations(AHMED, (8,), (2, 3, 4, 5), 1), *durations(MICHAEL, (8,), (8, 9, 10, 11, 12), 11)).values())
+        cohort = speed_benchmarks("editor-label-12", cycles, self.with_minimum(5), NOW)["cohorts"][0]
+        self.assertEqual((cohort["editor_sample_size"], cohort["comparison_status"], cohort["conclusion"]), (4, INSUFFICIENT_SAMPLE, INSUFFICIENT_SAMPLE_CONCLUSION))
+
+    def test_live_contract_has_no_confirmed_base_types_so_nothing_is_benchmarked(self):
+        self.assertEqual(self.policy.minimum_editor_sample_size, 5)
+        for cohort in speed_benchmarks("editor-label-12", self.team(), self.policy, NOW)["cohorts"]:
+            self.assertEqual((cohort["comparison_status"], cohort["conclusion"], cohort["benchmark_eligible"]),
+                             (COHORT_NOT_BENCHMARK_ELIGIBLE, NOT_COMPARABLE_CONCLUSION, False))
+            self.assertIsNone(cohort["team_median_seconds"])
+            self.assertEqual(cohort["team_cycle_ids"], [])
             self.assertGreater(cohort["editor_sample_size"], 0)
             self.assertIsNotNone(cohort["editor_median_seconds"])
 
-    def test_insufficient_sample_reports_raw_values_without_conclusion(self):
-        cohorts = {cohort["cohort_key"]: cohort for cohort in speed_benchmarks("editor-label-12", self.team(), self.with_minimum(2), NOW)["cohorts"]}
-        self.assertEqual((cohorts["5:8"]["comparison_status"], cohorts["5:8"]["conclusion"]), (INSUFFICIENT_SAMPLE, None))
-        self.assertEqual((cohorts["8"]["comparison_status"], cohorts["8"]["conclusion"]), (COMPARABLE, FASTER))
-        self.assertEqual(cohorts["8"]["editor_minus_team_median_seconds"], -3 * 3600)
-        michael = {cohort["cohort_key"]: cohort for cohort in speed_benchmarks("editor-label-13", self.team(), self.with_minimum(2), NOW)["cohorts"]}
-        self.assertEqual(michael["8"]["conclusion"], SLOWER)
+    def test_benchmark_eligibility_needs_every_label_confirmed_and_a_base(self):
+        team = self.team()
+        only_8 = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-12", team, self.with_minimum(5, base=("8",)), NOW)["cohorts"]}
+        self.assertTrue(only_8["8"]["benchmark_eligible"])
+        self.assertEqual((only_8["5:8"]["benchmark_eligible"], only_8["5:8"]["unconfirmed_video_type_ids"]), (False, ["5"]))
+        modifier_only = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-12", team, self.with_minimum(5, base=(), modifier=("5", "8")), NOW)["cohorts"]}
+        self.assertFalse(modifier_only["8"]["benchmark_eligible"])
+        with_modifier = {c_["cohort_key"]: c_ for c_ in speed_benchmarks("editor-label-12", team, self.with_minimum(5, base=("8",), modifier=("5",)), NOW)["cohorts"]}
+        self.assertTrue(with_modifier["5:8"]["benchmark_eligible"])
+        self.assertNotEqual(with_modifier["5:8"]["team_cycle_ids"], with_modifier["8"]["team_cycle_ids"])  # combinations never collapse
 
     def test_later_cycles_never_enter_speed(self):
         later = [mf.status("x-3", "1", "2026-09-02T09:00:00Z", "Ready For Approval", "In Progress"),
@@ -314,13 +356,21 @@ class SpeedBenchmarkTests(CycleFixture):
 
     def test_excluded_cycles_do_not_enter_speed(self):
         cycles = list(self.cycles(*item("1", video=(8,)), *item("2", video=(8,), end=None), *item("3", editor=4, video=(8,))).values())
-        cohort = speed_benchmarks("editor-label-12", cycles, self.policy, NOW)["cohorts"][0]
+        cohort = speed_benchmarks("editor-label-12", cycles, self.with_minimum(5), NOW)["cohorts"][0]
         self.assertEqual((cohort["team_sample_size"], cohort["editor_cycle_ids"]), (1, [f"cycle:{mf.BOARD}:1"]))
 
-    def test_minimum_sample_policy_is_validated(self):
+    def test_policy_is_validated(self):
         for bad in (0, -1, 1.5, True, "3"):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.with_minimum(bad)
+        with self.assertRaises(ValueError):
+            self.with_minimum(5, base=("8",), modifier=("8",))
+        with self.assertRaises(ValueError):
+            self.with_minimum(5, base=("99",))
+        contract = json.loads(json.dumps(self.contract))
+        contract["speed_benchmark"]["benchmark_statistic"] = "mean"
+        with self.assertRaises(ValueError):
+            MetricPolicy.from_contract(contract)
 
 
 class TransitionRoleTests(CycleFixture):
@@ -384,28 +434,31 @@ class ManagementDecisionRegressionTests(CycleFixture):
         self.assertEqual((night.duration_seconds, weekend.duration_seconds), (12 * 3600, 64 * 3600))
 
     def test_d4_no_conclusion_until_threshold_configured_and_met(self):
-        logs = [*item("1", editor=AHMED, video=(8,), end="2026-09-01T12:00:00Z"), *item("2", editor=MICHAEL, video=(8,), end="2026-09-01T20:00:00Z")]
+        logs = [*durations(AHMED, (8,), (2, 3, 4, 5), 1), *durations(MICHAEL, (8,), (8, 9, 10, 11, 12), 11)]
         cycles = reconstruct_cycles(mf.payload(*logs), self.contract).cycles
-        unset = speed_benchmarks("editor-label-12", cycles, self.policy, NOW)["cohorts"][0]
-        self.assertEqual((unset["comparison_status"], unset["conclusion"], unset["editor_sample_size"]), (THRESHOLD_NOT_CONFIGURED, None, 1))
-        unmet = speed_benchmarks("editor-label-12", cycles, self.with_minimum(2), NOW)["cohorts"][0]
-        self.assertEqual((unmet["comparison_status"], unmet["conclusion"]), (INSUFFICIENT_SAMPLE, None))
-        met = speed_benchmarks("editor-label-12", cycles, self.with_minimum(1), NOW)["cohorts"][0]
-        self.assertEqual((met["comparison_status"], met["conclusion"]), (COMPARABLE, FASTER))
+        unset = speed_benchmarks("editor-label-12", cycles, self.with_minimum(None), NOW)["cohorts"][0]
+        self.assertEqual((unset["comparison_status"], unset["conclusion"], unset["editor_sample_size"]), (THRESHOLD_NOT_CONFIGURED, NOT_COMPARABLE_CONCLUSION, 4))
+        unmet = speed_benchmarks("editor-label-12", cycles, self.with_minimum(5), NOW)["cohorts"][0]
+        self.assertEqual((unmet["comparison_status"], unmet["conclusion"]), (INSUFFICIENT_SAMPLE, INSUFFICIENT_SAMPLE_CONCLUSION))
+        more = reconstruct_cycles(mf.payload(*logs, *durations(AHMED, (8,), (6,), 5)), self.contract).cycles
+        met = speed_benchmarks("editor-label-12", more, self.with_minimum(5), NOW)["cohorts"][0]
+        self.assertEqual((met["editor_sample_size"], met["comparison_status"], met["conclusion"]), (5, COMPARABLE, FASTER))
 
 
 class ContractVersionTests(unittest.TestCase):
     def test_v12_preserves_v11_registries_and_extends_video_types_without_renumbering(self):
         v11, v12 = load_contract_version("1.1.0"), load_contract_version("1.2.0")
-        for key in ("status_mapping_version", "status_mapping", "caption_states", "cycle_boundaries", "editor_attribution", "quarantine_policy"):
+        for key in ("status_mapping", "caption_states", "cycle_boundaries", "editor_attribution", "quarantine_policy"):
             self.assertEqual(v11[key], v12[key], key)
+        self.assertEqual((v11["status_mapping_version"], v12["status_mapping_version"]), ("monday-status-v1.0", "monday-status-v1.1"))
+        self.assertNotIn("status_label_aliases", v11)
         old, new = v11["video_type_cohorts"], v12["video_type_cohorts"]
         self.assertEqual(new["mapping_version"], "monday-video-type-v1.2")
         self.assertEqual({label: new["label_to_id"][label] for label in old["label_to_id"]}, old["label_to_id"])
         for key in ("multi_select_policy", "cohort_key", "comparison_policy", "unresolved_policy"):
             self.assertEqual(old[key], new[key], key)
         self.assertEqual(len(set(new["label_to_id"].values())), len(new["label_to_id"]))  # one label per ID, nothing merged
-        self.assertIsNone(v12["speed_benchmark"]["minimum_editor_sample_size"])
+        self.assertEqual(v12["speed_benchmark"]["minimum_editor_sample_size"], 5)
         self.assertEqual(v12["deadline"]["requested_eta_selection"], "latest-available-requested-eta")
 
     def test_video_type_versions_resolve_label_4_differently(self):

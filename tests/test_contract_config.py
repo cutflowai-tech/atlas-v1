@@ -15,7 +15,8 @@ class MondayContractRuntimeTests(unittest.TestCase):
             "id": "event-1", "board_id": "board-1", "created_at": "2026-09-01T09:00:00Z", "user_id": "99154021",
             "data": {"pulse_id": "item-1", "column_id": "status", "previous_value": {"label": {"text": "Create File"}}, "value": {"label": {"text": "In Progress"}}},
         }
-        result = normalize_contract_events([raw], self.config)
+        # Pinned to contract 1.1.0 (status mapping v1.0) for reproducibility; 1.2.0 is covered in test_status_sources.
+        result = normalize_contract_events([raw], load_contract_version("1.1.0"))
         self.assertEqual(result.quarantined, [])
         event = result.accepted[0]
         self.assertEqual(event["raw_from_status"], "Create File")
