@@ -168,6 +168,8 @@ def _occurred_at(value: Any) -> str:
     if match is None:
         raise QuarantineError(INVALID_TIMESTAMP, f"created_at {value!r} is not a Monday tick value or timezone-qualified ISO-8601 timestamp")
     whole, fraction, offset = match.groups()
+    if offset != "Z" and (int(offset[1:3]) > 23 or int(offset[4:6]) > 59):
+        raise QuarantineError(INVALID_TIMESTAMP, "created_at has an invalid UTC offset")
     try:
         moment = datetime.fromisoformat(whole + ("+00:00" if offset == "Z" else offset))
         return _utc_z(moment, fraction or "")

@@ -5,7 +5,7 @@ Mode: fixture. Risk: critical. Affected contract: `contracts/normalized-status-e
 ## Deliverables
 
 - `src/atlas_commander/normalization.py`: `normalize_events(raw_events, status_mapping, actor_mapping=None) -> NormalizationResult`
-- `tests/test_normalization.py`: 32 tests
+- `tests/test_normalization.py`: 33 tests
 - `fixtures/monday/activity-status-events.json`: raw Monday `activity_logs` fixture with explicit status and actor mappings. It is not referenced by `fixtures/manifest.json` because it is raw input, not a contract instance.
 
 ## Behavior
@@ -75,3 +75,8 @@ A `status` update on board `999` or `200` is quarantined for that configuration;
 `raw_input_snapshots` is the authoritative immutable evidence collection, indexed by original input position. Accepted event IDs link to every corresponding snapshot's original `id` (integer IDs are normalized to strings for this linkage); quarantined records expose `input_index` directly. Identical duplicate occurrences remain separately retained. `raw_sources[event_id]` remains the compatible first accepted source lookup, while derived output dictionaries remain mutable.
 
 Validation: 32 normalization tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). Fixture input configuration updated. No contract schemas or DAG changed.
+
+
+## RFC3339 offset range repair
+
+Explicit offset hours must be 00–23 and offset minutes 00–59 before ISO parsing. Invalid offsets such as +00:99 and +01:60 now quarantine as INVALID_TIMESTAMP instead of being silently normalized by datetime. Regression covers positive and negative invalid offsets and both positions beside a valid event; batch processing continues. Validation: 33 normalization tests passed, and `make test` passed all lint, typing, unit, contract, integration, e2e and JSON checks. No wider code or schema changes.

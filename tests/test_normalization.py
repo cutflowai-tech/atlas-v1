@@ -297,6 +297,16 @@ class NormalizeEdgeCaseTests(unittest.TestCase):
         result = self.normalize(activity("opaque-event", "Working on it", user_id="opaque-person", pulse_id="opaque-item"))
         self.assertEqual(result.accepted[0]["actor_monday_id"], "opaque-person")
 
+    def test_invalid_offset_ranges_quarantine_in_either_input_order(self):
+        for offset in ["+00:99", "+01:60", "-00:99", "-01:60", "+24:00", "-24:00"]:
+            bad = activity("bad", "Working on it", created_at="2026-09-01T10:00:00" + offset)
+            good = activity("good", "Working on it")
+            for events in [(bad, good), (good, bad)]:
+                with self.subTest(offset=offset, first=events[0]["id"]):
+                    result = self.normalize(*events)
+                    self.assertEqual([event["event_id"] for event in result.accepted], ["good"])
+                    self.assertEqual([(q["event_id"], q["reason"]) for q in result.quarantined], [("bad", "INVALID_TIMESTAMP")])
+
     def test_invalid_mappings_rejected(self):
         with self.assertRaises(ValueError):
             normalize_events([], {"status_column_ids": {"1": ["status"]}, "labels": {"Done": "Approved"}})
