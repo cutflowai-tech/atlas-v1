@@ -20,6 +20,18 @@ These product decisions drive runtime behavior. Each one is encoded in a version
 | D12 | **Base types vs modifiers must be confirmed.** A label's existence in Monday does not make it a comparable cohort. Exact combinations stay distinct. | `video_type_cohorts.classification`: no label confirmed yet.<br>A cohort is benchmark-eligible only when every label is a confirmed base or modifier and at least one is a base; otherwise the result is `cohort_not_benchmark_eligible` / `not_comparable`. |
 | D13 | The **benchmark statistic is not locked** until a mean-vs-median analysis has been reviewed. | Runtime keeps the median, marked provisional (`speed_benchmark.benchmark_statistic_status`).<br>Analysis and recommendation: `docs/evidence/BENCHMARK-STATISTIC-ANALYSIS.md`. |
 
+## Confirmed by Waset management, 2026-09-28 (second round) — contract 1.3.0
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D14 | **Initial Video Type classification.**<br>Base types: Class A (4), Class B (5), Simple Short (6), Class A+ (8), Premium Short (27).<br>Modifiers: 2* (10), Ai (16).<br>All other labels are unclassified. | `video_type_cohorts.classification`. Exact combinations stay distinct cohorts; a cohort containing an unclassified label is not benchmark-eligible. |
+| D15 | **Median** is the approved team speed benchmark. Benchmark and Editor sample sizes are always shown; a typical range may be shown descriptively. | `speed_benchmark.benchmark_statistic_status`.<br>Results carry `team_typical_range_seconds` (P25–P75, descriptive only), `editor_range_seconds` and `editor_vs_team_median_pct`. |
+| D16 | Editors are verified **only with authoritative evidence**; project counts, display names and actors are not evidence. Label 6 is corrected to Will only if evidence confirms it. | `monday-editor-v1.1`: label 6 display name is `Will` (the only name the label has carried in every Monday observation).<br>Every entry is guarded by its recorded `label_names`, because Monday reused label IDs 5, 7, 9 and 11 for different people.<br>Labels 1, 4, 5, 7, 8, 9, 10 and 11 stay unmapped. |
+| D17 | Projects without reliable historical Editor Name evidence stay excluded; the current value is never backfilled. | `editor_attribution.historical_coverage` (`MISSING_EDITOR_EVENT`). |
+| D18 | Retired statuses (`Uploading`, `Editing Now`, `Ready For Review`, …) get no meaning without authoritative evidence. | They remain quarantined; affected cycles stay excluded (`UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW`). |
+
+D4–D10 are reconfirmed unchanged: minimum sample of 5, team includes the Editor, date-only ETA not classifiable, no tolerance, For Bonus context only, and Video Type at or before Ready For Approval. Revisions remain context only, and actor attribution stays deterministic.
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -41,12 +53,9 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 | A quality occurrence is attributed to the Editor of the item's first completed cycle; if that Editor is unresolved, the occurrence is quarantined. The current Monday value is authoritative (a removed label does not count). | A label sits on a project, not on a person. | Editor in effect when the label was added. |
 | Median of an even-sized sample = mean of the two middle values, floored to whole seconds. | The contract stores integer seconds. | — |
 
-## Open decisions (evidence in `docs/evidence/REAL-001-STATUS.md`)
+## Open decisions
 
-1. **Base vs modifier Video Types (D12):** which label IDs are confirmed base types and which are modifiers? Until any base type is confirmed, no speed benchmark is produced.
-2. **Editor identities (D9):** labels 4 Mario, 9 Ibrahim, 8 Samra (deactivated), 10 Amir, 5 Anas, 7 Martin and 11 Refaat account for 518 of 861 completed cycles.
-3. **Editor registry corrections:** the approved `monday-editor-v1.0` names label 6 "Synthetic Editor" (the live label is "Will"). Labels 12 Ahmed, 13 Michael and 14 Mansour have no Editor cycles and appear in the Reviewer column.
-4. **Items worked before the Editor Name column existed (before 2026-03-14):** they have no Editor Name event, and 162 completed cycles are excluded as `MISSING_EDITOR_EVENT`.
-5. **Retired statuses:** what did `Uploading` (627 logs, Feb–Jul), `Editing Now`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Ready For Review`, `Captions` and `Not Started` mean? They exclude 120 completed cycles.
-6. **Conceptual status aliases:** "Ready to Edit" is a Monday group, not a status. Is `Create File` the "Ready to Edit" status, and is `Ready To Send` (and/or `Done`) "Approved / Delivered"? Those transitions stay `unresolved`.
-7. **Benchmark statistic (D13):** the analysis recommends the median.
+1. **Editor identities:** Mario (4), Ibrahim (9), Samra (8), Amir (10), Anas (5), Martin (7) and Refaat (11) cannot be verified from Monday. See `docs/evidence/REAL-002-VALIDATION.md` for the identity evidence and the label-reuse history.
+2. **Unclassified Video Type labels** that appear in real cohorts: `Unbranded` (26) and `Reels Boost Pack` (22). Other unclassified labels do not yet appear in eligible cycles.
+3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
+4. **Conceptual status aliases:** is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.

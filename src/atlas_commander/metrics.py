@@ -86,6 +86,16 @@ def cohort_benchmark_eligibility(canonical_ids: Iterable[str], mapping: VideoTyp
     return (bool(ids) and not unconfirmed and any(classes[value] == "base" for value in ids)), unconfirmed
 
 
+def quantile_seconds(values: Iterable[int], q: float) -> int | None:
+    """Linear-interpolation quantile, floored to whole seconds (descriptive context only)."""
+    ordered = sorted(values)
+    if not ordered:
+        return None
+    position = (len(ordered) - 1) * q
+    low, high = math.floor(position), math.ceil(position)
+    return math.floor(ordered[low] + (ordered[high] - ordered[low]) * (position - low))
+
+
 def median_seconds(values: Iterable[int]) -> int | None:
     values = list(values)
     return math.floor(median(values)) if values else None
@@ -236,13 +246,15 @@ def speed_benchmarks(editor_id: str, cycles: Iterable[CycleRecord], policy: Metr
         mine = [cycle for cycle in team if cycle.editor_id == editor_id]
         if not mine:
             continue
-        editor_median = median_seconds(cycle.duration_seconds for cycle in mine if cycle.duration_seconds is not None)
+        mine_durations = [cycle.duration_seconds for cycle in mine if cycle.duration_seconds is not None]
+        team_durations = [cycle.duration_seconds for cycle in team if cycle.duration_seconds is not None]
+        editor_median = median_seconds(mine_durations)
         assert editor_median is not None and mine[0].video_type is not None
         eligible, unconfirmed = cohort_benchmark_eligibility(mine[0].video_type.canonical_ids, policy.video_types)
         # The team population is every eligible Editor's first completed cycle in this exact cohort,
         # including the subject Editor (approved V1 rule); a cohort that is not a confirmed business
         # Video Type gets no team benchmark at all.
-        team_median = median_seconds(cycle.duration_seconds for cycle in team if cycle.duration_seconds is not None) if eligible else None
+        team_median = median_seconds(team_durations) if eligible else None
         if not eligible:
             status, conclusion = COHORT_NOT_BENCHMARK_ELIGIBLE, NOT_COMPARABLE_CONCLUSION
         elif policy.minimum_editor_sample_size is None:
@@ -264,6 +276,9 @@ def speed_benchmarks(editor_id: str, cycles: Iterable[CycleRecord], policy: Metr
             "team_editor_count": len({cycle.editor_id for cycle in team}) if eligible else None,
             "team_median_seconds": team_median,
             "editor_minus_team_median_seconds": editor_median - team_median if team_median is not None else None,
+            "editor_vs_team_median_pct": round(100 * (editor_median - team_median) / team_median, 1) if team_median else None,
+            "team_typical_range_seconds": {"p25": quantile_seconds(team_durations, 0.25), "p75": quantile_seconds(team_durations, 0.75)} if eligible else None,
+            "editor_range_seconds": {"min": min(mine_durations), "max": max(mine_durations)},
             "team_includes_subject_editor": True,
             "benchmark_statistic": policy.benchmark_statistic,
             "benchmark_eligible": eligible,

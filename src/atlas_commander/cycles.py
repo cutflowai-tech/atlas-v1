@@ -364,7 +364,7 @@ def _resolve_editor(record: CycleRecord, changes: list[ColumnChange], policy: Cy
         _add(record.exclusions, EDITOR_CHANGED_WITHIN_CYCLE)
     record.editor_event_id = current.log_id
     observation = EditorObservation(current.board_id, current.item_id, current.column_id, dropdown_value_ids(current.value),
-                                    "editor_column_event", current.log_id, current.occurred_at)
+                                    "editor_column_event", current.log_id, current.occurred_at, dropdown_value_labels(current.value))
     resolution = resolve_editor(observation, policy.identity)
     if resolution.identity is not None and EDITOR_CHANGED_WITHIN_CYCLE not in record.exclusions:
         record.editor = resolution.identity
