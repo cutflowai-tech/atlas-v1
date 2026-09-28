@@ -74,5 +74,7 @@ jobs:
         run: make ingest
       - name: Sync configuration and secrets tests
         run: make sync-config
+      - name: Hardened Monday client tests
+        run: make monday-client
       - name: JSON syntax
         run: make json

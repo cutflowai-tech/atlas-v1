@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_monday_probe.client import InvalidMondaySetting, MissingAccess, ReadOnlyMondayClient
+from atlas_monday_probe.client import InvalidMondaySetting, MissingAccess, MondayError, ReadOnlyMondayClient
 from atlas_monday_probe.raw_store import RawRecord, write_immutable
 
 INGEST_VERSION = "atlas-ingest-v1"
@@ -262,6 +262,9 @@ def main(argv: list[str] | None = None, client: ReadOnlyMondayClient | None = No
     except InvalidMondaySetting as error:
         print(f"INVALID_CONFIGURATION: {error}", file=sys.stderr)
         return 2
+    except MondayError as error:
+        print(f"MONDAY_API_ERROR [{error.category}]: {error}", file=sys.stderr)
+        return 3
     print(json.dumps({"raw_dir": str(Path(args.raw_dir).expanduser()), "counts": manifest["counts"], "extract": manifest["extract"]}, indent=1))
     return 0
 

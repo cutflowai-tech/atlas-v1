@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from .adapter import parse_status_changes
-from .client import MissingAccess, ReadOnlyMondayClient
+from .client import InvalidMondaySetting, MissingAccess, MondayError, ReadOnlyMondayClient
 from .raw_store import RawRecord, seal_existing, write_immutable
 from .report import build_drift_report, build_manifest, load_json
 
@@ -47,6 +47,12 @@ def main(argv: list[str] | None = None) -> int:
         except MissingAccess as error:
             print(f"MISSING_ACCESS: {error}", file=sys.stderr)
             return 2
+        except InvalidMondaySetting as error:
+            print(f"INVALID_CONFIGURATION: {error}", file=sys.stderr)
+            return 2
+        except MondayError as error:
+            print(f"MONDAY_API_ERROR [{error.category}]: {error}", file=sys.stderr)
+            return 3
         print(json.dumps([{"name": record.name, "sha256": record.sha256} for record in records], indent=2))
         return 0
     raw_dir = Path(args.raw_dir).expanduser()
