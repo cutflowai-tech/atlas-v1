@@ -58,6 +58,8 @@ The API query fields, pagination and timestamp shape were checked against [Monda
 
 Makefile adds `monday-probe` and includes it in `make test`. No frozen contracts, DAG, unrelated modules or source snapshot were edited. No services, merge, or push performed.
 
-## Handoff limitation
+## Integration handoff
 
-Candidate commit could not be created. `git add` and `git commit` both failed with `Operation not permitted` creating `index.lock` under the shared Git metadata path `/Users/ahri/multica_workspaces/.repos/afb42aa3-5c4f-42b5-8bfb-7b4b12553712/github.com+cutflowai-tech+atlas-v1.git/worktrees/builder-2/`. That location is outside this session's writable roots, and approval policy is `never`. Changes remain unstaged in the assigned worktree. No candidate commit SHA exists; current HEAD `a035a2eb7039a71cc758744a7b05d6b1d16a7912` is the pre-existing base, not this implementation. An authorized integrator must commit these files after reviewing them.
+The builder could not write shared Git metadata. The Commander preserved its tested implementation as `67c94aab8f9df3dc84b42497bae3f50ecf58d14f` before independent validation. Both validators accepted the adapter fallback. Commander independently rehashed the retained export against the original and confirmed mode 0400. The integration unit target now discovers probe tests, so its separate developer target is retained without duplicating tests in the full gate.
+
+Access statements above describe the builder session. Subsequent Commander discovery found the existing Claude Monday connector; a bounded live probe is being collected separately. This adapter review does not certify live history coverage or approve business mappings.

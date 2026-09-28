@@ -1,0 +1,15 @@
+{
+  "task_id": "DATA-001",
+  "decision": "accept_adapter_fallback_only",
+  "selected_commit": "67c94aab8f9df3dc84b42497bae3f50ecf58d14f",
+  "validators": [
+    "Codex W",
+    "Claude M"
+  ],
+  "arbiter": "Atlas Commander",
+  "real_data_acceptance": "pending_live_events_and_approved_mappings",
+  "snapshot_sha256": "ce2d38870381fcc8f92ed68f2c3de4babe08c5f9fa2e89e98b1f3bedb428e870",
+  "independent_raw_hash_verified": true,
+  "contract_change": false,
+  "tests": 29
+}
