@@ -1,0 +1,10 @@
+**
+!src/
+!src/**
+!config/
+!config/**
+!contracts/
+!contracts/**
+!deploy/
+!deploy/production/
+!deploy/production/runtime-requirements.txt

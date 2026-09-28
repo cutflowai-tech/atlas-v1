@@ -55,6 +55,8 @@ class StatusSnapshot:
     checks: list[HealthCheck] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     failure_categories: list[str] = field(default_factory=list)
+    active_alert_types: list[str] = field(default_factory=list)
+    alert_state_status: str = "not_applicable"
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -295,6 +297,33 @@ def _evaluate_observation(config: SyncConfig, now: datetime, pointer: tuple[str,
                           warnings=warnings, failure_categories=categories)
 
 
+def _attach_alert_state(snapshot: StatusSnapshot, config: SyncConfig) -> StatusSnapshot:
+    """Attach only safe active alert kinds from persisted Task 8 state; never mutate it."""
+    from . import alerts  # Lazy import avoids the alerts -> status model dependency at module load.
+
+    lock_dir = config.lock_dir
+    if lock_dir is None:
+        snapshot.alert_state_status = "not_configured"
+        return snapshot
+    path = lock_dir.expanduser().resolve() / alerts.ALERTS_DIR / alerts.STATE_FILE
+    if not path.exists():
+        snapshot.alert_state_status = "not_initialized"
+        return snapshot
+    try:
+        state = alerts.read_alert_state(lock_dir)
+    except alerts.AlertStateError:
+        snapshot.alert_state_status = "unreadable"
+        return snapshot
+    active = {
+        incident.get("kind") for incident in state.get("incidents", [])
+        if isinstance(incident, dict) and incident.get("state") == alerts.ACTIVE
+        and incident.get("kind") in alerts.ALERT_ORDER
+    }
+    snapshot.active_alert_types = [kind for kind in alerts.ALERT_ORDER if kind in active]
+    snapshot.alert_state_status = "available"
+    return snapshot
+
+
 def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncConfig | None = None,
                     clock: Callable[[], datetime] = utc_now) -> StatusSnapshot:
     """Evaluate a bounded, pointer-stable runtime view without locks, network, cache, or writes."""
@@ -312,15 +341,18 @@ def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncCon
         snapshot = _evaluate_observation(cfg, now, before, records)
         after = _pointer_state(cfg)
         if before == after:
-            return snapshot
+            return _attach_alert_state(snapshot, cfg)
     successes = [record for record in records if record.get("status") == "success"]
-    return StatusSnapshot(_iso(now), "runtime", SYSTEM_UNKNOWN, FRESHNESS_UNKNOWN, False, None,
-                          _safe_attempt(records[-1]) if records else None,
-                          _safe_attempt(successes[-1]) if successes else None,
-                          {"age_seconds": None, "expected_interval_seconds": cfg.sync_interval_seconds,
-                           "stale_after_seconds": cfg.stale_after_seconds}, _consecutive_failures(records),
-                          cfg.max_consecutive_failures, [HealthCheck("current_pointer", "unknown", "concurrent_transition")],
-                          ["concurrent_transition"], ["concurrent_transition"])
+    return _attach_alert_state(
+        StatusSnapshot(_iso(now), "runtime", SYSTEM_UNKNOWN, FRESHNESS_UNKNOWN, False, None,
+                       _safe_attempt(records[-1]) if records else None,
+                       _safe_attempt(successes[-1]) if successes else None,
+                       {"age_seconds": None, "expected_interval_seconds": cfg.sync_interval_seconds,
+                        "stale_after_seconds": cfg.stale_after_seconds}, _consecutive_failures(records),
+                       cfg.max_consecutive_failures, [HealthCheck("current_pointer", "unknown", "concurrent_transition")],
+                       ["concurrent_transition"], ["concurrent_transition"]),
+        cfg,
+    )
 
 
 def build_time_snapshot(*, config: SyncConfig, generated_at: str, attempt_id: str, source_run_id: str,
@@ -379,4 +411,6 @@ def summary(snapshot: StatusSnapshot) -> str:
         f"Last sync attempt: {last.get('attempt_id') or 'none'} [{last.get('status') or 'unknown'}]",
         f"Last successful sync: {success.get('attempt_id') or 'none'}",
         f"Consecutive failures: {snapshot.consecutive_failures}/{snapshot.failure_threshold or 'unknown'}",
+        (f"Active alerts: {', '.join(snapshot.active_alert_types) or 'none'} "
+         f"(state: {snapshot.alert_state_status})"),
     ])

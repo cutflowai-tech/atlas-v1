@@ -1,4 +1,4 @@
-.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts json test runtime-health
+.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-container-docker production-deploy json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -90,13 +90,22 @@ scheduled-run:
 alerts:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_alerts.py' -v
 
+production-container:
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_production_container.py' -v
+
+production-container-docker:
+	ATLAS_RUN_DOCKER_TESTS=1 PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_production_container.py' -v
+
+production-deploy:
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_production_deploy.py' -v
+
 ingest:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ingest.py' -v
 
 json:
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
-test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts json
+test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-deploy json
 
 runtime-health:
 	./scripts/runtime-health

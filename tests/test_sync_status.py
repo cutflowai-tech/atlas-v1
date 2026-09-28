@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
@@ -267,9 +268,38 @@ class StatusTests(unittest.TestCase):
             self.assertEqual(code, 0)
             if json_mode:
                 self.assertEqual(json.loads(output.getvalue())["system_state"], "healthy")
+                self.assertEqual(json.loads(output.getvalue())["active_alert_types"], [])
             else:
                 self.assertIn("Atlas system: HEALTHY", output.getvalue())
                 self.assertIn("Monday retrieved:", output.getvalue())
+                self.assertIn("Active alerts: none", output.getvalue())
+
+    def test_status_exposes_only_safe_active_alert_types_without_mutation(self):
+        root = self.data / "locks/alerts"
+        root.mkdir(parents=True)
+        path = root / "state.json"
+        path.write_text(json.dumps({
+            "alert_version": "atlas-alert-state-v1", "next_sequence": 3, "last_observation": None,
+            "incidents": [
+                {"kind": "data_stale", "state": "active"},
+                {"kind": "publication_integrity", "state": "resolved"},
+                {"kind": "not_allowlisted", "state": "active"},
+            ],
+            "events": [],
+        }))
+        before = path.read_bytes()
+        snapshot = self.evaluate()
+        self.assertEqual(snapshot.active_alert_types, ["data_stale"])
+        self.assertEqual(snapshot.alert_state_status, "available")
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_status_without_a_lock_directory_reports_alert_state_not_configured(self):
+        snapshot = status.evaluate_status(
+            config=replace(self.config, lock_dir=None),
+            clock=lambda: self.retrieved + timedelta(seconds=3000),
+        )
+        self.assertEqual(snapshot.active_alert_types, [])
+        self.assertEqual(snapshot.alert_state_status, "not_configured")
 
 
 if __name__ == "__main__":
