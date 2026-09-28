@@ -1,0 +1,10 @@
+{
+  "task_id": "API-FIXTURE",
+  "decision": "accept",
+  "selected_commit": "c6f2d078cc1c72aef4377859d3cf3d103a107067",
+  "reviewer": "Codex W",
+  "arbiter": "Atlas Commander",
+  "reason": "Reviewer found no blocking code defect in candidate1; socket-restricted review could not execute HTTP tests. Commander reran all 29 tests including actual HTTP with socket access; all passed. Candidate2 rejected for exception handling, nonfinite JSON, and extra identifier restrictions.",
+  "tests": 29,
+  "contract_change": false
+}
