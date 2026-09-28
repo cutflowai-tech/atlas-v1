@@ -1,8 +1,10 @@
 """Deterministic Editor metrics derived from reconstructed work cycles.
 
-* Deadline: ``delta_seconds = ready_for_approval_at - latest_requested_eta``; negative is
-  early, positive is late, on time iff ``delta_seconds <= 0``. A missing or date-only
-  ETA yields no result. The ETA change history travels with the evidence.
+* Deadline: ``delta_seconds = ready_for_approval_at - latest_requested_eta``. The result
+  is ``early`` when the delta is negative, ``on_time`` only when it is exactly zero, and
+  ``late`` when it is positive; there is no tolerance. A missing or date-only ETA yields
+  no result. The Requested ETA values observed in the ingested evidence travel with the
+  result, together with how complete that history is known to be.
 * Speed: only the first completed cycle of each item, only within the exact Video Type
   cohort. The team benchmark is the descriptive median of every eligible cycle in that
   cohort. A faster/slower conclusion is made only when the configured minimum Editor
@@ -25,6 +27,11 @@ from atlas_commander.cycles import COMPLETED, CycleRecord, parse_time
 from atlas_commander.video_type import partition_by_cohort
 
 CONTRACT_VERSION = "1.0.0"
+DEADLINE_CONTRACT_VERSION = "1.1.0"
+DEADLINE_SCHEMA = "deadline-metric-v1.1.schema.json"
+EARLY = "early"
+ON_TIME = "on_time"
+LATE = "late"
 
 COMPARABLE = "comparable"
 THRESHOLD_NOT_CONFIGURED = "minimum_sample_size_not_configured"
@@ -74,6 +81,13 @@ def deadline_eligible(cycle: CycleRecord) -> bool:
     return cycle.state == COMPLETED and cycle.editor_id is not None and cycle.requested_eta is not None and not blocking
 
 
+def classify_deadline(delta_seconds: int) -> str:
+    """Exact classification with no tolerance: <0 early, ==0 on time, >0 late."""
+    if delta_seconds < 0:
+        return EARLY
+    return ON_TIME if delta_seconds == 0 else LATE
+
+
 def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str) -> dict[str, Any] | None:
     """Deadline result for one cycle, or None when it is not eligible (e.g. missing ETA)."""
     if not deadline_eligible(cycle):
@@ -85,12 +99,14 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
     if cycle.requested_eta_event_id and cycle.requested_eta_event_id not in event_ids:
         event_ids.append(cycle.requested_eta_event_id)
     metric = {
-        "contract_version": CONTRACT_VERSION,
+        "contract_version": DEADLINE_CONTRACT_VERSION,
         "metric_name": "deadline",
         "editor_id": cycle.editor_id,
         "ready_for_approval_at": ready,
         "requested_eta": cycle.requested_eta,
-        "result": "on_time" if delta <= 0 else "late",
+        "requested_eta_selection": "latest-available-requested-eta",
+        "delta_seconds": delta,
+        "result": classify_deadline(delta),
         "evidence": {
             "source": "monday",
             "monday_board_id": cycle.monday_board_id,
@@ -101,26 +117,39 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
             "source_values": {
                 "ready_for_approval_at": ready,
                 "latest_requested_eta": cycle.requested_eta,
-                "requested_eta_selection": "latest-available-requested-eta",
-                "requested_eta_history": [{key: entry.get(key) for key in ("event_id", "occurred_at", "requested_eta", "issue")}
+                "requested_eta_source": cycle.requested_eta_source,
+                "requested_eta_history": [{key: entry.get(key) for key in ("source", "event_id", "occurred_at", "source_changed_at", "retrieved_at",
+                                                                           "requested_eta", "issue")}
                                           for entry in cycle.requested_eta_history],
+                "requested_eta_history_coverage": dict(cycle.requested_eta_history_coverage),
             },
             "rule_version": policy.deadline_rule_version,
             "calculated_at": calculated_at,
         },
     }
-    errors = validate(metric, "deadline-metric.schema.json")
+    errors = validate(metric, DEADLINE_SCHEMA)
     if errors:
         raise ValueError(f"deadline metric violates contract: {errors}")
     return {"cycle_id": cycle.cycle_id, "monday_item_id": cycle.monday_item_id, "delta_seconds": delta, "metric": metric}
 
 
+def _rate(count: int, total: int) -> float | None:
+    return round(count / total, 4) if total else None
+
+
 def deadline_summary(results: list[dict[str, Any]], excluded: list[CycleRecord]) -> dict[str, Any]:
+    """Early / on-time / late counts and rates over evaluated cycles; exclusions keep their reasons."""
     deltas = [result["delta_seconds"] for result in results]
+    counts = {label: sum(1 for delta in deltas if classify_deadline(delta) == label) for label in (EARLY, ON_TIME, LATE)}
     return {
         "evaluated": len(results),
-        "on_time": sum(1 for delta in deltas if delta <= 0),
-        "late": sum(1 for delta in deltas if delta > 0),
+        "early": counts[EARLY],
+        "on_time": counts[ON_TIME],
+        "late": counts[LATE],
+        "early_rate": _rate(counts[EARLY], len(results)),
+        "on_time_rate": _rate(counts[ON_TIME], len(results)),
+        "late_rate": _rate(counts[LATE], len(results)),
+        "on_time_tolerance": "none",
         "median_delta_seconds": median_seconds(deltas),
         "not_evaluated": [{"cycle_id": cycle.cycle_id, "monday_item_id": cycle.monday_item_id,
                            "reasons": sorted(set(cycle.exclusions) | ({cycle.requested_eta_issue} if cycle.requested_eta_issue else set()))}

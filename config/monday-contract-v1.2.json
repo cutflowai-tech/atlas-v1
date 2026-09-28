@@ -91,12 +91,48 @@
     ]
   },
   "video_type_cohorts": {
-    "mapping_version": "monday-video-type-v1.1",
+    "mapping_version": "monday-video-type-v1.2",
     "label_to_id": {
+      "Reel (Less Than 1 min)": "1",
+      "Short Video (Less Than 30 sec)": "2",
+      "Long Video (More Than 1 min)": "3",
+      "Class A": "4",
       "Class B": "5",
+      "Simple Short": "6",
+      "Video (Less Than 1 min)": "7",
+      "Class A+": "8",
+      "Short Reel (Less Than 30 sec)": "9",
+      "2*": "10",
+      "Reel": "11",
+      "Video": "12",
+      "Premium Capions": "15",
       "Ai": "16",
-      "Class A+": "8"
+      "SUPER CLASS A": "17",
+      "Teaser": "18",
+      "4*": "19",
+      "3 Short reel - (Less Than 20 sec)": "20",
+      "10 Clips Export": "21",
+      "Reels Boost Pack": "22",
+      "Special Requests": "23",
+      "Walkthrough Reel": "24",
+      "3*": "25",
+      "Unbranded": "26",
+      "Premium Short": "27"
     },
+    "deactivated_label_ids": [
+      "1",
+      "2",
+      "3",
+      "7",
+      "9",
+      "11",
+      "12",
+      "17",
+      "20",
+      "21"
+    ],
+    "source_evidence": "Monday column dropdown_mm062ga0 settings_str (labels and deactivated_labels), read-only query 2026-09-28; see docs/evidence/VIDEO-TYPE-AUDIT.md",
+    "label_text_policy": "verbatim Monday label text; one canonical ID per Monday label ID; no merging of similar names",
     "multi_select_policy": "exact-normalized-full-set",
     "cohort_key": "sorted-canonical-video-type-ids",
     "comparison_policy": "same-resolved-cohort-only-no-global-fallback",
@@ -182,14 +218,17 @@
     "unmapped_policy": "quarantine"
   },
   "deadline": {
-    "rule_version": "deadline-v1.0",
+    "rule_version": "deadline-v1.1",
     "requested_eta_selection": "latest-available-requested-eta",
     "delta": "ready_for_approval_at - latest_requested_eta; negative is early, positive is late",
-    "on_time": "delta_seconds <= 0 (no tolerance)",
-    "requested_eta_history": "retained-as-evidence",
+    "requested_eta_history": "all Requested ETA values observed in the ingested evidence (activity-log changes plus the current item snapshot); completeness is claimed only when ingestion metadata proves it for the item",
     "missing_requested_eta": "no-result",
     "date_only_requested_eta": "no-result-no-time-guessed",
-    "decision_source": "Waset management decision 2026-09-28"
+    "decision_source": "Waset management decision 2026-09-28",
+    "metric_contract": "deadline-metric.v1.1 (contract_version 1.1.0)",
+    "classification": "early if delta_seconds < 0; on_time if delta_seconds == 0; late if delta_seconds > 0",
+    "on_time_tolerance": "none; exact zero only until management defines a tolerance",
+    "current_item_snapshot": "when supplied, the current Monday item value is the latest available Requested ETA; a disagreement with the latest logged value is flagged, and no timestamp or ordering is invented for it"
   },
   "speed_benchmark": {
     "rule_version": "speed-benchmark-v1.0",

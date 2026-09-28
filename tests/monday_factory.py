@@ -39,11 +39,11 @@ def editor(log_id, item, moment, ids):
     return dropdown(log_id, item, EDITOR, moment, ids)
 
 
-VIDEO_TYPE_NAMES = {4: "Class A", 5: "Class B", 8: "Class A+", 16: "Ai"}
+VIDEO_TYPE_NAMES = {4: "Class A", 5: "Class B", 8: "Class A+", 10: "2*", 16: "Ai"}
 
 
 def video_type(log_id, item, moment, ids, names=None):
-    return dropdown(log_id, item, VIDEO_TYPE, moment, ids, names or [VIDEO_TYPE_NAMES[value] for value in ids])
+    return dropdown(log_id, item, VIDEO_TYPE, moment, ids, names or [VIDEO_TYPE_NAMES.get(value, f"label-{value}") for value in ids])
 
 
 def eta(log_id, item, moment, date, time):

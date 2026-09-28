@@ -7,6 +7,7 @@ item, column, raw timestamp and raw values so derived results can point back to 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -149,3 +150,41 @@ def requested_eta(value: Any) -> tuple[str | None, str | None]:
     except ValueError:
         return None, REQUESTED_ETA_INVALID
     return text, None
+
+
+def _items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    if isinstance(payload.get("items"), list):
+        return list(payload["items"])
+    items: list[dict[str, Any]] = []
+    for board in payload.get("boards") or []:
+        page = board.get("items_page") if isinstance(board, dict) else None
+        items.extend((page or {}).get("items") or [])
+        items.extend(board.get("items") or [] if isinstance(board, dict) else [])
+    return items
+
+
+def item_column_snapshots(items_payload: Mapping[str, Any], column_id: str, retrieved_at: str | None = None) -> dict[str, dict[str, Any]]:
+    """Current item values for one column from a Monday items query, keyed by item ID.
+
+    Only items whose response actually contains the column are returned; an absent column
+    is "not fetched", while a present column with a null value is the current empty value.
+    Each snapshot carries a stable evidence ID and the ingestion time, never a guessed
+    change time.
+    """
+    snapshots: dict[str, dict[str, Any]] = {}
+    for item in _items(items_payload):
+        column = next((value for value in item.get("column_values") or [] if value.get("id") == column_id), None)
+        if column is None:
+            continue
+        board: dict[str, Any] = item["board"] if isinstance(item.get("board"), dict) else {}
+        item_id = str(item["id"])
+        snapshots[item_id] = {
+            "monday_board_id": str(board.get("id")) if board.get("id") is not None else None,
+            "monday_item_id": item_id,
+            "column_id": column_id,
+            "value": column.get("value"),
+            "text": column.get("text"),
+            "retrieved_at": retrieved_at,
+            "evidence_id": f"item-snapshot:{item_id}:{column_id}" + (f"@{retrieved_at}" if retrieved_at else ""),
+        }
+    return snapshots

@@ -17,12 +17,15 @@ added to, or substituted for, the first cycle. Duration is elapsed clock time.
 The Editor and Video Type of a cycle are the values in effect at the ``Ready For
 Approval`` event, taken only from Monday column-change events (policy
 ``cycle-attributes-v1.0``); a missing event history is unresolved. The Requested ETA
-is the latest available value for the item (management decision), with every
-observed change retained as history. Nothing here computes a metric.
+is the latest available value for the item (management decision): the current item
+snapshot when ingestion supplies one, otherwise the last logged change. Every ETA
+value observed in the ingested evidence is kept as history, and the history is marked
+complete only when ingestion metadata proves it. Nothing here computes a metric.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -109,7 +112,9 @@ class CycleRecord:
     requested_eta: str | None = None
     requested_eta_event_id: str | None = None
     requested_eta_issue: str | None = None
+    requested_eta_source: str | None = None
     requested_eta_history: list[dict[str, Any]] = field(default_factory=list)
+    requested_eta_history_coverage: dict[str, Any] = field(default_factory=dict)
     revision_context: dict[str, Any] = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
     exclusions: list[str] = field(default_factory=list)
@@ -181,7 +186,9 @@ class CycleRecord:
             "requested_eta": self.requested_eta,
             "requested_eta_event_id": self.requested_eta_event_id,
             "requested_eta_issue": self.requested_eta_issue,
+            "requested_eta_source": self.requested_eta_source,
             "requested_eta_history": list(self.requested_eta_history),
+            "requested_eta_history_coverage": dict(self.requested_eta_history_coverage),
             "revision_context": self.revision_context,
             "flags": list(self.flags),
             "exclusions": list(self.exclusions),
@@ -220,6 +227,7 @@ def build_item_cycle(
     undo_event_ids: Iterable[str] = (),
     quarantined_status_event_ids: Iterable[str] = (),
     eta_snapshot: Mapping[str, Any] | None = None,
+    history_coverage: Mapping[str, Any] | None = None,
 ) -> CycleRecord | None:
     """Reconstruct the single work cycle for one item from its accepted normalized status events."""
     undo = {str(value) for value in undo_event_ids}
@@ -300,7 +308,7 @@ def build_item_cycle(
             _add(record.flags, UNDO_ACTION_IGNORED)
             continue
         by_column.setdefault(change.column_id, []).append(change)
-    _resolve_latest_eta(record, by_column.get(policy.requested_eta_column_id, []), eta_snapshot)
+    _resolve_latest_eta(record, by_column.get(policy.requested_eta_column_id, []), eta_snapshot, history_coverage)
     if attribute_moment is None:
         return record
     _resolve_editor(record, by_column.get(policy.editor_column_id, []), policy, parse_time(start["occurred_at"]), attribute_moment)
@@ -343,27 +351,57 @@ def _resolve_video_type(record: CycleRecord, changes: list[ColumnChange], policy
         _add(record.exclusions, record.video_type.reason)
 
 
-def _resolve_latest_eta(record: CycleRecord, changes: list[ColumnChange], snapshot: Mapping[str, Any] | None) -> None:
-    """Use the latest available Requested ETA and keep every observed change as history.
+SNAPSHOT_DIFFERS_FROM_LOG = "REQUESTED_ETA_SNAPSHOT_DIFFERS_FROM_LOG"
+OBSERVED_IN_INGESTED_EVIDENCE = "observed_in_ingested_evidence"
+COMPLETE = "complete"
 
-    ``snapshot`` is the item's current column value ({"value", "evidence_id", "observed_at"});
-    when supplied it is the latest available value, because activity logs can be truncated.
+
+def _changed_at(value: Any) -> str | None:
+    """Monday's own ``changed_at`` inside a date value, when present; never synthesized."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return None
+    changed = value.get("changed_at") if isinstance(value, dict) else None
+    return changed if isinstance(changed, str) and changed else None
+
+
+def _resolve_latest_eta(record: CycleRecord, changes: list[ColumnChange], snapshot: Mapping[str, Any] | None,
+                        coverage: Mapping[str, Any] | None) -> None:
+    """Use the latest available Requested ETA; keep every observed value as history.
+
+    ``snapshot`` is the item's current column value as returned by the Monday items API:
+    ``{"value", "evidence_id", "retrieved_at"}``. It is the latest available value by
+    definition (it is the item's present state), so it wins over logged changes without any
+    timestamp being invented for it; a disagreement with the last logged value is flagged.
     """
     for change in changes:
         eta, issue = requested_eta(change.value)
-        record.requested_eta_history.append({"event_id": change.log_id, "occurred_at": change.occurred_at, "requested_eta": eta, "issue": issue,
-                                             "previous_value": change.previous_value, "value": change.value})
+        record.requested_eta_history.append({"source": "activity_log", "event_id": change.log_id, "occurred_at": change.occurred_at,
+                                             "source_changed_at": _changed_at(change.value), "retrieved_at": None, "requested_eta": eta,
+                                             "issue": issue, "previous_value": change.previous_value, "value": change.value})
     latest_value: Any = None
     latest_id: str | None = None
     if changes:
         latest_value, latest_id = changes[-1].value, changes[-1].log_id
+        record.requested_eta_source = "activity_log"
     if snapshot is not None:
         snapshot_eta = requested_eta(snapshot.get("value"))
         if changes and snapshot_eta != requested_eta(latest_value):
-            _add(record.flags, "REQUESTED_ETA_SNAPSHOT_DIFFERS_FROM_LOG")
-        record.requested_eta_history.append({"event_id": str(snapshot["evidence_id"]), "occurred_at": snapshot.get("observed_at"), "requested_eta": snapshot_eta[0],
-                                             "issue": snapshot_eta[1], "previous_value": None, "value": snapshot.get("value"), "source": "item_snapshot"})
+            _add(record.flags, SNAPSHOT_DIFFERS_FROM_LOG)
+        record.requested_eta_history.append({"source": "item_snapshot", "event_id": str(snapshot["evidence_id"]), "occurred_at": None,
+                                             "source_changed_at": _changed_at(snapshot.get("value")), "retrieved_at": snapshot.get("retrieved_at"),
+                                             "requested_eta": snapshot_eta[0], "issue": snapshot_eta[1], "previous_value": None,
+                                             "value": snapshot.get("value")})
         latest_value, latest_id = snapshot.get("value"), str(snapshot["evidence_id"])
+        record.requested_eta_source = "item_snapshot"
+    proven = bool(coverage and coverage.get("complete_history"))
+    record.requested_eta_history_coverage = {
+        "status": COMPLETE if proven else OBSERVED_IN_INGESTED_EVIDENCE,
+        "activity_log_window": dict(coverage["activity_log_window"]) if coverage and coverage.get("activity_log_window") else None,
+        "basis": (coverage or {}).get("basis") if proven else "only Requested ETA values present in the ingested activity logs and item snapshot",
+    }
     if latest_id is None:
         record.requested_eta_issue = "MISSING_REQUESTED_ETA"
         return

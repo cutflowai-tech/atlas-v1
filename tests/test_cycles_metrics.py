@@ -13,6 +13,7 @@ from atlas_commander.metrics import (
     SLOWER,
     THRESHOLD_NOT_CONFIGURED,
     MetricPolicy,
+    classify_deadline,
     deadline_result,
     deadline_summary,
     speed_benchmarks,
@@ -136,11 +137,13 @@ class WorkCycleTests(CycleFixture):
                 self.assertIsNone(cycle.to_contract())
 
     def test_video_type_is_exact_and_quarantined_when_unknown(self):
-        cycles = self.cycles(*item("1", video=(8,)), *item("2", video=(5, 8)), *item("3", video=(4,)), *item("4", video=(8, 4)))
-        self.assertEqual((cycles["1"].cohort_key, cycles["2"].cohort_key), ("8", "5:8"))
+        # 13 is not a label ID on the live board; it must never be guessed.
+        cycles = self.cycles(*item("1", video=(8,)), *item("2", video=(5, 8)), *item("3", video=(13,)), *item("4", video=(8, 13)), *item("5", video=(4,)))
+        self.assertEqual((cycles["1"].cohort_key, cycles["2"].cohort_key, cycles["5"].cohort_key), ("8", "5:8", "4"))
         for key in ("3", "4"):
             self.assertIsNone(cycles[key].cohort_key)
             self.assertIn("UNMAPPED_VIDEO_TYPE", cycles[key].exclusions)
+            self.assertIn("id:13", cycles[key].video_type.unmapped)
 
     def test_video_type_change_after_ready_is_flagged(self):
         cycle = self.cycles(*item("1", video=(8,), extra=[mf.video_type("vt2", "1", "2026-09-03T00:00:00Z", [5])]))["1"]
@@ -148,32 +151,99 @@ class WorkCycleTests(CycleFixture):
         self.assertIn(c.VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL, cycle.flags)
 
 
+def items_payload(item_id, date, time, changed_at=None):
+    value = {"date": date, "time": time}
+    if changed_at:
+        value["changed_at"] = changed_at
+    return {"items": [{"id": item_id, "board": {"id": mf.BOARD}, "column_values": [{"id": mf.ETA, "type": "date", "value": json.dumps(value), "text": ""}]}]}
+
+
 class DeadlineTests(CycleFixture):
-    def deadline(self, *eta_logs, snapshot=None):
-        result = reconstruct_cycles(mf.payload(*item("1", video=(8,), end="2026-09-07T15:00:00Z", start="2026-09-07T10:00:00Z", extra=eta_logs)), self.contract)
-        cycle = result.cycles[0]
-        if snapshot is not None:
-            cycle = c.build_item_cycle(mf.BOARD, "1", result.status_events, result.column_changes, c.CyclePolicy.from_contract(self.contract), eta_snapshot=snapshot)
+    def run_pipeline(self, *eta_logs, items=None, ingestion=None, extra=()):
+        logs = item("1", video=(8,), end="2026-09-07T15:00:00Z", start="2026-09-07T10:00:00Z", extra=(*eta_logs, *extra))
+        return reconstruct_cycles(mf.payload(*logs), self.contract, items_payload=items, ingestion=ingestion).cycles[0]
+
+    def deadline(self, *eta_logs, **kwargs):
+        cycle = self.run_pipeline(*eta_logs, **kwargs)
         return cycle, deadline_result(cycle, self.policy, NOW)
 
-    def test_latest_eta_is_used_even_when_changed_after_ready_for_approval(self):
-        # Ready at Monday 15:00; ETA was 14:00 at that moment, then changed to 17:00 -> 2 hours early.
+    def test_latest_logged_eta_is_used_even_when_changed_after_ready_for_approval(self):
+        # Ready at Monday 15:00; ETA was 14:00 at that moment, then changed to 17:00 -> 2 hours EARLY.
         _, result = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"),
-                                      mf.eta("e2", "1", "2026-09-07T16:00:00Z", "2026-09-07", "17:00:00"))
-        self.assertEqual(result["delta_seconds"], -2 * 3600)
-        self.assertEqual(result["metric"]["result"], "on_time")
-        self.assertEqual(result["metric"]["requested_eta"], "2026-09-07T17:00:00Z")
-        history = result["metric"]["evidence"]["source_values"]["requested_eta_history"]
-        self.assertEqual([entry["event_id"] for entry in history], ["e1", "e2"])
-        self.assertEqual([entry["requested_eta"] for entry in history], ["2026-09-07T14:00:00Z", "2026-09-07T17:00:00Z"])
-        self.assertIn("e2", result["metric"]["evidence"]["event_ids"])
-        self.assertEqual(validate(result["metric"], "deadline-metric.schema.json"), [])
+                                  mf.eta("e2", "1", "2026-09-07T16:00:00Z", "2026-09-07", "17:00:00"))
+        metric = result["metric"]
+        self.assertEqual((result["delta_seconds"], metric["delta_seconds"], metric["result"]), (-7200, -7200, "early"))
+        self.assertEqual(metric["requested_eta"], "2026-09-07T17:00:00Z")
+        values = metric["evidence"]["source_values"]
+        self.assertEqual(values["requested_eta_source"], "activity_log")
+        self.assertEqual([entry["event_id"] for entry in values["requested_eta_history"]], ["e1", "e2"])
+        self.assertEqual([entry["requested_eta"] for entry in values["requested_eta_history"]], ["2026-09-07T14:00:00Z", "2026-09-07T17:00:00Z"])
+        self.assertIn("e2", metric["evidence"]["event_ids"])
+        self.assertEqual(validate(metric, "deadline-metric-v1.1.schema.json"), [])
 
-    def test_late_and_exact_boundary(self):
-        _, late = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:30:00"))
-        self.assertEqual((late["delta_seconds"], late["metric"]["result"]), (1800, "late"))
-        _, exact = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "15:00:00"))
-        self.assertEqual((exact["delta_seconds"], exact["metric"]["result"]), (0, "on_time"))
+    def test_current_item_snapshot_is_the_latest_eta_through_the_pipeline(self):
+        # Ready For Approval at 15:00; history holds an earlier 14:00 ETA; Monday's current item value is 18:00.
+        cycle, result = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"),
+                                      items=items_payload("1", "2026-09-07", "18:00:00", changed_at="2026-09-07T20:00:00.000Z"),
+                                      ingestion={"retrieved_at": NOW})
+        metric = result["metric"]
+        self.assertEqual((metric["requested_eta"], metric["delta_seconds"], metric["result"]), ("2026-09-07T18:00:00Z", -3 * 3600, "early"))
+        self.assertIn(c.SNAPSHOT_DIFFERS_FROM_LOG, cycle.flags)
+        history = metric["evidence"]["source_values"]["requested_eta_history"]
+        self.assertEqual([(entry["source"], entry["requested_eta"]) for entry in history],
+                         [("activity_log", "2026-09-07T14:00:00Z"), ("item_snapshot", "2026-09-07T18:00:00Z")])
+        snapshot = history[-1]
+        # No timestamp is invented for the snapshot: only Monday's own changed_at and the ingestion time are recorded.
+        self.assertIsNone(snapshot["occurred_at"])
+        self.assertEqual((snapshot["source_changed_at"], snapshot["retrieved_at"]), ("2026-09-07T20:00:00.000Z", NOW))
+        self.assertEqual(snapshot["event_id"], f"item-snapshot:1:{mf.ETA}@{NOW}")
+        self.assertIn(snapshot["event_id"], metric["evidence"]["event_ids"])
+        self.assertEqual(metric["evidence"]["source_values"]["requested_eta_source"], "item_snapshot")
+
+    def test_matching_snapshot_is_not_flagged_and_snapshot_alone_is_enough(self):
+        cycle = self.run_pipeline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"), items=items_payload("1", "2026-09-07", "14:00:00"))
+        self.assertNotIn(c.SNAPSHOT_DIFFERS_FROM_LOG, cycle.flags)
+        _, result = self.deadline(items=items_payload("1", "2026-09-07", "16:00:00"))
+        self.assertEqual((result["delta_seconds"], result["metric"]["result"]), (-3600, "early"))
+
+    def test_empty_current_snapshot_means_no_eta_even_if_logs_had_one(self):
+        empty = {"items": [{"id": "1", "board": {"id": mf.BOARD}, "column_values": [{"id": mf.ETA, "type": "date", "value": None, "text": ""}]}]}
+        cycle, result = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"), items=empty)
+        self.assertIsNone(result)
+        self.assertEqual(cycle.requested_eta_issue, "MISSING_REQUESTED_ETA")
+        self.assertIn(c.SNAPSHOT_DIFFERS_FROM_LOG, cycle.flags)
+
+    def test_history_is_never_claimed_complete_without_ingestion_proof(self):
+        eta = mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "17:00:00")
+        window = {"since": "2026-09-01T00:00:00Z", "until": "2026-09-28T00:00:00Z"}
+        default = self.run_pipeline(eta).requested_eta_history_coverage
+        self.assertEqual(default["status"], c.OBSERVED_IN_INGESTED_EVIDENCE)
+        windowed = self.run_pipeline(eta, ingestion={"activity_log_window": window}).requested_eta_history_coverage
+        self.assertEqual((windowed["status"], windowed["activity_log_window"]), (c.OBSERVED_IN_INGESTED_EVIDENCE, window))
+        other = self.run_pipeline(eta, ingestion={"activity_log_window": window, "complete_history_item_ids": ["2"]}).requested_eta_history_coverage
+        self.assertEqual(other["status"], c.OBSERVED_IN_INGESTED_EVIDENCE)
+        proven = self.run_pipeline(eta, ingestion={"activity_log_window": window, "complete_history_item_ids": ["1"],
+                                                   "complete_history_basis": "window starts before item creation; all pages read"})
+        self.assertEqual(proven.requested_eta_history_coverage["status"], c.COMPLETE)
+        _, result = self.deadline(eta)
+        self.assertEqual(result["metric"]["evidence"]["source_values"]["requested_eta_history_coverage"]["status"], c.OBSERVED_IN_INGESTED_EVIDENCE)
+
+    def test_early_on_time_late_are_distinct_with_no_tolerance(self):
+        cases = (("14:59:59", 1, "late"), ("15:00:00", 0, "on_time"), ("15:00:01", -1, "early"), ("14:30:00", 1800, "late"))
+        for time, delta, label in cases:
+            with self.subTest(eta=time):
+                _, result = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", time))
+                self.assertEqual((result["delta_seconds"], result["metric"]["result"]), (delta, label))
+                self.assertEqual(classify_deadline(delta), label)
+
+    def test_summary_counts_and_rates(self):
+        results = [{"delta_seconds": delta} for delta in (-7200, -60, 0, 1800)]
+        summary = deadline_summary(results, [])
+        self.assertEqual((summary["evaluated"], summary["early"], summary["on_time"], summary["late"]), (4, 2, 1, 1))
+        self.assertEqual((summary["early_rate"], summary["on_time_rate"], summary["late_rate"]), (0.5, 0.25, 0.25))
+        self.assertEqual((summary["median_delta_seconds"], summary["on_time_tolerance"]), (-30, "none"))
+        empty = deadline_summary([], [])
+        self.assertEqual((empty["evaluated"], empty["early_rate"], empty["median_delta_seconds"]), (0, None, None))
 
     def test_missing_or_date_only_eta_yields_no_result(self):
         cycle, result = self.deadline()
@@ -185,20 +255,17 @@ class DeadlineTests(CycleFixture):
         self.assertEqual(cycle.requested_eta_issue, "REQUESTED_ETA_DATE_ONLY")
         summary = deadline_summary([], [cycle])
         self.assertEqual(summary["not_evaluated"][0]["reasons"], ["REQUESTED_ETA_DATE_ONLY"])
-
-    def test_item_snapshot_is_the_latest_available_eta(self):
-        snapshot = {"value": json.dumps({"date": "2026-09-07", "time": "18:00:00"}), "evidence_id": "snapshot:items.json:1:date", "observed_at": NOW}
-        cycle, result = self.deadline(mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"), snapshot=snapshot)
-        self.assertEqual(result["delta_seconds"], -3 * 3600)
-        self.assertIn("REQUESTED_ETA_SNAPSHOT_DIFFERS_FROM_LOG", cycle.flags)
+        cycle, result = self.deadline(items=items_payload("1", "2026-09-08", None))
+        self.assertIsNone(result)
+        self.assertEqual(cycle.requested_eta_issue, "REQUESTED_ETA_DATE_ONLY")
 
     def test_revisions_do_not_change_the_deadline_result(self):
         eta = mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "17:00:00")
         _, plain = self.deadline(eta)
         revisions = [mf.status("r1", "1", "2026-09-08T00:00:00Z", "Ready For Approval", "Revisions"),
                      mf.status("r2", "1", "2026-09-08T05:00:00Z", "Revisions", "Ready For Approval")]
-        _, revised = self.deadline(eta, *revisions)
-        self.assertEqual(plain["delta_seconds"], revised["delta_seconds"])
+        _, revised = self.deadline(eta, extra=revisions)
+        self.assertEqual((plain["delta_seconds"], plain["metric"]["result"]), (revised["delta_seconds"], revised["metric"]["result"]))
 
 
 class SpeedBenchmarkTests(CycleFixture):
@@ -282,13 +349,71 @@ class TransitionRoleTests(CycleFixture):
             TransitionRoleMapping.from_contract(contract)
 
 
+class ManagementDecisionRegressionTests(CycleFixture):
+    """D1-D4 (Waset management, 2026-09-28) through the public reconstruct_cycles() path."""
+
+    def test_d1_latest_eta_from_activity_history(self):
+        logs = item("1", video=(8,), start="2026-09-07T10:00:00Z", end="2026-09-07T15:00:00Z", extra=[
+            mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00"),
+            mf.eta("e2", "1", "2026-09-07T16:00:00Z", "2026-09-07", "17:00:00")])
+        cycle = reconstruct_cycles(mf.payload(*logs), self.contract).cycles[0]
+        self.assertLess(c.parse_time(cycle.ready_for_approval_at), c.parse_time("2026-09-07T16:00:00Z"))  # ETA change came after RFA
+        self.assertEqual(deadline_result(cycle, self.policy, NOW)["metric"]["result"], "early")
+
+    def test_d1_latest_eta_from_current_item_snapshot(self):
+        logs = item("1", video=(8,), start="2026-09-07T10:00:00Z", end="2026-09-07T15:00:00Z",
+                    extra=[mf.eta("e1", "1", "2026-09-06T00:00:00Z", "2026-09-07", "14:00:00")])
+        without = reconstruct_cycles(mf.payload(*logs), self.contract).cycles[0]
+        self.assertEqual(deadline_result(without, self.policy, NOW)["metric"]["result"], "late")
+        cycle = reconstruct_cycles(mf.payload(*logs), self.contract, items_payload=items_payload("1", "2026-09-07", "17:00:00")).cycles[0]
+        result = deadline_result(cycle, self.policy, NOW)
+        self.assertEqual((result["delta_seconds"], result["metric"]["result"]), (-7200, "early"))
+
+    def test_d2_only_first_completed_cycle_contributes_to_speed(self):
+        later = [mf.status("x-3", "1", "2026-09-02T09:00:00Z", "Ready For Approval", "In Progress"),
+                 mf.status("x-4", "1", "2026-09-02T10:00:00Z", "In Progress", "Ready For Approval")]
+        cycles = reconstruct_cycles(mf.payload(*item("1", video=(8,), end="2026-09-01T14:00:00Z", extra=later)), self.contract).cycles
+        self.assertEqual(len(cycles), 1)
+        cohort = speed_benchmarks("editor-label-12", cycles, self.with_minimum(1), NOW)["cohorts"][0]
+        self.assertEqual((cohort["editor_sample_size"], cohort["editor_median_seconds"]), (1, 4 * 3600))
+        self.assertEqual(cycles[0].later_ready_for_approval_event_ids, ["x-4"])
+
+    def test_d3_duration_is_elapsed_clock_time(self):
+        night = reconstruct_cycles(mf.payload(*item("1", video=(8,), start="2026-09-01T10:00:00Z", end="2026-09-01T22:00:00Z")), self.contract).cycles[0]
+        weekend = reconstruct_cycles(mf.payload(*item("2", video=(8,), start="2026-09-04T17:00:00Z", end="2026-09-07T09:00:00Z")), self.contract).cycles[0]
+        self.assertEqual((night.duration_seconds, weekend.duration_seconds), (12 * 3600, 64 * 3600))
+
+    def test_d4_no_conclusion_until_threshold_configured_and_met(self):
+        logs = [*item("1", editor=AHMED, video=(8,), end="2026-09-01T12:00:00Z"), *item("2", editor=MICHAEL, video=(8,), end="2026-09-01T20:00:00Z")]
+        cycles = reconstruct_cycles(mf.payload(*logs), self.contract).cycles
+        unset = speed_benchmarks("editor-label-12", cycles, self.policy, NOW)["cohorts"][0]
+        self.assertEqual((unset["comparison_status"], unset["conclusion"], unset["editor_sample_size"]), (THRESHOLD_NOT_CONFIGURED, None, 1))
+        unmet = speed_benchmarks("editor-label-12", cycles, self.with_minimum(2), NOW)["cohorts"][0]
+        self.assertEqual((unmet["comparison_status"], unmet["conclusion"]), (INSUFFICIENT_SAMPLE, None))
+        met = speed_benchmarks("editor-label-12", cycles, self.with_minimum(1), NOW)["cohorts"][0]
+        self.assertEqual((met["comparison_status"], met["conclusion"]), (COMPARABLE, FASTER))
+
+
 class ContractVersionTests(unittest.TestCase):
-    def test_v12_preserves_v11_registries(self):
+    def test_v12_preserves_v11_registries_and_extends_video_types_without_renumbering(self):
         v11, v12 = load_contract_version("1.1.0"), load_contract_version("1.2.0")
-        for key in ("status_mapping_version", "status_mapping", "caption_states", "cycle_boundaries", "editor_attribution", "video_type_cohorts", "quarantine_policy"):
+        for key in ("status_mapping_version", "status_mapping", "caption_states", "cycle_boundaries", "editor_attribution", "quarantine_policy"):
             self.assertEqual(v11[key], v12[key], key)
+        old, new = v11["video_type_cohorts"], v12["video_type_cohorts"]
+        self.assertEqual(new["mapping_version"], "monday-video-type-v1.2")
+        self.assertEqual({label: new["label_to_id"][label] for label in old["label_to_id"]}, old["label_to_id"])
+        for key in ("multi_select_policy", "cohort_key", "comparison_policy", "unresolved_policy"):
+            self.assertEqual(old[key], new[key], key)
+        self.assertEqual(len(set(new["label_to_id"].values())), len(new["label_to_id"]))  # one label per ID, nothing merged
         self.assertIsNone(v12["speed_benchmark"]["minimum_editor_sample_size"])
         self.assertEqual(v12["deadline"]["requested_eta_selection"], "latest-available-requested-eta")
+
+    def test_video_type_versions_resolve_label_4_differently(self):
+        from atlas_commander.runtime import resolve_contract_video_type
+        self.assertIsNone(resolve_contract_video_type(ids=[4], config=load_contract_version("1.1.0")).cohort_key)
+        resolved = resolve_contract_video_type(ids=[10, 4], config=load_contract_version("1.2.0"))
+        self.assertEqual((resolved.cohort_key, resolved.canonical_labels, resolved.mapping_version), ("10:4", ("2*", "Class A"), "monday-video-type-v1.2"))
+        self.assertNotEqual(resolved.cohort_key, resolve_contract_video_type(ids=[4], config=load_contract_version("1.2.0")).cohort_key)
 
 
 if __name__ == "__main__":
