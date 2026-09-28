@@ -1,0 +1,92 @@
+{
+  "status_mapping": {
+    "version": "status-map-v1",
+    "status_column_ids": ["status"],
+    "labels": {
+      "Backlog": "Backlog",
+      "Working on it": "In Progress",
+      "Ready For Approval": "Ready For Approval",
+      "Revision": "Revision",
+      "Approved": "Approved",
+      "Delivered": "Delivered"
+    }
+  },
+  "actor_mapping": {
+    "version": "actor-v1",
+    "actors": {"42": "editor-42"}
+  },
+  "activity_logs": [
+    {
+      "id": "event-100",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889300000000000",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":11,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}},\"previous_value\":{\"label\":{\"index\":5,\"text\":\"Backlog\"}}}"
+    },
+    {
+      "id": "event-101",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889372001234567",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":11,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":1,\"text\":\"Ready For Approval\"}},\"previous_value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}}}"
+    },
+    {
+      "id": "event-101",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889372001234567",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":11,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":1,\"text\":\"Ready For Approval\"}},\"previous_value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}}}"
+    },
+    {
+      "id": "event-dup",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889300000000000",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":12,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}},\"previous_value\":null}"
+    },
+    {
+      "id": "event-dup",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889300600000000",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":12,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}},\"previous_value\":null}"
+    },
+    {
+      "id": "event-unknown",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889310000000000",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":13,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":7,\"text\":\"Teleported\"}},\"previous_value\":{\"label\":{\"index\":5,\"text\":\"Backlog\"}}}"
+    },
+    {
+      "id": "event-waset-co",
+      "event": "update_column_value",
+      "user_id": "77",
+      "account_id": "9001",
+      "created_at": "2026-09-01T10:30:00+02:00",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":14,\"column_id\":\"status\",\"column_type\":\"color\",\"value\":{\"label\":{\"index\":0,\"text\":\"Working on it\"}},\"previous_value\":{\"label\":{\"index\":5,\"text\":\"Backlog\"}}}"
+    },
+    {
+      "id": "event-eta",
+      "event": "update_column_value",
+      "user_id": "42",
+      "account_id": "9001",
+      "created_at": "17889320000000000",
+      "entity": "pulse",
+      "data": "{\"board_id\":1,\"pulse_id\":11,\"column_id\":\"date4\",\"column_type\":\"date\",\"value\":{\"date\":\"2026-09-02\"},\"previous_value\":null}"
+    }
+  ]
+}
