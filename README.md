@@ -62,7 +62,7 @@ PYTHONPATH=src python3 -m atlas_commander.profile_cli build <extract.json> edito
   --monday-item-url "https://<account>.monday.com/boards/<board>/pulses/{item_id}"
 ```
 
-The output is `out/<editor_id>.json` (contract `editor-profile-v1.1`) and a static `out/<editor_id>.html`.
+The output is `out/<editor_id>.json` (contract `editor-profile-v1.3`) and a static `out/<editor_id>.html`.
 
 - The page only formats values computed by the deterministic engine.
 - There is no composite score. Revisions are shown as context only.

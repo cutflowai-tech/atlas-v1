@@ -16,6 +16,7 @@ from atlas_commander.cycles import COMPLETED, CyclePolicy, CycleRecord
 from atlas_commander.metrics import (
     MetricPolicy,
     classify_deadline,
+    cohort_benchmark_eligibility,
     deadline_eligible,
     deadline_result,
     deadline_summary,
@@ -27,8 +28,8 @@ from atlas_commander.monday_source import dropdown_value_ids
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_quality
 from atlas_commander.quality import quality_summary, revision_context_summary
 
-CONTRACT_VERSION = "1.2.0"
-SCHEMA = "editor-profile-v1.2.schema.json"
+CONTRACT_VERSION = "1.3.0"
+SCHEMA = "editor-profile-v1.3.schema.json"
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
 POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
@@ -82,26 +83,42 @@ def _current_workload(result: CycleReconstruction, contract: Mapping[str, Any], 
             "note": "Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made."}
 
 
-def _trend(cycles: list[CycleRecord], deadline_results: list[dict[str, Any]]) -> dict[str, Any]:
+def _share(count: int, total: int) -> float | None:
+    return round(count / total, 4) if total else None
+
+
+def _trend(cycles: list[CycleRecord], deadline_results: list[dict[str, Any]], policy: MetricPolicy) -> dict[str, Any]:
     speed: dict[tuple[str, str], list[int]] = {}
+    not_eligible = 0
     for cycle in cycles:
-        if speed_eligible(cycle) and cycle.ready_for_approval_at and cycle.cohort_key and cycle.duration_seconds is not None:
-            speed.setdefault((cycle.cohort_key, cycle.ready_for_approval_at[:7]), []).append(cycle.duration_seconds)
+        if not (speed_eligible(cycle) and cycle.ready_for_approval_at and cycle.cohort_key and cycle.video_type and cycle.duration_seconds is not None):
+            continue
+        if not cohort_benchmark_eligibility(cycle.video_type.canonical_ids, policy.video_types)[0]:
+            not_eligible += 1
+            continue
+        speed.setdefault((cycle.cohort_key, cycle.ready_for_approval_at[:7]), []).append(cycle.duration_seconds)
     deadline: dict[str, Counter[str]] = {}
     for result in deadline_results:
         month = result["metric"]["ready_for_approval_at"][:7]
         deadline.setdefault(month, Counter())[classify_deadline(result["delta_seconds"])] += 1
+    deadline_rows = []
+    for month, counts in sorted(deadline.items()):
+        evaluated = sum(counts.values())
+        deadline_rows.append({"month": month, "evaluated": evaluated, "early": counts["early"], "on_time": counts["on_time"], "late": counts["late"],
+                              "early_rate": _share(counts["early"], evaluated), "on_time_rate": _share(counts["on_time"], evaluated),
+                              "late_rate": _share(counts["late"], evaluated)})
     return {
         "speed_by_cohort_month": [{"cohort_key": key, "month": month, "projects": len(values), "median_seconds": median_seconds(values)}
                                   for (key, month), values in sorted(speed.items())],
-        "deadline_by_month": [{"month": month, "evaluated": sum(counts.values()), "early": counts["early"], "on_time": counts["on_time"], "late": counts["late"]}
-                              for month, counts in sorted(deadline.items())],
-        "note": "Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown per exact Video Type cohort only. No trend conclusion is drawn.",
+        "speed_projects_not_shown": {"cohort_not_benchmark_eligible": not_eligible},
+        "deadline_by_month": deadline_rows,
+        "note": ("Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown only per exact benchmark-eligible "
+                 "Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn."),
     }
 
 
 def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, generated_at: str) -> dict[str, Any]:
-    """Contract-valid editor-profile 1.1.0 for one Editor from a cycle reconstruction."""
+    """Contract-valid editor-profile 1.3.0 for one Editor from a cycle reconstruction."""
     policy = MetricPolicy.from_contract(contract)
     cycles = _editor_cycles(result.cycles, editor_id)
     if not cycles:
@@ -172,7 +189,7 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
                     "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id]},
         "revisions": {**revision_context_summary(editor_id, result.cycles), "note": REVISION_NOTE},
         "current_workload": _current_workload(result, contract, editor_id),
-        "trend": _trend(completed, deadline_results),
+        "trend": _trend(completed, deadline_results, policy),
         "coverage": {
             "completed_projects": len(completed),
             "open_projects": sum(1 for cycle in cycles if cycle.state != COMPLETED),
