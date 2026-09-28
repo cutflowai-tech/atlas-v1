@@ -1,0 +1,127 @@
+{
+  "actor_mapping_version": null,
+  "board_id": "900001",
+  "counts": {
+    "activity_logs": 4,
+    "normalized_status_events": 2
+  },
+  "item_ids": [
+    "700001"
+  ],
+  "mode": "fixture",
+  "normalized_events": [
+    {
+      "actor_id": null,
+      "actor_monday_id": "sha256:b4edfdd682da6ef9",
+      "actor_resolution": "unresolved_waset_co",
+      "contract_version": "1.0.0",
+      "event_id": "synthetic-log-1",
+      "from_status": "Backlog",
+      "mapping_version": null,
+      "monday_board_id": "900001",
+      "monday_item_id": "700001",
+      "occurred_at": "2026-09-01T09:00:00.123456Z",
+      "status_column_id": "status",
+      "to_status": "In Progress"
+    },
+    {
+      "actor_id": null,
+      "actor_monday_id": "sha256:502ed304509d3c22",
+      "actor_resolution": "unresolved_waset_co",
+      "contract_version": "1.0.0",
+      "event_id": "synthetic-log-2",
+      "from_status": "In Progress",
+      "mapping_version": null,
+      "monday_board_id": "900001",
+      "monday_item_id": "700001",
+      "occurred_at": "2026-09-02T17:30:00.123456Z",
+      "status_column_id": "status",
+      "to_status": "Ready For Approval"
+    }
+  ],
+  "probe_version": "monday-probe-v1",
+  "raw_payload": {
+    "file": "activity-logs.synthetic.json",
+    "sha256": "899572a4339ec7d67be47d5ab22d3c536f5b4219d3d75ea369d2669e6affdb10"
+  },
+  "retrieved_at": "2026-09-28T00:00:00Z",
+  "sample": [
+    {
+      "created_at": "17882532001234560",
+      "data": {
+        "board_id": 900001,
+        "column_id": "status",
+        "column_type": "color",
+        "previous_value": {
+          "label_text": "Backlog"
+        },
+        "pulse_id": 700001,
+        "value": {
+          "label_text": "In Progress"
+        }
+      },
+      "entity": "pulse",
+      "event": "update_column_value",
+      "id": "synthetic-log-1",
+      "user_id": "sha256:b4edfdd682da6ef9"
+    },
+    {
+      "created_at": "17883702001234560",
+      "data": {
+        "board_id": 900001,
+        "column_id": "status",
+        "column_type": "color",
+        "previous_value": {
+          "label_text": "In Progress"
+        },
+        "pulse_id": 700001,
+        "value": {
+          "label_text": "Ready For Approval"
+        }
+      },
+      "entity": "pulse",
+      "event": "update_column_value",
+      "id": "synthetic-log-2",
+      "user_id": "sha256:502ed304509d3c22"
+    },
+    {
+      "created_at": "17884296001234560",
+      "data": {
+        "board_id": 900001,
+        "column_id": "status",
+        "column_type": "color",
+        "previous_value": {
+          "label_text": "Ready For Approval"
+        },
+        "pulse_id": 700001,
+        "value": {
+          "label_text": "Stuck"
+        }
+      },
+      "entity": "pulse",
+      "event": "update_column_value",
+      "id": "synthetic-log-3",
+      "user_id": "sha256:b4edfdd682da6ef9"
+    },
+    {
+      "created_at": "17884332001234560",
+      "data": {
+        "board_id": 900001,
+        "column_id": "text0",
+        "column_type": "text",
+        "previous_value": null,
+        "pulse_id": 700001,
+        "value": "<redacted>"
+      },
+      "entity": "pulse",
+      "event": "update_column_value",
+      "id": "synthetic-log-4",
+      "user_id": "sha256:b4edfdd682da6ef9"
+    }
+  ],
+  "status_column_id": "status",
+  "window": {
+    "from": "2026-09-01T00:00:00Z",
+    "to": "2026-09-05T00:00:00Z"
+  }
+}

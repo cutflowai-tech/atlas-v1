@@ -1,0 +1,29 @@
+{
+  "configured_status_labels_not_in_contract": [
+    "Stuck"
+  ],
+  "contract": "normalized-status-event.schema.json",
+  "contract_statuses_not_configured": [
+    "Approved",
+    "Delivered",
+    "Revision"
+  ],
+  "issue_counts": {
+    "NOT_STATUS_CHANGE": 1,
+    "UNMAPPED_TO_STATUS": 1,
+    "UNRESOLVED_ACTOR": 2
+  },
+  "log_keys": {
+    "missing": [],
+    "unexpected": []
+  },
+  "observed_status_labels_not_in_contract": [
+    "Stuck"
+  ],
+  "probe_version": "monday-probe-v1",
+  "status_column_present": true,
+  "status_data_keys": {
+    "missing": [],
+    "unexpected": []
+  }
+}

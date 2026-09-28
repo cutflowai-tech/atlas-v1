@@ -1,0 +1,23 @@
+{
+  "_note": "SYNTHETIC fixture. Not Monday data. Shape follows the Monday activity_logs GraphQL API.",
+  "mode": "fixture",
+  "board_id": "900001",
+  "item_ids": ["700001"],
+  "status_column_id": "status",
+  "from": "2026-09-01T00:00:00Z",
+  "to": "2026-09-05T00:00:00Z",
+  "retrieved_at": "2026-09-28T00:00:00Z",
+  "columns": [
+    {"id": "status", "type": "status", "title": "Status", "settings_str": "{\"labels\": {\"0\": \"Backlog\", \"1\": \"In Progress\", \"2\": \"Ready For Approval\", \"3\": \"Stuck\"}}"}
+  ],
+  "activity_logs": [
+    {"id": "synthetic-log-1", "event": "update_column_value", "entity": "pulse", "user_id": "person-42", "account_id": "acct-1", "created_at": "17882532001234560",
+     "data": "{\"board_id\": 900001, \"pulse_id\": 700001, \"pulse_name\": \"Synthetic item title\", \"column_id\": \"status\", \"column_type\": \"color\", \"column_title\": \"Status\", \"value\": {\"label\": {\"index\": 1, \"text\": \"In Progress\"}}, \"previous_value\": {\"label\": {\"index\": 0, \"text\": \"Backlog\"}}}"},
+    {"id": "synthetic-log-2", "event": "update_column_value", "entity": "pulse", "user_id": "person-99", "account_id": "acct-1", "created_at": "17883702001234560",
+     "data": "{\"board_id\": 900001, \"pulse_id\": 700001, \"pulse_name\": \"Synthetic item title\", \"column_id\": \"status\", \"column_type\": \"color\", \"column_title\": \"Status\", \"value\": {\"label\": {\"index\": 2, \"text\": \"Ready For Approval\"}}, \"previous_value\": {\"label\": {\"index\": 1, \"text\": \"In Progress\"}}}"},
+    {"id": "synthetic-log-3", "event": "update_column_value", "entity": "pulse", "user_id": "person-42", "account_id": "acct-1", "created_at": "17884296001234560",
+     "data": "{\"board_id\": 900001, \"pulse_id\": 700001, \"pulse_name\": \"Synthetic item title\", \"column_id\": \"status\", \"column_type\": \"color\", \"column_title\": \"Status\", \"value\": {\"label\": {\"index\": 3, \"text\": \"Stuck\"}}, \"previous_value\": {\"label\": {\"index\": 2, \"text\": \"Ready For Approval\"}}}"},
+    {"id": "synthetic-log-4", "event": "update_column_value", "entity": "pulse", "user_id": "person-42", "account_id": "acct-1", "created_at": "17884332001234560",
+     "data": "{\"board_id\": 900001, \"pulse_id\": 700001, \"pulse_name\": \"Synthetic item title\", \"column_id\": \"text0\", \"column_type\": \"text\", \"column_title\": \"Notes\", \"value\": \"free text\", \"previous_value\": null}"}
+  ]
+}
