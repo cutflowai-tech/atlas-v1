@@ -32,6 +32,12 @@ These product decisions drive runtime behavior. Each one is encoded in a version
 
 D4–D10 are reconfirmed unchanged: minimum sample of 5, team includes the Editor, date-only ETA not classifiable, no tolerance, For Bonus context only, and Video Type at or before Ready For Approval. Revisions remain context only, and actor attribution stays deterministic.
 
+## Confirmed by Waset management, 2026-09-28 (third round) — contract 1.4.0
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D19 | **The deadline Requested ETA is frozen at the first Ready For Approval.** The ETA used for a completed cycle is the latest valid Requested ETA observed at or before that cycle's first Ready For Approval. Later ETA changes, such as the reset when a project enters Revisions, never change that cycle's classification. **For contract 1.4.0 onward this replaces D1**; contracts 1.2.0 and 1.3.0 keep D1 unchanged for reproducibility. | `deadline.rule_version = deadline-v1.2`; `requested_eta_selection = latest-valid-requested-eta-at-or-before-first-ready-for-approval`; `deadline-metric-v1.2.schema.json`; `editor-profile-v1.4.schema.json`.<br>Logged changes and creation values are placed by their Monday timestamps. The current item value is used only when the item has no logged ETA and Monday's `changed_at` for it is at or before Ready For Approval. Cleared values are skipped and recorded.<br>Later changes are listed in `ignored_later_requested_eta_changes`. With no ETA at or before Ready For Approval the result is `not_classifiable_missing_eta` with reason `NO_REQUESTED_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL`; a later ETA is never backfilled. D5 (no tolerance) and D6 (date-only not classifiable) are unchanged. Evidence: `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md` sections 5–6. |
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -62,7 +68,7 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
 4. **Conceptual status aliases:** is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.
 5. **Active workload statuses:** which current statuses count as an Editor's active work. Until this is decided, the profile lists current items by status without totals or judgement.
-6. **Requested ETA reset at Revisions (blocks the deadline section).** Evidence is in `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md` section 5.
+6. **Resolved by D19 (contract 1.4.0).** Requested ETA reset at Revisions (formerly blocked the deadline section). Evidence is in `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md` section 5.
    - When a project enters `Revisions`, the shared account sets Requested ETA to the change time + 24 h. This affected 82 of 142 classified projects.
    - D1 (latest ETA, even after RFA) therefore shows 98 early / 44 late, against 24 early / 118 late using the ETA in effect at Ready For Approval.
    - 16 of the 17 `Late Delivery`-labelled projects show as early under D1.

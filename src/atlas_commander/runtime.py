@@ -15,8 +15,9 @@ CONTRACT_PATHS = {
     "1.1.0": ROOT / "config" / "monday-contract-v1.1.json",
     "1.2.0": ROOT / "config" / "monday-contract-v1.2.json",
     "1.3.0": ROOT / "config" / "monday-contract-v1.3.json",
+    "1.4.0": ROOT / "config" / "monday-contract-v1.4.json",
 }
-ACTIVE_CONTRACT_VERSION = "1.3.0"
+ACTIVE_CONTRACT_VERSION = "1.4.0"
 CONFIG_PATH = CONTRACT_PATHS[ACTIVE_CONTRACT_VERSION]
 
 

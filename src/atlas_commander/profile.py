@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from atlas_commander.contracts import validate
-from atlas_commander.cycles import COMPLETED, CyclePolicy, CycleRecord
+from atlas_commander.cycles import COMPLETED, ETA_AT_READY_FOR_APPROVAL, LATEST_ETA, CyclePolicy, CycleRecord
 from atlas_commander.metrics import (
     MetricPolicy,
     classify_deadline,
@@ -28,8 +28,10 @@ from atlas_commander.monday_source import dropdown_value_ids
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_quality
 from atlas_commander.quality import quality_summary, revision_context_summary
 
-CONTRACT_VERSION = "1.3.0"
-SCHEMA = "editor-profile-v1.3.schema.json"
+CONTRACT_VERSION = "1.4.0"
+SCHEMA = "editor-profile-v1.4.schema.json"
+# Profile contract per Requested ETA selection rule, so an earlier executable contract reproduces its original profile.
+PROFILE_CONTRACTS = {LATEST_ETA: ("1.3.0", "editor-profile-v1.3.schema.json"), ETA_AT_READY_FOR_APPROVAL: (CONTRACT_VERSION, SCHEMA)}
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
 POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
@@ -118,8 +120,13 @@ def _trend(cycles: list[CycleRecord], deadline_results: list[dict[str, Any]], po
 
 
 def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, generated_at: str) -> dict[str, Any]:
-    """Contract-valid editor-profile 1.3.0 for one Editor from a cycle reconstruction."""
+    """Contract-valid Editor Profile for one Editor from a cycle reconstruction.
+
+    editor-profile 1.4.0 under the frozen-ETA deadline rule (contract 1.4.0); 1.3.0 under the
+    earlier latest-ETA rule, so contract 1.3.0 still reproduces its original output."""
     policy = MetricPolicy.from_contract(contract)
+    frozen = policy.requested_eta_selection == ETA_AT_READY_FOR_APPROVAL
+    profile_version, profile_schema = PROFILE_CONTRACTS[policy.requested_eta_selection]
     cycles = _editor_cycles(result.cycles, editor_id)
     if not cycles:
         raise ProfileError(f"no cycle is attributed to {editor_id}; unresolved Editors have no profile")
@@ -140,7 +147,7 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
     projects = []
     for cycle in sorted(cycles, key=lambda c: (c.ready_for_approval_at or "", c.monday_item_id)):
         deadline = deltas.get(cycle.cycle_id)
-        projects.append({
+        row = {
             "monday_item_id": cycle.monday_item_id,
             "cycle_id": cycle.cycle_id,
             "state": cycle.state,
@@ -161,7 +168,11 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
             "evidence_event_ids": {"in_progress": cycle.in_progress_event["event_id"] if cycle.in_progress_event else None,
                                    "ready_for_approval": cycle.ready_for_approval_event["event_id"] if cycle.ready_for_approval_event else None,
                                    "editor": cycle.editor_event_id, "video_type": cycle.video_type_event_id, "requested_eta": cycle.requested_eta_event_id},
-        })
+        }
+        if frozen:
+            row["requested_eta_observed_at"] = cycle.requested_eta_observed_at
+            row["requested_eta_changes_ignored_after_ready_for_approval"] = len(cycle.requested_eta_ignored_after_ready_for_approval)
+        projects.append(row)
 
     deadline_block = deadline_summary(deadline_results, not_deadline)
     states: Counter[str] = Counter()
@@ -170,7 +181,7 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
     states["deadline_not_classifiable_insufficient_eta_precision"] = deadline_block["not_classifiable_insufficient_eta_precision"]
     states["deadline_not_classifiable_missing_eta"] = deadline_block["not_classifiable_missing_eta"]
     profile = {
-        "contract_version": CONTRACT_VERSION,
+        "contract_version": profile_version,
         "subject_type": "editor",
         "editor": identity,
         "generated_at": generated_at,
@@ -182,7 +193,8 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         "overall": {"status": None, "rule_version": None, "note": OVERALL_NOTE},
         "speed": {"rule_version": policy.speed_rule_version, "benchmark_statistic": policy.benchmark_statistic,
                   "minimum_editor_sample_size": policy.minimum_editor_sample_size, "cohorts": speed["cohorts"], "metrics": speed["metrics"]},
-        "deadline": {"rule_version": policy.deadline_rule_version, "summary": deadline_block, "results": [r["metric"] for r in deadline_results]},
+        "deadline": {"rule_version": policy.deadline_rule_version, "summary": deadline_block, "results": [r["metric"] for r in deadline_results],
+                     **({"requested_eta_selection": policy.requested_eta_selection} if frozen else {})},
         "quality": {"rule_version": contract["quality_labels"]["rule_version"], "negative": negative,
                     "positive": {"source": None, "count": 0, "note": POSITIVE_NOTE},
                     "for_bonus_context": _for_bonus_context(result, contract, {cycle.monday_item_id for cycle in completed}),
@@ -202,9 +214,9 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         "projects": projects,
         "ai_annotation": None,
     }
-    errors = validate(profile, SCHEMA)
+    errors = validate(profile, profile_schema)
     if errors:
-        raise ProfileError(f"profile violates {SCHEMA}: {errors}")
+        raise ProfileError(f"profile violates {profile_schema}: {errors}")
     return profile
 
 

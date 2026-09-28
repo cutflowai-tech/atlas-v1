@@ -33,7 +33,7 @@ from typing import Any
 
 from atlas_commander.contracts import validate
 from atlas_commander.identity import EditorObservation, IdentityMapping, resolve_editor
-from atlas_commander.monday_source import ColumnChange, dropdown_value_ids, dropdown_value_labels, requested_eta
+from atlas_commander.monday_source import REQUESTED_ETA_DATE_ONLY, ColumnChange, dropdown_value_ids, dropdown_value_labels, requested_eta
 from atlas_commander.video_type import VideoTypeMapping, VideoTypeResolution, resolve_video_type
 
 CONTRACT_VERSION = "1.0.0"
@@ -75,6 +75,11 @@ CLIENT_REVISION_WITHIN_CYCLE = "CLIENT_REVISION_WITHIN_CYCLE"
 VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL = "VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL"
 INITIAL_STATUS_AT_CREATION = "INITIAL_STATUS_AT_CREATION"
 
+# Requested ETA selection rules (contract ``deadline.requested_eta_selection``).
+LATEST_ETA = "latest-available-requested-eta"
+ETA_AT_READY_FOR_APPROVAL = "latest-valid-requested-eta-at-or-before-first-ready-for-approval"
+NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL = "NO_REQUESTED_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL"
+
 
 def parse_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -89,6 +94,7 @@ class CyclePolicy:
     video_type_column_id: str
     requested_eta_column_id: str
     status_column_id: str = "project_status"
+    requested_eta_selection: str = LATEST_ETA
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> CyclePolicy:
@@ -98,8 +104,11 @@ class CyclePolicy:
         attributes = contract["cycle_attributes"]
         board = contract["source_board"]
         identity = IdentityMapping.from_dict({"mapping_version": contract["editor_attribution"]["mapping_version"], "entries": contract["editor_attribution"]["entries"]})
+        selection = (contract.get("deadline") or {}).get("requested_eta_selection", LATEST_ETA)
+        if selection not in {LATEST_ETA, ETA_AT_READY_FOR_APPROVAL}:
+            raise ValueError(f"unknown Requested ETA selection rule {selection!r}")
         return cls(attributes["policy_version"], identity, VideoTypeMapping.from_contract(contract), board["editor_column_id"],
-                   board["video_type_column_id"], board["requested_eta_column_id"], board["status_column_id"])
+                   board["video_type_column_id"], board["requested_eta_column_id"], board["status_column_id"], selection)
 
 
 @dataclass
@@ -125,6 +134,10 @@ class CycleRecord:
     requested_eta_source: str | None = None
     requested_eta_history: list[dict[str, Any]] = field(default_factory=list)
     requested_eta_history_coverage: dict[str, Any] = field(default_factory=dict)
+    requested_eta_selection: str = LATEST_ETA
+    requested_eta_observed_at: str | None = None
+    requested_eta_skipped_event_ids: list[str] = field(default_factory=list)
+    requested_eta_ignored_after_ready_for_approval: list[dict[str, Any]] = field(default_factory=list)
     revision_context: dict[str, Any] = field(default_factory=dict)
     flags: list[str] = field(default_factory=list)
     exclusions: list[str] = field(default_factory=list)
@@ -201,6 +214,10 @@ class CycleRecord:
             "requested_eta_source": self.requested_eta_source,
             "requested_eta_history": list(self.requested_eta_history),
             "requested_eta_history_coverage": dict(self.requested_eta_history_coverage),
+            "requested_eta_selection": self.requested_eta_selection,
+            "requested_eta_observed_at": self.requested_eta_observed_at,
+            "requested_eta_skipped_event_ids": list(self.requested_eta_skipped_event_ids),
+            "requested_eta_ignored_after_ready_for_approval": list(self.requested_eta_ignored_after_ready_for_approval),
             "revision_context": self.revision_context,
             "flags": list(self.flags),
             "exclusions": list(self.exclusions),
@@ -343,7 +360,10 @@ def build_item_cycle(
     # A status an item was created with (e.g. a duplicated item) is not a transition; it is kept as a flag only.
     if any(change.source == "create_pulse" and change.value for change in by_column.get(policy.status_column_id, [])):
         _add(record.flags, INITIAL_STATUS_AT_CREATION)
-    _resolve_latest_eta(record, by_column.get(policy.requested_eta_column_id, []), eta_snapshot, history_coverage)
+    eta_changes = by_column.get(policy.requested_eta_column_id, [])
+    _resolve_latest_eta(record, eta_changes, eta_snapshot, history_coverage)
+    if policy.requested_eta_selection == ETA_AT_READY_FOR_APPROVAL:
+        _select_eta_at_ready_for_approval(record, eta_changes, eta_snapshot, attribute_moment)
     if attribute_moment is None:
         return record
     _resolve_editor(record, by_column.get(policy.editor_column_id, []), policy, parse_time(start["occurred_at"]), attribute_moment)
@@ -416,6 +436,51 @@ def _changed_at(value: Any) -> str | None:
             return None
     changed = value.get("changed_at") if isinstance(value, dict) else None
     return changed if isinstance(changed, str) and changed else None
+
+
+def _select_eta_at_ready_for_approval(record: CycleRecord, changes: list[ColumnChange], snapshot: Mapping[str, Any] | None,
+                                      ready_at: datetime | None) -> None:
+    """deadline-v1.2: the latest valid Requested ETA observed at or before the first Ready For Approval.
+
+    Replaces the latest-ETA selection made by ``_resolve_latest_eta`` (whose history and coverage
+    are kept). Logged values (activity-log changes and create_pulse initial values) are placed by
+    their Monday timestamp. The current item snapshot is used only when the item has no logged ETA
+    value at all and Monday's own ``changed_at`` for it is at or before Ready For Approval. Cleared
+    or invalid values are skipped and recorded; a date-only value is selected and stays
+    unclassifiable. Changes after Ready For Approval are recorded as ignored and never backfill.
+    """
+    record.requested_eta_selection = ETA_AT_READY_FOR_APPROVAL
+    record.requested_eta = record.requested_eta_event_id = record.requested_eta_issue = record.requested_eta_source = None
+    if ready_at is None:
+        return
+    before: list[tuple[str, str, Any, str]] = []
+    for change in changes:
+        moment = parse_time(change.occurred_at)
+        if moment <= ready_at:
+            before.append((change.occurred_at, change.log_id, change.value, "activity_log" if change.source == "update_column_value" else change.source))
+        else:
+            eta, issue = requested_eta(change.value)
+            record.requested_eta_ignored_after_ready_for_approval.append(
+                {"source": "activity_log" if change.source == "update_column_value" else change.source, "event_id": change.log_id,
+                 "occurred_at": change.occurred_at, "requested_eta": eta, "issue": issue})
+    if snapshot is not None:
+        changed_at = _changed_at(snapshot.get("value"))
+        eta, issue = requested_eta(snapshot.get("value"))
+        if not changes and changed_at and parse_time(changed_at) <= ready_at:
+            before.append((changed_at, str(snapshot["evidence_id"]), snapshot.get("value"), "item_snapshot"))
+        elif not changes and (eta or issue):
+            record.requested_eta_ignored_after_ready_for_approval.append(
+                {"source": "item_snapshot", "event_id": str(snapshot["evidence_id"]), "occurred_at": changed_at, "requested_eta": eta, "issue": issue})
+    for observed_at, event_id, value, source in reversed(before):
+        eta, issue = requested_eta(value)
+        if eta is None and issue != REQUESTED_ETA_DATE_ONLY:
+            record.requested_eta_skipped_event_ids.append(event_id)  # cleared or invalid: not a valid ETA
+            continue
+        record.requested_eta, record.requested_eta_issue = eta, issue
+        record.requested_eta_event_id, record.requested_eta_source = event_id, source
+        record.requested_eta_observed_at = observed_at
+        return
+    record.requested_eta_issue = NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL if (before or record.requested_eta_ignored_after_ready_for_approval) else "MISSING_REQUESTED_ETA"
 
 
 def _resolve_latest_eta(record: CycleRecord, changes: list[ColumnChange], snapshot: Mapping[str, Any] | None,

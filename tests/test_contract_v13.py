@@ -48,8 +48,10 @@ class ContractV13Tests(unittest.TestCase):
     def cycles(self, *logs, contract=None, **kwargs):
         return reconstruct_cycles(mf.payload(*logs), contract or self.contract, **kwargs).cycles
 
-    def test_active_contract_is_13_and_12_is_unchanged(self):
-        self.assertEqual((ACTIVE_CONTRACT_VERSION, load_contract()["contract_version"]), ("1.3.0", "1.3.0"))
+    def test_13_and_12_are_unchanged_after_14_became_active(self):
+        self.assertEqual((ACTIVE_CONTRACT_VERSION, load_contract()["contract_version"]), ("1.4.0", "1.4.0"))
+        self.assertEqual((self.contract["deadline"]["rule_version"], self.contract["deadline"]["requested_eta_selection"]),
+                         ("deadline-v1.1", "latest-available-requested-eta"))
         self.assertEqual(self.v12["video_type_cohorts"]["classification"]["confirmed_base_ids"], [])
         self.assertEqual(self.v12["editor_attribution"]["mapping_version"], "monday-editor-v1.0")
 
