@@ -311,7 +311,6 @@ def _replace_pointer(temporary: Path, pointer: Path) -> None:
     if temporary.parent != pointer.parent:   # invariant: one directory, so one filesystem and one atomic rename
         raise PublishRejected("unsafe_path", ["temporary pointer and current are not in the same directory"])
     os.replace(temporary, pointer)
-    _fsync_dir(pointer.parent)
 
 
 def _verify_pointer(pointer: Path, build: ValidatedBuild, text: str) -> bool:
@@ -398,12 +397,13 @@ def _switch(config: SyncConfig, build: ValidatedBuild, result: PublishResult, cl
     temporary = publish_root / f".{POINTER_NAME}.{result.publication_id}.tmp"
     text = link_text(config, build.site)   # raises PublishRejected before anything is created
     result.failure_stage = "switch"
+    problems: list[str] = []
     try:
         _create_temporary_pointer(text, temporary)
         if os.readlink(temporary) != text:
             raise PublishRejected("switch_failed", ["temporary pointer does not point at the build site"])
         _replace_pointer(temporary, pointer)
-    except Exception as error:  # noqa: BLE001 - before the rename completes, current still points at the previous build
+    except Exception as error:  # noqa: BLE001 - _replace_pointer either renames atomically or raises before it has done so
         if temporary.is_symlink():
             temporary.unlink()
         result.status, result.failure_category = SWITCH_FAILED, error.category if isinstance(error, PublishRejected) else "switch_failed"
@@ -413,7 +413,11 @@ def _switch(config: SyncConfig, build: ValidatedBuild, result: PublishResult, cl
     result.published_at = _iso(clock())
     result.current_target = str(build.site)
     result.current_link = text
-    problems: list[str] = []
+    try:
+        _fsync_dir(pointer.parent)
+    except Exception as error:  # noqa: BLE001 - rename happened; report uncertainty and never pretend old is live
+        result.failure_stage, result.failure_category = "post_switch_durability", "post_switch_durability_failed"
+        problems.append(f"{POINTER_NAME} was replaced but its directory could not be synced ({type(error).__name__})")
     if not _verify_pointer(pointer, build, text):
         result.failure_stage, result.failure_category = "post_switch_verification", "post_switch_verification_failed"
         problems.append(f"{POINTER_NAME} was replaced but does not resolve to the expected build site")
@@ -515,6 +519,13 @@ def publish(attempt_id: str, environ: Mapping[str, str] | None = None, *, config
             publication_id_factory: Callable[[datetime], str] = new_run_id) -> PublishResult:
     """Validate the completed staged build ``attempt_id`` and make it the live site. Never raises for a rejected build."""
     return _run("publish", attempt_id, environ, config, clock, publication_id_factory)
+
+
+def _publish_locked(attempt_id: str, *, config: SyncConfig, clock: Clock = utc_now,
+                    publication_id_factory: Callable[[datetime], str] = new_run_id) -> PublishResult:
+    """Publish exactly ``attempt_id`` while the caller holds the production lock; never scans for a fallback."""
+    result = PublishResult(publication_id=publication_id_factory(clock()), action="publish")
+    return _run_locked("publish", attempt_id, config, result, clock)
 
 
 def rollback(attempt_id: str | None = None, environ: Mapping[str, str] | None = None, *, config: SyncConfig | None = None,
