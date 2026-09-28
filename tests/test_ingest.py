@@ -124,6 +124,26 @@ class IngestTests(unittest.TestCase):
         coverage = {cycle.monday_item_id: cycle.requested_eta_history_coverage["status"] for cycle in result.cycles}
         self.assertEqual(coverage, {"1": "complete", "2": "observed_in_ingested_evidence"})
 
+    def test_items_moved_in_or_created_after_the_window_are_not_complete(self):
+        # Live run 2026-09-28: five items were moved in from other boards (move_pulse_into_board, no create_pulse on this
+        # board) and one was created after `until` but before the items read; neither has its full history in the ingestion.
+        extra = [{"id": item, "created_at": created, "board": {"id": mf.BOARD}, "group": {"id": "g"},
+                  "column_values": [{"id": mf.ETA, "type": "date", "text": "", "value": None}]}
+                 for item, created in (("3", "2026-09-05T08:00:00Z"), ("4", "2026-09-10T00:00:05Z"))]
+        moved = {"id": "move-3", "event": "move_pulse_into_board", "user_id": mf.SHARED, "account_id": "1", "created_at": mf.ticks("2026-09-05T08:00:30Z"),
+                 "data": json.dumps({"pulse_id": 3, "board_id": int(mf.BOARD)})}
+        self.fake = FakeMonday([*self.logs, moved, mf.eta("eta-3", "3", "2026-09-05T09:00:00Z", "2026-09-06", "20:00:00")], items() + extra)
+        self.client = ReadOnlyMondayClient(self.fake)
+        self.run_ingest()
+        extract = json.loads((self.raw / "extract.json").read_text())
+        self.assertEqual(extract["ingestion"]["complete_history_item_ids"], ["1"])
+        result = reconstruct_cycles(extract["activity"], load_contract(), items_payload=extract["items"], ingestion=extract["ingestion"])
+        coverage = {cycle.monday_item_id: cycle.requested_eta_history_coverage["status"] for cycle in result.cycles}
+        self.assertEqual(coverage, {"1": "complete", "2": "observed_in_ingested_evidence"})
+        report = verify(self.raw)
+        self.assertTrue(report["passed"], report["failures"])
+        self.assertEqual((report["items_created_inside_window_without_create_pulse"], report["items_created_after_window"]), (["3"], ["4"]))
+
     def test_capped_windows_are_split_until_complete(self):
         with mock.patch.object(ing, "WINDOW_CAP", 7):
             manifest = self.run_ingest()
