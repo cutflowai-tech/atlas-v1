@@ -15,6 +15,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from types import MappingProxyType
 from typing import Any
 
 from atlas_commander.contracts import schema_errors
@@ -52,19 +53,24 @@ class NormalizationResult:
     unresolved_actor_event_ids: list[str] = field(default_factory=list)
     status_mapping_version: str = ""
     actor_mapping_version: str | None = None
+    raw_input_snapshots: tuple[Any, ...] = ()
 
 
 def _validated_status_mapping(status_mapping: dict[str, Any]) -> tuple[str, frozenset[str], dict[str, str]]:
+    if not isinstance(status_mapping, dict):
+        raise ValueError("status_mapping must be an object")  # noqa: TRY004 - all invalid configuration uses ValueError
     version = status_mapping.get("version")
     column_ids = status_mapping.get("status_column_ids")
     labels = status_mapping.get("labels")
-    if not isinstance(version, str) or not version:
+    if not isinstance(version, str) or not version.strip():
         raise ValueError("status_mapping.version must be a non-empty string")
     if not isinstance(column_ids, list) or not column_ids or not all(isinstance(item, str) and item for item in column_ids):
         raise ValueError("status_mapping.status_column_ids must be a non-empty list of Monday column IDs")
     if not isinstance(labels, dict) or not labels:
         raise ValueError("status_mapping.labels must map Monday label text to canonical statuses")
-    unknown = sorted(str(value) for value in labels.values() if value not in CANONICAL_STATUSES)
+    if not all(isinstance(key, str) and key and isinstance(value, str) for key, value in labels.items()):
+        raise ValueError("status_mapping.labels must contain string labels and statuses")
+    unknown = sorted(value for value in labels.values() if value not in CANONICAL_STATUSES)
     if unknown:
         raise ValueError(f"status_mapping.labels targets non-canonical statuses: {unknown}")
     return version, frozenset(column_ids), dict(labels)
@@ -73,11 +79,13 @@ def _validated_status_mapping(status_mapping: dict[str, Any]) -> tuple[str, froz
 def _validated_actor_mapping(actor_mapping: dict[str, Any] | None) -> tuple[str | None, dict[str, str]]:
     if actor_mapping is None:
         return None, {}
+    if not isinstance(actor_mapping, dict):
+        raise ValueError("actor_mapping must be an object")  # noqa: TRY004 - all invalid configuration uses ValueError
     version = actor_mapping.get("version")
     actors = actor_mapping.get("actors")
-    if not isinstance(version, str) or not version:
+    if not isinstance(version, str) or not version.strip():
         raise ValueError("actor_mapping.version must be a non-empty string")
-    if not isinstance(actors, dict) or not all(isinstance(key, str) and key and isinstance(value, str) and value for key, value in actors.items()):
+    if not isinstance(actors, dict) or not all(isinstance(key, str) and key.strip() and isinstance(value, str) and value.strip() for key, value in actors.items()):
         raise ValueError("actor_mapping.actors must map canonical Monday person IDs to canonical actor IDs")
     return version, dict(actors)
 
@@ -99,10 +107,23 @@ def _decoded(raw: Any) -> dict[str, Any]:
     return entry
 
 
+def _id(value: Any) -> str | None:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    return str(value) if str(value).strip() else None
+
+
 def _event_id(raw: Any) -> str | None:
-    if isinstance(raw, dict) and raw.get("id") not in (None, ""):
-        return str(raw["id"])
-    return None
+    return _id(raw.get("id")) if isinstance(raw, dict) else None
+
+
+def _freeze_raw(value: Any) -> Any:
+    """Keep each JSON input occurrence as a detached, recursively immutable snapshot."""
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze_raw(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze_raw(item) for item in value)
+    return copy.deepcopy(value)
 
 
 ISO_TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$")
@@ -111,26 +132,31 @@ ISO_TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}
 def _utc_z(whole_seconds: datetime, fraction_digits: str) -> str:
     """Render UTC with the exact source sub-second digits (trailing zeros dropped), never rounded."""
     fraction = fraction_digits.rstrip("0")
-    return whole_seconds.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S") + (f".{fraction}" if fraction else "") + "Z"
+    return whole_seconds.astimezone(timezone.utc).isoformat(timespec="seconds")[:-6] + (f".{fraction}" if fraction else "") + "Z"
 
 
 def _occurred_at(value: Any) -> str:
     if isinstance(value, int) and not isinstance(value, bool):
+        if value < 0 or value >= 253402300800 * MONDAY_TICKS_PER_SECOND:
+            raise QuarantineError(INVALID_TIMESTAMP, "created_at is outside the supported timestamp range")
         value = str(value)
     if not isinstance(value, str) or not value:
         raise QuarantineError(INVALID_TIMESTAMP, "created_at is missing")
     if value.isdigit():
-        seconds, ticks = divmod(int(value), MONDAY_TICKS_PER_SECOND)
-        return _utc_z(datetime.fromtimestamp(seconds, tz=timezone.utc), f"{ticks:07d}")
+        try:
+            seconds, ticks = divmod(int(value), MONDAY_TICKS_PER_SECOND)
+            return _utc_z(datetime.fromtimestamp(seconds, tz=timezone.utc), f"{ticks:07d}")
+        except (ValueError, OverflowError, OSError) as exc:
+            raise QuarantineError(INVALID_TIMESTAMP, "created_at is outside the supported timestamp range") from exc
     match = ISO_TIMESTAMP.match(value)
     if match is None:
         raise QuarantineError(INVALID_TIMESTAMP, f"created_at {value!r} is not a Monday tick value or timezone-qualified ISO-8601 timestamp")
     whole, fraction, offset = match.groups()
     try:
         moment = datetime.fromisoformat(whole + ("+00:00" if offset == "Z" else offset))
-    except ValueError as exc:
-        raise QuarantineError(INVALID_TIMESTAMP, f"created_at {value!r} is not a valid timestamp") from exc
-    return _utc_z(moment, fraction or "")
+        return _utc_z(moment, fraction or "")
+    except (ValueError, OverflowError, OSError) as exc:
+        raise QuarantineError(INVALID_TIMESTAMP, "created_at is not a valid supported timestamp") from exc
 
 
 def _instant(timestamp: str) -> tuple[datetime, int]:
@@ -196,7 +222,9 @@ def _normalize_one(
     from_status = None if from_label is None else _canonical_status(from_label, labels, "previous_value")
 
     user_id = entry.get("user_id")
-    actor_monday_id = None if user_id in (None, "") or isinstance(user_id, bool) else str(user_id)
+    actor_monday_id = _id(user_id)
+    if user_id is not None and user_id != "" and actor_monday_id is None:
+        raise QuarantineError(MALFORMED, "activity user_id must be a string or integer ID")
     actor_id = actors.get(actor_monday_id) if actor_monday_id is not None else None
 
     return {
@@ -235,7 +263,10 @@ def normalize_events(
 
     quarantined: list[dict[str, Any]] = []
     by_id: dict[str, list[tuple[int, Any]]] = {}
+    raw_input_snapshots: list[Any] = []
     for index, raw in enumerate(raw_events):
+        raw = copy.deepcopy(raw)
+        raw_input_snapshots.append(_freeze_raw(raw))
         event_id = _event_id(raw)
         if event_id is None:
             quarantined.append(_quarantine(index, None, MISSING_EVENT_ID, "activity entry has no id", raw))
@@ -288,4 +319,5 @@ def normalize_events(
         unresolved_actor_event_ids=sorted(event["event_id"] for event in accepted if event["actor_resolution"] == "unresolved_waset_co"),
         status_mapping_version=status_version,
         actor_mapping_version=actor_version,
+        raw_input_snapshots=tuple(raw_input_snapshots),
     )

@@ -5,7 +5,7 @@ Mode: fixture. Risk: critical. Affected contract: `contracts/normalized-status-e
 ## Deliverables
 
 - `src/atlas_commander/normalization.py`: `normalize_events(raw_events, status_mapping, actor_mapping=None) -> NormalizationResult`
-- `tests/test_normalization.py`: 19 tests
+- `tests/test_normalization.py`: 26 tests
 - `fixtures/monday/activity-status-events.json`: raw Monday `activity_logs` fixture with explicit status and actor mappings. It is not referenced by `fixtures/manifest.json` because it is raw input, not a contract instance.
 
 ## Behavior
@@ -32,8 +32,19 @@ None. No schema changes. Every accepted event passes `schema_errors(..., "normal
 
 ## Test evidence
 
-`PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_normalization.py' -v`: **Ran 19 tests, OK**. This includes the acceptance test `test_duplicate_and_unknown_events_quarantined`.
+`PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_normalization.py' -v`: **Ran 26 tests, OK**. This includes the acceptance test `test_duplicate_and_unknown_events_quarantined`.
 
 `make test`: ruff "All checks passed!", mypy "Success: no issues found in 4 source files", unit 11 OK, contract 6 OK, integration 2 OK, e2e 2 OK, JSON well-formedness check passed.
 
 Note: the `make test` targets only discover `test_commander.py`, `test_contracts.py`, `test_integration.py` and `test_e2e.py`, so `tests/test_normalization.py` is **not** run by `make test`. The Makefile was left unchanged because it is outside this task's scope. The integrator should add a target, or widen `unit` discovery, so these tests run in CI.
+
+
+## Independent review repair
+
+Strict event and actor IDs now accept only nonempty strings or integers (excluding booleans), rejecting objects, lists and floats without fabricating attribution. Missing actors remain explicitly unresolved. Mapping containers, label types, actor keys and actor values are validated before processing; malformed configuration raises ValueError.
+
+Out-of-range ticks, oversized numeric values and ISO timezone conversions across datetime bounds quarantine as INVALID_TIMESTAMP while subsequent valid events continue. Native 100 ns precision remains unchanged.
+
+`raw_input_snapshots` is an additional tuple containing every raw occurrence in input order, including identical duplicates and malformed/quarantined records. JSON objects are recursively read-only mapping proxies and JSON arrays become tuples; JSON strings remain exact strings. Existing `raw_sources` retains its accepted-event lookup behavior. Snapshots detach from both caller inputs and mutable result evidence.
+
+Added seven regression tests covering malformed IDs/configuration, timestamp overflow, immutable complete raw evidence, duplicate preservation, raw attribution claims and status-column scoping. Validation: module suite 26 tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). Frozen schemas and DAG unchanged. Fixture mode only; no real Monday data used.

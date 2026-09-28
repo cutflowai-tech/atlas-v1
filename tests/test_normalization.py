@@ -166,6 +166,76 @@ class NormalizeEdgeCaseTests(unittest.TestCase):
         result = self.normalize(later, earlier)
         self.assertEqual([event["event_id"] for event in result.accepted], ["b", "a"])
 
+    def test_out_of_range_timestamps_quarantine_without_aborting_batch(self):
+        invalid = [10**5000, 10**100, "9" * 5000, "0001-01-01T00:00:00+01:00", "9999-12-31T23:59:59-01:00"]
+        for index, timestamp in enumerate(invalid):
+            with self.subTest(case=index):
+                result = self.normalize(activity("bad", "Working on it", created_at=timestamp), activity("good", "Working on it"))
+                self.assertEqual([e["event_id"] for e in result.accepted], ["good"])
+                self.assertEqual(result.quarantined[0]["reason"], "INVALID_TIMESTAMP")
+
+    def test_strict_event_and_actor_ids(self):
+        for value in [True, False, {}, {"id": 42}, [], [42], 42.0]:
+            with self.subTest(value=value):
+                result = self.normalize(activity(value, "Working on it"), activity("actor", "Working on it", user_id=value))
+                self.assertEqual(result.accepted, [])
+                self.assertEqual([q["reason"] for q in result.quarantined], ["MISSING_EVENT_ID", "MALFORMED_EVENT"])
+        result = self.normalize(activity(123, "Working on it", user_id=42), actor_mapping=FIXTURE["actor_mapping"])
+        self.assertEqual((result.accepted[0]["event_id"], result.accepted[0]["actor_monday_id"], result.accepted[0]["actor_id"]), ("123", "42", "editor-42"))
+
+    def test_all_raw_occurrences_have_immutable_detached_snapshots(self):
+        original = activity("e1", "Working on it")
+        decoded = dict(original, data=json.loads(original["data"]))
+        decoded["extra"] = [1, {"nested": [2]}]
+        raw = [original, copy.deepcopy(original), decoded, activity(None, "Working on it")]
+        result = self.normalize(*raw)
+        self.assertEqual(len(result.raw_input_snapshots), 4)
+        self.assertEqual(result.raw_input_snapshots[0], original)
+        self.assertEqual(result.raw_input_snapshots[1], original)
+        self.assertIsInstance(result.raw_input_snapshots[0]["data"], str)
+        self.assertEqual(result.raw_input_snapshots[2]["data"], json.loads(original["data"]))
+        with self.assertRaises(TypeError):
+            result.raw_input_snapshots[2]["data"]["pulse_id"] = 99
+        with self.assertRaises(TypeError):
+            result.raw_input_snapshots[2]["extra"][1]["nested"][0] = 99
+        decoded["data"]["pulse_id"] = 99
+        decoded["extra"][1]["nested"][0] = 99
+        self.assertEqual(result.raw_input_snapshots[2]["data"]["pulse_id"], 11)
+        self.assertEqual(result.raw_input_snapshots[2]["extra"][1]["nested"], (2,))
+
+    def test_identical_duplicates_keep_every_raw_copy(self):
+        original = activity("e1", "Working on it")
+        result = self.normalize(original, copy.deepcopy(original))
+        self.assertEqual(len(result.accepted), 1)
+        self.assertEqual(result.raw_sources, {"e1": original})
+        self.assertEqual(result.raw_input_snapshots, (original, original))
+        result.raw_sources["e1"]["id"] = "changed"
+        self.assertEqual(result.raw_input_snapshots[0]["id"], "e1")
+
+    def test_malformed_mapping_objects_raise_value_error(self):
+        for mapping in [[], "v1", 42, True]:
+            with self.subTest(mapping=mapping):
+                with self.assertRaises(ValueError):
+                    normalize_events([], mapping)
+                with self.assertRaises(ValueError):
+                    normalize_events([], self.mapping, mapping)
+        for labels in [{"Done": []}, {"Done": {}}, {42: "Approved"}]:
+            with self.assertRaises(ValueError):
+                normalize_events([], dict(self.mapping, labels=labels))
+        for actors in [{42: "editor-42"}, {"42": {}}, {"42": []}, {"42": True}, {"42": 42.0}, {"42": " "}]:
+            with self.assertRaises(ValueError):
+                normalize_events([], self.mapping, {"version": "v1", "actors": actors})
+
+    def test_raw_actor_claims_cannot_override_versioned_mapping(self):
+        raw = activity("e1", "Working on it", user_id=77)
+        raw.update(actor_id="editor-42", actor_monday_id="42", mapping_version="forged", actor_resolution="canonical_monday_id")
+        event = self.normalize(raw, actor_mapping=FIXTURE["actor_mapping"]).accepted[0]
+        self.assertEqual((event["actor_resolution"], event["actor_monday_id"], event["actor_id"], event["mapping_version"]), ("unresolved_waset_co", "77", None, "actor-v1"))
+
+    def test_other_color_column_is_not_status(self):
+        result = self.normalize(activity("e1", "Working on it", column_id="priority"))
+        self.assertEqual(result.quarantined[0]["reason"], "NON_STATUS_EVENT")
+
     def test_invalid_mappings_rejected(self):
         with self.assertRaises(ValueError):
             normalize_events([], {"status_column_ids": ["status"], "labels": {"Done": "Approved"}})
