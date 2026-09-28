@@ -1,6 +1,6 @@
 # Atlas agent instructions
 
-Read `docs/ATLAS_V1_RULES.md` before changing product logic, schemas, metrics, or contracts.
+The Commander reads `SPEC.md`, `ARCHITECTURE.md`, `CONTRACTS.md`, `TASK_GRAPH.md`, and `docs/ATLAS_V1_RULES.md` before planning work. Builders receive only the atomic task packet, this file, named affected contracts, and the minimum referenced architecture/rule sections needed for that task.
 
 ## Execution invariant
 
@@ -8,18 +8,17 @@ Parallelize implementation; serialize integration. Each candidate works in its o
 
 ## Definition of done
 
-Every change must include tests, evidence for metric outputs, deterministic behavior, and a note for any contract/schema impact. Never claim completion from a prose review alone. Run `make test` before handoff.
+Every change must include tests, evidence for metric outputs, deterministic behavior, and a note for any contract/schema impact. Never claim completion from a prose review alone. Run the task-specific target during development and `make test` before integration handoff.
 
 ## Product invariants
 
 - Monday is the source of truth.
 - The Editor is the evaluated entity.
 - Work duration is `In Progress` to `Ready For Approval`.
-- Deadline and Requested ETA are distinct fields and concepts.
+- Deadline performance is `Ready For Approval <= Requested ETA`; missing ETA is not guessed.
 - Benchmarks compare only within the same Video Type.
 - Waset Co actor attribution is deterministic.
 - Revisions are context only, never an automatic quality penalty.
 - Quality comes from Monday labels.
 - Every metric exposes supporting evidence.
 - AI may explain or flag; AI is never the source of truth.
-

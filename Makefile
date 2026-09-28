@@ -1,15 +1,28 @@
-.PHONY: doctor test runtime-health
+.PHONY: doctor lint typecheck unit contract integration e2e test runtime-health
 
 doctor:
 	./scripts/atlas doctor
 
-test:
-	PYTHONPATH=src python3 -m unittest discover -s tests -v
-	python3 -m json.tool config/risk-policy.json >/dev/null
-	python3 -m json.tool config/runtimes.json >/dev/null
-	python3 -m json.tool contracts/atlas-v1.schema.json >/dev/null
-	python3 -m json.tool tasks/dag.json >/dev/null
+lint:
+	ruff check src tests
+
+typecheck:
+	mypy src
+
+unit:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_commander.py' -v
+
+contract:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_contracts.py' -v
+
+integration:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_integration.py' -v
+
+e2e:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_e2e.py' -v
+
+test: lint typecheck unit contract integration e2e
+	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
 runtime-health:
 	./scripts/runtime-health
-

@@ -1,10 +1,10 @@
 {
   "runtimes": [
-    {"name": "Atlas Codex A", "command": "codex-a", "family": "codex", "enabled": true},
-    {"name": "Atlas Codex M", "command": "codex-m", "family": "codex", "enabled": true},
-    {"name": "Atlas Codex W", "command": "codex-w", "family": "codex", "enabled": true},
-    {"name": "Atlas Claude A", "command": "claude-a", "family": "claude", "enabled": true},
-    {"name": "Atlas Claude M", "command": "claude-m", "family": "claude", "enabled": true}
+    {"id":"codex-a","name":"Atlas Codex A","command":"codex-a","family":"codex","account_home":"~/.codex-a","multica_runtime_id":"b602784c-b821-495a-b64b-7cd420ba679f","multica_profile_id":"1cb77ee3-8975-4496-949c-f6b8825d3bfa","subscription_backed":true,"enabled":true},
+    {"id":"codex-m","name":"Atlas Codex M","command":"codex-m","family":"codex","account_home":"~/.codex-m","multica_runtime_id":"770e0663-468f-465f-893c-bd6a546aae5c","multica_profile_id":"5e320425-3e48-4adc-ab22-ee73b4795c14","subscription_backed":true,"enabled":true},
+    {"id":"codex-w","name":"Atlas Codex W","command":"codex-w","family":"codex","account_home":"~/.codex-w","multica_runtime_id":"7a9d3824-be97-4e0d-835d-b4c5e9cbf2ce","multica_profile_id":"bff776ac-8335-483b-9f5c-55deb412beb1","subscription_backed":true,"enabled":true},
+    {"id":"claude-a","name":"Atlas Claude A","command":"claude-a","family":"claude","account_home":"~/.claude-account-a","multica_runtime_id":"b740c575-4d15-4e46-bb6e-faffda29987a","multica_profile_id":"ef7c12c1-c17c-4587-b7cf-b7bd89af004a","subscription_backed":true,"enabled":true},
+    {"id":"claude-m","name":"Atlas Claude M","command":"claude-m","family":"claude","account_home":"~/.claude-account-m","multica_runtime_id":"8e5b4aa7-f1eb-4ceb-b2c1-6b2add43d185","multica_profile_id":"d86f4e4e-fe34-473e-a937-9a495416f632","subscription_backed":true,"enabled":true}
   ],
   "hermes": {"role": "audit_research_memory_docs", "coding_critical_path": false}
 }

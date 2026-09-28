@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/quality-metric.schema.json",
+  "title": "QualityMetric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "metric_name", "editor_id", "performance_label", "label_column_id", "label_mapping_version", "revision_context", "evidence"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "metric_name": {"const": "quality"},
+    "editor_id": {"type": "string", "minLength": 1},
+    "performance_label": {"type": "string", "minLength": 1},
+    "label_column_id": {"type": "string", "minLength": 1},
+    "label_mapping_version": {"type": "string", "minLength": 1},
+    "revision_context": {"type": ["object", "null"], "description": "Display-only context; prohibited as a quality penalty."},
+    "evidence": {"$ref": "common.schema.json#/$defs/evidence"}
+  },
+  "x-atlas-invariants": ["quality value comes only from Monday Performance Label", "revision_context does not alter quality"]
+}

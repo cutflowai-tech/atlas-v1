@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/work-cycle.schema.json",
+  "title": "WorkCycle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "cycle_id", "editor_id", "video_type", "monday_board_id", "monday_item_id", "start_status", "end_status", "in_progress_event_id", "ready_for_approval_event_id", "in_progress_at", "ready_for_approval_at", "duration_seconds", "requested_eta"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "editor_id": {"type": "string", "minLength": 1},
+    "video_type": {"type": "string", "minLength": 1},
+    "monday_board_id": {"type": "string", "minLength": 1},
+    "monday_item_id": {"type": "string", "minLength": 1},
+    "start_status": {"const": "In Progress"},
+    "end_status": {"const": "Ready For Approval"},
+    "in_progress_event_id": {"type": "string", "minLength": 1},
+    "ready_for_approval_event_id": {"type": "string", "minLength": 1},
+    "in_progress_at": {"type": "string", "format": "date-time"},
+    "ready_for_approval_at": {"type": "string", "format": "date-time"},
+    "duration_seconds": {"type": "integer", "minimum": 1},
+    "requested_eta": {"type": ["string", "null"], "format": "date-time"},
+    "revision_context": {"type": ["object", "null"], "description": "Context only; not a scoring input."}
+  },
+  "x-atlas-invariants": ["ready_for_approval_at > in_progress_at", "duration_seconds equals timestamp difference"]
+}

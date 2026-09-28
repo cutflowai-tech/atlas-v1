@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/normalized-status-event.schema.json",
+  "title": "NormalizedStatusEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "event_id", "monday_board_id", "monday_item_id", "status_column_id", "occurred_at", "from_status", "to_status", "actor_resolution"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "event_id": {"type": "string", "minLength": 1},
+    "monday_board_id": {"type": "string", "minLength": 1},
+    "monday_item_id": {"type": "string", "minLength": 1},
+    "status_column_id": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "from_status": {"type": ["string", "null"], "enum": [null, "Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered"]},
+    "to_status": {"type": "string", "enum": ["Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered"]},
+    "actor_resolution": {"type": "string", "enum": ["canonical_monday_id", "unresolved_waset_co"]},
+    "actor_monday_id": {"type": ["string", "null"], "minLength": 1},
+    "actor_id": {"type": ["string", "null"], "minLength": 1},
+    "mapping_version": {"type": ["string", "null"], "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"actor_resolution": {"const": "canonical_monday_id"}}},
+      "then": {"required": ["actor_monday_id", "actor_id", "mapping_version"], "properties": {"actor_monday_id": {"type": "string"}, "actor_id": {"type": "string"}, "mapping_version": {"type": "string"}}}
+    },
+    {
+      "if": {"properties": {"actor_resolution": {"const": "unresolved_waset_co"}}},
+      "then": {"properties": {"actor_id": {"const": null}}}
+    }
+  ]
+}
