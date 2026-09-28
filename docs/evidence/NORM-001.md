@@ -48,3 +48,10 @@ Out-of-range ticks, oversized numeric values and ISO timezone conversions across
 `raw_input_snapshots` is an additional tuple containing every raw occurrence in input order, including identical duplicates and malformed/quarantined records. JSON objects are recursively read-only mapping proxies and JSON arrays become tuples; JSON strings remain exact strings. Existing `raw_sources` retains its accepted-event lookup behavior. Snapshots detach from both caller inputs and mutable result evidence.
 
 Added seven regression tests covering malformed IDs/configuration, timestamp overflow, immutable complete raw evidence, duplicate preservation, raw attribution claims and status-column scoping. Validation: module suite 26 tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). Frozen schemas and DAG unchanged. Fixture mode only; no real Monday data used.
+
+
+## Typed duplicate comparison repair
+
+Decoded duplicate content now uses recursively typed fingerprints: objects ignore key order, arrays retain order, and booleans, integers and floats remain distinct. Equivalent JSON-string versus decoded-object `data` still deduplicates. Same-ID actor 42/42.0, board 1/true and item 11/11.0 pairs now quarantine both occurrences as DUPLICATE_EVENT_CONFLICT in either input order. Board, item and column IDs share the strict ID parser used by event and actor IDs, including blank-string rejection.
+
+Validation after this repair: 28 normalization tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). No schema or DAG changes.

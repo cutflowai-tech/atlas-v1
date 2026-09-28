@@ -236,6 +236,35 @@ class NormalizeEdgeCaseTests(unittest.TestCase):
         result = self.normalize(activity("e1", "Working on it", column_id="priority"))
         self.assertEqual(result.quarantined[0]["reason"], "NON_STATUS_EVENT")
 
+    def test_duplicate_fingerprints_preserve_json_types_in_both_orders(self):
+        for location, field, valid_value, invalid_value in [
+            ("entry", "user_id", 42, 42.0),
+            ("data", "board_id", 1, True),
+            ("data", "pulse_id", 11, 11.0),
+        ]:
+            valid = activity("same", "Working on it", user_id=42)
+            valid["data"] = json.loads(valid["data"])
+            target = valid if location == "entry" else valid["data"]
+            target[field] = valid_value
+            invalid = copy.deepcopy(valid)
+            target = invalid if location == "entry" else invalid["data"]
+            target[field] = invalid_value
+            for records in [(valid, invalid), (invalid, valid)]:
+                with self.subTest(field=field, first=records[0]):
+                    result = self.normalize(*records)
+                    self.assertEqual(result.accepted, [])
+                    self.assertEqual(result.duplicate_event_ids, [])
+                    self.assertEqual([q["reason"] for q in result.quarantined], ["DUPLICATE_EVENT_CONFLICT"] * 2)
+                    self.assertEqual(len(result.raw_input_snapshots), 2)
+
+    def test_board_and_item_ids_use_strict_id_validation(self):
+        for field in ["board_id", "pulse_id"]:
+            for value in [True, False, {}, [], 1.0, " "]:
+                with self.subTest(field=field, value=value):
+                    result = self.normalize(activity("e1", "Working on it", **{field: value}))
+                    self.assertEqual(result.accepted, [])
+                    self.assertEqual(result.quarantined[0]["reason"], "MALFORMED_EVENT")
+
     def test_invalid_mappings_rejected(self):
         with self.assertRaises(ValueError):
             normalize_events([], {"status_column_ids": ["status"], "labels": {"Done": "Approved"}})

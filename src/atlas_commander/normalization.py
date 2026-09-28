@@ -126,6 +126,15 @@ def _freeze_raw(value: Any) -> Any:
     return copy.deepcopy(value)
 
 
+def _typed_fingerprint(value: Any) -> Any:
+    """Compare decoded JSON structurally without bool/int/float equality coercion."""
+    if isinstance(value, dict):
+        return ("object", frozenset((_typed_fingerprint(key), _typed_fingerprint(item)) for key, item in value.items()))
+    if isinstance(value, list):
+        return ("array", tuple(_typed_fingerprint(item) for item in value))
+    return (type(value).__name__, value)
+
+
 ISO_TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$")
 
 
@@ -188,10 +197,10 @@ def _canonical_status(label: str, labels: dict[str, str], side: str) -> str:
 
 
 def _required_id(data: dict[str, Any], key: str) -> str:
-    value = data.get(key)
-    if value is None or isinstance(value, bool) or not isinstance(value, (str, int)) or str(value) == "":
+    value = _id(data.get(key))
+    if value is None:
         raise QuarantineError(MALFORMED, f"activity data.{key} is missing")
-    return str(value)
+    return value
 
 
 def _normalize_one(
@@ -286,7 +295,7 @@ def normalize_events(
 
         if len(occurrences) > 1:
             first = decoded[0][2]
-            if first is None or any(entry != first for _, _, entry, _ in decoded[1:]):
+            if first is None or any(_typed_fingerprint(entry) != _typed_fingerprint(first) for _, _, entry, _ in decoded[1:]):
                 for index, raw, _, _ in decoded:
                     quarantined.append(_quarantine(index, event_id, DUPLICATE_EVENT_CONFLICT, f"{len(occurrences)} records share id with differing content", raw))
                 continue
