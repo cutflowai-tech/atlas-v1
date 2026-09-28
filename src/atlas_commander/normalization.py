@@ -56,7 +56,7 @@ class NormalizationResult:
     raw_input_snapshots: tuple[Any, ...] = ()
 
 
-def _validated_status_mapping(status_mapping: dict[str, Any]) -> tuple[str, frozenset[str], dict[str, str]]:
+def _validated_status_mapping(status_mapping: dict[str, Any]) -> tuple[str, dict[str, frozenset[str]], dict[str, str]]:
     if not isinstance(status_mapping, dict):
         raise ValueError("status_mapping must be an object")  # noqa: TRY004 - all invalid configuration uses ValueError
     version = status_mapping.get("version")
@@ -64,16 +64,21 @@ def _validated_status_mapping(status_mapping: dict[str, Any]) -> tuple[str, froz
     labels = status_mapping.get("labels")
     if not isinstance(version, str) or not version.strip():
         raise ValueError("status_mapping.version must be a non-empty string")
-    if not isinstance(column_ids, list) or not column_ids or not all(isinstance(item, str) and item for item in column_ids):
-        raise ValueError("status_mapping.status_column_ids must be a non-empty list of Monday column IDs")
+    if not isinstance(column_ids, dict) or not column_ids:
+        raise ValueError("status_mapping.status_column_ids must map board IDs to column ID lists")
+    for board_id, columns in column_ids.items():
+        if not isinstance(board_id, str) or not board_id.strip() or not isinstance(columns, list) or not columns:
+            raise ValueError("status_mapping.status_column_ids requires nonblank board IDs and nonempty column lists")
+        if not all(isinstance(column, str) and column.strip() for column in columns):
+            raise ValueError("status_mapping.status_column_ids requires nonblank column IDs")
     if not isinstance(labels, dict) or not labels:
         raise ValueError("status_mapping.labels must map Monday label text to canonical statuses")
-    if not all(isinstance(key, str) and key and isinstance(value, str) for key, value in labels.items()):
+    if not all(isinstance(key, str) and key.strip() and isinstance(value, str) for key, value in labels.items()):
         raise ValueError("status_mapping.labels must contain string labels and statuses")
     unknown = sorted(value for value in labels.values() if value not in CANONICAL_STATUSES)
     if unknown:
         raise ValueError(f"status_mapping.labels targets non-canonical statuses: {unknown}")
-    return version, frozenset(column_ids), dict(labels)
+    return version, {board: frozenset(columns) for board, columns in column_ids.items()}, dict(labels)
 
 
 def _validated_actor_mapping(actor_mapping: dict[str, Any] | None) -> tuple[str | None, dict[str, str]]:
@@ -109,6 +114,8 @@ def _decoded(raw: Any) -> dict[str, Any]:
 
 def _id(value: Any) -> str | None:
     if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return None
+    if isinstance(value, int) and value < 0:
         return None
     return str(value) if str(value).strip() else None
 
@@ -151,7 +158,7 @@ def _occurred_at(value: Any) -> str:
         value = str(value)
     if not isinstance(value, str) or not value:
         raise QuarantineError(INVALID_TIMESTAMP, "created_at is missing")
-    if value.isdigit():
+    if value.isascii() and value.isdigit():
         try:
             seconds, ticks = divmod(int(value), MONDAY_TICKS_PER_SECOND)
             return _utc_z(datetime.fromtimestamp(seconds, tz=timezone.utc), f"{ticks:07d}")
@@ -206,7 +213,7 @@ def _required_id(data: dict[str, Any], key: str) -> str:
 def _normalize_one(
     entry: dict[str, Any],
     event_id: str,
-    column_ids: frozenset[str],
+    column_ids: dict[str, frozenset[str]],
     labels: dict[str, str],
     actor_version: str | None,
     actors: dict[str, str],
@@ -214,12 +221,12 @@ def _normalize_one(
     data = entry["data"]
     if entry.get("event") != STATUS_EVENT_TYPE:
         raise QuarantineError(NON_STATUS_EVENT, f"event type {entry.get('event')!r} is not {STATUS_EVENT_TYPE}")
+    board_id = _required_id(data, "board_id")
     column_id = _required_id(data, "column_id")
-    if column_id not in column_ids:
-        raise QuarantineError(NON_STATUS_EVENT, f"column {column_id!r} is not a mapped status column")
+    if column_id not in column_ids.get(board_id, frozenset()):
+        raise QuarantineError(NON_STATUS_EVENT, f"column {column_id!r} is not a mapped status column for board {board_id!r}")
     if data.get("column_type", STATUS_COLUMN_TYPE) != STATUS_COLUMN_TYPE:
         raise QuarantineError(NON_STATUS_EVENT, f"column type {data.get('column_type')!r} is not a status column")
-    board_id = _required_id(data, "board_id")
     item_id = _required_id(data, "pulse_id")
     occurred_at = _occurred_at(entry.get("created_at"))
 
@@ -263,7 +270,7 @@ def normalize_events(
 ) -> NormalizationResult:
     """Normalize Monday activity-log status changes into contract events.
 
-    ``status_mapping``: ``{"version", "status_column_ids", "labels": {monday_label_text: canonical_status}}``.
+    ``status_mapping``: ``{"version", "status_column_ids": {board_id: [column_id]}, "labels": {monday_label_text: canonical_status}}``.
     ``actor_mapping``: optional ``{"version", "actors": {monday_person_id: canonical_actor_id}}``.
     Actors without a mapping entry stay explicit as ``unresolved_waset_co`` with their Monday ID preserved.
     """

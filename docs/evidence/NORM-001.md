@@ -5,13 +5,13 @@ Mode: fixture. Risk: critical. Affected contract: `contracts/normalized-status-e
 ## Deliverables
 
 - `src/atlas_commander/normalization.py`: `normalize_events(raw_events, status_mapping, actor_mapping=None) -> NormalizationResult`
-- `tests/test_normalization.py`: 26 tests
+- `tests/test_normalization.py`: 32 tests
 - `fixtures/monday/activity-status-events.json`: raw Monday `activity_logs` fixture with explicit status and actor mappings. It is not referenced by `fixtures/manifest.json` because it is raw input, not a contract instance.
 
 ## Behavior
 
 - **Input:** Monday activity-log entries (`id`, `event`, `user_id`, `created_at`, `data`). `data` can be a JSON string, as returned by the Monday API, or an already-decoded object.
-- **Status mapping (explicit, versioned):** `{"version", "status_column_ids", "labels": {monday_label_text: canonical_status}}`. Labels must match exactly. Unmapped `value` or `previous_value` labels and cleared statuses are quarantined as `UNKNOWN_STATUS`. A mapping that is missing a version or targets a non-canonical status raises `ValueError`.
+- **Status mapping (explicit, versioned):** `{"version", "status_column_ids": {board_id: [column_id]}, "labels": {monday_label_text: canonical_status}}`. Labels must match exactly. Unmapped `value` or `previous_value` labels and cleared statuses are quarantined as `UNKNOWN_STATUS`. A mapping that is missing a version or targets a non-canonical status raises `ValueError`.
 - **Actor mapping (optional, versioned):** `{"version", "actors": {monday_person_id: actor_id}}`. A mapped actor becomes `canonical_monday_id`. Any other actor becomes `unresolved_waset_co`, with `actor_monday_id` preserved and `actor_id = null`. The event is still accepted, and its ID is listed in `unresolved_actor_event_ids` for the exception queue.
 - **Duplicates:** repeated IDs whose decoded payloads are identical are deduplicated and recorded in `duplicate_event_ids`. Repeated IDs with conflicting payloads have **every** copy quarantined as `DUPLICATE_EVENT_CONFLICT`, because the normalizer cannot know which copy is true.
 - **Other quarantine reasons:** `MISSING_EVENT_ID`, `MALFORMED_EVENT`, `INVALID_TIMESTAMP` (naive or unparseable), `NON_STATUS_EVENT` (another event type or an unmapped column), and `SCHEMA_INVALID` (a defensive contract check on every accepted event).
@@ -24,7 +24,7 @@ Mode: fixture. Risk: critical. Affected contract: `contracts/normalized-status-e
 1. **Unresolved actors are accepted, not quarantined.** The status transition is a Monday fact, and the task says to "leave unresolved mapping explicit". The contract's semantic layer still reports `UNRESOLVED_ACTOR` for these events, and they are exposed through `unresolved_actor_event_ids`. Downstream attribution must not credit them to an Editor.
 2. For unresolved actors, `mapping_version` is the actor mapping version that was consulted, or `null` if no mapping was supplied, so the evidence shows which mapping failed to resolve the actor.
 3. Label mapping is keyed by label text, which is what activity logs carry reliably. Renaming a Monday label therefore needs a new mapping version.
-4. If `data.column_type` is present, it must be `color`. If it is absent, the column-ID allowlist alone decides.
+4. If `data.column_type` is present, it must be `color`. If it is absent, the board-specific column-ID allowlist decides.
 
 ## Contract impact
 
@@ -55,3 +55,23 @@ Added seven regression tests covering malformed IDs/configuration, timestamp ove
 Decoded duplicate content now uses recursively typed fingerprints: objects ignore key order, arrays retain order, and booleans, integers and floats remain distinct. Equivalent JSON-string versus decoded-object `data` still deduplicates. Same-ID actor 42/42.0, board 1/true and item 11/11.0 pairs now quarantine both occurrences as DUPLICATE_EVENT_CONFLICT in either input order. Board, item and column IDs share the strict ID parser used by event and actor IDs, including blank-string rejection.
 
 Validation after this repair: 28 normalization tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). No schema or DAG changes.
+
+
+## Board scope and strict input repair
+
+The versioned input configuration now requires an explicit board-to-column map; the previous global column list is rejected. Example:
+
+```python
+status_mapping = {
+    "version": "status-map-v2",
+    "status_column_ids": {"100": ["status"], "200": ["workflow"]},
+    "labels": {"Working on it": "In Progress"},
+}
+result = normalize_events(raw_events, status_mapping)
+```
+
+A `status` update on board `999` or `200` is quarantined for that configuration; only board `100` may use `status`, and board `200` may use `workflow`. Board/column mapping keys and label keys must be nonblank. Numeric Monday IDs cannot be negative integers; opaque nonblank string IDs are retained. Native tick strings must consist of ASCII digits.
+
+`raw_input_snapshots` is the authoritative immutable evidence collection, indexed by original input position. Accepted event IDs link to every corresponding snapshot's original `id` (integer IDs are normalized to strings for this linkage); quarantined records expose `input_index` directly. Identical duplicate occurrences remain separately retained. `raw_sources[event_id]` remains the compatible first accepted source lookup, while derived output dictionaries remain mutable.
+
+Validation: 32 normalization tests passed; `make test` passed (ruff, mypy, 11 unit, 6 contract, 2 integration, 2 e2e, JSON checks). Fixture input configuration updated. No contract schemas or DAG changed.

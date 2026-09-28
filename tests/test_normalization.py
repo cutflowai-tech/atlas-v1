@@ -265,11 +265,43 @@ class NormalizeEdgeCaseTests(unittest.TestCase):
                     self.assertEqual(result.accepted, [])
                     self.assertEqual(result.quarantined[0]["reason"], "MALFORMED_EVENT")
 
+    def test_columns_are_scoped_to_explicit_board(self):
+        mapping = dict(self.mapping, status_column_ids={"100": ["status"], "200": ["workflow"]})
+        events = [
+            activity("allowed", "Working on it", board_id=100),
+            activity("foreign", "Working on it", board_id=999),
+            activity("other-column", "Working on it", board_id=200),
+            activity("other-allowed", "Working on it", board_id=200, column_id="workflow"),
+        ]
+        result = normalize_events(events, mapping)
+        self.assertEqual({e["event_id"] for e in result.accepted}, {"allowed", "other-allowed"})
+        self.assertEqual([q["reason"] for q in result.quarantined], ["NON_STATUS_EVENT"] * 2)
+
+    def test_global_or_blank_mapping_keys_are_rejected(self):
+        for columns in [["status"], {"1": [" "]}, {" ": ["status"]}, {"1": []}, {"1": "status"}]:
+            with self.subTest(columns=columns), self.assertRaises(ValueError):
+                normalize_events([], dict(self.mapping, status_column_ids=columns))
+        with self.assertRaises(ValueError):
+            normalize_events([], dict(self.mapping, labels={" ": "Approved"}))
+
+    def test_non_ascii_ticks_are_invalid(self):
+        for timestamp in ["١٧٨٨٩٣٠٠٠٠٠٠٠٠٠٠٠", "１７８８９３０００００００００００"]:
+            result = self.normalize(activity("e1", "Working on it", created_at=timestamp))
+            self.assertEqual(result.accepted, [])
+            self.assertEqual(result.quarantined[0]["reason"], "INVALID_TIMESTAMP")
+
+    def test_negative_numeric_ids_are_invalid_but_opaque_strings_survive(self):
+        for raw in [activity(-1, "Working on it"), activity("actor", "Working on it", user_id=-42), activity("board", "Working on it", board_id=-1), activity("item", "Working on it", pulse_id=-11)]:
+            with self.subTest(raw=raw):
+                self.assertEqual(self.normalize(raw).accepted, [])
+        result = self.normalize(activity("opaque-event", "Working on it", user_id="opaque-person", pulse_id="opaque-item"))
+        self.assertEqual(result.accepted[0]["actor_monday_id"], "opaque-person")
+
     def test_invalid_mappings_rejected(self):
         with self.assertRaises(ValueError):
-            normalize_events([], {"status_column_ids": ["status"], "labels": {"Done": "Approved"}})
+            normalize_events([], {"status_column_ids": {"1": ["status"]}, "labels": {"Done": "Approved"}})
         with self.assertRaises(ValueError):
-            normalize_events([], {"version": "v1", "status_column_ids": ["status"], "labels": {"Done": "Finished"}})
+            normalize_events([], {"version": "v1", "status_column_ids": {"1": ["status"]}, "labels": {"Done": "Finished"}})
         with self.assertRaises(ValueError):
             normalize_events([], {"version": "v1", "labels": {"Done": "Approved"}})
         with self.assertRaises(ValueError):

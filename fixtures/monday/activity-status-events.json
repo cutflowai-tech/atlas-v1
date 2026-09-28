@@ -1,7 +1,7 @@
 {
   "status_mapping": {
     "version": "status-map-v1",
-    "status_column_ids": ["status"],
+    "status_column_ids": {"1": ["status"]},
     "labels": {
       "Backlog": "Backlog",
       "Working on it": "In Progress",
