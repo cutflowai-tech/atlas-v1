@@ -117,8 +117,10 @@ class SyncRunTests(unittest.TestCase):
         self.assertEqual(build, (self.builds / result.attempt_id).resolve())
         self.assertEqual(sync.build_state(build), "complete")
         self.assertEqual(sorted(p.name for p in build.iterdir()), ["COMPLETE.json", "build.json", "site"])
-        self.assertEqual(sorted(tree(build / "site")), ["dashboard.html", "dashboard.json", "profiles/editor-label-12.html",
-                                                        "profiles/editor-label-12.json", "profiles/editor-label-6.html", "profiles/editor-label-6.json"])
+        self.assertEqual(sorted(tree(build / "site")), [                  # one dataset, both languages (atlas_commander.site_layout)
+            "ar/dashboard.html", "ar/index.html", "ar/profiles/editor-label-12.html", "ar/profiles/editor-label-6.html",
+            "dashboard.json", "en/dashboard.html", "en/index.html", "en/profiles/editor-label-12.html", "en/profiles/editor-label-6.html",
+            "index.html", "profiles/editor-label-12.json", "profiles/editor-label-6.json"])
         marker = json.loads((build / "COMPLETE.json").read_text())
         self.assertEqual((marker["status"], marker["attempt_id"], marker["source_run_id"], marker["published"]),
                          ("complete", result.attempt_id, result.source_run_id, False))
@@ -203,7 +205,7 @@ class SyncRunTests(unittest.TestCase):
 
         def truncating(result, contract, site, *args, **kwargs):
             document = real(result, contract, site, *args, **kwargs)
-            (site / "dashboard.html").write_text("")
+            (site / "en" / "dashboard.html").write_text("")
             (site / "profiles" / "editor-label-6.json").write_text(json.dumps({"contract_version": "1.4.0"}))
             return document
 
@@ -225,12 +227,12 @@ class SyncRunTests(unittest.TestCase):
         for name, data in tree(site).items():
             (copy / name).parent.mkdir(parents=True, exist_ok=True)
             (copy / name).write_bytes(data)
-        (copy / "profiles/editor-label-12.html").unlink()
+        (copy / "ar/profiles/editor-label-12.html").unlink()
         (copy / "notes.txt").write_text(f"debug {TOKEN}")
         with self.assertRaises(sync.BuildValidationError) as caught:
             sync.validate_site(copy, reconstruction, contract, {**extract, "retrieved_at": "2020-01-01T00:00:00Z"}, manifest, TOKEN.encode())
         problems = "\n".join(caught.exception.problems)
-        for expected in ("missing required artifact profiles/editor-label-12.html", "unexpected artifact notes.txt",
+        for expected in ("missing required artifact ar/profiles/editor-label-12.html", "unexpected artifact notes.txt",
                          "contains the Monday token", "does not come from source run", "dashboard.json does not come from the source run"):
             self.assertIn(expected, problems)
         self.assertNotIn(TOKEN, problems)
@@ -275,7 +277,8 @@ class SyncRunTests(unittest.TestCase):
         for name, record in files.items():
             data = (build / "site" / name).read_bytes()
             self.assertEqual((record["sha256"], record["size_bytes"]), (sync._sha256(data), len(data)), name)
-        self.assertEqual((metadata["artifacts"]["root"], metadata["artifacts"]["entry"], metadata["published"]), ("site", "dashboard.html", False))
+        self.assertEqual((metadata["artifacts"]["root"], metadata["artifacts"]["entry"], metadata["published"]), ("site", "index.html", False))
+        self.assertEqual(metadata["artifacts"]["locales"], ["en", "ar"])
 
     # 16 — no token anywhere, through the real HTTPS code path
     def test_16_no_artifact_record_or_output_contains_the_token(self):

@@ -6,9 +6,10 @@
 
 The extract is the JSON written by the read-only ingestion (activity logs, items and
 ingestion metadata). ``build`` writes ``<editor_id>.json`` (editor-profile 1.4.0; 1.3.0 with ``--contract 1.3.0``) and
-``<editor_id>.html``. ``dashboard`` builds the same profile for every Editor with attributed projects, from one
-reconstruction of the extract, into ``profiles/``, then the CEO Dashboard (``dashboard.json`` and a self-contained
-``dashboard.html``). Nothing is written back to Monday.
+an English ``<editor_id>.html``. ``dashboard`` builds the same profile for every Editor with attributed projects, from one
+reconstruction of the extract, then the CEO Dashboard, as a bilingual site (``atlas_commander.site_layout``): language-neutral
+``dashboard.json`` and ``profiles/<editor_id>.json``, and English (``en/``) and Arabic (``ar/``) HTML rendered from those same
+documents. Nothing is written back to Monday.
 """
 
 from __future__ import annotations
@@ -20,9 +21,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from atlas_commander import site_layout
 from atlas_commander.cycles import COMPLETED
 from atlas_commander.dashboard import build_dashboard
 from atlas_commander.dashboard_html import render_dashboard_html
+from atlas_commander.i18n import EN, Loc, locales
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
@@ -50,34 +53,64 @@ def attribution_coverage(result: CycleReconstruction) -> dict[str, Any]:
             "not_attributed_by_reason": dict(sorted(reasons.items(), key=lambda pair: -pair[1]))}
 
 
+def _write(out: Path, relative: str, text: str) -> None:
+    path = out / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
 def build_profiles(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str,
-                   monday_item_url: str | None = None) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """One Editor Profile (JSON and HTML) per Editor with attributed projects, into ``out/profiles``."""
+                   monday_item_url: str | None = None) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]]]:
+    """One Editor Profile per Editor with attributed projects: ``profiles/<id>.json`` (language-neutral) and its report page in
+    every locale (``<locale>/profiles/<id>.html``). Returns the profiles and, per locale, the report HTML embedded in that
+    locale's dashboard. Any locale failing to render fails the whole build."""
     (out / "profiles").mkdir(parents=True, exist_ok=True)
-    profiles, pages = [], {}
+    profiles = []
     for editor in profiled_editors(result):
         profile = build_editor_profile(result, contract, editor["editor_id"], generated_at)
-        page = render_profile_html(profile, monday_item_url)
-        (out / "profiles" / f"{editor['editor_id']}.json").write_text(json.dumps(profile, indent=1) + "\n")
-        (out / "profiles" / f"{editor['editor_id']}.html").write_text(page)
+        (out / site_layout.profile_json(editor["editor_id"])).write_text(json.dumps(profile, indent=1) + "\n")
         profiles.append(profile)
-        pages[editor["editor_id"]] = page
+    pages: dict[str, dict[str, str]] = {}
+    for loc in locales():
+        pages[loc.code] = {}
+        for profile in profiles:
+            editor_id = profile["editor"]["editor_id"]
+            pages[loc.code][editor_id] = render_profile_html(profile, monday_item_url, loc)
+            _write(out, site_layout.profile_html(loc.code, editor_id), render_profile_html(
+                profile, monday_item_url, loc, dashboard_href=f"../dashboard.html#/editor/{editor_id}",
+                switch_href=f"../../{site_layout.profile_html(loc.other().code, editor_id)}"))
     return profiles, pages
 
 
+def _entry_page(loc: Loc, target: str, alternate: tuple[Loc, str] | None = None) -> str:
+    """A tiny page that sends the visitor to ``target`` (no third dashboard is rendered)."""
+    links = f'<a href="{target}">{loc.t("entry.open_dashboard")}</a>'
+    if alternate:
+        other, href = alternate
+        links += f' · <a href="{href}" hreflang="{other.code}" lang="{other.code}" dir="{other.dir}">{other.t("entry.open_dashboard")}</a>'
+    return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<meta http-equiv="refresh" content="0; url={target}"><title>Atlas</title></head><body><p>{links}</p></body></html>')
+
+
 def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, profiles: list[dict[str, Any]],
-                          pages: dict[str, str], monday_item_url: str | None = None) -> dict[str, Any]:
-    """The CEO Dashboard (``dashboard.json`` and ``dashboard.html``) built from those profiles."""
+                          pages: dict[str, dict[str, str]], monday_item_url: str | None = None) -> dict[str, Any]:
+    """The CEO Dashboard document (``dashboard.json``), built once, rendered in every locale, plus the entry pages."""
+    editor_ids = [profile["editor"]["editor_id"] for profile in profiles]
     dashboard = build_dashboard(profiles, generated_at, mapped_editors=contract["editor_attribution"]["entries"],
                                 attribution_coverage=attribution_coverage(result),
-                                profile_refs={editor_id: f"profiles/{editor_id}.json" for editor_id in pages})
-    (out / "dashboard.json").write_text(json.dumps(dashboard, indent=1) + "\n")
-    (out / "dashboard.html").write_text(render_dashboard_html(dashboard, pages, monday_item_url))
+                                profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids})
+    (out / site_layout.DASHBOARD_JSON).write_text(json.dumps(dashboard, indent=1) + "\n")
+    for loc in locales():
+        _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(
+            dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}"))
+        _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html"))
+    ar = EN.other()
+    _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), (ar, site_layout.dashboard_html(ar.code))))
     return dashboard
 
 
 def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, monday_item_url: str | None = None) -> dict[str, Any]:
-    """One Editor Profile per Editor with attributed projects, plus the CEO Dashboard built from those profiles."""
+    """Every Editor Profile and the CEO Dashboard, as the bilingual site described in ``atlas_commander.site_layout``."""
     profiles, pages = build_profiles(result, contract, out, generated_at, monday_item_url)
     return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url)
 
@@ -109,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     generated_at = args.generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     if args.command == "dashboard":
         dashboard = build_all(result, contract, Path(args.out_dir), generated_at, args.monday_item_url)
-        print(json.dumps({"dashboard": str(Path(args.out_dir) / "dashboard.html"),
+        print(json.dumps({"dashboard": str(Path(args.out_dir) / site_layout.ROOT_ENTRY),
                           "editors": [{"editor_id": s["editor_id"], "display_name": s["display_name"]} for s in dashboard["editors"]]}))
         return 0
     profile = build_editor_profile(result, contract, args.editor_id, generated_at)

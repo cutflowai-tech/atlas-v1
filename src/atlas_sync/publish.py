@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from atlas_commander import site_layout
 from atlas_commander.contracts import validate
 from atlas_commander.ingest import MANIFEST_NAME, RUN_ID_PATTERN, Clock, new_run_id, utc_now
 from atlas_commander.ingest_verify import verify
@@ -51,7 +52,7 @@ from atlas_monday_probe.raw_store import write_immutable_atomic
 
 from .config import PRODUCTION_CONTRACT_VERSIONS, ConfigError, SyncConfig, load_sync_config
 from .lock import EXIT_LOCKED, LockError, OperationLocked, production_lock
-from .run import BUILD_METADATA_NAME, BUILD_METADATA_VERSION, COMPLETE_NAME, DASHBOARD_FILES, FAILED_NAME, PROFILE_SCHEMAS, SITE_DIR, build_state
+from .run import BUILD_METADATA_NAME, BUILD_METADATA_VERSION, COMPLETE_NAME, FAILED_NAME, PROFILE_SCHEMAS, SITE_DIR, build_state
 
 POINTER_NAME = "current"
 CURRENT_METADATA_NAME = "CURRENT.json"
@@ -225,7 +226,7 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
         if name in listed and (record.get("sha256") != _sha256(data) or record.get("size_bytes") != len(data)):
             problems.append(f"artifact changed since the build: {name}")
     editors = [editor.get("editor_id") for editor in metadata.get("editors") or []]
-    required = [*DASHBOARD_FILES, *(f"profiles/{editor}.{kind}" for editor in editors for kind in ("json", "html"))]
+    required = site_layout.required_files(editors)   # English and Arabic are published together or not at all
     problems += [f"required artifact missing or empty: {name}" for name in required if name not in files or files[name].stat().st_size == 0]
     if metadata.get("editor_count") != len(editors):
         problems.append("editor count does not match the Editor list")
@@ -247,13 +248,16 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
                 or profile_source.get("retrieved_at") != manifest.get("retrieved_at") \
                 or (profile_source.get("history_coverage") or {}).get("activity_log_window") != manifest.get("window"):
             problems.append(f"profiles/{editor}.json does not come from this build's source run and contract")
-    dashboard = json.loads(files["dashboard.json"].read_bytes())
+    for name, locale in site_layout.html_files(editors).items():
+        if not files[name].read_text(encoding="utf-8").startswith(site_layout.document_opening(locale)):
+            problems.append(f"{name} does not declare lang={locale} and its direction")
+    dashboard = json.loads(files[site_layout.DASHBOARD_JSON].read_bytes())
     if sorted(s.get("editor_id") for s in dashboard.get("editors") or []) != sorted(editors) \
             or (dashboard.get("source") or {}).get("retrieved_at") != manifest.get("retrieved_at"):
         problems.append("dashboard.json does not match this build's Editors and source run")
     if problems:
         raise PublishRejected("build_invalid", problems[:MAX_PROBLEMS])
-    return ValidatedBuild(attempt_id, site, run_id, metadata_sha, contract_version, config.board_id, listed["dashboard.html"]["sha256"])
+    return ValidatedBuild(attempt_id, site, run_id, metadata_sha, contract_version, config.board_id, listed[site_layout.PUBLISHED_CHECK]["sha256"])
 
 
 def _pointer(config: SyncConfig) -> Path:
@@ -313,7 +317,7 @@ def _replace_pointer(temporary: Path, pointer: Path) -> None:
 def _verify_pointer(pointer: Path, build: ValidatedBuild, text: str) -> bool:
     try:
         return (pointer.is_symlink() and os.readlink(pointer) == text and pointer.resolve() == build.site
-                and _sha256((pointer / "dashboard.html").read_bytes()) == build.dashboard_sha256)
+                and _sha256((pointer / site_layout.PUBLISHED_CHECK).read_bytes()) == build.dashboard_sha256)
     except OSError:
         return False
 

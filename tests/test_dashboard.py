@@ -21,6 +21,11 @@ from atlas_commander.profile_html import render_profile_html
 from atlas_commander.runtime import load_contract_version
 
 
+def text(html):
+    """Visible text of an HTML fragment (tags removed)."""
+    return re.sub(r"<[^>]+>", "", html)
+
+
 class DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -120,10 +125,10 @@ class DashboardTests(unittest.TestCase):
     def test_editor_card_headline_follows_the_fixed_display_order(self):
         will, ahmed = (next(s for s in self.doc["editors"] if s["editor_id"] == e) for e in ("editor-label-6", "editor-label-12"))
         self.assertEqual(_hero(will)[0], "speed")
-        self.assertIn("33.3%<small>faster</small>", _hero(will)[1])
-        self.assertIn("Class A only", _hero(will)[1])            # the comparison never reads as an overall speed claim
-        self.assertIn("n = 5 Editor projects", _hero(will)[1])   # the sample size stays visible
-        self.assertIn("33.3%<small>slower</small>", _hero(ahmed)[1])
+        self.assertIn('<bdi dir="ltr">33.3%</bdi><small>faster</small>', _hero(will)[1])
+        self.assertIn("Class A only", text(_hero(will)[1]))            # the comparison never reads as an overall speed claim
+        self.assertIn("n = 5 Editor projects", text(_hero(will)[1]))   # the sample size stays visible
+        self.assertIn('<bdi dir="ltr">33.3%</bdi><small>slower</small>', _hero(ahmed)[1])
         bare = copy.deepcopy(ahmed)
         bare["speed"]["compared_cohorts"] = []
         self.assertEqual(_hero(bare)[0], "projects")              # no comparison and no classified deadline
@@ -134,7 +139,7 @@ class DashboardTests(unittest.TestCase):
         card = editor_card(self.will)
         issues = card.split("Issue signals", 1)[1].split("Positive", 1)[0]
         self.assertNotIn("Revision", issues)
-        self.assertIn('class="chip context"><b>1</b> Revisions', card)   # neutral dashed chip, not a warning
+        self.assertIn('class="chip context"><b><data value="1">1</data></b> <bdi>Revisions</bdi>', card)   # neutral dashed chip, not a warning
         self.assertNotIn("late", workload_chips(self.will["current_workload"]).lower())
 
     def test_timeline_events_come_from_the_profile(self):
@@ -174,7 +179,8 @@ class DashboardTests(unittest.TestCase):
             doc = json.loads((out / "dashboard.json").read_text())
             self.assertEqual([s["editor_id"] for s in doc["editors"]], ["editor-label-6", "editor-label-12"])
             self.assertEqual(doc["editors"][0]["profile_ref"], "profiles/editor-label-6.json")
-            self.assertIn("Management insights are being calibrated.", (out / "dashboard.html").read_text())
+            self.assertIn("Management insights are being calibrated.", (out / "en" / "dashboard.html").read_text())
+            self.assertIn("مؤشرات الإدارة ما زالت قيد الإعداد.", (out / "ar" / "dashboard.html").read_text())
 
 
 if __name__ == "__main__":

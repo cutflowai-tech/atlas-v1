@@ -90,7 +90,8 @@ class PublishTests(unittest.TestCase):
         self.assertFalse(self.publish_root.exists() and any(self.publish_root.iterdir()))
         result = self.publish(attempt.attempt_id)
         self.assert_published(result, attempt, previous=None)
-        self.assertEqual((self.pointer / "dashboard.html").read_bytes(), (self.site(attempt) / "dashboard.html").read_bytes())
+        for page in ("en/dashboard.html", "ar/dashboard.html"):              # both languages are live through the one pointer
+            self.assertEqual((self.pointer / page).read_bytes(), (self.site(attempt) / page).read_bytes())
         self.assertTrue(self.pointer.is_symlink())
         self.assertFalse((self.site(attempt) / "current").exists())
         self.assertEqual(sorted(p.name for p in self.publish_root.iterdir()), ["CURRENT.json", "current", "history"])
@@ -127,10 +128,10 @@ class PublishTests(unittest.TestCase):
     def test_6_tampered_artifacts_cannot_publish(self):
         attempt = self.stage()
         site = self.site(attempt)
-        cases = [lambda: (site / "dashboard.html").write_text("<html>changed</html>"),
-                 lambda: (site / "profiles/editor-label-12.html").unlink(),
+        cases = [lambda: (site / "en/dashboard.html").write_text("<html>changed</html>"),
+                 lambda: (site / "ar/profiles/editor-label-12.html").unlink(),
                  lambda: (site / "extra.html").write_text("x"),
-                 lambda: os.symlink("/etc/hostname", site / "profiles/link.html")]
+                 lambda: os.symlink("/etc/hostname", site / "ar/profiles/link.html")]
         for tamper in cases:
             original = snapshot(site)
             tamper()
@@ -152,7 +153,7 @@ class PublishTests(unittest.TestCase):
         original = metadata_path.read_bytes()
         metadata_path.chmod(0o644)
         metadata = json.loads(original)
-        metadata["artifacts"]["files"]["dashboard.html"]["sha256"] = "0" * 64
+        metadata["artifacts"]["files"]["en/dashboard.html"]["sha256"] = "0" * 64
         metadata_path.write_text(json.dumps(metadata, indent=1, sort_keys=True) + "\n")
         self.assert_rejected(self.publish(attempt.attempt_id), "build_tampered", None)
         metadata_path.write_text("not json")
@@ -345,7 +346,7 @@ class PublishTests(unittest.TestCase):
         self.publish(first.attempt_id)
         self.publish(second.attempt_id)
         live, before = self.live(), (self.publish_root / "CURRENT.json").read_bytes()
-        (self.site(first) / "dashboard.html").write_text("<html>tampered</html>")
+        (self.site(first) / "ar/dashboard.html").write_text("<html>tampered</html>")
         result = self.rollback()
         self.assert_rejected(result, "build_tampered", live)
         self.assertEqual((self.publish_root / "CURRENT.json").read_bytes(), before)

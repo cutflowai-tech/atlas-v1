@@ -1,10 +1,15 @@
-"""Atlas CEO Dashboard and Editor Profile pages: static, self-contained HTML (presentation only).
+"""Atlas CEO Dashboard and Editor Profile pages: static, self-contained HTML in English or Arabic (presentation only).
 
 Rendered from the dashboard document (``atlas_commander.dashboard``). The page formats values that
 are already in that document: durations, percentages, dates, and marker positions on a timeline. It
 computes no metric, comparison or conclusion. Management judgements with no approved rule
 (``atlas_commander.management``) appear as calm empty states; their reasons are listed under
 Data & System.
+
+Both languages are rendered by the same functions from the same document; only the locale
+(:class:`atlas_commander.i18n.Loc`) differs. Every Atlas-owned string comes from the catalogue;
+Monday values (Editor names, Video Types, statuses, issue labels, IDs) are shown exactly as recorded,
+direction-isolated in ``<bdi>``/``<code>``.
 
 Presentation-only choices, documented so they are never mistaken for business rules:
 
@@ -13,7 +18,8 @@ Presentation-only choices, documented so they are never mistaken for business ru
   completed-project count. This is a fixed display order, not a judgement of which metric matters most.
 - Timelines place each completed project at its first Ready For Approval, and each Monday Performance
   Issues label at the time it was added. The profile does not date revision events, so revisions
-  appear only as neutral context on their project.
+  appear only as neutral context on their project. Time always runs left (earlier) to right (later),
+  also on Arabic pages: the direction of the text is not the direction of time.
 - Month pills group those dated facts by their UTC calendar month.
 """
 
@@ -26,18 +32,11 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
-from atlas_commander.dashboard import month_name
+from atlas_commander.i18n import EN, Html, Loc
 from atlas_commander.management import PENDING_RULES
-from atlas_commander.profile_html import STATUS_TEXT
 
-NOT_EVALUATED = "Not evaluated yet"
-NO_SIGNAL = "No supported signal yet"
-RESULT_TEXT = {"early": "Early", "on_time": "On time", "late": "Late"}
-ETA_ISSUE_TEXT = {"REQUESTED_ETA_DATE_ONLY": "Requested ETA has a date but no time", "MISSING_REQUESTED_ETA": "No Requested ETA",
-                  "REQUESTED_ETA_INVALID": "Requested ETA could not be read"}
 SPEED_WORD = {"faster_than_team_median": "faster", "slower_than_team_median": "slower", "equal_to_team_median": "level"}
-
-# ---------------------------------------------------------------- design tokens and styles
+RESULTS = ("early", "on_time", "late")
 
 CSS = """
 :root{color-scheme:light;
@@ -79,7 +78,7 @@ section{margin-top:var(--s-7)}
 .focus p{color:var(--on-dark-2);margin:0;max-width:52ch}
 .focus .col h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-dark-3);font-weight:500;margin:0 0 10px}
 .focus .col+.col{margin-top:var(--s-5)}.focus a{color:var(--on-dark);font-size:14px}
-.fchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-pill);font-size:13px;margin:0 6px 6px 0;background:var(--dark-2);color:var(--on-dark)}
+.fchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--r-pill);font-size:13px;margin:0;margin-inline-end:6px;margin-block-end:6px;background:var(--dark-2);color:var(--on-dark)}
 .fchip.cal{background:transparent;border:1px dashed #56574d;color:var(--on-dark-2)}
 .grid-ed{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:var(--s-4)}
 .ed{position:relative;display:flex;flex-direction:column;gap:var(--s-4);transition:transform var(--t),box-shadow var(--t),border-color var(--t)}
@@ -89,9 +88,9 @@ section{margin-top:var(--s-7)}
 .who{display:flex;align-items:center;gap:var(--s-3)}.who h3{margin:0;font-size:20px;font-weight:500;letter-spacing:-.01em}
 .avatar{flex:none;width:46px;height:46px;border-radius:50%;background:var(--surface-3);color:var(--ink);display:grid;place-items:center;font-size:15px;letter-spacing:.02em;font-weight:500}
 .avatar.xl{width:84px;height:84px;font-size:28px}
-.overall{margin-left:auto;text-align:right}.overall b{display:block;font-size:22px;font-weight:300;line-height:1}.overall span{font-size:11.5px;color:var(--ink-3)}
+.overall{margin-inline-start:auto;text-align:end}.overall b{display:block;font-size:22px;font-weight:300;line-height:1}.overall span{font-size:11.5px;color:var(--ink-3)}
 .hero{background:var(--surface-2);border-radius:var(--r-md);padding:var(--s-4) var(--s-5);display:flex;flex-direction:column;gap:6px}
-.hero .big{font-size:44px;font-weight:300;letter-spacing:-.03em;line-height:1}.hero .big small{font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;font-weight:500}
+.hero .big{font-size:44px;font-weight:300;letter-spacing:-.03em;line-height:1}.hero .big small{font-size:15px;letter-spacing:.06em;text-transform:uppercase;margin-inline-start:6px;font-weight:500}
 .hero .pair{display:flex;gap:var(--s-5);margin-top:4px}.hero .pair div b{display:block;font-size:17px;font-weight:500}.hero .pair div span{font-size:12px;color:var(--ink-3)}
 .line{display:grid;grid-template-columns:108px 1fr;gap:var(--s-3);align-items:start;font-size:14px}
 .line>.k{color:var(--ink-3);font-size:12.5px;padding-top:2px;display:flex;align-items:center;gap:6px}
@@ -99,7 +98,7 @@ section{margin-top:var(--s-7)}
 .chip{white-space:nowrap}.chip b{font-weight:500;color:var(--ink)}.chip.context{background:transparent;border:1px dashed var(--line-2)}
 .strip{display:flex;gap:3px;height:8px;border-radius:var(--r-pill);overflow:hidden;background:var(--surface-3);margin:4px 0 6px}
 .strip.lg{height:14px}.strip i{display:block;height:100%}.strip .e{background:var(--ink)}.strip .o{background:var(--ink-3)}.strip .l{background:var(--late)}
-.key{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}.key.e{background:var(--ink)}.key.o{background:var(--ink-3)}.key.l{background:var(--late)}
+.key{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}.key.e{background:var(--ink)}.key.o{background:var(--ink-3)}.key.l{background:var(--late)}
 .cta{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--r-pill);background:var(--dark);color:var(--on-dark);text-decoration:none;font-size:14px;transition:background var(--t)}
 .cta:hover{background:#000}.ed .cta{align-self:flex-start;margin-top:auto}
 .info{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0;cursor:pointer;color:var(--ink-3);font-size:12.5px;text-decoration:underline dotted;text-underline-offset:3px}
@@ -112,7 +111,7 @@ section{margin-top:var(--s-7)}
 .pill:hover{border-color:var(--line-2);color:var(--ink)}.pill[aria-selected=true]{background:var(--dark);border-color:var(--dark);color:var(--on-dark)}
 .pill:disabled{opacity:.45;cursor:default}
 .pulse{padding:var(--s-5) var(--s-5) var(--s-4)}
-.tl{overflow-x:auto}.tl-inner{min-width:680px}
+.tl{overflow-x:auto;direction:ltr}.tl-inner{min-width:680px}
 .axis{position:relative;height:26px;margin-left:150px;border-bottom:1px solid var(--line)}
 .axis span{position:absolute;bottom:6px;transform:translateX(-50%);font-size:12px;color:var(--ink-3);white-space:nowrap}
 .axis .today{color:var(--ink);font-weight:500}
@@ -142,25 +141,25 @@ section{margin-top:var(--s-7)}
 .phead h1{font-size:clamp(34px,4vw,48px);font-weight:400;letter-spacing:-.03em;margin:0;line-height:1.05}
 .phead .facts{display:flex;gap:var(--s-6);flex-wrap:wrap}.phead .facts div span{display:block;font-size:12px;color:var(--ink-3)}.phead .facts div b{font-weight:400;font-size:17px}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s-4);margin-top:var(--s-6)}
-.metric{text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:box-shadow var(--t),border-color var(--t)}
+.metric{text-align:start;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:box-shadow var(--t),border-color var(--t)}
 .metric:hover{box-shadow:var(--shadow-1);border-color:var(--line-2)}
-.metric .v{font-size:40px;font-weight:300;letter-spacing:-.03em;line-height:1.05}.metric .v small{font-size:14px;letter-spacing:.04em;text-transform:uppercase;margin-left:4px}
+.metric .v{font-size:40px;font-weight:300;letter-spacing:-.03em;line-height:1.05}.metric .v small{font-size:14px;letter-spacing:.04em;text-transform:uppercase;margin-inline-start:4px}
 .tabs{position:sticky;top:0;z-index:5;background:var(--shell);padding:var(--s-3) 0;margin-top:var(--s-6)}
 .panel{margin-top:var(--s-4)}.two{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--s-4)}
 .qa{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--s-4)}
-.qa h3{font-size:14px;font-weight:500;margin:0 0 4px}.qa .j{font-size:12.5px;color:var(--ink-3);margin-bottom:8px}.qa ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink-2)}
+.qa h3{font-size:14px;font-weight:500;margin:0 0 4px}.qa .j{font-size:12.5px;color:var(--ink-3);margin-bottom:8px}.qa ul{margin:0;padding-inline-start:18px;font-size:14px;color:var(--ink-2)}
 .cohorts{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:var(--s-3)}
-.cohort{text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:8px;border-radius:var(--r-md);padding:var(--s-4) var(--s-5)}
+.cohort{text-align:start;cursor:pointer;display:flex;flex-direction:column;gap:8px;border-radius:var(--r-md);padding:var(--s-4) var(--s-5)}
 .cohort .nums{display:flex;gap:var(--s-5)}.cohort .nums b{display:block;font-size:20px;font-weight:400}.cohort .nums span{font-size:12px;color:var(--ink-3)}
 .cohort.cmp{border-color:var(--ink)}
 .list{display:flex;flex-direction:column}.list button{all:unset;cursor:pointer;display:grid;grid-template-columns:130px 1fr 110px 1fr 90px;gap:var(--s-3);padding:12px 6px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:center}
 .list button:hover{background:var(--surface-2)}.list button:focus-visible{outline:2px solid var(--ink)}
 .res-early{color:var(--ink)}.res-late{color:var(--late)}.res-on_time{color:var(--ink)}
-.sys table{width:100%;border-collapse:collapse;font-size:13.5px}.sys th,.sys td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.sys table{width:100%;border-collapse:collapse;font-size:13.5px}.sys th,.sys td{text-align:start;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 .sys th{font-weight:500;color:var(--ink-3);font-size:12.5px}.sys .card{margin-top:var(--s-4)}.sys h3{margin:0 0 var(--s-3);font-size:17px;font-weight:500}
 .sys code,.drawer code{font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:6px;word-break:break-all}
 .scrim{position:fixed;inset:0;background:rgba(29,30,24,.28);opacity:0;pointer-events:none;transition:opacity var(--t);z-index:20}
-.drawer{position:fixed;top:12px;right:12px;bottom:12px;width:min(520px,calc(100vw - 24px));background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);
+.drawer{position:fixed;top:12px;inset-inline-end:12px;bottom:12px;width:min(520px,calc(100vw - 24px));background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);
 transform:translateX(calc(100% + 24px));transition:transform var(--t);z-index:21;display:flex;flex-direction:column}
 body.drawer-open .scrim{opacity:1;pointer-events:auto}body.drawer-open .drawer{transform:none}
 .drawer header{display:flex;justify-content:space-between;align-items:center;padding:var(--s-5) var(--s-5) var(--s-3)}
@@ -169,13 +168,27 @@ body.drawer-open .scrim{opacity:1;pointer-events:auto}body.drawer-open .drawer{t
 .drawer dl,.sys dl{display:grid;grid-template-columns:170px 1fr;gap:8px 12px;margin:0;font-size:13.5px}.drawer dt,.sys dt{color:var(--ink-3)}.drawer dd,.sys dd{margin:0}
 .drawer h4{margin:var(--s-5) 0 var(--s-2);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
 .drawer iframe{width:100%;height:70vh;border:1px solid var(--line);border-radius:var(--r-md)}
-.drawer p{font-size:14px;color:var(--ink-2)}.drawer ul{padding-left:18px;font-size:14px}
+.drawer p{font-size:14px;color:var(--ink-2)}.drawer ul{padding-inline-start:18px;font-size:14px}
 [hidden]{display:none!important}
 @media (max-width:1080px){.ctx{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}
 @media (max-width:760px){.shell{margin:0;border-radius:0;padding:var(--s-4) var(--s-4) var(--s-7)}.focus{grid-template-columns:1fr;padding:var(--s-5)}
 .grid-ed{grid-template-columns:1fr}.ctx{grid-template-columns:1fr}.hist .row{grid-template-columns:1fr;gap:var(--s-2)}.phead{grid-template-columns:auto 1fr}
-.phead .overall{grid-column:1/-1;text-align:left;margin:0}.metrics{grid-template-columns:1fr 1fr}.line{grid-template-columns:96px 1fr}
+.phead .overall{grid-column:1/-1;text-align:start;margin:0}.metrics{grid-template-columns:1fr 1fr}.line{grid-template-columns:96px 1fr}
 .list button{grid-template-columns:1fr 1fr;row-gap:2px}.metric .v{font-size:32px}.topbar{margin-bottom:var(--s-5)}}
+/* ---- language and direction (structural; the same design in both languages) */
+.topnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lang{padding:8px 16px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--surface);text-decoration:none;font-size:14px;color:var(--ink)}
+.lang:hover{background:var(--surface-2)}
+[dir=rtl] .flip{transform:scaleX(-1)}
+[dir=rtl] .drawer{transform:translateX(calc(-100% - 24px))}
+bdi,code{unicode-bidi:isolate}
+:root[lang=ar]{--font:"Segoe UI","Noto Sans Arabic","Noto Naskh Arabic","Geeza Pro","Arabic UI Text","Tahoma",system-ui,sans-serif}
+[lang=ar] body{line-height:1.75}
+[lang=ar] .eyebrow,[lang=ar] .focus .col h3,[lang=ar] .drawer h4,[lang=ar] .hero .big small,[lang=ar] .metric .v small{letter-spacing:0;text-transform:none}
+[lang=ar] h1,[lang=ar] h2,[lang=ar] h3,[lang=ar] .hero .big,[lang=ar] .metric .v,[lang=ar] .brand{letter-spacing:0}
+[lang=ar] .hello h1,[lang=ar] .phead h1{line-height:1.3}[lang=ar] .focus h2{line-height:1.45}
+[lang=ar] .line{grid-template-columns:132px 1fr}[lang=ar] .chip{white-space:normal}
+@media (max-width:760px){[lang=ar] .line{grid-template-columns:112px 1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 """
 
@@ -197,6 +210,8 @@ SCRIPT = """
     closeDrawer(); window.scrollTo(0, 0);
   }
   document.addEventListener('click', function(e){
+    var keep = e.target.closest('a[data-keep-hash]');
+    if (keep) { keep.setAttribute('href', keep.getAttribute('href').split('#')[0] + location.hash); return; }
     var pill = e.target.closest('[data-pill]');
     if (pill) {
       var group = pill.closest('[data-pills]');
@@ -229,7 +244,7 @@ SCRIPT = """
   document.querySelector('.scrim').addEventListener('click', closeDrawer);
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDrawer(); });
   var hello = document.getElementById('greeting');
-  if (hello) { var hr = new Date().getHours(); hello.textContent = hr < 12 ? 'Good morning.' : hr < 18 ? 'Good afternoon.' : 'Good evening.'; }
+  if (hello) { var hr = new Date().getHours(); hello.textContent = hello.getAttribute(hr < 12 ? 'data-morning' : hr < 18 ? 'data-afternoon' : 'data-evening'); }
   window.addEventListener('hashchange', route); route();
 })();
 """
@@ -249,26 +264,17 @@ ICONS = {
     "x": '<path d="M6 6l12 12M18 6 6 18"/>',
     "spark": '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/>',
 }
+# Direction-bearing icons point the other way on RTL pages (the CSS mirrors them); the others are symmetric.
+DIRECTIONAL = {"arrow", "back"}
 
 
 def icon(name: str, size: int = 16) -> str:
-    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
+    flip = ' class="flip"' if name in DIRECTIONAL else ""
+    return (f'<svg{flip} width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
             f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{ICONS[name]}</svg>')
 
 
 # ---------------------------------------------------------------- formatting (presentation only)
-
-def _h(seconds: Any) -> str:
-    return "—" if seconds is None else f"{seconds / 3600:.1f}h"
-
-
-def _signed_h(seconds: Any) -> str:
-    return "—" if seconds is None else f"{seconds / 3600:+.1f}h"
-
-
-def _pct(rate: Any) -> str:
-    return "—" if rate is None else f"{rate * 100:.1f}%"
-
 
 def _dt(value: Any) -> datetime | None:
     if not value:
@@ -276,68 +282,69 @@ def _dt(value: Any) -> datetime | None:
     return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
 
 
-def _date(value: Any, with_time: bool = True) -> str:
-    moment = _dt(value)
-    if moment is None:
-        return "—"
-    return moment.strftime("%d %b %Y, %H:%M UTC") if with_time else moment.strftime("%d %b %Y")
-
-
 def _initials(name: str) -> str:
     words = [w for w in name.replace("(", " ").replace(")", " ").split() if w[:1].isalpha()]
     return "".join(w[0] for w in words[:2]).upper() or "?"
 
 
-def _labels(labels: list[str], fallback: str = "—") -> str:
-    return " + ".join(labels) or fallback
-
-
-def _plural(n: int, word: str, many: str | None = None) -> str:
-    return f"{n} {word if n == 1 else (many or word + 's')}"
-
-
-def _item(item_id: str, url: str | None) -> str:
-    text = escape(str(item_id))
+def _item(item_id: str, url: str | None, loc: Loc) -> str:
+    text = loc.tech(item_id)
     return f'<a href="{escape(url.format(item_id=item_id))}" target="_blank" rel="noopener">{text}</a>' if url else text
+
+
+def _attr(text: str) -> str:
+    return escape(text, quote=True)
 
 
 # ---------------------------------------------------------------- primitives
 
 def avatar(name: str, size: str = "") -> str:
-    return f'<span class="avatar {size}" aria-hidden="true">{escape(_initials(name))}</span>'
+    return f'<span class="avatar {size}" aria-hidden="true"><bdi>{escape(_initials(name))}</bdi></span>'
 
 
 def empty_state(title: str, detail: str = "") -> str:
-    return f'<div class="empty"><b>{escape(title)}</b>{escape(detail)}</div>'
+    """``title`` and ``detail`` are already-rendered HTML (catalogue text)."""
+    return f'<div class="empty"><b>{title}</b>{detail}</div>'
 
 
 def info_button(text: str, drawer_id: str) -> str:
-    return f'<button type="button" class="info above" data-drawer="{escape(drawer_id)}">{icon("info", 14)}{escape(text)}</button>'
+    return f'<button type="button" class="info above" data-drawer="{escape(drawer_id)}">{icon("info", 14)}{text}</button>'
 
 
-def overall_placeholder() -> str:
-    return f'<div class="overall" title="{NOT_EVALUATED}"><span>Overall</span><b aria-label="Overall: {NOT_EVALUATED}">—</b><span>{NOT_EVALUATED}</span></div>'
+def overall_placeholder(loc: Loc = EN) -> str:
+    not_evaluated = loc.t("common.not_evaluated")
+    return (f'<div class="overall" title="{_attr(loc.text("overall.aria"))}"><span>{loc.t("overall.label")}</span>'
+            f'<b aria-label="{_attr(loc.text("overall.aria"))}">—</b><span>{not_evaluated}</span></div>')
 
 
-def deadline_strip(d: dict[str, Any], large: bool = False) -> str:
+def deadline_strip(d: dict[str, Any], large: bool = False, loc: Loc = EN) -> str:
     total = (d.get("early") or 0) + (d.get("on_time") or 0) + (d.get("late") or 0)
     if not total:
         return ""
-    label = f"{d['early']} early, {d['on_time']} on time, {d['late']} late of {total} classified"
+    label = _attr(loc.text("deadline.strip_label", early=d["early"], on_time=d["on_time"], late=d["late"], total=total))
     parts = "".join(f'<i class="{cls}" style="flex:{n}"></i>' for cls, n in (("e", d["early"]), ("o", d["on_time"]), ("l", d["late"])) if n)
     return f'<div class="strip{" lg" if large else ""}" role="img" aria-label="{label}" title="{label}">{parts}</div>'
 
 
-def deadline_counts(d: dict[str, Any]) -> str:
-    return (f'<span><b>{d["early"]}</b> early · <b>{d["on_time"]}</b> on time · <b>{d["late"]}</b> late</span>')
+def deadline_counts(d: dict[str, Any], loc: Loc = EN) -> str:
+    return f'<span>{loc.t("deadline.counts", early=_b(loc.num(d["early"])), on_time=_b(loc.num(d["on_time"])), late=_b(loc.num(d["late"])))}</span>'
+
+
+def _b(fragment: str) -> Html:
+    return Html(f"<b>{fragment}</b>")
 
 
 def template(tid: str, title: str, content: str) -> str:
-    return f'<template id="{escape(tid)}" data-title="{escape(title)}">{content}</template>'
+    """``title`` is plain text (shown by the drawer script with textContent)."""
+    return f'<template id="{escape(tid)}" data-title="{_attr(title)}">{content}</template>'
 
 
 def _dl(rows: list[tuple[str, str]]) -> str:
-    return "<dl>" + "".join(f"<dt>{escape(k)}</dt><dd>{v}</dd>" for k, v in rows) + "</dl>"
+    return "<dl>" + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows) + "</dl>"
+
+
+def _n_or_dash(value: Any, loc: Loc) -> Html:
+    return loc.num(value) if value is not None else Html("—")
 
 
 # ---------------------------------------------------------------- evidence drawer contents
@@ -346,152 +353,167 @@ def _project_tid(editor_id: str, item_id: str) -> str:
     return f"p-{editor_id}-{item_id}"
 
 
-def project_evidence(editor_name: str, row: dict[str, Any], url: str | None) -> str:
+def project_evidence(editor_name: str, row: dict[str, Any], url: str | None, loc: Loc = EN) -> str:
     result = row["deadline_result"]
     if result:
-        deadline = f'{escape(RESULT_TEXT[result])} · {_signed_h(row["deadline_delta_seconds"])} against the Requested ETA'
+        deadline = loc.t("evidence.deadline_result", result=loc.t(f"result.{result}"), delta=loc.hours(row["deadline_delta_seconds"], signed=True))
     else:
-        deadline = escape(ETA_ISSUE_TEXT.get(row["requested_eta_issue"] or "", "Not classified") + " — not classified")
+        issue = row["requested_eta_issue"]
+        # A technical code with no catalogue entry is shown as the code itself (never as English prose).
+        reason = (loc.t(f"eta_issue.{issue}") if loc.has(f"eta_issue.{issue}") else loc.tech(issue)) if issue else loc.t("common.not_classified")
+        deadline = loc.t("evidence.deadline_unclassified", reason=reason)
     ids = row["evidence_event_ids"] or {}
+    set_at = (f' <span class="quiet">{loc.t("evidence.eta_set_at", date=loc.date(row["requested_eta_observed_at"]))}</span>'
+              if row.get("requested_eta_observed_at") else "")
+    duration = loc.hours(row["duration_seconds"]) + ("" if row["speed_eligible"] else Html(" · " + loc.t("evidence.not_used_for_speed")))
     content = _dl([
-        ("Editor", escape(editor_name)),
-        ("Monday item", _item(row["monday_item_id"], url)),
-        ("Video Type", escape(_labels(row["cohort_labels"]))),
-        ("Work started", escape(_date(row["in_progress_at"]))),
-        ("Ready For Approval", escape(_date(row["ready_for_approval_at"]))),
-        ("Work duration", f'{_h(row["duration_seconds"])}{"" if row["speed_eligible"] else " · not used for speed"}'),
-        ("Requested ETA", escape(_date(row["requested_eta"])) + (f' <span class="quiet">(set {escape(_date(row["requested_eta_observed_at"]))})</span>'
-                                                                  if row.get("requested_eta_observed_at") else "")),
-        ("Deadline", deadline),
+        (loc.t("field.editor"), loc.src(editor_name)),
+        (loc.t("field.monday_item"), _item(row["monday_item_id"], url, loc)),
+        (loc.t("field.video_type"), loc.labels(row["cohort_labels"])),
+        (loc.t("field.work_started"), escape(loc.date(row["in_progress_at"]))),
+        (loc.t("field.ready_for_approval"), escape(loc.date(row["ready_for_approval_at"]))),
+        (loc.t("field.work_duration"), duration),
+        (loc.t("field.requested_eta"), escape(loc.date(row["requested_eta"])) + set_at),
+        (loc.t("field.deadline"), deadline),
     ])
     ignored = row.get("requested_eta_changes_ignored_after_ready_for_approval") or 0
-    notes = []
-    if ignored:
-        notes.append(f"{_plural(ignored, 'later Requested ETA change')} after Ready For Approval, ignored by the deadline rule.")
-    labels = "".join(f'<span class="chip">{escape(label)}</span>' for label in row["quality_labels"]) or '<span class="quiet">None recorded</span>'
-    revisions = row["client_revision_events"]
-    evidence = "".join(f"<dt>{escape(k.replace('_', ' ').capitalize())}</dt><dd><code>{escape(str(v))}</code></dd>" for k, v in ids.items() if v)
-    status = ", ".join(row["exclusions"]) or "Included in metrics"
-    return (content + (f'<p>{escape(" ".join(notes))}</p>' if notes else "")
-            + f'<h4>Monday Performance Issues</h4><div class="chips">{labels}</div>'
-            + f'<h4>Client revision context</h4><p>{_plural(revisions, "client revision event")} on this project. Context only — not a performance signal.</p>'
-            + f'<h4>Metric status</h4><p>{escape(status)}</p>'
-            + (f'<p class="tiny quiet">Flags: {escape(", ".join(row["flags"]))}</p>' if row["flags"] else "")
-            + f"<h4>Monday events</h4><dl>{evidence}</dl>")
+    notes = f'<p>{loc.count("noun.later_eta_change", ignored)}</p>' if ignored else ""
+    labels = "".join(f'<span class="chip">{loc.src(label)}</span>' for label in row["quality_labels"]) or f'<span class="quiet">{loc.t("evidence.none_recorded")}</span>'
+    evidence = "".join(f"<dt>{loc.t(f'event.{k}')}</dt><dd>{loc.tech(v)}</dd>" for k, v in ids.items() if v)
+    status = (loc.comma().join(loc.tech(reason) for reason in row["exclusions"]) if row["exclusions"] else loc.t("evidence.included"))
+    return (content + notes
+            + f'<h4>{loc.t("evidence.issues_heading")}</h4><div class="chips">{labels}</div>'
+            + f'<h4>{loc.t("revisions.context_heading")}</h4><p>{loc.t("evidence.revision_context", events=loc.count("noun.client_revision_event", row["client_revision_events"]))}</p>'
+            + f'<h4>{loc.t("evidence.metric_status")}</h4><p>{status}</p>'
+            + (f'<p class="tiny quiet">{loc.t("evidence.flags", flags=Html(loc.comma().join(loc.tech(f) for f in row["flags"])))}</p>' if row["flags"] else "")
+            + f"<h4>{loc.t('evidence.monday_events')}</h4><dl>{evidence}</dl>")
 
 
-def _project_templates(s: dict[str, Any], url: str | None) -> str:
-    return "".join(template(_project_tid(s["editor_id"], row["monday_item_id"]), f"Project {row['monday_item_id']}",
-                            project_evidence(s["display_name"], row, url)) for row in s["projects"])
+def _project_templates(s: dict[str, Any], url: str | None, loc: Loc) -> str:
+    return "".join(template(_project_tid(s["editor_id"], row["monday_item_id"]), loc.text("evidence.project_title", item=row["monday_item_id"]),
+                            project_evidence(s["display_name"], row, url, loc)) for row in s["projects"])
 
 
-def _project_list(s: dict[str, Any], item_ids: list[str] | None = None) -> str:
+def _project_list(s: dict[str, Any], item_ids: list[str] | None = None, loc: Loc = EN) -> str:
     rows = [row for row in s["projects"] if item_ids is None or row["monday_item_id"] in set(item_ids)]
     if not rows:
-        return '<p class="quiet">No projects.</p>'
+        return f'<p class="quiet">{loc.t("evidence.no_projects")}</p>'
     out = []
     for row in rows:
         result = row["deadline_result"]
-        deadline = (f'<span class="res-{result}">{RESULT_TEXT[result]} {_signed_h(row["deadline_delta_seconds"])}</span>' if result
-                    else '<span class="quiet">not classified</span>')
+        deadline = (f'<span class="res-{result}">{loc.t(f"result.{result}")} {loc.hours(row["deadline_delta_seconds"], signed=True)}</span>' if result
+                    else f'<span class="quiet">{loc.t("common.not_classified_lower")}</span>')
         out.append(f'<button type="button" data-drawer="{escape(_project_tid(s["editor_id"], row["monday_item_id"]))}">'
-                   f'<span>{escape(_date(row["ready_for_approval_at"], False))}</span><span>{escape(_labels(row["cohort_labels"]))}</span>'
-                   f'<span>{deadline}</span><span class="soft">{escape(", ".join(row["quality_labels"]) or "")}</span>'
-                   f'<span class="quiet">{_h(row["duration_seconds"])}</span></button>')
+                   f'<span>{escape(loc.date(row["ready_for_approval_at"], False))}</span><span>{loc.labels(row["cohort_labels"])}</span>'
+                   f'<span>{deadline}</span><span class="soft">{loc.comma().join(loc.src(label) for label in row["quality_labels"])}</span>'
+                   f'<span class="quiet">{loc.hours(row["duration_seconds"])}</span></button>')
     return f'<div class="list">{"".join(out)}</div>'
 
 
 # ---------------------------------------------------------------- Editor card (CEO home)
 
-def _hero(s: dict[str, Any]) -> tuple[str, str]:
+def _hero(s: dict[str, Any], loc: Loc = EN) -> tuple[str, str]:
     """Headline block for the card and which section it shows (fixed display order, see module docstring)."""
     speed, deadline = s["speed"], s["deadline"]
     if speed["compared_cohorts"]:
         c = speed["compared_cohorts"][0]
-        pct = abs(c["editor_vs_team_median_pct"] or 0)
-        word = SPEED_WORD[c["conclusion"]]
-        big = f'{pct:.1f}%<small>{word}</small>' if c["conclusion"] != "equal_to_team_median" else 'Level<small>with team</small>'
-        return ("speed", (f'<div class="hero"><span class="eyebrow">{icon("speed", 13)} Speed · {escape(_labels(c["labels"]))} vs team median</span>'
+        labels = loc.labels(c["labels"])
+        if c["conclusion"] == "equal_to_team_median":
+            big = loc.t("hero.level_big", big=loc.t("hero.level"), small=Html(f"<small>{loc.t('hero.level_small')}</small>"))
+        else:
+            word = Html(f"<small>{loc.t('hero.word.' + SPEED_WORD[c['conclusion']])}</small>")
+            big = loc.t("hero.speed_big", pct=loc.pct_value(abs(c["editor_vs_team_median_pct"] or 0)), word=word)
+        team_n = c["team_sample_size"]
+        sample = loc.t("hero.sample", e=loc.num(c["editor_sample_size"]), t=_n_or_dash(team_n, loc), name=loc.src(s["display_name"]),
+                       e_projects=loc.count("noun.project", c["editor_sample_size"]),
+                       t_projects=loc.count("noun.project", team_n) if team_n is not None else Html("—"),
+                       editors=loc.count("noun.editor", c["team_editor_count"] or 0), labels=labels)
+        return ("speed", (f'<div class="hero"><span class="eyebrow">{icon("speed", 13)} {loc.t("hero.speed_eyebrow", labels=labels)}</span>'
                 f'<div class="big">{big}</div>'
-                f'<div class="pair"><div><b>{_h(c["editor_median_seconds"])}</b><span>Editor median</span></div>'
-                f'<div><b>{_h(c["team_median_seconds"])}</b><span>Team median</span></div></div>'
-                f'<span class="tiny quiet">n = {c["editor_sample_size"]} Editor projects · {c["team_sample_size"]} team projects · {c["team_editor_count"]} Editors · '
-                f'{escape(_labels(c["labels"]))} only</span></div>'))
+                f'<div class="pair"><div><b>{loc.hours(c["editor_median_seconds"])}</b><span>{loc.t("hero.editor_median", name=loc.src(s["display_name"]))}</span></div>'
+                f'<div><b>{loc.hours(c["team_median_seconds"])}</b><span>{loc.t("common.team_median")}</span></div></div>'
+                f'<span class="tiny quiet">{sample}</span></div>'))
     if deadline["evaluated"]:
-        return ("deadline", (f'<div class="hero"><span class="eyebrow">{icon("clock", 13)} Deadlines</span>{deadline_strip(deadline, True)}'
-                f'<div style="font-size:17px">{deadline_counts(deadline)}</div><span class="tiny quiet">{deadline["evaluated"]} classified deliveries</span></div>'))
-    return ("projects", (f'<div class="hero"><span class="eyebrow">{icon("layers", 13)} Projects</span><div class="big">{s["sample"]["completed_projects"]}'
-            f'<small>completed</small></div></div>'))
+        return ("deadline", (f'<div class="hero"><span class="eyebrow">{icon("clock", 13)} {loc.t("common.deadlines")}</span>{deadline_strip(deadline, True, loc)}'
+                f'<div style="font-size:17px">{deadline_counts(deadline, loc)}</div><span class="tiny quiet">'
+                f'{loc.count("noun.classified_delivery", deadline["evaluated"])}</span></div>'))
+    completed = s["sample"]["completed_projects"]
+    return ("projects", (f'<div class="hero"><span class="eyebrow">{icon("layers", 13)} {loc.t("common.projects")}</span><div class="big">{loc.num(completed)}'
+            f'<small>{loc.plural("hero.completed_small", completed)}</small></div></div>'))
 
 
-def _speed_line(s: dict[str, Any]) -> str:
+def _speed_line(s: dict[str, Any], loc: Loc = EN) -> str:
     speed = s["speed"]
     compared = speed["compared_cohorts"]
     others = len(speed["cohorts"]) - len(compared)
-    head = ""
-    if compared:
-        c = compared[0]
-        head = f'{escape(_labels(c["labels"]))}: {_h(c["editor_median_seconds"])} vs {_h(c["team_median_seconds"])}'
     more = []
     if len(compared) > 1:
-        more.append(f"+{len(compared) - 1} comparable")
+        more.append(loc.t("speed.more_comparable", n=loc.num(len(compared) - 1)))
     if others:
-        more.append(f"+{others} not comparable")
+        more.append(loc.t("speed.more_not_comparable", n=loc.num(others)))
     link = info_button(" · ".join(more), f"speed-{s['editor_id']}") if more else ""
     if not compared:
-        return '<span class="soft">No comparable Video Type yet</span> ' + info_button("Why", f"speed-{s['editor_id']}")
+        return f'<span class="soft">{loc.t("speed.none_comparable")}</span> ' + info_button(loc.t("common.why"), f"speed-{s['editor_id']}")
+    c = compared[0]
+    head = loc.t("speed.line", labels=loc.labels(c["labels"]), editor=loc.hours(c["editor_median_seconds"]), team=loc.hours(c["team_median_seconds"]))
     return f"{head} {link}"
 
 
-def _deadline_line(s: dict[str, Any]) -> str:
+def _unclassified(d: dict[str, Any]) -> int:
+    return (d.get("not_classifiable_insufficient_eta_precision") or 0) + (d.get("not_classifiable_missing_eta") or 0)
+
+
+def _deadline_line(s: dict[str, Any], loc: Loc = EN) -> str:
     d = s["deadline"]
-    unclassified = (d.get("not_classifiable_insufficient_eta_precision") or 0) + (d.get("not_classifiable_missing_eta") or 0)
-    note = info_button(f"{unclassified} unclassified", f"dq-{s['editor_id']}") if unclassified else ""
+    unclassified = _unclassified(d)
+    note = info_button(loc.count("noun.unclassified_project", unclassified), f"dq-{s['editor_id']}") if unclassified else ""
     if not d["evaluated"]:
-        return '<span class="soft">Deadline data unavailable</span> ' + info_button("Why", f"dq-{s['editor_id']}")
-    return f'{deadline_strip(d)}<div class="small">{deadline_counts(d)} <span class="quiet">of {d["evaluated"]}</span> {note}</div>'
+        return f'<span class="soft">{loc.t("deadline.unavailable")}</span> ' + info_button(loc.t("common.why"), f"dq-{s['editor_id']}")
+    return (f'{deadline_strip(d, False, loc)}<div class="small">{deadline_counts(d, loc)} '
+            f'<span class="quiet">{loc.t("deadline.of_total", n=loc.num(d["evaluated"]))}</span> {note}</div>')
 
 
-def _issue_line(s: dict[str, Any]) -> str:
+def _issue_line(s: dict[str, Any], loc: Loc = EN) -> str:
     q = s["quality"]
     if not q["total_occurrences"]:
-        return '<span class="soft">No issue labels recorded</span>'
-    chips = "".join(f'<span class="chip">{escape(row["label"])} <b>×{row["occurrences"]}</b></span>' for row in q["by_label"][:3])
-    extra = f'<span class="chip">+{len(q["by_label"]) - 3}</span>' if len(q["by_label"]) > 3 else ""
-    return (f'<div class="small"><b>{_plural(q["total_occurrences"], "issue signal")}</b> <span class="quiet">on '
-            f'{_plural(q["projects_with_issues"], "project")}</span></div><div class="chips" style="margin-top:6px">{chips}{extra}</div>')
+        return f'<span class="soft">{loc.t("quality.none_recorded")}</span>'
+    chips = "".join(f'<span class="chip">{loc.src(row["label"])} <b>{loc.t("common.times", n=loc.num(row["occurrences"]))}</b></span>' for row in q["by_label"][:3])
+    extra = f'<span class="chip">+{loc.num(len(q["by_label"]) - 3)}</span>' if len(q["by_label"]) > 3 else ""
+    summary = loc.t("issue.summary", signals=_b(loc.count("noun.issue_signal", q["total_occurrences"])),
+                    projects=loc.count("noun.project", q["projects_with_issues"], case="gen"))
+    return f'<div class="small">{summary}</div><div class="chips" style="margin-top:6px">{chips}{extra}</div>'
 
 
-def workload_chips(w: dict[str, Any], limit: int | None = None) -> str:
+def workload_chips(w: dict[str, Any], limit: int | None = None, loc: Loc = EN) -> str:
     items = list(w["by_current_status"].items())
     if not items:
-        return '<span class="soft">No current items</span>'
+        return f'<span class="soft">{loc.t("workload.none")}</span>'
     shown = items[:limit] if limit else items
-    chips = "".join(f'<span class="chip{" context" if "revision" in status.lower() else ""}"><b>{n}</b> {escape(status)}</span>' for status, n in shown)
+    chips = "".join(f'<span class="chip{" context" if "revision" in status.lower() else ""}"><b>{loc.num(n)}</b> {loc.src(status)}</span>' for status, n in shown)
     rest = len(items) - len(shown)
-    return f'<div class="chips">{chips}{f"<span class=chip>+{rest}</span>" if rest > 0 else ""}</div>'
+    return f'<div class="chips">{chips}{f"<span class=chip>+{loc.num(rest)}</span>" if rest > 0 else ""}</div>'
 
 
-def editor_card(s: dict[str, Any]) -> str:
-    kind, hero = _hero(s)
+def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
+    kind, hero = _hero(s, loc)
     lines = []
     if kind != "speed":
-        lines.append(("speed", "Speed", _speed_line(s)))
+        lines.append(("speed", loc.t("common.speed"), _speed_line(s, loc)))
     else:
-        more = _speed_line(s)
+        more = _speed_line(s, loc)
         if "info" in more:
-            lines.append(("speed", "Speed", more))
+            lines.append(("speed", loc.t("common.speed"), more))
     if kind != "deadline":
-        lines.append(("clock", "Deadlines", _deadline_line(s)))
-    lines.append(("alert", "Issue signals", _issue_line(s)))
-    lines.append(("spark", "Positive", f'<span class="quiet">— {NO_SIGNAL}</span>'))
-    lines.append(("stack", "Current work", workload_chips(s["current_workload"], 3)))
-    body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{escape(k)}</span><div>{v}</div></div>' for ic, k, v in lines)
-    return (f'<article class="card ed" aria-label="{escape(s["display_name"])}">'
-            f'<div class="who">{avatar(s["display_name"])}<div><h3>{escape(s["display_name"])}</h3>'
-            f'<span class="small quiet">{_plural(s["sample"]["completed_projects"], "completed project")}</span></div>{overall_placeholder()}</div>'
+        lines.append(("clock", loc.t("common.deadlines"), _deadline_line(s, loc)))
+    lines.append(("alert", loc.t("common.issue_signals"), _issue_line(s, loc)))
+    lines.append(("spark", loc.t("card.positive"), f'<span class="quiet">— {loc.t("common.no_signal")}</span>'))
+    lines.append(("stack", loc.t("common.current_work"), workload_chips(s["current_workload"], 3, loc)))
+    body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{k}</span><div>{v}</div></div>' for ic, k, v in lines)
+    return (f'<article class="card ed" aria-label="{_attr(s["display_name"])}">'
+            f'<div class="who">{avatar(s["display_name"])}<div><h3>{loc.src(s["display_name"])}</h3>'
+            f'<span class="small quiet">{loc.count("noun.completed_project", s["sample"]["completed_projects"])}</span></div>{overall_placeholder(loc)}</div>'
             f'{hero}{body}'
-            f'<a class="cta stretch" href="#/editor/{escape(s["editor_id"])}">View profile {icon("arrow", 15)}</a></article>')
+            f'<a class="cta stretch" href="#/editor/{escape(s["editor_id"])}">{loc.t("card.view_profile")} {icon("arrow", 15)}</a></article>')
 
 
 # ---------------------------------------------------------------- timelines (Team Pulse and Editor Performance Timeline)
@@ -507,34 +529,36 @@ def _position(at: str, month: str) -> float:
     return ((moment.day - 1) + (moment.hour * 3600 + moment.minute * 60 + moment.second) / 86400) / days * 100
 
 
-def _marker_class(event: dict[str, Any]) -> tuple[str, str]:
+def _marker_class(event: dict[str, Any], loc: Loc = EN) -> tuple[str, str]:
+    """Marker style and its plain-text label (for aria-label/title)."""
     if event["kind"] == "issue_label":
-        return "issue", f'Issue label: {event["label"]}'
+        return "issue", loc.text("timeline.issue_marker", label=event["label"])
     result = event["deadline_result"]
     if result:
-        return result, f"{RESULT_TEXT[result]} delivery"
-    return "unclassified", "Delivery, deadline not classified"
+        return result, loc.text(f"timeline.delivery.{result}")
+    return "unclassified", loc.text("timeline.delivery.unclassified")
 
 
 def _event_tid(editor_id: str, index: int) -> str:
     return f"e-{editor_id}-{index}"
 
 
-def _event_templates(s: dict[str, Any]) -> str:
+def _event_templates(s: dict[str, Any], loc: Loc) -> str:
     """Drawer content for issue-label events (deliveries open their project's evidence)."""
     out = []
     for index, event in enumerate(s["events"]):
         if event["kind"] != "issue_label":
             continue
-        ids = "".join(f"<dd><code>{escape(str(v))}</code></dd>" for v in event["event_ids"])
+        ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], _dl([
-            ("Editor", escape(s["display_name"])), ("Label added", escape(_date(event["at"]))), ("Monday item", escape(event["monday_item_id"])),
-            ("Source", "Monday Performance Issues column")]) + f"<h4>Monday events</h4><dl><dt>Evidence</dt>{ids}</dl>"
-            + f'<p><button type="button" class="ghost" data-drawer="{escape(_project_tid(s["editor_id"], event["monday_item_id"]))}">Open project evidence</button></p>'))
+            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
+            (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])), (loc.t("field.source"), loc.t("quality.source_column"))])
+            + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
+            + f'<p><button type="button" class="ghost" data-drawer="{escape(_project_tid(s["editor_id"], event["monday_item_id"]))}">{loc.t("evidence.open_project")}</button></p>'))
     return "".join(out)
 
 
-def _lane(s: dict[str, Any], month: str, retrieved: str | None, show_name: bool) -> str:
+def _lane(s: dict[str, Any], month: str, retrieved: str | None, show_name: bool, loc: Loc = EN) -> str:
     markers: list[str] = []
     rows_last: dict[int, float] = {}
     events = [(i, e) for i, e in enumerate(s["events"]) if _event_month(e) == month]
@@ -544,91 +568,97 @@ def _lane(s: dict[str, Any], month: str, retrieved: str | None, show_name: bool)
         while row in rows_last and pos - rows_last[row] < 1.3:
             row += 1
         rows_last[row] = pos
-        cls, label = _marker_class(event)
+        cls, label = _marker_class(event, loc)
         tid = _project_tid(s["editor_id"], event["monday_item_id"]) if event["kind"] == "delivery" else _event_tid(s["editor_id"], index)
-        aria = f'{s["display_name"]}: {label}, {_date(event["at"])}, project {event["monday_item_id"]}'
+        aria = loc.text("timeline.marker_aria", name=s["display_name"], label=label, date=loc.date(event["at"]), item=event["monday_item_id"])
         markers.append(f'<button type="button" class="mk {cls}" style="left:{pos:.2f}%;top:{14 + row * 16}px" data-drawer="{escape(tid)}" '
-                       f'aria-label="{escape(aria)}" title="{escape(aria)}"><i></i></button>')
+                       f'aria-label="{_attr(aria)}" title="{_attr(aria)}"><i></i></button>')
     height = 28 + (max(rows_last) + 1 if rows_last else 1) * 16
     now = f'<span class="now" style="left:{_position(retrieved, month):.2f}%"></span>' if retrieved and retrieved[:7] == month else ""
-    name = (f'<div class="ln">{avatar(s["display_name"])}<span>{escape(s["display_name"])}</span></div>' if show_name
-            else '<div class="ln"><span class="quiet small">Events</span></div>')
-    empty = '' if markers else '<span class="tiny quiet" style="position:absolute;left:8px;top:10px">No dated events this month</span>'
+    name = (f'<div class="ln">{avatar(s["display_name"])}<span>{loc.src(s["display_name"])}</span></div>' if show_name
+            else f'<div class="ln"><span class="quiet small">{loc.t("timeline.events")}</span></div>')
+    empty = '' if markers else f'<span class="tiny quiet" style="position:absolute;left:8px;top:10px">{loc.t("timeline.no_events_month")}</span>'
     return f'<div class="lane">{name}<div class="track" style="height:{height}px">{now}{empty}{"".join(markers)}</div></div>'
 
 
-def _axis(month: str, retrieved: str | None) -> str:
+def _axis(month: str, retrieved: str | None, loc: Loc = EN) -> str:
     days = calendar.monthrange(int(month[:4]), int(month[5:]))[1]
-    label = calendar.month_abbr[int(month[5:])]
-    ticks = "".join(f'<span style="left:{(day - 1) / days * 100:.2f}%">{label} {day:02d}</span>' for day in (1, 8, 15, 22) if day <= days)
+    label = loc.month_short(month)
+    ticks = "".join(f'<span style="left:{(day - 1) / days * 100:.2f}%">{loc.t("timeline.tick", month=label, day=f"{day:02d}")}</span>'
+                    for day in (1, 8, 15, 22) if day <= days)
     if retrieved and retrieved[:7] == month:
-        ticks += f'<span class="today" style="left:{_position(retrieved, month):.2f}%">Updated</span>'
+        ticks += f'<span class="today" style="left:{_position(retrieved, month):.2f}%">{loc.t("timeline.updated")}</span>'
     return f'<div class="axis">{ticks}</div>'
 
 
-LEGEND = ('<div class="legend"><span><span class="mk early"><i></i></span> Early</span><span><span class="mk on_time"><i></i></span> On time</span>'
-          '<span><span class="mk late"><i></i></span> Late</span><span><span class="mk unclassified"><i></i></span> Not classified</span>'
-          '<span><span class="mk issue"><i></i></span> Issue label added</span>'
-          '<span>Each delivery is placed at its first Ready For Approval. Client revisions are shown as context inside each project.</span></div>')
+def legend(loc: Loc = EN) -> str:
+    items = [("early", "result.early"), ("on_time", "result.on_time"), ("late", "result.late"), ("unclassified", "common.not_classified"),
+             ("issue", "timeline.legend_issue")]
+    keys = "".join(f'<span><span class="mk {cls}"><i></i></span> {loc.t(key)}</span>' for cls, key in items)
+    return f'<div class="legend">{keys}<span>{loc.t("timeline.legend_note")}</span><span>{loc.t("timeline.direction_note")}</span></div>'
 
 
-def timeline(summaries: list[dict[str, Any]], retrieved: str | None, prefix: str, show_names: bool = True) -> str:
+def timeline(summaries: list[dict[str, Any]], retrieved: str | None, prefix: str, show_names: bool = True, loc: Loc = EN) -> str:
     months = sorted({_event_month(e) for s in summaries for e in s["events"]}, reverse=True)
     if not months:
-        return empty_state("No dated events in this snapshot")
+        return empty_state(loc.t("timeline.no_events"))
     pills = "".join(f'<button type="button" class="pill" role="tab" data-pill="{prefix}-{m}" aria-selected="{"true" if i == 0 else "false"}">'
-                    f'{escape(month_name(m))}</button>' for i, m in enumerate(months))
-    panels = "".join(f'<div id="{prefix}-{m}" role="tabpanel" {"" if i == 0 else "hidden"}><div class="tl"><div class="tl-inner">{_axis(m, retrieved)}'
-                     f'{"".join(_lane(s, m, retrieved, show_names) for s in summaries)}</div></div></div>' for i, m in enumerate(months))
-    return f'<div class="pills" role="tablist" data-pills style="margin-bottom:12px">{pills}</div>{panels}{LEGEND}'
+                    f'{escape(loc.month(m))}</button>' for i, m in enumerate(months))
+    # The time axis is always left (earlier) to right (later), whatever the page direction.
+    panels = "".join(f'<div id="{prefix}-{m}" role="tabpanel" {"" if i == 0 else "hidden"}><div class="tl" dir="ltr"><div class="tl-inner">{_axis(m, retrieved, loc)}'
+                     f'{"".join(_lane(s, m, retrieved, show_names, loc) for s in summaries)}</div></div></div>' for i, m in enumerate(months))
+    return f'<div class="pills" role="tablist" data-pills style="margin-bottom:12px">{pills}</div>{panels}{legend(loc)}'
 
 
 # ---------------------------------------------------------------- CEO home sections
 
-def management_focus(doc: dict[str, Any]) -> str:
-    available = ("Speed vs team", "Deadlines", "Issue signals", "Current work", "Monthly history")
-    calibrating = ("Attention", "Recognition", "Trends", "Team patterns", "Overall status")
-    return (f'<section class="focus" aria-labelledby="focus-h"><div><span class="eyebrow"><i></i>Management focus</span>'
-            f'<h2 id="focus-h">Management insights are being calibrated.</h2>'
-            f'<p>Performance evidence for {_plural(len(doc["editors"]), "Editor")} is available below. Attention, recognition and trend insights will '
-            'appear here once Atlas has approved rules for them — until then, nothing here is a judgement.</p></div>'
-            '<div><div class="col"><h3>Available now</h3>' + "".join(f'<span class="fchip">{escape(a)}</span>' for a in available) + '</div>'
-            '<div class="col"><h3>Calibrating</h3>' + "".join(f'<span class="fchip cal">{escape(c)}</span>' for c in calibrating) + '</div>'
-            '<div class="col"><a href="#/system">How Atlas evaluates →</a></div></div></section>')
+AVAILABLE_NOW = ("focus.available.speed", "focus.available.deadlines", "focus.available.issues", "focus.available.current_work", "focus.available.history")
+CALIBRATING = ("focus.calibrating.attention", "focus.calibrating.recognition", "focus.calibrating.trends", "focus.calibrating.patterns",
+               "focus.calibrating.overall")
 
 
-def issue_activity(doc: dict[str, Any], month: str | None) -> str:
+def management_focus(doc: dict[str, Any], loc: Loc = EN) -> str:
+    n = len(doc["editors"])
+    return (f'<section class="focus" aria-labelledby="focus-h"><div><span class="eyebrow"><i></i>{loc.t("focus.eyebrow")}</span>'
+            f'<h2 id="focus-h">{loc.t("focus.title")}</h2><p>{loc.count("focus.body", n)}</p></div>'
+            f'<div><div class="col"><h3>{loc.t("focus.available")}</h3>' + "".join(f'<span class="fchip">{loc.t(k)}</span>' for k in AVAILABLE_NOW) + '</div>'
+            f'<div class="col"><h3>{loc.t("focus.calibrating")}</h3>' + "".join(f'<span class="fchip cal">{loc.t(k)}</span>' for k in CALIBRATING) + '</div>'
+            f'<div class="col"><a href="#/system">{loc.t("focus.how_atlas_evaluates")}</a></div></div></section>')
+
+
+def issue_activity(doc: dict[str, Any], month: str | None, loc: Loc = EN) -> str:
     counts: dict[str, Counter[str]] = {}
     for s in doc["editors"]:
         for event in s["events"]:
             if event["kind"] == "issue_label" and month and _event_month(event) == month:
                 counts.setdefault(event["label"], Counter())[s["display_name"]] += 1
-    rows = "".join(f'<div><span>{escape(label)}</span><span class="chips">'
-                   + "".join(f'<span class="chip">{escape(name)} <b>×{n}</b></span>' for name, n in sorted(c.items(), key=lambda p: (-p[1], p[0])))
+    rows = "".join(f'<div><span>{loc.src(label)}</span><span class="chips">'
+                   + "".join(f'<span class="chip">{loc.src(name)} <b>{loc.t("common.times", n=loc.num(n))}</b></span>'
+                             for name, n in sorted(c.items(), key=lambda p: (-p[1], p[0])))
                    + "</span></div>" for label, c in sorted(counts.items(), key=lambda p: (-sum(p[1].values()), p[0])))
     body = (f'<div class="rowlist">{rows}</div>' if rows
-            else empty_state("No issue labels added this month", " A missing label is not an assessment of quality."))
-    return (f'<div class="card"><h3>{icon("alert")}Issue activity</h3><p class="sub">Monday Performance Issues labels added in '
-            f'{escape(month_name(month)) if month else "this period"}</p>{body}'
-            '<p class="tiny quiet" style="margin-top:14px">Factual counts, no severity weighting. Which activity needs attention is not evaluated yet.</p></div>')
+            else empty_state(loc.t("activity.empty_title"), " " + loc.t("activity.empty_detail")))
+    period = escape(loc.month(month)) if month else loc.t("activity.this_period")
+    return (f'<div class="card"><h3>{icon("alert")}{loc.t("activity.title")}</h3><p class="sub">{loc.t("activity.sub", period=Html(period))}</p>{body}'
+            f'<p class="tiny quiet" style="margin-top:14px">{loc.t("activity.footer")}</p></div>')
 
 
-def patterns_card() -> str:
-    return (f'<div class="card"><h3>{icon("layers")}Team &amp; process patterns</h3><p class="sub">Across the editing team</p>'
-            + empty_state("Pattern detection is not active yet.", " Atlas currently shows shared evidence without assigning a team-level cause.")
+def patterns_card(loc: Loc = EN) -> str:
+    return (f'<div class="card"><h3>{icon("layers")}{loc.t("patterns.title")}</h3><p class="sub">{loc.t("patterns.sub")}</p>'
+            + empty_state(loc.t("patterns.empty_title"), " " + loc.t("patterns.empty_detail"))
             + "</div>")
 
 
-def workload_card(doc: dict[str, Any]) -> str:
-    rows = "".join(f'<div><span>{escape(s["display_name"])}</span>{workload_chips(s["current_workload"])}</div>' for s in doc["editors"])
-    return (f'<div class="card"><h3>{icon("stack")}Current work</h3><p class="sub">Items by their current Monday status</p><div class="rowlist">{rows}</div>'
-            '<p class="tiny quiet" style="margin-top:14px">Factual context. Capacity is not evaluated.</p></div>')
+def workload_card(doc: dict[str, Any], loc: Loc = EN) -> str:
+    rows = "".join(f'<div><span>{loc.src(s["display_name"])}</span>{workload_chips(s["current_workload"], None, loc)}</div>' for s in doc["editors"])
+    return (f'<div class="card"><h3>{icon("stack")}{loc.t("common.current_work")}</h3><p class="sub">{loc.t("workload.sub")}</p><div class="rowlist">{rows}</div>'
+            f'<p class="tiny quiet" style="margin-top:14px">{loc.t("workload.footer")}</p></div>')
 
 
-def history(doc: dict[str, Any]) -> str:
+def history(doc: dict[str, Any], loc: Loc = EN) -> str:
     months = sorted({m["month"] for s in doc["editors"] for m in s["monthly"]})
     if not months:
-        return empty_state("No monthly history in this snapshot")
+        return empty_state(loc.t("history.empty"))
     first, last = months[0], months[-1]
     every, cursor = [], first
     while cursor <= last:
@@ -640,8 +670,8 @@ def history(doc: dict[str, Any]) -> str:
     for m in every:
         has = m in months
         selected = m == last
-        label = calendar.month_abbr[int(m[5:])] + ("" if m[:4] == last[:4] else f" {m[:4]}")
-        disabled = "" if has else ' disabled title="No data"'
+        label = loc.month_short(m) + ("" if m[:4] == last[:4] else f" {m[:4]}")
+        disabled = "" if has else f' disabled title="{_attr(loc.text("history.no_data"))}"'
         pills.append(f'<button type="button" class="pill" role="tab" data-pill="hist-{m}" aria-selected="{"true" if selected else "false"}"'
                      f'{disabled}>{escape(label)}</button>')
         if not has:
@@ -650,331 +680,415 @@ def history(doc: dict[str, Any]) -> str:
         for s in doc["editors"]:
             entry = next((x for x in s["monthly"] if x["month"] == m), None)
             if not entry:
-                rows.append(f'<div class="row"><div class="who">{avatar(s["display_name"])}<span>{escape(s["display_name"])}</span></div>'
-                            '<div class="quiet">No figures this month</div><div></div></div>')
+                rows.append(f'<div class="row"><div class="who">{avatar(s["display_name"])}<span>{loc.src(s["display_name"])}</span></div>'
+                            f'<div class="quiet">{loc.t("history.no_figures")}</div><div></div></div>')
                 continue
             d = entry["deadline"]
-            dl = (f'{deadline_strip(d)}<div class="small">{deadline_counts(d)} <span class="quiet">· late {d["late"]} / {d["evaluated"]} classified</span></div>'
-                  if d else '<span class="quiet">No classified deadlines</span>')
-            sp = "<br>".join(f'{escape(_labels(c["labels"], c["cohort_key"]))} <b>{_h(c["median_seconds"])}</b> <span class="quiet">n={c["projects"]}</span>'
+            dl = (f'{deadline_strip(d, False, loc)}<div class="small">{deadline_counts(d, loc)} <span class="quiet">'
+                  f'{loc.t("history.late_of", late=loc.num(d["late"]), n=loc.num(d["evaluated"]))}</span></div>'
+                  if d else f'<span class="quiet">{loc.t("history.no_deadlines")}</span>')
+            sp = "<br>".join(f'{loc.labels(c["labels"], c["cohort_key"])} <b>{loc.hours(c["median_seconds"])}</b> <span class="quiet">{loc.t("common.sample_n", n=loc.num(c["projects"]))}</span>'
                              for c in sorted(entry["speed_by_cohort"], key=lambda c: -c["projects"])[:4]) or '<span class="quiet">—</span>'
             more = len(entry["speed_by_cohort"]) - 4
-            rows.append(f'<div class="row"><div class="who">{avatar(s["display_name"])}<span>{escape(s["display_name"])}</span></div><div>{dl}</div>'
-                        f'<div class="small"><span class="tiny quiet">Median work duration</span><br>{sp}{f"<br><span class=quiet>+{more} more</span>" if more > 0 else ""}</div></div>')
+            more_html = f'<br><span class="quiet">{loc.t("common.more", n=loc.num(more))}</span>' if more > 0 else ""
+            rows.append(f'<div class="row"><div class="who">{avatar(s["display_name"])}<span>{loc.src(s["display_name"])}</span></div><div>{dl}</div>'
+                        f'<div class="small"><span class="tiny quiet">{loc.t("history.median_duration")}</span><br>{sp}{more_html}</div></div>')
         partial = next((x["partial"] for s in doc["editors"] for x in s["monthly"] if x["month"] == m), False)
-        panels.append(f'<div id="hist-{m}" role="tabpanel" {"" if selected else "hidden"}><p class="small quiet" style="margin:0 0 4px">{escape(month_name(m))}'
-                      f'{" · in progress" if partial else ""}</p><div class="hist">{"".join(rows)}</div></div>')
+        panels.append(f'<div id="hist-{m}" role="tabpanel" {"" if selected else "hidden"}><p class="small quiet" style="margin:0 0 4px">{escape(loc.month(m))}'
+                      f'{" · " + loc.t("common.month_in_progress") if partial else ""}</p><div class="hist">{"".join(rows)}</div></div>')
     return (f'<div class="pills" role="tablist" data-pills style="margin-bottom:12px">{"".join(pills)}</div><div class="card">{"".join(panels)}'
-            '<p class="tiny quiet" style="margin:14px 0 0">Trend not evaluated yet — months are shown side by side without an improving or declining label. '
-            'Speed is per exact Video Type, never pooled.</p></div>')
+            f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("history.footer")}</p></div>')
 
 
 # ---------------------------------------------------------------- drawers shared by home and profile
 
-def _speed_drawer(s: dict[str, Any]) -> str:
+def _verdict(c: dict[str, Any], loc: Loc) -> Html:
+    """The comparison stated as a relation to the team median in one Video Type (never a claim about the person)."""
+    conclusion = c["conclusion"]
+    if conclusion == "equal_to_team_median":
+        return loc.t("speed.verdict.level")
+    if conclusion in SPEED_WORD:
+        return loc.t(f"speed.verdict.{SPEED_WORD[conclusion]}", pct=loc.pct_value(abs(c["editor_vs_team_median_pct"] or 0)))
+    return loc.t("conclusion.not_comparable")
+
+
+def _status(code: str, loc: Loc) -> Html:
+    return loc.t(f"status.{code}")
+
+
+def _speed_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
     speed = s["speed"]
     rows = []
     for c in speed["cohorts"]:
-        compared = c["conclusion"] in SPEED_WORD
-        verdict = (f'{abs(c["editor_vs_team_median_pct"] or 0):.1f}% {SPEED_WORD[c["conclusion"]]} than the team median' if compared
-                   and c["conclusion"] != "equal_to_team_median" else ("Level with the team median" if compared else "Not comparable"))
-        rows.append(f'<h4>{escape(_labels(c["labels"]))}</h4>' + _dl([
-            ("Editor median", f'{_h(c["editor_median_seconds"])} · n={c["editor_sample_size"]}'),
-            ("Team median", (f'{_h(c["team_median_seconds"])} · n={c["team_sample_size"] if c["team_sample_size"] is not None else "—"}'
-                             f'{" · " + _plural(c["team_editor_count"], "Editor") if c["team_editor_count"] else ""}')),
-            ("Result", escape(verdict)), ("Why", escape(STATUS_TEXT.get(c["comparison_status"], c["comparison_status"])))]))
-    intro = (f'<p>Work duration runs from the first In Progress to the first Ready For Approval. Each Video Type is compared only with the '
-             f'{escape(speed["benchmark_statistic"])} of every eligible Editor in the same exact Video Type (this Editor included). A comparison needs at least '
-             f'{speed["minimum_editor_sample_size"]} of this Editor\'s projects and at least one other Editor.</p>')
-    return template(f"speed-{s['editor_id']}", f"Speed · {s['display_name']}", intro + ("".join(rows) or '<p class="quiet">No measurable projects.</p>'))
+        team = (loc.t("speed.team_value", median=loc.hours(c["team_median_seconds"]), n=_n_or_dash(c["team_sample_size"], loc))
+                + (Html(" · " + loc.count("noun.editor", c["team_editor_count"])) if c["team_editor_count"] else ""))
+        rows.append(f'<h4>{loc.labels(c["labels"])}</h4>' + _dl([
+            (loc.t("common.editor_median"), loc.t("speed.editor_value", median=loc.hours(c["editor_median_seconds"]), n=loc.num(c["editor_sample_size"]))),
+            (loc.t("common.team_median"), team),
+            (loc.t("common.result"), _verdict(c, loc)), (loc.t("common.why"), _status(c["comparison_status"], loc))]))
+    intro = f'<p>{loc.t("speed.drawer_intro", stat=loc.t("stat." + speed["benchmark_statistic"]), min=loc.num(speed["minimum_editor_sample_size"]), min_projects=loc.count("noun.project", speed["minimum_editor_sample_size"]))}</p>'
+    return template(f"speed-{s['editor_id']}", loc.text("speed.drawer_title", name=s["display_name"]),
+                    intro + ("".join(rows) or f'<p class="quiet">{loc.t("speed.no_measurable")}</p>'))
 
 
-def _dq_drawer(s: dict[str, Any]) -> str:
+def warning_text(w: dict[str, Any], loc: Loc = EN) -> Html:
+    """A data-confidence note, rendered from its code and parameters (the view model's English ``text`` is not reused)."""
+    p = w.get("params") or {}
+    code = w["code"]
+    if code == "SMALL_SAMPLE":
+        return loc.t("warning.small_sample", n=loc.num(p["completed_projects"]), completed=loc.count("noun.completed_project", p["completed_projects"]),
+                     min=loc.num(p["minimum"]))
+    if code == "NO_SPEED_COMPARISON":
+        return loc.t("warning.no_speed_comparison")
+    if code == "DEADLINE_NOT_CLASSIFIABLE":
+        return loc.t("warning.deadline_not_classifiable", n=loc.num(p["unclassified"]), completed=loc.count("noun.completed_project", p["unclassified"]))
+    if code == "PROJECTS_EXCLUDED":
+        reasons = Html(loc.comma().join(f"{loc.tech(r)} {loc.num(n)}" for r, n in p["reasons"].items()))
+        return loc.t("warning.projects_excluded", n=loc.num(p["excluded"]), projects=loc.count("noun.project", p["excluded"]), reasons=reasons)
+    if code == "PARTIAL_MONTH":
+        return loc.t("warning.partial_month", month=loc.month(p["month"]), retrieved=loc.date(p["retrieved_at"]))
+    return loc.tech(code)   # a code with no rendering is shown as the code itself, never as the English text
+
+
+def _dq_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
     d = s["deadline"]
-    rows = _dl([("Classified", str(d["evaluated"])), ("ETA without a time", str(d.get("not_classifiable_insufficient_eta_precision") or 0)),
-                ("No Requested ETA", str(d.get("not_classifiable_missing_eta") or 0)), ("Not evaluated for other reasons", str(d.get("not_evaluated_other") or 0))])
-    notes = "".join(f"<li>{escape(w['text'])}</li>" for w in s["warnings"])
-    return template(f"dq-{s['editor_id']}", f"Deadline data · {s['display_name']}",
-                    '<p>A delivery is classified only when its Requested ETA has a date and a time. Atlas never guesses a missing time. '
-                    'Delivery is compared with the ETA in effect at the first Ready For Approval; exactly at the ETA is on time.</p>'
-                    + rows + (f"<h4>Data notes</h4><ul>{notes}</ul>" if notes else ""))
+    rows = _dl([(loc.t("deadline.classified"), loc.num(d["evaluated"])),
+                (loc.t("deadline.eta_without_time"), loc.num(d.get("not_classifiable_insufficient_eta_precision") or 0)),
+                (loc.t("deadline.no_eta"), loc.num(d.get("not_classifiable_missing_eta") or 0)),
+                (loc.t("deadline.other_reasons"), loc.num(d.get("not_evaluated_other") or 0))])
+    notes = "".join(f"<li>{warning_text(w, loc)}</li>" for w in s["warnings"])
+    return template(f"dq-{s['editor_id']}", loc.text("deadline.drawer_title", name=s["display_name"]),
+                    f'<p>{loc.t("deadline.drawer_intro")}</p>' + rows + (f"<h4>{loc.t('deadline.data_notes')}</h4><ul>{notes}</ul>" if notes else ""))
 
 
 # ---------------------------------------------------------------- Editor Profile
 
-def _metric_cards(s: dict[str, Any]) -> str:
+def _metric_cards(s: dict[str, Any], loc: Loc = EN) -> str:
     q, d, sample = s["quality"], s["deadline"], s["sample"]
     eid = s["editor_id"]
     compared = s["speed"]["compared_cohorts"]
     if compared:
         c = compared[0]
         word = SPEED_WORD[c["conclusion"]]
-        relation = "level with" if word == "level" else f"{abs(c['editor_vs_team_median_pct'] or 0):.1f}% {word} than"
-        speed = (f'<div class="v">{_h(c["editor_median_seconds"])}</div><div class="small">{escape(_labels(c["labels"]))} median</div>'
-                 f'<div class="small quiet">{relation} team '
-                 f'{_h(c["team_median_seconds"])} · n={c["editor_sample_size"]}</div>')
+        key = "metric.speed_level" if word == "level" else f"metric.speed_{word}"
+        relation = loc.t(key, pct=loc.pct_value(abs(c["editor_vs_team_median_pct"] or 0)), team=loc.hours(c["team_median_seconds"]),
+                         n=loc.num(c["editor_sample_size"]), projects=loc.count("noun.project", c["editor_sample_size"]))
+        speed = (f'<div class="v">{loc.hours(c["editor_median_seconds"])}</div><div class="small">{loc.t("metric.speed_median", labels=loc.labels(c["labels"]))}</div>'
+                 f'<div class="small quiet">{relation}</div>')
     else:
-        speed = '<div class="v" style="font-size:24px;margin-top:10px">—</div><div class="small soft">No comparable Video Type yet</div>'
-    deadline = (f'{deadline_strip(d, True)}<div class="small">{deadline_counts(d)}</div><div class="small quiet">{d["evaluated"]} classified</div>'
-                if d["evaluated"] else '<div class="v" style="font-size:24px;margin-top:10px">—</div><div class="small soft">Deadline data unavailable</div>')
-    issues = (f'<div class="v">{q["total_occurrences"]}</div><div class="small quiet">across {_plural(q["projects_with_issues"], "project")} of '
-              f'{q["completed_projects_attributed"]}</div>' if q["total_occurrences"]
-              else '<div class="v">0</div><div class="small soft">No issue labels recorded</div>')
-    projects = (f'<div class="v">{sample["completed_projects"]}</div><div class="small quiet">completed · {sample["speed_eligible_projects"]} measurable for speed</div>')
-    cards = [("alert", "Issue signals", issues, f"quality-{eid}"), ("speed", "Speed vs team", speed, f"speed-{eid}"),
-             ("clock", "Deadlines", deadline, f"dq-{eid}"), ("layers", "Projects", projects, f"cov-{eid}")]
+        speed = f'<div class="v" style="font-size:24px;margin-top:10px">—</div><div class="small soft">{loc.t("speed.none_comparable")}</div>'
+    deadline = (f'{deadline_strip(d, True, loc)}<div class="small">{deadline_counts(d, loc)}</div><div class="small quiet">{loc.count("noun.classified_project", d["evaluated"])}</div>'
+                if d["evaluated"] else f'<div class="v" style="font-size:24px;margin-top:10px">—</div><div class="small soft">{loc.t("deadline.unavailable")}</div>')
+    issues = (f'<div class="v">{loc.num(q["total_occurrences"])}</div><div class="small quiet">'
+              f'{loc.t("metric.issues_across", projects=loc.count("noun.project", q["projects_with_issues"], case="gen"), total=loc.num(q["completed_projects_attributed"]))}</div>'
+              if q["total_occurrences"] else f'<div class="v">{loc.num(0)}</div><div class="small soft">{loc.t("quality.none_recorded")}</div>')
+    projects = (f'<div class="v">{loc.num(sample["completed_projects"])}</div><div class="small quiet">'
+                f'{loc.t("metric.projects_detail", measurable=loc.num(sample["speed_eligible_projects"]))}</div>')
+    cards = [("alert", loc.t("common.issue_signals"), issues, f"quality-{eid}"), ("speed", loc.t("focus.available.speed"), speed, f"speed-{eid}"),
+             ("clock", loc.t("common.deadlines"), deadline, f"dq-{eid}"), ("layers", loc.t("common.projects"), projects, f"cov-{eid}")]
     return '<div class="metrics">' + "".join(
         f'<button type="button" class="card metric" data-drawer="{tid}"><span class="eyebrow" style="display:flex;gap:6px;align-items:center">{icon(ic, 13)}{k}</span>{v}</button>'
         for ic, k, v, tid in cards) + "</div>"
 
 
-def _quality_drawer(s: dict[str, Any]) -> str:
+def _quality_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
     q = s["quality"]
-    rows = "".join(f'<h4>{escape(row["label"])} · {row["occurrences"]}</h4>{_project_list(s, row["monday_item_ids"])}' for row in q["by_label"])
-    return template(f"quality-{s['editor_id']}", f"Issue signals · {s['display_name']}",
-                    '<p>Labels from the Monday Performance Issues column. Each label counts once; there are no severity weights, and no cause is inferred.</p>'
-                    + (rows or '<p class="quiet">No issue labels recorded. This is not an assessment of quality.</p>'))
+    rows = "".join(f'<h4>{loc.src(row["label"])} · {loc.num(row["occurrences"])}</h4>{_project_list(s, row["monday_item_ids"], loc)}' for row in q["by_label"])
+    return template(f"quality-{s['editor_id']}", loc.text("quality.drawer_title", name=s["display_name"]),
+                    f'<p>{loc.t("quality.intro")}</p>'
+                    + (rows or f'<p class="quiet">{loc.t("quality.none_recorded_sentence")} {loc.t("quality.not_an_assessment")}</p>'))
 
 
-def _coverage_drawer(s: dict[str, Any]) -> str:
+def _coverage_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
     sample = s["sample"]
-    reasons = "".join(f"<li><code>{escape(r)}</code> {n}</li>" for r, n in sample["exclusions_by_reason"].items()) or "<li>None</li>"
-    return template(f"cov-{s['editor_id']}", f"Projects · {s['display_name']}",
-                    _dl([("Completed", str(sample["completed_projects"])), ("Open", str(sample["open_projects"])),
-                         ("Measurable for speed", str(sample["speed_eligible_projects"]))])
-                    + f"<h4>Excluded from metrics</h4><ul>{reasons}</ul><h4>All projects</h4>{_project_list(s)}")
+    reasons = "".join(f"<li>{loc.tech(r)} {loc.num(n)}</li>" for r, n in sample["exclusions_by_reason"].items()) or f"<li>{loc.t('common.none')}</li>"
+    return template(f"cov-{s['editor_id']}", loc.text("coverage.drawer_title", name=s["display_name"]),
+                    _dl([(loc.t("coverage.completed"), loc.num(sample["completed_projects"])), (loc.t("coverage.open"), loc.num(sample["open_projects"])),
+                         (loc.t("coverage.measurable"), loc.num(sample["speed_eligible_projects"]))])
+                    + f"<h4>{loc.t('coverage.excluded')}</h4><ul>{reasons}</ul><h4>{loc.t('coverage.all_projects')}</h4>{_project_list(s, None, loc)}")
 
 
-def _cohort_drawers(s: dict[str, Any]) -> str:
-    return "".join(template(f"c-{s['editor_id']}-{c['cohort_key']}", _labels(c["labels"]), _dl([
-        ("Editor median", f'{_h(c["editor_median_seconds"])} · n={c["editor_sample_size"]}'),
-        ("Team median", _h(c["team_median_seconds"])), ("Team typical range", (f'{_h((c.get("team_typical_range_seconds") or {}).get("p25"))} – '
-                                                                               f'{_h((c.get("team_typical_range_seconds") or {}).get("p75"))}'
-                                                                               if c.get("team_typical_range_seconds") else "—")),
-        ("Status", escape(STATUS_TEXT.get(c["comparison_status"], c["comparison_status"])))]) + "<h4>Projects</h4>" + _project_list(s, c["editor_project_ids"]))
+def _typical_range(c: dict[str, Any], loc: Loc) -> Html:
+    rng = c.get("team_typical_range_seconds")
+    if not rng:
+        return Html("—")
+    return Html(f'{loc.hours(rng.get("p25"))} – {loc.hours(rng.get("p75"))}')
+
+
+def _cohort_drawers(s: dict[str, Any], loc: Loc = EN) -> str:
+    return "".join(template(f"c-{s['editor_id']}-{c['cohort_key']}", " + ".join(c["labels"]) or "—", _dl([
+        (loc.t("common.editor_median"), loc.t("speed.editor_value", median=loc.hours(c["editor_median_seconds"]), n=loc.num(c["editor_sample_size"]))),
+        (loc.t("common.team_median"), loc.hours(c["team_median_seconds"])),
+        (loc.t("speed.typical_range"), _typical_range(c, loc)),
+        (loc.t("common.status"), _status(c["comparison_status"], loc))])
+        + f'<p class="tiny quiet">{loc.t("speed.benchmark_is_descriptive")}</p>'
+        + f"<h4>{loc.t('common.projects')}</h4>" + _project_list(s, c["editor_project_ids"], loc))
         for c in s["speed"]["cohorts"])
 
 
-def _speed_panel(s: dict[str, Any]) -> str:
+def _speed_panel(s: dict[str, Any], loc: Loc = EN) -> str:
     out = []
     for c in s["speed"]["cohorts"]:
         compared = c["conclusion"] in SPEED_WORD
         if compared and c["conclusion"] != "equal_to_team_median":
-            verdict = f'<b>{abs(c["editor_vs_team_median_pct"] or 0):.1f}% {SPEED_WORD[c["conclusion"]]}</b> than team median'
+            strong = _b(loc.t(f"speed.panel.{SPEED_WORD[c['conclusion']]}", pct=loc.pct_value(abs(c["editor_vs_team_median_pct"] or 0))))
+            verdict = loc.t("speed.panel.than", strong=strong)
         elif compared:
-            verdict = "<b>Level</b> with team median"
+            verdict = loc.t("speed.panel.level", strong=_b(loc.t("hero.level")))
         else:
-            verdict = f'<span class="soft">Not comparable</span> · <span class="quiet">{escape(STATUS_TEXT.get(c["comparison_status"], ""))}</span>'
+            verdict = Html(f'<span class="soft">{loc.t("conclusion.not_comparable")}</span> · <span class="quiet">{_status(c["comparison_status"], loc)}</span>')
+        sample = loc.t("speed.panel.sample", e=loc.num(c["editor_sample_size"]), t=_n_or_dash(c["team_sample_size"], loc),
+                       e_projects=loc.count("noun.project", c["editor_sample_size"]),
+                       t_projects=loc.count("noun.project", c["team_sample_size"]) if c["team_sample_size"] is not None else Html("—"))
         out.append(f'<button type="button" class="card cohort{" cmp" if compared else ""}" data-drawer="c-{escape(s["editor_id"])}-{escape(c["cohort_key"])}">'
-                   f'<span style="font-size:16px">{escape(_labels(c["labels"]))}</span><div class="nums"><div><b>{_h(c["editor_median_seconds"])}</b><span>Editor</span></div>'
-                   f'<div><b>{_h(c["team_median_seconds"])}</b><span>Team</span></div></div><div class="small">{verdict}</div>'
-                   f'<span class="tiny quiet">n = {c["editor_sample_size"]} Editor · {c["team_sample_size"] if c["team_sample_size"] is not None else "—"} team projects</span></button>')
-    body = f'<div class="cohorts">{"".join(out)}</div>' if out else empty_state("No measurable projects")
-    return ('<div class="sh"><div><h2>Speed by Video Type</h2><p>Each Video Type is compared only within itself — never pooled.</p></div>'
-            + info_button("How speed is compared", f"speed-{s['editor_id']}") + f'</div>{body}')
+                   f'<span style="font-size:16px">{loc.labels(c["labels"])}</span><div class="nums"><div><b>{loc.hours(c["editor_median_seconds"])}</b><span>{loc.t("common.editor")}</span></div>'
+                   f'<div><b>{loc.hours(c["team_median_seconds"])}</b><span>{loc.t("common.team")}</span></div></div><div class="small">{verdict}</div>'
+                   f'<span class="tiny quiet">{sample}</span></button>')
+    body = f'<div class="cohorts">{"".join(out)}</div>' if out else empty_state(loc.t("speed.no_measurable_title"))
+    return (f'<div class="sh"><div><h2>{loc.t("speed.panel.title")}</h2><p>{loc.t("speed.panel.sub")}</p></div>'
+            + info_button(loc.t("speed.how_compared"), f"speed-{s['editor_id']}") + f'</div>{body}')
 
 
-def _deadline_panel(s: dict[str, Any]) -> str:
+def _deadline_panel(s: dict[str, Any], loc: Loc = EN) -> str:
     d = s["deadline"]
-    unclassified = (d.get("not_classifiable_insufficient_eta_precision") or 0) + (d.get("not_classifiable_missing_eta") or 0)
+    unclassified = _unclassified(d)
     if d["evaluated"]:
-        top = (f'<div class="card">{deadline_strip(d, True)}<div style="font-size:20px">{deadline_counts(d)}</div>'
-               f'<p class="small quiet" style="margin:6px 0 0">{d["evaluated"]} classified · median margin {_signed_h(d.get("median_delta_seconds"))} '
-               f'(negative = before the ETA){f" · {unclassified} unclassified" if unclassified else ""}</p>'
-               '<p class="tiny quiet" style="margin:14px 0 0"><span class="key e"></span>Early <span class="key o" style="margin-left:10px"></span>On time '
-               '<span class="key l" style="margin-left:10px"></span>Late</p></div>')
+        extra = Html(" · " + loc.count("noun.unclassified_project", unclassified)) if unclassified else ""
+        top = (f'<div class="card">{deadline_strip(d, True, loc)}<div style="font-size:20px">{deadline_counts(d, loc)}</div>'
+               f'<p class="small quiet" style="margin:6px 0 0">{loc.t("deadline.panel_summary", classified=loc.count("noun.classified_project", d["evaluated"]), margin=loc.hours(d.get("median_delta_seconds"), signed=True), unclassified=extra)}</p>'
+               f'<p class="tiny quiet" style="margin:4px 0 0">{loc.t("deadline.negative_note")}</p>'
+               f'<p class="tiny quiet" style="margin:14px 0 0"><span class="key e"></span>{loc.t("result.early")} <span class="key o" style="margin-inline-start:10px"></span>{loc.t("result.on_time")} '
+               f'<span class="key l" style="margin-inline-start:10px"></span>{loc.t("result.late")}</p></div>')
     else:
-        top = f'<div class="card">{empty_state("Deadline data unavailable", " No completed project has a Requested ETA with a time, so none can be classified.")}</div>'
-    months = "".join(f'<div class="row"><div>{escape(m["month_name"])}{" <span class=quiet>· in progress</span>" if m["partial"] else ""}</div>'
-                     f'<div>{deadline_strip(m["deadline"])}<div class="small">{deadline_counts(m["deadline"])} <span class="quiet">of {m["deadline"]["evaluated"]}</span></div></div>'
-                     f'<div class="small quiet">late {_pct(m["deadline"]["late_rate"])}</div></div>' for m in s["monthly"] if m["deadline"])
-    groups = "".join(f'<button type="button" class="ghost" data-drawer="dl-{escape(s["editor_id"])}-{r}">{RESULT_TEXT[r]} projects</button> '
-                     for r in ("early", "on_time", "late") if d.get(r))
-    return ('<div class="sh"><div><h2>Deadline performance</h2><p>First Ready For Approval against the Requested ETA in effect at that moment.</p></div>'
-            + info_button("Classification coverage", f"dq-{s['editor_id']}") + f'</div>{top}'
+        top = f'<div class="card">{empty_state(loc.t("deadline.unavailable"), " " + loc.t("deadline.unavailable_detail"))}</div>'
+    months = "".join(f'<div class="row"><div>{escape(loc.month(m["month"]))}{" <span class=quiet>· " + loc.t("common.month_in_progress") + "</span>" if m["partial"] else ""}</div>'
+                     f'<div>{deadline_strip(m["deadline"], False, loc)}<div class="small">{deadline_counts(m["deadline"], loc)} <span class="quiet">{loc.t("deadline.of_total", n=loc.num(m["deadline"]["evaluated"]))}</span></div></div>'
+                     f'<div class="small quiet">{loc.t("deadline.late_rate", pct=loc.pct(m["deadline"]["late_rate"]))}</div></div>' for m in s["monthly"] if m["deadline"])
+    groups = "".join(f'<button type="button" class="ghost" data-drawer="dl-{escape(s["editor_id"])}-{r}">{loc.t(f"deadline.group.{r}")}</button> '
+                     for r in RESULTS if d.get(r))
+    return (f'<div class="sh"><div><h2>{loc.t("deadline.panel_title")}</h2><p>{loc.t("deadline.panel_sub")}</p></div>'
+            + info_button(loc.t("deadline.coverage_button"), f"dq-{s['editor_id']}") + f'</div>{top}'
             f'<div style="margin-top:12px">{groups}</div>'
-            + (f'<div class="card hist" style="margin-top:16px"><p class="eyebrow" style="margin:0">By month</p>{months}</div>' if months else ""))
+            + (f'<div class="card hist" style="margin-top:16px"><p class="eyebrow" style="margin:0">{loc.t("common.by_month")}</p>{months}</div>' if months else ""))
 
 
-def _deadline_group_drawers(s: dict[str, Any]) -> str:
-    return "".join(template(f"dl-{s['editor_id']}-{r}", f"{RESULT_TEXT[r]} deliveries · {s['display_name']}",
-                            _project_list(s, [row["monday_item_id"] for row in s["projects"] if row["deadline_result"] == r]))
-                   for r in ("early", "on_time", "late"))
+def _deadline_group_drawers(s: dict[str, Any], loc: Loc = EN) -> str:
+    return "".join(template(f"dl-{s['editor_id']}-{r}", loc.text(f"deadline.group_title.{r}", name=s["display_name"]),
+                            _project_list(s, [row["monday_item_id"] for row in s["projects"] if row["deadline_result"] == r], loc))
+                   for r in RESULTS)
 
 
-def _quality_panel(s: dict[str, Any]) -> str:
+def _quality_panel(s: dict[str, Any], loc: Loc = EN) -> str:
     q = s["quality"]
     if q["by_label"]:
-        rows = "".join(f'<div><span style="font-size:16px">{escape(row["label"])}</span><span><b style="font-size:20px;font-weight:400">{row["occurrences"]}</b> '
-                       f'<button type="button" class="info" data-drawer="ql-{escape(s["editor_id"])}-{i}">{_plural(len(set(row["monday_item_ids"])), "project")}</button></span></div>'
+        rows = "".join(f'<div><span style="font-size:16px">{loc.src(row["label"])}</span><span><b style="font-size:20px;font-weight:400">{loc.num(row["occurrences"])}</b> '
+                       f'<button type="button" class="info" data-drawer="ql-{escape(s["editor_id"])}-{i}">{loc.count("noun.project", len(set(row["monday_item_ids"])))}</button></span></div>'
                        for i, row in enumerate(q["by_label"]))
-        body = (f'<div class="card"><div class="rowlist">{rows}</div><p class="small quiet" style="margin:16px 0 0">Affected projects: '
-                f'{q["projects_with_issues"]} / {q["completed_projects_attributed"]}</p></div>')
+        body = (f'<div class="card"><div class="rowlist">{rows}</div><p class="small quiet" style="margin:16px 0 0">'
+                f'{loc.t("quality.affected", affected=loc.num(q["projects_with_issues"]), total=loc.num(q["completed_projects_attributed"]))}</p></div>')
     else:
-        body = f'<div class="card">{empty_state("No issue labels recorded", " This is not an assessment of quality — only that no Monday label was added.")}</div>'
-    return (f'<div class="sh"><div><h2>Quality &amp; performance signals</h2><p>From the Monday Performance Issues column. No severity weights, no inferred causes.</p></div></div>'
-            f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">Positive signals</h3>'
-            f'{empty_state(NO_SIGNAL, " Recognition signals will appear here once supported by evidence.")}'
-            f'<p class="tiny quiet" style="margin:14px 0 0">For Bonus labels on {_plural(q["for_bonus_context_projects"], "project")} — shown as context, not as a signal.</p></div></div>')
+        body = f'<div class="card">{empty_state(loc.t("quality.none_recorded_sentence"), " " + loc.t("quality.empty_detail"))}</div>'
+    return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
+            f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
+            f'{empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail"))}'
+            f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p></div></div>')
 
 
-def _quality_label_drawers(s: dict[str, Any]) -> str:
-    return "".join(template(f"ql-{s['editor_id']}-{i}", f"{row['label']} · {s['display_name']}", _project_list(s, row["monday_item_ids"]))
+def _quality_label_drawers(s: dict[str, Any], loc: Loc = EN) -> str:
+    return "".join(template(f"ql-{s['editor_id']}-{i}", f"{row['label']} · {s['display_name']}", _project_list(s, row["monday_item_ids"], loc))
                    for i, row in enumerate(s["quality"]["by_label"]))
 
 
-def _revision_panel(s: dict[str, Any]) -> str:
+def _revision_panel(s: dict[str, Any], loc: Loc = EN) -> str:
     r = s["revisions"]
-    tiles = (f'<div class="metrics" style="margin-top:0"><div class="card"><span class="eyebrow">Client revision events</span><div class="metric"><span class="v">{r["client_revision_events"]}</span></div></div>'
-             f'<div class="card"><span class="eyebrow">Projects with client revisions</span><div class="metric"><span class="v">{r["projects_with_client_revisions"]}'
-             f'</span><span class="small quiet">of {r["completed_projects"]} completed</span></div></div>'
-             f'<div class="card"><span class="eyebrow">Internal revision events</span><div class="metric"><span class="v">{r["internal_revision_events"] if r["internal_revision_events"] is not None else "—"}</span></div></div></div>')
-    listing = (f'<button type="button" class="ghost" data-drawer="rv-{escape(s["editor_id"])}">Projects with client revisions</button>'
+    internal = r["internal_revision_events"]
+    tiles = (f'<div class="metrics" style="margin-top:0"><div class="card"><span class="eyebrow">{loc.t("revisions.client_events")}</span><div class="metric"><span class="v">{loc.num(r["client_revision_events"])}</span></div></div>'
+             f'<div class="card"><span class="eyebrow">{loc.t("revisions.projects_with")}</span><div class="metric"><span class="v">{loc.num(r["projects_with_client_revisions"])}'
+             f'</span><span class="small quiet">{loc.t("revisions.of_completed", completed=loc.count("noun.completed_project", r["completed_projects"], case="gen"))}</span></div></div>'
+             f'<div class="card"><span class="eyebrow">{loc.t("revisions.internal_events")}</span><div class="metric"><span class="v">{_n_or_dash(internal, loc)}</span></div></div></div>')
+    listing = (f'<button type="button" class="ghost" data-drawer="rv-{escape(s["editor_id"])}">{loc.t("revisions.projects_with")}</button>'
                if r["monday_item_ids_with_client_revisions"] else "")
-    return (f'<div class="sh"><div><h2>Client revision context</h2><p>Context only. Revisions do not imply Editor fault and never affect any metric.</p></div></div>'
+    return (f'<div class="sh"><div><h2>{loc.t("revisions.context_heading")}</h2><p>{loc.t("revisions.disclaimer")}</p></div></div>'
             f'{tiles}<div style="margin-top:12px">{listing}</div>')
 
 
-def _revision_drawer(s: dict[str, Any]) -> str:
-    return template(f"rv-{s['editor_id']}", f"Client revision context · {s['display_name']}",
-                    '<p>Projects where a client asked for changes. Their cause is not known, and they are not a performance signal.</p>'
-                    + _project_list(s, s["revisions"]["monday_item_ids_with_client_revisions"]))
+def _revision_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
+    return template(f"rv-{s['editor_id']}", loc.text("revisions.drawer_title", name=s["display_name"]),
+                    f'<p>{loc.t("revisions.drawer_intro")} {loc.t("revisions.disclaimer")}</p>'
+                    + _project_list(s, s["revisions"]["monday_item_ids_with_client_revisions"], loc))
 
 
-def _snapshot(s: dict[str, Any]) -> str:
-    heads = ["Doing well", "May need a look", "Evidence", "Over time", "Current work"]
+def fact_text(fact: dict[str, Any], loc: Loc = EN) -> Html:
+    """One snapshot fact from the view model's structured ``fact_data`` (English ``facts`` stay in the JSON only)."""
+    kind = fact["code"]
+    if kind in ("speed_faster", "speed_slower"):
+        return loc.t(f"fact.{kind}", labels=loc.labels(fact["labels"]), n=loc.num(fact["projects"]), projects=loc.count("noun.project", fact["projects"]))
+    if kind == "issue_label":
+        return loc.t("fact.issue_label", n=loc.num(fact["occurrences"]), label=loc.src(fact["label"]))
+    if kind == "evidence_projects":
+        return loc.t("fact.evidence_projects", n=loc.num(fact["completed"]), completed=loc.count("noun.completed_project", fact["completed"]),
+                     measurable=loc.num(fact["measurable"]))
+    if kind == "evidence_deadlines":
+        return loc.t("fact.evidence_deadlines", n=loc.num(fact["evaluated"]), early=loc.num(fact["early"]), on_time=loc.num(fact["on_time"]),
+                     late=loc.num(fact["late"]))
+    if kind == "workload":
+        return loc.t("fact.workload", n=loc.num(fact["count"]), projects=loc.count("noun.project", fact["count"]), status=loc.src(fact["status"]))
+    return loc.t(f"fact.{kind}")
+
+
+def pending_label(slot: str, loc: Loc = EN) -> Html:
+    return loc.t(f"pending.{slot}.label")
+
+
+def _snapshot(s: dict[str, Any], loc: Loc = EN) -> str:
     out = []
-    for head, block in zip(heads, s["snapshot"]):
-        facts = block["facts"] or []
-        items = "".join(f"<li>{escape(f)}</li>" for f in facts) or f'<li class="quiet" style="list-style:none;margin-left:-18px">{NO_SIGNAL}</li>'
-        judged = f'<div class="j">{escape(block["judgement"]["label"])}: {NOT_EVALUATED}</div>' if block["judgement"] else '<div class="j">&nbsp;</div>'
-        out.append(f'<div class="card"><h3>{escape(head)}</h3>{judged}<ul>{items}</ul></div>')
+    for block in s["snapshot"]:
+        facts = block.get("fact_data") or []
+        items = "".join(f"<li>{fact_text(f, loc)}</li>" for f in facts) or f'<li class="quiet" style="list-style:none;margin-inline-start:-18px">{loc.t("common.no_signal")}</li>'
+        judged = (f'<div class="j">{pending_label(block["judgement"]["slot"], loc)}: {loc.t("common.not_evaluated")}</div>' if block["judgement"]
+                  else '<div class="j">&nbsp;</div>')
+        out.append(f'<div class="card"><h3>{loc.t("snapshot.head." + block["key"])}</h3>{judged}<ul>{items}</ul></div>')
     return f'<div class="qa">{"".join(out)}</div>'
 
 
-def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None) -> str:
+TABS = ("overview", "quality", "speed", "deadlines", "revisions", "evidence")
+
+
+def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, loc: Loc = EN) -> str:
     eid = s["editor_id"]
-    tabs = [("overview", "Overview"), ("quality", "Quality"), ("speed", "Speed"), ("deadlines", "Deadlines"), ("revisions", "Revisions"), ("evidence", "Evidence")]
-    pills = "".join(f'<button type="button" class="pill" role="tab" data-pill="t-{eid}-{k}" aria-selected="{"true" if i == 0 else "false"}">{v}</button>'
-                    for i, (k, v) in enumerate(tabs))
-    overview = (f'<div class="sh"><div><h2>Performance timeline</h2><p>Deliveries and issue labels, in the order they happened.</p></div></div>'
-                f'<div class="card pulse">{timeline([s], retrieved, f"pt-{eid}", show_names=False)}</div>'
-                f'<section style="margin-top:32px"><div class="sh"><div><h2>Snapshot</h2><p>Facts from the Atlas engine. Judgements appear once their rules are approved.</p></div></div>{_snapshot(s)}</section>'
-                f'<section style="margin-top:32px"><div class="card" style="display:flex;gap:16px;align-items:center">{icon("spark", 22)}<div><b style="font-weight:500">Suggested action</b>'
-                f'<div class="small quiet">Not available yet. Management actions will appear here once Atlas has approved rules for them.</div></div></div></section>')
-    evidence = (f'<div class="sh"><div><h2>Evidence</h2><p>Every completed and open project attributed to {escape(s["display_name"])}, most recent first. Select one for its Monday events.</p></div>'
-                f'<button type="button" class="ghost" data-drawer="report-{eid}">{icon("doc", 14)} Complete evidence report</button></div>'
-                f'<div class="card">{_project_list(s)}</div>')
-    panels = {"overview": overview, "quality": _quality_panel(s), "speed": _speed_panel(s), "deadlines": _deadline_panel(s),
-              "revisions": _revision_panel(s), "evidence": evidence}
-    body = "".join(f'<div id="t-{eid}-{k}" class="panel" role="tabpanel" {"" if i == 0 else "hidden"}>{panels[k]}</div>' for i, (k, _) in enumerate(tabs))
-    last_month = next((m["month_name"] for m in s["monthly"]), None)
-    header = (f'<div class="phead">{avatar(s["display_name"], "xl")}<div><span class="eyebrow">Editor</span><h1>{escape(s["display_name"])}</h1>'
-              f'<div class="facts" style="margin-top:12px"><div><span>Current work</span>{workload_chips(s["current_workload"], 4)}</div>'
-              f'<div><span>Period</span><b>{escape(last_month or "—")}</b></div><div><span>Data updated</span><b>{escape(_date(retrieved, False))}</b></div></div></div>'
-              f'{overall_placeholder()}</div>')
-    report = template(f"report-{eid}", f"Complete evidence report · {s['display_name']}",
-                      '<p>The full Editor Profile as produced by the Atlas engine, with every project, exclusion and Monday event ID.</p>'
-                      f'<iframe title="Complete evidence report" data-report="{escape(eid)}"></iframe>')
-    drawers = (_project_templates(s, url) + _event_templates(s) + _speed_drawer(s) + _dq_drawer(s) + _quality_drawer(s) + _coverage_drawer(s)
-               + _cohort_drawers(s) + _deadline_group_drawers(s) + _quality_label_drawers(s) + _revision_drawer(s) + report)
-    return (f'<div data-view="editor:{escape(eid)}" hidden><a class="back" href="#/">{icon("back", 15)} Editor team</a>{header}{_metric_cards(s)}'
+    pills = "".join(f'<button type="button" class="pill" role="tab" data-pill="t-{eid}-{k}" aria-selected="{"true" if i == 0 else "false"}">{loc.t("tab." + k)}</button>'
+                    for i, k in enumerate(TABS))
+    name = loc.src(s["display_name"])
+    overview = (f'<div class="sh"><div><h2>{loc.t("profile.timeline_title")}</h2><p>{loc.t("profile.timeline_sub")}</p></div></div>'
+                f'<div class="card pulse">{timeline([s], retrieved, f"pt-{eid}", False, loc)}</div>'
+                f'<section style="margin-top:32px"><div class="sh"><div><h2>{loc.t("profile.snapshot_title")}</h2><p>{loc.t("profile.snapshot_sub")}</p></div></div>{_snapshot(s, loc)}</section>'
+                f'<section style="margin-top:32px"><div class="card" style="display:flex;gap:16px;align-items:center">{icon("spark", 22)}<div><b style="font-weight:500">{loc.t("profile.suggested_action")}</b>'
+                f'<div class="small quiet">{loc.t("profile.suggested_action_detail")}</div></div></div></section>')
+    evidence = (f'<div class="sh"><div><h2>{loc.t("common.evidence")}</h2><p>{loc.t("profile.evidence_sub", name=name)} {loc.t("profile.evidence_select")}</p></div>'
+                f'<button type="button" class="ghost" data-drawer="report-{eid}">{icon("doc", 14)} {loc.t("profile.report_button")}</button></div>'
+                f'<div class="card">{_project_list(s, None, loc)}</div>')
+    panels = {"overview": overview, "quality": _quality_panel(s, loc), "speed": _speed_panel(s, loc), "deadlines": _deadline_panel(s, loc),
+              "revisions": _revision_panel(s, loc), "evidence": evidence}
+    body = "".join(f'<div id="t-{eid}-{k}" class="panel" role="tabpanel" {"" if i == 0 else "hidden"}>{panels[k]}</div>' for i, k in enumerate(TABS))
+    last_month = next((m["month"] for m in s["monthly"]), None)
+    header = (f'<div class="phead">{avatar(s["display_name"], "xl")}<div><span class="eyebrow">{loc.t("common.editor")}</span><h1>{name}</h1>'
+              f'<div class="facts" style="margin-top:12px"><div><span>{loc.t("common.current_work")}</span>{workload_chips(s["current_workload"], 4, loc)}</div>'
+              f'<div><span>{loc.t("profile.period")}</span><b>{escape(loc.month(last_month)) if last_month else "—"}</b></div>'
+              f'<div><span>{loc.t("profile.data_updated")}</span><b>{escape(loc.date(retrieved, False))}</b></div></div></div>'
+              f'{overall_placeholder(loc)}</div>')
+    report = template(f"report-{eid}", loc.text("profile.report_title", name=s["display_name"]),
+                      f'<p>{loc.t("profile.report_intro")}</p>'
+                      f'<iframe title="{_attr(loc.text("profile.report_button"))}" data-report="{escape(eid)}"></iframe>')
+    drawers = (_project_templates(s, url, loc) + _event_templates(s, loc) + _speed_drawer(s, loc) + _dq_drawer(s, loc) + _quality_drawer(s, loc)
+               + _coverage_drawer(s, loc) + _cohort_drawers(s, loc) + _deadline_group_drawers(s, loc) + _quality_label_drawers(s, loc) + _revision_drawer(s, loc) + report)
+    return (f'<div data-view="editor:{escape(eid)}" hidden><a class="back" href="#/">{icon("back", 15)} {loc.t("nav.team")}</a>{header}{_metric_cards(s, loc)}'
             f'<div class="tabs"><div class="pills" role="tablist" data-pills>{pills}</div></div>{body}{drawers}</div>')
 
 
 # ---------------------------------------------------------------- Data & System
 
-def data_system(doc: dict[str, Any]) -> str:
+def data_system(doc: dict[str, Any], loc: Loc = EN) -> str:
     source = doc["source"]
     window = source.get("activity_log_window") or {}
-    snapshot = _dl([("Monday data retrieved", escape(_date(source.get("retrieved_at")))),
-                    ("Activity window", f'{escape(_date(window.get("since")))} → {escape(_date(window.get("until")))}'),
-                    ("Executable contract", f'<code>{escape(str(source.get("executable_contract_version")))}</code>'),
-                    ("Dashboard document", f'<code>{escape(doc["dashboard_version"])}</code>'), ("Generated", escape(_date(doc["generated_at"])))])
+    snapshot = _dl([(loc.t("system.retrieved"), escape(loc.date(source.get("retrieved_at")))),
+                    (loc.t("system.window"), Html(f'{escape(loc.date(window.get("since")))} <span dir="ltr">→</span> {escape(loc.date(window.get("until")))}')),
+                    (loc.t("system.contract"), loc.tech(source.get("executable_contract_version"))),
+                    (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), escape(loc.date(doc["generated_at"])))])
     first = doc["editors"][0] if doc["editors"] else None
     approved = ""
     if first:
-        approved = ("<ul>"
-                    f'<li><b>Speed</b> — elapsed time from first In Progress to first Ready For Approval; compared with the {escape(first["speed"]["benchmark_statistic"])} '
-                    f'of every eligible Editor in the same exact Video Type; a conclusion needs {first["speed"]["minimum_editor_sample_size"]}+ Editor projects and another Editor.</li>'
-                    f'<li><b>Deadlines</b> — rule <code>{escape(str(first["deadline"]["rule_version"]))}</code>: first Ready For Approval against the Requested ETA in effect at that moment; '
-                    'no tolerance; a date-only or missing ETA is never classified.</li>'
-                    '<li><b>Quality</b> — Monday Performance Issues labels; 1 occurrence = 1 label; no severity weights.</li>'
-                    '<li><b>Revisions</b> — context only; never a performance signal.</li></ul>')
-    pending = "".join(f'<tr><td>{escape(rule["label"])}</td><td>{NOT_EVALUATED}</td><td>{escape(rule["reason"])}</td></tr>' for rule in PENDING_RULES.values())
-    editors = "".join(f'<tr><td>{escape(s["display_name"])}</td><td><code>{escape(s["editor_id"])}</code></td><td>{escape(str(s["monday_label"]))}</td>'
-                      f'<td><code>{escape(str(s["mapping_version"]))}</code></td><td><code>{escape(s["profile_contract_version"])}</code></td>'
-                      f'<td>{s["sample"]["completed_projects"]}</td></tr>' for s in doc["editors"])
-    notes = "".join(f'<tr><td>{escape(s["display_name"])}</td><td>{escape(w["text"])}</td><td><code>{escape(w["source"])}</code></td></tr>'
+        rules = [("common.speed", loc.t("system.rule.speed", stat=loc.t("stat." + first["speed"]["benchmark_statistic"]),
+                                         min=loc.num(first["speed"]["minimum_editor_sample_size"]),
+                                         min_projects=loc.count("noun.project", first["speed"]["minimum_editor_sample_size"]))),
+                 ("common.deadlines", loc.t("system.rule.deadlines", rule=loc.tech(first["deadline"]["rule_version"]))),
+                 ("common.quality", loc.t("system.rule.quality")), ("common.revisions", loc.t("system.rule.revisions"))]
+        approved = "<ul>" + "".join(f"<li><b>{loc.t(name)}</b> — {text}</li>" for name, text in rules) + "</ul>"
+    pending = "".join(f'<tr><td>{pending_label(slot, loc)}</td><td>{loc.t("common.not_evaluated")}</td><td>{loc.t(f"pending.{slot}.reason")}</td></tr>'
+                      for slot in PENDING_RULES)
+    editors = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.tech(s["editor_id"])}</td><td>{loc.src(s["monday_label"])}</td>'
+                      f'<td>{loc.tech(s["mapping_version"])}</td><td>{loc.tech(s["profile_contract_version"])}</td>'
+                      f'<td>{loc.num(s["sample"]["completed_projects"])}</td></tr>' for s in doc["editors"])
+    notes = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{warning_text(w, loc)}</td><td>{loc.tech(w["source"])}</td></tr>'
                     for s in doc["editors"] for w in s["warnings"])
-    excluded = "".join(f'<tr><td>{escape(s["display_name"])}</td><td><code>{escape(r)}</code></td><td>{n}</td></tr>'
+    excluded = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.tech(r)}</td><td>{loc.num(n)}</td></tr>'
                        for s in doc["editors"] for r, n in s["sample"]["exclusions_by_reason"].items())
-    speed_rows = "".join(f'<tr><td>{escape(s["display_name"])}</td><td>{escape(_labels(c["labels"]))}</td><td>{c["editor_sample_size"]}</td>'
-                         f'<td>{c["team_sample_size"] if c["team_sample_size"] is not None else "—"}</td><td>{"yes" if c["benchmark_eligible"] else "no"}</td>'
-                         f'<td>{escape(STATUS_TEXT.get(c["comparison_status"], c["comparison_status"]))}</td></tr>' for s in doc["editors"] for c in s["speed"]["cohorts"])
+    speed_rows = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.labels(c["labels"])}</td><td>{loc.num(c["editor_sample_size"])}</td>'
+                         f'<td>{_n_or_dash(c["team_sample_size"], loc)}</td><td>{loc.t("common.yes" if c["benchmark_eligible"] else "common.no")}</td>'
+                         f'<td>{_status(c["comparison_status"], loc)}</td></tr>' for s in doc["editors"] for c in s["speed"]["cohorts"])
     coverage = doc.get("attribution_coverage")
     cov = ""
     if coverage:
-        reasons = "".join(f"<tr><td><code>{escape(r)}</code></td><td>{n}</td></tr>" for r, n in coverage["not_attributed_by_reason"].items())
-        cov = (f'<div class="card"><h3>Editor attribution coverage</h3><p class="small soft">{coverage["attributed"]} of {coverage["completed"]} completed projects in this '
-               f'snapshot have a verified Editor. The others are not shown on any Editor; unverified labels stay quarantined until confirmed.</p>'
-               f'<table><thead><tr><th>Reason not attributed</th><th>Projects</th></tr></thead><tbody>{reasons}</tbody></table></div>')
-    missing = "".join(f'<tr><td>{escape(e["display_name"])}</td><td><code>{escape(e["editor_id"])}</code></td><td>{escape(str(e["monday_label"]))}</td></tr>'
+        reasons = "".join(f"<tr><td>{loc.tech(r)}</td><td>{loc.num(n)}</td></tr>" for r, n in coverage["not_attributed_by_reason"].items())
+        cov = (f'<div class="card"><h3>{loc.t("system.attribution_title")}</h3><p class="small soft">'
+               f'{loc.t("system.attribution_text", attributed=loc.num(coverage["attributed"]), completed=loc.count("noun.completed_project", coverage["completed"], case="gen"))}</p>'
+               f'<table><thead><tr><th>{loc.t("system.head.reason_not_attributed")}</th><th>{loc.t("common.projects")}</th></tr></thead><tbody>{reasons}</tbody></table></div>')
+    missing = "".join(f'<tr><td>{loc.src(e["display_name"])}</td><td>{loc.tech(e["editor_id"])}</td><td>{loc.src(e["monday_label"])}</td></tr>'
                       for e in doc["editors_without_attributable_data"])
-    presentation = ("<ul><li>Editor card headline: the first comparable Video Type speed result; otherwise deadlines if any are classified; otherwise the "
-                    "project count. A fixed display order, not a judgement.</li><li>Timelines place each project at its first Ready For Approval and each issue "
-                    "label at the time it was added. Revision events are not dated in the Editor Profile, so they appear only as context on each project.</li>"
-                    "<li>Month pills group dated facts by UTC calendar month.</li></ul>")
+    presentation = "<ul>" + "".join(f"<li>{loc.t(k)}</li>" for k in ("system.presentation.headline", "system.presentation.timeline",
+                                                                     "system.presentation.months", "system.presentation.languages")) + "</ul>"
+
+    none_row = f'<tr><td colspan=9 class=quiet>{loc.t("common.none")}</td></tr>'
 
     def table(head: list[str], rows: str) -> str:
-        return (f'<div style="overflow-x:auto"><table><thead><tr>{"".join(f"<th>{h}</th>" for h in head)}</tr></thead>'
-                f'<tbody>{rows or "<tr><td colspan=9 class=quiet>None</td></tr>"}</tbody></table></div>')
+        return (f'<div style="overflow-x:auto"><table><thead><tr>{"".join(f"<th scope=col>{loc.t(h)}</th>" for h in head)}</tr></thead>'
+                f'<tbody>{rows or none_row}</tbody></table></div>')
 
-    return (f'<div data-view="system" class="sys" hidden><div class="hello"><div><span class="eyebrow">Atlas</span><h1>Data &amp; System</h1>'
-            '<p>Where every figure comes from, which rules apply, and what Atlas does not evaluate yet.</p></div></div>'
-            f'<div class="card"><h3>Snapshot</h3>{snapshot}</div>'
-            f'<div class="card"><h3>Approved rules in use</h3>{approved}</div>'
-            f'<div class="card"><h3>Not evaluated yet</h3>{table(["Field", "State", "Reason"], pending)}</div>'
-            f'<div class="card"><h3>Editors and identity</h3>{table(["Editor", "Atlas ID", "Monday label", "Mapping", "Profile", "Completed"], editors)}</div>'
-            f'<div class="card"><h3>Data-quality notes</h3>{table(["Editor", "Note", "Profile field"], notes)}</div>'
-            f'<div class="card"><h3>Speed benchmark eligibility</h3>{table(["Editor", "Video Type", "Editor n", "Team n", "Eligible", "Status"], speed_rows)}</div>'
-            f'<div class="card"><h3>Projects excluded from metrics</h3>{table(["Editor", "Reason", "Projects"], excluded)}</div>'
-            f'{cov}<div class="card"><h3>Mapped Editors without attributable projects</h3>{table(["Editor", "Atlas ID", "Monday label"], missing)}</div>'
-            f'<div class="card"><h3>Presentation notes</h3>{presentation}</div></div>')
+    return (f'<div data-view="system" class="sys" hidden><div class="hello"><div><span class="eyebrow">Atlas</span><h1>{loc.t("nav.system")}</h1>'
+            f'<p>{loc.t("system.sub")}</p></div></div>'
+            f'<div class="card"><h3>{loc.t("system.snapshot")}</h3>{snapshot}</div>'
+            f'<div class="card"><h3>{loc.t("system.approved_rules")}</h3>{approved}</div>'
+            f'<div class="card"><h3>{loc.t("common.not_evaluated")}</h3>{table(["system.head.field", "common.status", "common.reason"], pending)}</div>'
+            f'<div class="card"><h3>{loc.t("system.editors_identity")}</h3>{table(["common.editor", "system.head.atlas_id", "system.head.monday_label", "system.head.mapping", "system.head.profile", "coverage.completed"], editors)}</div>'
+            f'<div class="card"><h3>{loc.t("system.data_quality_notes")}</h3>{table(["common.editor", "system.head.note", "system.head.profile_field"], notes)}</div>'
+            f'<div class="card"><h3>{loc.t("system.speed_eligibility")}</h3>{table(["common.editor", "field.video_type", "system.head.editor_n", "system.head.team_n", "system.head.eligible", "common.status"], speed_rows)}</div>'
+            f'<div class="card"><h3>{loc.t("system.excluded")}</h3>{table(["common.editor", "common.reason", "common.projects"], excluded)}</div>'
+            f'{cov}<div class="card"><h3>{loc.t("system.mapped_without")}</h3>{table(["common.editor", "system.head.atlas_id", "system.head.monday_label"], missing)}</div>'
+            f'<div class="card"><h3>{loc.t("system.presentation_notes")}</h3>{presentation}</div></div>')
 
 
 # ---------------------------------------------------------------- page
 
-def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], monday_item_url: str | None = None) -> str:
-    """Render the dashboard. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML, embedded unchanged as the audit view."""
+def language_switch(loc: Loc, href: str, keep_hash: bool = False) -> str:
+    """Link to the same page in the other language (the equivalent dashboard view keeps its #route)."""
+    other = loc.other()
+    return (f'<a class="lang" href="{escape(href)}" hreflang="{other.code}" lang="{other.code}" dir="{other.dir}"'
+            f'{" data-keep-hash" if keep_hash else ""} aria-label="{_attr(loc.text("lang.switch_label"))}">{escape(loc.text("lang.other_name"))}</a>')
+
+
+def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], monday_item_url: str | None = None, loc: Loc = EN,
+                          switch_href: str | None = None) -> str:
+    """Render the dashboard in ``loc``. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML (same language), embedded
+    unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
     retrieved = source.get("retrieved_at")
     month = str(retrieved)[:7] if retrieved else None
     blob = json.dumps(profile_pages).replace("</", "<\\/")
     editors = doc["editors"]
-    cards = "".join(editor_card(s) for s in editors) or empty_state("No Editor has attributable projects in this snapshot")
-    meta = ((f'<span><b>{escape(month_name(month))}</b> · in progress</span>' if month else "")
-            + f'<span><b>{len(editors)}</b> Editors</span><span>Updated {escape(_date(retrieved))}</span>')
-    home = (f'<div data-view="team"><div class="hello"><div><span class="eyebrow">Atlas</span><h1 id="greeting">Editing team overview</h1>'
-            f'<p>Here’s your editing team today.</p></div><div class="meta">{meta}</div></div>'
-            f'{management_focus(doc)}'
-            f'<section aria-labelledby="team-h"><div class="sh"><div><h2 id="team-h">Editor Team</h2><p>Current performance evidence across the editing team.</p></div></div>'
+    cards = "".join(editor_card(s, loc) for s in editors) or empty_state(loc.t("home.no_editors"))
+    meta = ((f'<span><b>{escape(loc.month(month))}</b> · {loc.t("common.month_in_progress")}</span>' if month else "")
+            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>')
+    greeting = " ".join(f'data-{part}="{_attr(loc.text("home.greeting." + part))}"' for part in ("morning", "afternoon", "evening"))
+    home = (f'<div data-view="team"><div class="hello"><div><span class="eyebrow">Atlas</span><h1 id="greeting" {greeting}>{loc.t("home.title")}</h1>'
+            f'<p>{loc.t("home.sub")}</p></div><div class="meta">{meta}</div></div>'
+            f'{management_focus(doc, loc)}'
+            f'<section aria-labelledby="team-h"><div class="sh"><div><h2 id="team-h">{loc.t("home.team_title")}</h2><p>{loc.t("home.team_sub")}</p></div></div>'
             f'<div class="grid-ed">{cards}</div></section>'
-            f'<section aria-labelledby="pulse-h"><div class="sh"><div><h2 id="pulse-h">Team Pulse</h2><p>What happened, day by day. Select a marker for its evidence.</p></div></div>'
-            f'<div class="card pulse">{timeline(editors, retrieved, "pulse")}</div></section>'
-            f'<section aria-label="Team context"><div class="ctx">{issue_activity(doc, month)}{patterns_card()}{workload_card(doc)}</div></section>'
-            f'<section aria-labelledby="hist-h"><div class="sh"><div><h2 id="hist-h">Performance History</h2><p>Month by month, most recent first.</p></div></div>{history(doc)}</section>'
-            + "".join(_speed_drawer(s) + _dq_drawer(s) for s in editors) + "</div>")
-    profiles = "".join(editor_profile(s, retrieved, monday_item_url) for s in editors)
+            f'<section aria-labelledby="pulse-h"><div class="sh"><div><h2 id="pulse-h">{loc.t("home.pulse_title")}</h2><p>{loc.t("home.pulse_sub")}</p></div></div>'
+            f'<div class="card pulse">{timeline(editors, retrieved, "pulse", True, loc)}</div></section>'
+            f'<section aria-label="{_attr(loc.text("home.context_label"))}"><div class="ctx">{issue_activity(doc, month, loc)}{patterns_card(loc)}{workload_card(doc, loc)}</div></section>'
+            f'<section aria-labelledby="hist-h"><div class="sh"><div><h2 id="hist-h">{loc.t("home.history_title")}</h2><p>{loc.t("home.history_sub")}</p></div></div>{history(doc, loc)}</section>'
+            + "".join(_speed_drawer(s, loc) + _dq_drawer(s, loc) for s in editors) + "</div>")
+    profiles = "".join(editor_profile(s, retrieved, monday_item_url, loc) for s in editors)
     # The home view and each profile view declare their own speed/deadline drawers; keep one copy of each id.
     body = _dedupe_templates(home + profiles)
-    return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-            f"<title>Atlas</title><style>{CSS}</style></head><body><div class=\"shell\">"
-            f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><nav class="nav" aria-label="Main">'
-            f'<a href="#/" data-nav="team" aria-current="page">Editor team</a><a href="#/system" data-nav="system">Data &amp; System</a></nav></header>'
-            f'<main>{body}{data_system(doc)}</main></div>'
+    switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
+    return (f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            f"<title>{loc.t('page.dashboard_title')}</title><style>{CSS}</style></head><body><div class=\"shell\">"
+            f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><div class="topnav"><nav class="nav" aria-label="{_attr(loc.text("nav.main_label"))}">'
+            f'<a href="#/" data-nav="team" aria-current="page">{loc.t("nav.team")}</a><a href="#/system" data-nav="system">{loc.t("nav.system")}</a></nav>{switch}</div></header>'
+            f'<main>{body}{data_system(doc, loc)}</main></div>'
             '<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
-            f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="Close">{icon("x")}</button></header><div class="body"></div></aside>'
+            f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{_attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>'
             f'<script type="application/json" id="atlas-reports">{blob}</script><script>{SCRIPT}</script></body></html>')
 
 

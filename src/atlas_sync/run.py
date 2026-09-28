@@ -36,8 +36,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from atlas_commander import site_layout
 from atlas_commander.contracts import validate
 from atlas_commander.cycles import COMPLETED
+from atlas_commander.i18n import LOCALES
 from atlas_commander.ingest import EXTRACT_NAME, MANIFEST_NAME, Clock, failure_category, ingest_run, new_run_id, tracked_columns, utc_now
 from atlas_commander.ingest_verify import verify
 from atlas_commander.pipeline import CycleReconstruction
@@ -57,7 +59,6 @@ BUILD_METADATA_NAME = "build.json"      # operational metadata, outside the site
 COMPLETE_NAME = "COMPLETE.json"         # completion marker, written last and only after every check passed
 FAILED_NAME = "FAILED.json"             # present only in a build directory whose attempt failed
 ATTEMPTS_DIR = "attempts"               # <build root>/attempts/<attempt_id>.json: one safe result per attempt
-DASHBOARD_FILES = ("dashboard.json", "dashboard.html")
 STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
           "validation", "metadata", "completion")
 PROFILE_SCHEMAS = {version: schema for version, schema in PROFILE_CONTRACTS.values()}
@@ -216,13 +217,18 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
     performance rule is evaluated here."""
     problems: list[str] = []
     editors = [editor["editor_id"] for editor in profiled_editors(result)]
-    required = [*DASHBOARD_FILES, *(f"profiles/{editor}.{kind}" for editor in editors for kind in ("json", "html"))]
+    required = site_layout.required_files(editors)   # both languages: a build missing either one is incomplete
     files = _files(site)
     problems += [f"missing required artifact {name}" for name in required if name not in files]
     problems += [f"unexpected artifact {name}" for name in files if name not in required]
     problems += [f"empty artifact {name}" for name, path in files.items() if path.stat().st_size == 0]
     if token:
         problems += [f"artifact {name} contains the Monday token" for name, path in files.items() if token in path.read_bytes()]
+
+    for name, locale in site_layout.html_files(editors).items():
+        path = files.get(name)
+        if path is not None and not path.read_text(encoding="utf-8").startswith(site_layout.document_opening(locale)):
+            problems.append(f"{name} does not declare lang={locale} and its direction")
 
     retrieved_at = extract.get("retrieved_at")
     window = manifest["window"]
@@ -248,7 +254,7 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
         if profile.get("executable_contract_version") != contract["contract_version"]:
             problems.append(f"profiles/{editor}.json was built with another contract")
 
-    path = files.get("dashboard.json")
+    path = files.get(site_layout.DASHBOARD_JSON)
     if path is not None and path.stat().st_size:
         try:
             dashboard = json.loads(path.read_text())
@@ -432,7 +438,7 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
             "editors": editors,
             "counts": counts,
             "exclusions": exclusions,
-            "artifacts": {"root": SITE_DIR, "entry": "dashboard.html", "files": artifacts},
+            "artifacts": {"root": SITE_DIR, "entry": site_layout.ROOT_ENTRY, "locales": list(LOCALES), "files": artifacts},
             "published": False,
             "note": STAGED_NOTE,
         }

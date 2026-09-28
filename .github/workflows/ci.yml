@@ -84,5 +84,7 @@ jobs:
         run: make publish
       - name: Production lock tests
         run: make lock
+      - name: Arabic and English presentation tests
+        run: make i18n
       - name: JSON syntax
         run: make json

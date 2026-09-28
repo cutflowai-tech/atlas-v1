@@ -359,7 +359,7 @@ class LockTests(unittest.TestCase):
             pointer = moved / "published" / "current"
             self.assertEqual(pointer.resolve(), (moved / "builds" / second.attempt_id / "site").resolve())
             self.assertEqual(pub.live_attempt(config), second.attempt_id)
-            self.assertEqual((pointer / "dashboard.html").read_bytes(), (moved / "builds" / second.attempt_id / "site" / "dashboard.html").read_bytes())
+            self.assertEqual((pointer / "en/dashboard.html").read_bytes(), (moved / "builds" / second.attempt_id / "site" / "en/dashboard.html").read_bytes())
             self.assertTrue(pub.current_consistency(config)["consistent"])
             # build.json records the absolute raw run path, so re-validating an old build after a move fails closed.
             moved_rollback = pub.rollback(None, {**self.env, "ATLAS_DATA_DIR": str(moved)})
