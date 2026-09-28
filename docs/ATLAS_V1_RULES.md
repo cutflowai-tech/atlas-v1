@@ -2,8 +2,8 @@
 
 These rules are the authoritative baseline until superseded by a later approved
 contract version. The approved v1.0 executable configuration is
-`config/monday-contract-v1.0.json`; registries with no entries are deliberately
-unresolved and must quarantine records rather than infer mappings.
+`config/monday-contract-v1.0.json`; any label absent from its explicit registries
+is unresolved and must quarantine records rather than infer mappings.
 
 1. **Monday is authoritative.** Persist every raw Monday label plus board/item/column/event identifiers and source timestamps. Each normalized event carries `mapping_version`.
 2. **Status mappings are explicit.** Use the v1.0 phase mapping in the executable configuration. Unmapped, deprecated, and newly introduced labels are quarantined; no silent inference.

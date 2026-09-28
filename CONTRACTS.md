@@ -5,7 +5,7 @@ The JSON Schemas under `contracts/` are the machine-readable V1 boundary. Fixtur
 | Contract | Purpose | Key invariants |
 |---|---|---|
 | `editor-identity` | Canonical Editor mapping | Monday person ID is required; ambiguous identities are unresolved |
-| `normalized-status-event` | Immutable Monday status transition | Canonical status enum, unique event ID, canonical actor or explicit unresolved Waset Co actor |
+| `normalized-status-event` | Immutable Monday status transition | Raw labels plus mapped phase, per-event status mapping version, unique event ID, canonical actor or explicit unresolved Waset Co actor |
 | `work-cycle` | Editor work interval | `In Progress` to `Ready For Approval`; end strictly follows start |
 | `speed-metric` | Same-type duration comparison | cohort Video Type equals subject Video Type; evidence is mandatory |
 | `deadline-metric` | Deadline result | compares Ready For Approval with Monday Requested ETA |

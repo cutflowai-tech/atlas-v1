@@ -19,7 +19,7 @@ class NormalizationTests(unittest.TestCase):
         original = copy.deepcopy(events)
         result = normalize_events(events, MAPPING)
         accepted, quarantined = result
-        self.assertEqual(accepted, events)
+        self.assertEqual([event["event_id"] for event in accepted], [event["event_id"] for event in events])
         self.assertEqual(quarantined, [])
         self.assertEqual(result.status_mapping_version, "status-v1")
         for event in accepted:
@@ -71,7 +71,9 @@ class NormalizationTests(unittest.TestCase):
 
     def test_unresolved_fixture_remains_explicit(self):
         raw = self.fixture("bad/unresolved-waset-co.json")
-        self.assertEqual(normalize_events([raw], MAPPING).accepted, [raw])
+        accepted = normalize_events([raw], MAPPING).accepted
+        self.assertEqual(accepted[0]["actor_resolution"], "unresolved_waset_co")
+        self.assertEqual(accepted[0]["mapping_version"], "status-v1")
 
     def test_bad_records_do_not_discard_valid_neighbors(self):
         good = self.activity()
@@ -102,6 +104,7 @@ class NormalizationTests(unittest.TestCase):
     def test_partial_canonical_identity_is_quarantined(self):
         raw = self.fixture("good/status-ready.json")
         del raw["mapping_version"]
+        del raw["actor_mapping_version"]
         self.assertEqual(normalize_events([raw], MAPPING).quarantined[0]["reason"], "INVALID_ID")
 
     def test_malformed_previous_status_is_not_treated_as_missing(self):

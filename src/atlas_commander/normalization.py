@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-STATUSES = {"Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered"}
+STATUSES = {"Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered", "Create File", "Internal Revisions", "Revisions", "TOPAZ", "Ready To Send", "Sent", "Done", "Waiting", "Captions Revisions", "Captions In Progress", "Waiting For Captions", "Captions Done"}
+PHASES = {"pre-cycle", "active-production", "internal-rework", "external-client-rework", "delivery-preparation", "delivered", "approval-terminal"}
 
 
 @dataclass
@@ -52,7 +53,7 @@ def _label(value: Any) -> Any:
     return value
 
 
-def _normalize(raw: dict[str, Any], statuses: dict[str, str]) -> dict[str, Any]:
+def _normalize(raw: dict[str, Any], statuses: dict[str, str], version: str) -> dict[str, Any]:
     data = raw.get("data", {})
     if isinstance(data, str):
         try:
@@ -84,19 +85,24 @@ def _normalize(raw: dict[str, Any], statuses: dict[str, str]) -> dict[str, Any]:
         "monday_item_id": _id(raw.get("monday_item_id", data.get("pulse_id"))),
         "status_column_id": _id(raw.get("status_column_id", data.get("column_id"))),
         "occurred_at": timestamp,
-        "from_status": statuses[before] if before is not None else None,
-        "to_status": statuses[after],
+        "from_status": statuses[before] if before is not None and statuses[before] in STATUSES else before,
+        "to_status": statuses[after] if statuses[after] in STATUSES else after,
+        "raw_from_status": before,
+        "raw_to_status": after,
+        "status_phase_from": statuses.get(before) if before is not None else None,
+        "status_phase_to": statuses[after],
         "actor_resolution": "unresolved_waset_co",
         "actor_monday_id": None,
         "actor_id": None,
-        "mapping_version": None,
+        "mapping_version": version,
+        "actor_mapping_version": None,
     }
     monday_id = raw.get("actor_monday_id", raw.get("user_id"))
     if monday_id is not None:
         event["actor_monday_id"] = _id(monday_id)
     if raw.get("actor_resolution") == "canonical_monday_id":
         event.update(actor_resolution="canonical_monday_id", actor_monday_id=_id(monday_id),
-                     actor_id=_id(raw.get("actor_id")), mapping_version=_id(raw.get("mapping_version")))
+                     actor_id=_id(raw.get("actor_id")), actor_mapping_version=_id(raw.get("actor_mapping_version", raw.get("mapping_version"))))
     return event
 
 
@@ -110,11 +116,11 @@ def normalize_events(raw_events: Any, status_mapping: dict[str, Any]) -> Normali
     """
     if not isinstance(status_mapping, dict):
         raise TypeError("INVALID_STATUS_MAPPING")
-    version = status_mapping.get("version")
-    statuses = status_mapping.get("statuses")
+    version = status_mapping.get("version") or status_mapping.get("status_mapping_version")
+    statuses = status_mapping.get("statuses") or status_mapping.get("status_mapping")
     if (not isinstance(version, str) or not version.strip() or not isinstance(statuses, dict)
             or not statuses or any(not isinstance(k, str) or not k or not isinstance(v, str)
-                                   or v not in STATUSES for k, v in statuses.items())):
+                                   or (v not in STATUSES and v not in PHASES) for k, v in statuses.items())):
         raise ValueError("INVALID_STATUS_MAPPING")
     if isinstance(raw_events, str):
         raw_events = json.loads(raw_events)
@@ -144,7 +150,7 @@ def normalize_events(raw_events: Any, status_mapping: dict[str, Any]) -> Normali
                 raise ValueError(reasons[index])
             if not isinstance(raw, dict):
                 raise TypeError("INVALID_EVENT")
-            result.accepted.append(_normalize(raw, statuses))
+            result.accepted.append(_normalize(raw, statuses, version))
         except (ValueError, TypeError) as exc:
             result.quarantined.append({"source_index": index, "reason": str(exc), "raw_source": deepcopy(raw)})
     return result
