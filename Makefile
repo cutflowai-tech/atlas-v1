@@ -1,4 +1,4 @@
-.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe test runtime-health
+.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -33,8 +33,13 @@ identity:
 monday-probe:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_monday_probe.py' -v
 
-test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe
+video-type:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_video_type.py' -v
+
+json:
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
+
+test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type json
 
 runtime-health:
 	./scripts/runtime-health

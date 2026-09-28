@@ -2,11 +2,13 @@
 
 These rules are the authoritative baseline until superseded by a later approved
 contract version. The approved executable configuration is
-`config/monday-contract-v1.1.json`: it preserves the v1.0 status and Editor
-registries and adds the approved `monday-video-type-v1.1` mapping. Any label
+`config/monday-contract-v1.1.json` (contract version `1.1.0`): it preserves the
+v1.0 status and Editor registries and adds the approved `monday-video-type-v1.1`
+mapping (`Class A+` = label ID `8`). Runtime resolves Video Type from Monday label
+IDs and stamps every resolution with its mapping version. Any label
 absent from the active explicit registries is unresolved and must quarantine
-records rather than infer mappings. `config/monday-contract-v1.0.json` remains
-the historical baseline for reproducibility.
+records rather than infer mappings. `config/monday-contract-v1.0.json` (contract version `1.0.0`) remains
+the historical baseline for reproducibility; under it label ID `8` is unresolved.
 
 1. **Monday is authoritative.** Persist every raw Monday label plus board/item/column/event identifiers and source timestamps. Each normalized event carries `mapping_version`.
 2. **Status mappings are explicit.** Use the v1.0 phase mapping in the executable configuration. Unmapped, deprecated, and newly introduced labels are quarantined; no silent inference.

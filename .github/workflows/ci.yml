@@ -46,3 +46,15 @@ jobs:
         run: make integration
       - name: End-to-end control-plane test
         run: make e2e
+      - name: Runtime contract tests
+        run: make runtime
+      - name: Normalization tests
+        run: make normalization
+      - name: Identity tests
+        run: make identity
+      - name: Monday probe tests
+        run: make monday-probe
+      - name: Video Type cohort tests
+        run: make video-type
+      - name: JSON syntax
+        run: make json
