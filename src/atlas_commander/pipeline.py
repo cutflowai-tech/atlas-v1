@@ -57,7 +57,7 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
     undo_ids = {str(record["id"]) for record in records if record.get("is_undo_action")}
     normalized = normalize_events(records, status_mapping_config(contract))
     tracked = frozenset({status_column, board["editor_column_id"], board["video_type_column_id"], board["requested_eta_column_id"],
-                         board["performance_issues_column_id"]})
+                         board["performance_issues_column_id"], *([board["for_bonus_column_id"]] if board.get("for_bonus_column_id") else [])})
     changes, rejected = parse_column_changes(dict(activity_payload), tracked)
     transitions = attribute_transitions(normalized.accepted, TransitionRoleMapping.from_contract(contract))
     meta = dict(ingestion or {})

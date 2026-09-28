@@ -140,7 +140,7 @@ def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[
                     "column_ids": [policy.column_id],
                     "event_ids": event_ids,
                     "source_timestamps": [timestamp],
-                    "source_values": {"label_id": label_id, "label": label, "raw_label_at_add": dropdown_value_labels(event.value) if event else None,
+                    "source_values": {"label_id": label_id, "label": label, "raw_label_at_add": list(dropdown_value_labels(event.value)) if event else None,
                                       "current_value_source": current_source, "weight": 1, "attribution": "editor of the item's first completed cycle",
                                       "cycle_id": cycle.cycle_id},
                     "rule_version": policy.rule_version,

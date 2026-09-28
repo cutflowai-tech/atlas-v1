@@ -62,5 +62,11 @@ jobs:
         run: make status-sources
       - name: Quality and revision context tests
         run: make quality
+      - name: Contract 1.3.0 tests
+        run: make contract-v13
+      - name: Editor Profile tests
+        run: make profile
+      - name: Read-only ingestion tests
+        run: make ingest
       - name: JSON syntax
         run: make json

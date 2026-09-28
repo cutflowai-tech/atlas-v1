@@ -34,11 +34,18 @@ class MondayContractRuntimeTests(unittest.TestCase):
 
     def test_editor_mapping_uses_editor_field_and_mapping_version(self):
         observation = EditorObservation("board-1", "item-1", "Editor Name", ("12",), "editor_column_event", "event-1", "2026-09-01T09:00:00Z")
-        result = resolve_contract_editor(observation, self.config)
+        # Pinned to contract 1.1.0 (monday-editor-v1.0, ID-only) for reproducibility.
+        result = resolve_contract_editor(observation, load_contract_version("1.1.0"))
         self.assertTrue(result.resolved)
         assert result.identity is not None
         self.assertEqual(result.identity["editor_id"], "editor-label-12")
         self.assertEqual(result.identity["mapping_version"], "monday-editor-v1.0")
+        # The active mapping (monday-editor-v1.1) also checks the label name recorded by Monday.
+        named = EditorObservation("board-1", "item-1", "Editor Name", ("12",), "editor_column_event", "event-1", "2026-09-01T09:00:00Z", ("Ahmed",))
+        active = resolve_contract_editor(named, self.config)
+        assert active.identity is not None
+        self.assertEqual((active.identity["editor_id"], active.identity["mapping_version"]), ("editor-label-12", "monday-editor-v1.1"))
+        self.assertFalse(resolve_contract_editor(observation, self.config).resolved)
 
     def test_shared_account_is_not_an_editor_mapping(self):
         observation = EditorObservation("board-1", "item-1", "Editor Name", ("99154021",), "editor_column_event", "event-1", "2026-09-01T09:00:00Z")

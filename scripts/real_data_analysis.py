@@ -1,6 +1,6 @@
 """Read-only analysis of an extracted Monday dataset through the Atlas pipeline.
 
-Usage: PYTHONPATH=src python3 scripts/real_data_analysis.py <extract.json>
+Usage: PYTHONPATH=src python3 scripts/real_data_analysis.py <extract.json> [contract_version]
 
 The extract is produced outside git by read-only Monday queries and has the shape
 ``{"retrieved_at", "activity": {"boards": [{"activity_logs": [...]}]}, "items": {"items": [...]}}``.
@@ -17,8 +17,10 @@ from statistics import mean, median
 from typing import Any
 
 from atlas_commander.cycles import COMPLETED, CycleRecord
-from atlas_commander.pipeline import reconstruct_cycles
-from atlas_commander.runtime import load_contract_version
+from atlas_commander.metrics import MetricPolicy, cohort_benchmark_eligibility, deadline_eligible, deadline_result, deadline_summary, speed_eligible
+from atlas_commander.pipeline import reconstruct_cycles, reconstruct_quality
+from atlas_commander.quality import revision_context_summary
+from atlas_commander.runtime import ACTIVE_CONTRACT_VERSION, load_contract_version
 
 ROBUSTNESS_EXCLUSIONS = {"UNMAPPED_EDITOR", "MISSING_EDITOR_EVENT", "MISSING_EDITOR", "AMBIGUOUS_EDITOR", "EDITOR_CHANGED_WITHIN_CYCLE"}
 
@@ -64,9 +66,51 @@ def cohort_table(cycles: list[CycleRecord]) -> list[dict[str, Any]]:
     return rows
 
 
-def main(path: str) -> dict[str, Any]:
+def validation(result: Any, contract: dict[str, Any], calculated_at: str) -> dict[str, Any]:
+    """Coverage of every metric family under one contract version (read-only, aggregate)."""
+    policy = MetricPolicy.from_contract(contract)
+    completed = [cycle for cycle in result.cycles if cycle.state == COMPLETED]
+    measured = [cycle for cycle in completed if speed_eligible(cycle)]
+    cohorts: dict[str, list[CycleRecord]] = defaultdict(list)
+    for cycle in measured:
+        assert cycle.cohort_key is not None
+        cohorts[cycle.cohort_key].append(cycle)
+    cohort_rows = []
+    for key, members in sorted(cohorts.items(), key=lambda pair: -len(pair[1])):
+        assert members[0].video_type is not None
+        eligible, unconfirmed = cohort_benchmark_eligibility(members[0].video_type.canonical_ids, policy.video_types)
+        per_editor = Counter(cycle.editor_id for cycle in members)
+        cohort_rows.append({"cohort_key": key, "labels": list(members[0].video_type.canonical_labels), "benchmark_eligible": eligible,
+                            "unconfirmed_ids": unconfirmed, "cycles": len(members), "editors": dict(per_editor),
+                            "editors_with_at_least_minimum": sorted(editor for editor, n in per_editor.items()
+                                                                    if eligible and n >= (policy.minimum_editor_sample_size or 0))})
+    deadline_cycles = [cycle for cycle in completed if cycle.editor_id is not None]
+    results = [r for r in (deadline_result(cycle, policy, calculated_at) for cycle in deadline_cycles) if r is not None]
+    excluded = [cycle for cycle in deadline_cycles if not deadline_eligible(cycle)]
+    summary = deadline_summary(results, excluded)
+    summary.pop("not_evaluated")
+    quality = reconstruct_quality(result, contract, calculated_at)
+    editors = sorted({cycle.editor_id for cycle in completed if cycle.editor_id})
+    return {
+        "contract_version": contract["contract_version"],
+        "completed_cycles": len(completed),
+        "speed_eligible_cycles": len(measured),
+        "exclusions_by_reason": dict(Counter(reason for cycle in completed for reason in cycle.exclusions).most_common()),
+        "cohorts": cohort_rows,
+        "benchmark_eligible_cohorts": [row["cohort_key"] for row in cohort_rows if row["benchmark_eligible"]],
+        "editor_cohort_pairs_meeting_minimum": [(row["cohort_key"], editor) for row in cohort_rows for editor in row["editors_with_at_least_minimum"]],
+        "resolved_editors": editors,
+        "deadline": {"cycles_with_resolved_editor": len(deadline_cycles), **summary},
+        "quality": {"occurrences": len(quality.occurrences), "by_editor": dict(Counter(m["editor_id"] for m in quality.occurrences)),
+                    "quarantined_by_reason": dict(Counter(q["reason"] for q in quality.quarantined))},
+        "revision_context": {editor: {k: v for k, v in revision_context_summary(editor, completed).items() if k != "monday_item_ids_with_client_revisions"}
+                             for editor in editors},
+    }
+
+
+def main(path: str, version: str = ACTIVE_CONTRACT_VERSION) -> dict[str, Any]:
     data = json.load(open(path))
-    contract = load_contract_version("1.2.0")
+    contract = load_contract_version(version)
     result = reconstruct_cycles(data["activity"], contract, items_payload=data.get("items"), ingestion={"retrieved_at": data.get("retrieved_at")})
     completed = [cycle for cycle in result.cycles if cycle.state == COMPLETED]
     timing_valid = [cycle for cycle in completed if cycle.cohort_key and not (set(cycle.exclusions) - ROBUSTNESS_EXCLUSIONS)]
@@ -94,6 +138,7 @@ def main(path: str) -> dict[str, Any]:
 
     return {
         "retrieved_at": data.get("retrieved_at"),
+        "validation": validation(result, contract, str(data.get("retrieved_at"))),
         "status_events": len(result.status_events),
         "quarantined_status_logs": {f"{reason}:{label}": count for (reason, label), count in quarantined.most_common()},
         "cycles": dict(Counter(cycle.state for cycle in result.cycles)),
@@ -112,5 +157,5 @@ def main(path: str) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    json.dump(main(sys.argv[1]), sys.stdout, indent=1)
+    json.dump(main(sys.argv[1], *sys.argv[2:3]), sys.stdout, indent=1)
     print()

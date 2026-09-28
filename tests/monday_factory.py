@@ -52,11 +52,15 @@ def dropdown(log_id, item, column, moment, ids, names=None, previous=None):
     return _log(log_id, item, column, moment, previous, value, column_type="dropdown")
 
 
-def editor(log_id, item, moment, ids):
-    return dropdown(log_id, item, EDITOR, moment, ids)
+# Editor Name label names as recorded in Monday logs (label IDs can be reused for other people).
+EDITOR_NAMES = {6: "Will", 12: "Ahmed", 13: "Michael", 14: "Mansour", 15: "Sobhy", 16: "Ezz", 17: "Ali", 18: "Mohamed Mansour (Office)", 4: "Mario"}
 
 
-VIDEO_TYPE_NAMES = {4: "Class A", 5: "Class B", 8: "Class A+", 10: "2*", 16: "Ai"}
+def editor(log_id, item, moment, ids, names=None):
+    return dropdown(log_id, item, EDITOR, moment, ids, names or [EDITOR_NAMES.get(value, f"label-{value}") for value in ids])
+
+
+VIDEO_TYPE_NAMES = {1: "Reel (Less Than 1 min)", 4: "Class A", 5: "Class B", 6: "Simple Short", 8: "Class A+", 10: "2*", 16: "Ai", 22: "Reels Boost Pack", 27: "Premium Short"}
 
 
 def video_type(log_id, item, moment, ids, names=None):
