@@ -4,8 +4,9 @@
   "title": "Atlas Metric Evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["monday_item_id", "editor_id", "video_type", "metric", "evidence", "rule_version", "calculated_at"],
+  "required": ["monday_board_id", "monday_item_id", "editor_id", "video_type", "metric", "evidence", "rule_version", "calculated_at"],
   "properties": {
+    "monday_board_id": {"type": "string", "minLength": 1},
     "monday_item_id": {"type": "string", "minLength": 1},
     "editor_id": {"type": "string", "minLength": 1},
     "video_type": {"type": "string", "minLength": 1},
@@ -28,12 +29,14 @@
     "evidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "record_ids", "event_ids"],
+      "required": ["source", "record_ids", "column_ids", "event_ids", "source_timestamps", "source_values"],
       "properties": {
         "source": {"const": "monday"},
         "record_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "column_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "event_ids": {"type": "array", "items": {"type": "string"}},
-        "source_values": {"type": "object"}
+        "source_timestamps": {"type": "array", "items": {"type": "string", "format": "date-time"}, "minItems": 1},
+        "source_values": {"type": "object", "minProperties": 1}
       }
     },
     "rule_version": {"type": "string", "minLength": 1},
@@ -41,4 +44,3 @@
     "ai_annotation": {"type": ["string", "null"], "description": "Explanatory only; never authoritative."}
   }
 }
-

@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from atlas_commander.core import ROOT, classify, ready_tasks, slots_for
+from atlas_commander.core import ROOT, assignments_for, classify, ready_tasks, slots_for
 
 
 class CommanderTests(unittest.TestCase):
@@ -25,6 +25,23 @@ class CommanderTests(unittest.TestCase):
         self.assertIn("deadline", schema["properties"])
         self.assertIn("requested_eta", schema["properties"])
         self.assertEqual(schema["properties"]["evidence"]["properties"]["source"]["const"], "monday")
+        self.assertIn("monday_board_id", schema["required"])
+        evidence_required = schema["properties"]["evidence"]["required"]
+        for field in ("column_ids", "event_ids", "source_timestamps", "source_values"):
+            self.assertIn(field, evidence_required)
+
+    def test_critical_routing_is_cross_family(self):
+        assignments = assignments_for("critical")
+        builder_families = {item["family"] for item in assignments if item["slot"].startswith("builder-")}
+        validator_families = {item["family"] for item in assignments if item["slot"].startswith("validator-")}
+        self.assertEqual(builder_families, {"codex", "claude"})
+        self.assertEqual(validator_families, {"codex", "claude"})
+
+    def test_all_dag_entries_satisfy_task_contract(self):
+        tasks = json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]
+        required = {"id", "title", "risk", "status", "depends_on", "acceptance_tests", "evidence_requirements", "affected_contracts", "contract_owner_gate"}
+        for task in tasks:
+            self.assertFalse(required - set(task), task["id"])
 
     def test_done_dependency_is_not_ready_itself(self):
         self.assertEqual(ready_tasks(), [])
@@ -32,4 +49,3 @@ class CommanderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

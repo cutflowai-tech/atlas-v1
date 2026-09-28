@@ -6,8 +6,10 @@
       "risk": "critical",
       "status": "done",
       "depends_on": [],
+      "acceptance_tests": ["make test passes", "all five runtime profiles are registered", "worktree fanout succeeds"],
+      "evidence_requirements": ["runtime health output", "test output", "Multica squad and autopilot IDs"],
+      "affected_contracts": ["contracts/atlas-v1.schema.json", "config/risk-policy.json"],
       "contract_owner_gate": "approved"
     }
   ]
 }
-

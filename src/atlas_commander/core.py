@@ -12,6 +12,34 @@ POLICY_PATH = ROOT / "config" / "risk-policy.json"
 DAG_PATH = ROOT / "tasks" / "dag.json"
 
 CRITICAL_FLAGS = {"business_rules", "schema", "security", "money", "destructive_migration"}
+REQUIRED_TASK_FIELDS = {
+    "id", "title", "risk", "status", "depends_on", "acceptance_tests",
+    "evidence_requirements", "affected_contracts", "contract_owner_gate",
+}
+
+ROUTES = {
+    "simple": [
+        {"slot": "builder-1", "runtime": "Atlas Codex W", "family": "codex"},
+        {"slot": "reviewer-1", "runtime": "Atlas Codex A", "family": "codex"},
+        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+    ],
+    "normal": [
+        {"slot": "builder-1", "runtime": "Atlas Builder Codex M", "family": "codex"},
+        {"slot": "builder-2", "runtime": "Atlas Builder Claude A", "family": "claude"},
+        {"slot": "reviewer-1", "runtime": "Atlas Validator Codex", "family": "codex"},
+        {"slot": "arbiter", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+    ],
+    "critical": [
+        {"slot": "builder-1", "runtime": "Atlas Builder Codex M", "family": "codex"},
+        {"slot": "builder-2", "runtime": "Atlas Builder Codex W", "family": "codex"},
+        {"slot": "builder-3", "runtime": "Atlas Builder Claude A", "family": "claude"},
+        {"slot": "validator-1", "runtime": "Atlas Validator Codex", "family": "codex"},
+        {"slot": "validator-2", "runtime": "Atlas Validator Claude", "family": "claude"},
+        {"slot": "arbiter", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+    ],
+}
 
 
 def classify(flags: set[str]) -> str:
@@ -27,14 +55,16 @@ def load_policy() -> dict:
 
 
 def slots_for(risk: str) -> list[str]:
+    return [assignment["slot"] for assignment in ROUTES[risk]]
+
+
+def assignments_for(risk: str) -> list[dict]:
+    assignments = ROUTES[risk]
     policy = load_policy()[risk]
-    slots = [f"builder-{n}" for n in range(1, policy["builders"] + 1)]
-    slots += [f"reviewer-{n}" for n in range(1, policy["reviewers"] + 1)]
-    slots += [f"validator-{n}" for n in range(1, policy["validators"] + 1)]
-    if policy["requires_arbiter"]:
-        slots.append("arbiter")
-    slots.append("integrator")
-    return slots
+    builder_families = {item["family"] for item in assignments if item["slot"].startswith("builder-")}
+    if policy["requires_cross_family"] and len(builder_families) < 2:
+        raise ValueError(f"{risk} routing requires builders from at least two model families")
+    return assignments
 
 
 def git(*args: str, cwd: Path = ROOT) -> str:
@@ -46,14 +76,15 @@ def fanout(task_id: str, risk: str, base: str) -> dict:
     run_dir = ROOT / ".atlas" / "runs" / task_id
     run_dir.mkdir(parents=True, exist_ok=True)
     assignments = []
-    for slot in slots_for(risk):
+    for routing in assignments_for(risk):
+        slot = routing["slot"]
         if slot in {"arbiter", "integrator"}:
             continue
         branch = f"task/{safe_id}/{slot}"
         path = ROOT / ".worktrees" / safe_id / slot
         path.parent.mkdir(parents=True, exist_ok=True)
         if path.exists():
-            assignments.append({"slot": slot, "branch": branch, "worktree": str(path), "existing": True})
+            assignments.append({**routing, "branch": branch, "worktree": str(path), "existing": True})
             continue
         branch_exists = subprocess.run(
             ["git", "show-ref", "--verify", f"refs/heads/{branch}"],
@@ -66,7 +97,7 @@ def fanout(task_id: str, risk: str, base: str) -> dict:
             git("worktree", "add", str(path), branch)
         else:
             git("worktree", "add", "-b", branch, str(path), base)
-        assignments.append({"slot": slot, "branch": branch, "worktree": str(path), "existing": False})
+        assignments.append({**routing, "branch": branch, "worktree": str(path), "existing": False})
     manifest = {"task_id": task_id, "risk": risk, "base": base, "assignments": assignments}
     (run_dir / "fanout.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
@@ -74,6 +105,10 @@ def fanout(task_id: str, risk: str, base: str) -> dict:
 
 def ready_tasks() -> list[dict]:
     tasks = json.loads(DAG_PATH.read_text())["tasks"]
+    for task in tasks:
+        missing = REQUIRED_TASK_FIELDS - set(task)
+        if missing:
+            raise ValueError(f"task {task.get('id', '<unknown>')} missing fields: {sorted(missing)}")
     by_id = {task["id"]: task for task in tasks}
     ready = []
     for task in tasks:
@@ -119,7 +154,7 @@ def main() -> int:
         print(json.dumps({"title": args.title, "risk": risk, "policy": load_policy()[risk]}, indent=2))
         return 0
     if args.command == "plan":
-        print(json.dumps({"risk": args.risk, "slots": slots_for(args.risk)}, indent=2))
+        print(json.dumps({"risk": args.risk, "assignments": assignments_for(args.risk)}, indent=2))
         return 0
     if args.command == "fanout":
         print(json.dumps(fanout(args.task_id, args.risk, args.base), indent=2))
