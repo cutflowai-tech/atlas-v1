@@ -1,0 +1,258 @@
+{
+  "report_version": "data-001-drift-v1",
+  "contract": "contracts/normalized-status-event.schema.json",
+  "contract_version": "1.0.0",
+  "contract_change_required": true,
+  "findings": [
+    {
+      "code": "STATUS_LABEL_VOCABULARY_DRIFT",
+      "field": "from_status/to_status",
+      "blocking": true,
+      "detail": "Monday status labels are not the contract enum; only exact-text matches are listed and no mapping is inferred.",
+      "exact_text_matches": {
+        "3": "Ready For Approval",
+        "9": "In Progress"
+      },
+      "monday_labels_without_contract_value": {
+        "0": "Internal Revisions",
+        "1": "Done",
+        "2": "Revisions",
+        "4": "Ready To Send",
+        "6": "Waiting",
+        "7": "Sent",
+        "8": "Captions Revisions",
+        "10": "Captions In Progress",
+        "13": "Create File",
+        "14": "Waiting For Captions",
+        "16": "TOPAZ",
+        "17": "Captions Done"
+      },
+      "contract_values_without_monday_label": [
+        "Approved",
+        "Backlog",
+        "Delivered",
+        "Revision"
+      ]
+    },
+    {
+      "code": "OBSERVED_TRANSITIONS",
+      "field": "from_status/to_status",
+      "blocking": false,
+      "detail": "Raw label transitions observed in the probed activity logs.",
+      "counts": {
+        " -> Create File": 2,
+        " -> In Progress": 1,
+        "Captions Done -> Ready For Approval": 2,
+        "Captions In Progress -> Captions Done": 2,
+        "Create File -> ": 2,
+        "Create File -> In Progress": 5,
+        "In Progress -> Create File": 2,
+        "In Progress -> Ready For Approval": 3,
+        "In Progress -> Sent": 1,
+        "In Progress -> Waiting For Captions": 2,
+        "Internal Revisions -> Ready For Approval": 1,
+        "None -> ": 1,
+        "None -> Create File": 3,
+        "Ready For Approval -> Internal Revisions": 1,
+        "Ready For Approval -> Ready To Send": 8,
+        "Ready To Send -> Sent": 8,
+        "Revisions -> Ready For Approval": 4,
+        "Sent -> In Progress": 2,
+        "Sent -> Revisions": 4,
+        "Sent -> TOPAZ": 1,
+        "TOPAZ -> Sent": 1,
+        "Waiting For Captions -> Captions In Progress": 2
+      },
+      "outside_contract_enum": [
+        "Captions Done",
+        "Captions In Progress",
+        "Create File",
+        "Internal Revisions",
+        "Ready To Send",
+        "Revisions",
+        "Sent",
+        "TOPAZ",
+        "Waiting For Captions"
+      ]
+    },
+    {
+      "code": "TIMESTAMP_ENCODING",
+      "field": "occurred_at",
+      "blocking": false,
+      "detail": "activity_logs.created_at is a 17-digit string of 100ns ticks since epoch, not RFC 3339; the adapter converts it and retains the raw value.",
+      "raw_examples": [
+        "17900106596002324",
+        "17900117191474228",
+        "17900441606077930"
+      ],
+      "converted_examples": [
+        "2026-09-21T17:10:59.600232Z",
+        "2026-09-21T17:28:39.147422Z",
+        "2026-09-22T02:29:20.607793Z"
+      ]
+    },
+    {
+      "code": "TIMESTAMP_CROSS_CHECK",
+      "field": "occurred_at",
+      "blocking": false,
+      "detail": "Latest converted log timestamp per item vs the status column changed_at returned by the items API.",
+      "items": [
+        {
+          "item_id": "3236714197",
+          "latest_log_id": "d9a1694c-256f-4789-836c-cc27a82a963e",
+          "log_occurred_at": "2026-09-23T19:19:16.068790Z",
+          "column_changed_at": "2026-09-23T19:19:15.669Z",
+          "delta_ms": 399,
+          "labels_agree": true
+        },
+        {
+          "item_id": "3241413361",
+          "latest_log_id": "81b27929-0619-417a-96a7-54969f22868e",
+          "log_occurred_at": "2026-09-25T15:47:17.154692Z",
+          "column_changed_at": "2026-09-25T15:47:16.460Z",
+          "delta_ms": 694,
+          "labels_agree": true
+        },
+        {
+          "item_id": "3241464823",
+          "latest_log_id": "ce9bfc4b-1773-4388-9d43-e992f6731150",
+          "log_occurred_at": "2026-09-26T03:46:56.137487Z",
+          "column_changed_at": "2026-09-26T03:46:56.150Z",
+          "delta_ms": -13,
+          "labels_agree": true
+        },
+        {
+          "item_id": "3243581913",
+          "latest_log_id": "22e7db36-9360-4ca5-bcea-0edbe0f1f45b",
+          "log_occurred_at": "2026-09-28T03:57:49.617745Z",
+          "column_changed_at": "2026-09-28T03:57:48.925Z",
+          "delta_ms": 692,
+          "labels_agree": true
+        },
+        {
+          "item_id": "3246525128",
+          "latest_log_id": "1093f34d-2561-4ad5-a881-ff15339fd619",
+          "log_occurred_at": "2026-09-28T12:55:35.912265Z",
+          "column_changed_at": "2026-09-28T12:55:35.704Z",
+          "delta_ms": 208,
+          "labels_agree": true
+        }
+      ]
+    },
+    {
+      "code": "COLUMN_TYPE_ALIAS",
+      "field": "status_column_id",
+      "blocking": false,
+      "detail": "Activity logs report the status column type as 'color'; the columns API reports 'status'.",
+      "log_column_types": [
+        "color"
+      ],
+      "columns_api_type": "status"
+    },
+    {
+      "code": "ACTOR_IS_NOT_EDITOR",
+      "field": "actor_resolution/actor_id",
+      "blocking": true,
+      "detail": "Log user_id is the Monday account that changed the status; the evaluated Editor is a 'dropdown' label on the item, not a Monday user. No versioned actor or editor mapping exists, so no event can be canonical_monday_id and none is guessed.",
+      "actor_user_ids": {
+        "99154021": 32,
+        "105392408": 9,
+        "99988743": 7,
+        "99154858": 4,
+        "101273903": 3,
+        "103082849": 2,
+        "103895405": 1
+      },
+      "editor_column": {
+        "id": "dropdown_mm1emgt8",
+        "type": "dropdown"
+      }
+    },
+    {
+      "code": "VIDEO_TYPE_MULTI_VALUE",
+      "field": "video_type",
+      "blocking": true,
+      "detail": "Video Type is a multi-select dropdown; items with several labels have no single speed cohort without an approved rule.",
+      "items": {
+        "3243581913": [
+          5,
+          16
+        ]
+      },
+      "single_value_items": 4
+    },
+    {
+      "code": "REQUESTED_ETA_TIMEZONE",
+      "field": "requested_eta",
+      "blocking": false,
+      "detail": "Requested ETA value holds UTC date+time; text is rendered in the account timezone. Deadline logic must use value.",
+      "items": [
+        {
+          "item_id": "3236714197",
+          "value_utc": "2026-09-23T21:14:29Z",
+          "text": "2026-09-24 00:14",
+          "text_minus_value_hours": 3.0
+        },
+        {
+          "item_id": "3241413361",
+          "value_utc": "2026-09-26T09:42:20Z",
+          "text": "2026-09-26 12:42",
+          "text_minus_value_hours": 3.0
+        },
+        {
+          "item_id": "3241464823",
+          "value_utc": "2026-09-26T09:00:00Z",
+          "text": "2026-09-26 12:00",
+          "text_minus_value_hours": 3.0
+        },
+        {
+          "item_id": "3243581913",
+          "value_utc": "2026-09-28T15:37:42Z",
+          "text": "2026-09-28 18:37",
+          "text_minus_value_hours": 3.0
+        },
+        {
+          "item_id": "3246525128",
+          "value_utc": "2026-09-28T21:00:00Z",
+          "text": "2026-09-29 00:00",
+          "text_minus_value_hours": 3.0
+        }
+      ]
+    },
+    {
+      "code": "LABEL_DRIFT_SINCE_BASELINE",
+      "field": "status/editor labels",
+      "blocking": false,
+      "detail": "Live column settings compared with the immutable raw snapshot baseline.",
+      "status_labels": {
+        "added": {
+          "8": "Captions Revisions"
+        },
+        "removed": {},
+        "renamed": {}
+      },
+      "editor_labels": {
+        "added": {
+          "12": "Ahmed",
+          "13": "Michael",
+          "14": "Mansour",
+          "15": "Sobhy",
+          "16": "Ezz",
+          "17": "Ali",
+          "18": "Mohamed Mansour (Office)"
+        },
+        "removed": {},
+        "renamed": {}
+      },
+      "editor_deactivated": {
+        "baseline": [
+          1
+        ],
+        "live": [
+          1,
+          8
+        ]
+      }
+    }
+  ]
+}

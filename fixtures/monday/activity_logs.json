@@ -1,0 +1,44 @@
+{
+ "boards": [
+  {
+   "activity_logs": [
+    {
+     "id": "log-3",
+     "event": "update_column_value",
+     "entity": "pulse",
+     "user_id": "500001",
+     "account_id": "700001",
+     "created_at": "17900117191474228",
+     "data": "{\"parent_board_id\": null, \"previous_value\": {\"post_id\": null, \"label\": {\"is_done\": false, \"index\": 9, \"style\": {\"color\": \"#000\"}, \"text\": \"In Progress\"}}, \"pulse_name\": \"SYNTHETIC ITEM NAME\", \"pulse_id\": 100002, \"is_undo_action\": null, \"column_id\": \"project_status\", \"column_title\": \"Status\", \"group_id\": \"g1\", \"board_id\": 900001, \"column_type\": \"color\", \"value\": {\"post_id\": null, \"label\": {\"is_done\": false, \"index\": 3, \"style\": {\"color\": \"#000\"}, \"text\": \"Ready For Approval\"}}}"
+    },
+    {
+     "id": "log-1",
+     "event": "update_column_value",
+     "entity": "pulse",
+     "user_id": "500002",
+     "account_id": "700001",
+     "created_at": "17900106596002324",
+     "data": "{\"parent_board_id\": null, \"previous_value\": {\"post_id\": null, \"label\": {\"is_done\": false, \"index\": 13, \"style\": {\"color\": \"#000\"}, \"text\": \"Create File\"}}, \"pulse_name\": \"SYNTHETIC ITEM NAME\", \"pulse_id\": 100002, \"is_undo_action\": null, \"column_id\": \"project_status\", \"column_title\": \"Status\", \"group_id\": \"g1\", \"board_id\": 900001, \"column_type\": \"color\", \"value\": {\"post_id\": null, \"label\": {\"is_done\": false, \"index\": 9, \"style\": {\"color\": \"#000\"}, \"text\": \"In Progress\"}}}"
+    },
+    {
+     "id": "log-2",
+     "event": "update_column_value",
+     "entity": "pulse",
+     "user_id": "500009",
+     "account_id": "700001",
+     "created_at": "17900441606077930",
+     "data": "{\"parent_board_id\": null, \"previous_value\": null, \"pulse_name\": \"SYNTHETIC ITEM NAME\", \"pulse_id\": 100003, \"is_undo_action\": true, \"column_id\": \"project_status\", \"column_title\": \"Status\", \"group_id\": \"g1\", \"board_id\": 900001, \"column_type\": \"color\", \"value\": {\"post_id\": null, \"label\": {\"is_done\": false, \"index\": 7, \"style\": {\"color\": \"#000\"}, \"text\": \"Sent\"}}}"
+    },
+    {
+     "id": "log-4",
+     "event": "update_name",
+     "entity": "pulse",
+     "user_id": "500001",
+     "account_id": "700001",
+     "created_at": "17900441606077931",
+     "data": "{}"
+    }
+   ]
+  }
+ ]
+}
