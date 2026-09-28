@@ -9,8 +9,17 @@ from atlas_commander.contracts import schema_errors
 
 CONTRACT = "normalized-status-event.schema.json"
 CONTRACT_VERSION = "1.0.0"
-# Monday activity_logs.created_at is a 17-digit count of 100ns ticks since the Unix epoch.
+# Monday activity_logs.created_at is a 17-digit count of 100 ns ticks since the Unix epoch.
 _TICKS_PER_SECOND = 10_000_000
+
+_STATUS_PHASES = {
+    "Create File": "pre-cycle", "Waiting": "pre-cycle", "Captions Revisions": "pre-cycle",
+    "Captions In Progress": "pre-cycle", "Waiting For Captions": "pre-cycle", "Captions Done": "pre-cycle",
+    "In Progress": "active-production", "Internal Revisions": "internal-rework",
+    "Revisions": "external-client-rework", "TOPAZ": "delivery-preparation",
+    "Ready To Send": "delivery-preparation", "Sent": "delivered", "Done": "delivered",
+    "Ready For Approval": "approval-terminal",
+}
 
 
 class AdapterError(ValueError):
@@ -123,6 +132,8 @@ def normalize(change: StatusChange, status_mapping: StatusMapping | None, actor_
     if reasons or status_mapping is None or actor_mapping is None:
         return None, reasons
     waset_co = change.user_id in actor_mapping.waset_co_accounts
+    from_status = None if change.from_label_index is None else status_mapping.labels[change.from_label_index]
+    to_status = status_mapping.labels[change.to_label_index]  # type: ignore[index]
     event: dict[str, Any] = {
         "contract_version": CONTRACT_VERSION,
         "event_id": change.log_id,
@@ -130,12 +141,17 @@ def normalize(change: StatusChange, status_mapping: StatusMapping | None, actor_
         "monday_item_id": change.item_id,
         "status_column_id": change.column_id,
         "occurred_at": change.occurred_at,
-        "from_status": None if change.from_label_index is None else status_mapping.labels[change.from_label_index],
-        "to_status": status_mapping.labels[change.to_label_index],  # type: ignore[index]
+        "from_status": from_status,
+        "to_status": to_status,
+        "raw_from_status": change.from_label_text,
+        "raw_to_status": change.to_label_text or to_status,
+        "status_phase_from": None if from_status is None else _STATUS_PHASES.get(from_status, from_status),
+        "status_phase_to": _STATUS_PHASES.get(to_status, to_status),
         "actor_resolution": "unresolved_waset_co" if waset_co else "canonical_monday_id",
         "actor_monday_id": change.user_id,
         "actor_id": None if waset_co else actor_mapping.actors[change.user_id],
         "mapping_version": f"{status_mapping.version}+{actor_mapping.version}",
+        "actor_mapping_version": actor_mapping.version,
     }
     errors = schema_errors(event, CONTRACT)
     if errors:

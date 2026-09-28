@@ -153,8 +153,8 @@ class EvidenceTests(unittest.TestCase):
         findings = {finding["code"]: finding for finding in report["findings"]}
         self.assertTrue(report["contract_change_required"])
         vocabulary = findings["STATUS_LABEL_VOCABULARY_DRIFT"]
-        self.assertEqual(vocabulary["exact_text_matches"], {"3": "Ready For Approval", "9": "In Progress"})
-        self.assertIn("Captions Revisions", vocabulary["monday_labels_without_contract_value"].values())
+        self.assertEqual(vocabulary["exact_text_matches"], {"3": "Ready For Approval", "7": "Sent", "8": "Captions Revisions", "9": "In Progress", "13": "Create File"})
+        self.assertEqual(vocabulary["monday_labels_without_contract_value"], {})
         self.assertEqual(findings["COLUMN_TYPE_ALIAS"]["log_column_types"], ["color"])
         self.assertEqual(findings["VIDEO_TYPE_MULTI_VALUE"]["items"], {"100002": [5, 16]})
         self.assertEqual(findings["REQUESTED_ETA_TIMEZONE"]["items"][0]["value_utc"], "2026-09-21T21:00:00Z")
