@@ -1,4 +1,4 @@
-"""Editor Profile (editor-profile 1.1.0) and its HTML view, through the public pipeline path."""
+"""Editor Profile (editor-profile 1.3.0) and its HTML view, through the public pipeline path."""
 
 import json
 import tempfile
@@ -43,6 +43,7 @@ def dataset():
         logs += project(f"{n + 11}", editor=AHMED, hours=hours)                             # Ahmed, Class A
     logs += project("21", video=(5,), hours=30, eta=("2026-09-02", None))                   # Will, Class B, date-only ETA
     logs += project("22", editor=MARIO, hours=5)                                            # unverified Editor
+    logs += project("23", video=(22, 4), hours=7)                                           # Will, cohort with unclassified Reels Boost Pack
     logs += [issue("q1", "1", [1], ["Late Delivery"]), issue("q2", "2", [1, 2], ["Late Delivery", "Poor Communication"]),
              mf.dropdown("b1", "3", "dropdown_mm3tyvvc", "2026-09-03T00:00:00Z", [1], ["1- Exceptional Quality"]),
              mf.status("r1", "4", "2026-09-04T00:00:00Z", "Ready For Approval", "Sent"),
@@ -66,7 +67,7 @@ class ProfileTests(unittest.TestCase):
         cls.profile = build_editor_profile(cls.result, cls.contract, "editor-label-6", NOW)
 
     def test_profile_is_contract_valid_and_has_no_score(self):
-        self.assertEqual(validate(self.profile, "editor-profile-v1.2.schema.json"), [])
+        self.assertEqual(validate(self.profile, "editor-profile-v1.3.schema.json"), [])
         self.assertEqual((self.profile["overall"]["status"], self.profile["overall"]["rule_version"]), (None, None))
         self.assertNotIn("score", json.dumps(self.profile).lower().replace("scoring", ""))
         self.assertEqual((self.profile["editor"]["display_name"], self.profile["executable_contract_version"]), ("Will", "1.3.0"))
@@ -100,7 +101,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_projects_carry_evidence_and_coverage_is_explicit(self):
         rows = {row["monday_item_id"]: row for row in self.profile["projects"]}
-        self.assertEqual(set(rows), {"1", "2", "3", "4", "5", "21"})
+        self.assertEqual(set(rows), {"1", "2", "3", "4", "5", "21", "23"})
         self.assertEqual((rows["1"]["evidence_event_ids"]["in_progress"], rows["1"]["evidence_event_ids"]["ready_for_approval"]), ("1-s1", "1-s2"))
         self.assertEqual(rows["21"]["requested_eta_issue"], "REQUESTED_ETA_DATE_ONLY")
         self.assertEqual(rows["1"]["quality_labels"], ["Late Delivery"])
@@ -113,8 +114,17 @@ class ProfileTests(unittest.TestCase):
 
     def test_trend_is_per_cohort_and_month_with_sample_sizes(self):
         trend = self.profile["trend"]
+        # Only exact benchmark-eligible cohorts; project 23 (Reels Boost Pack + Class A) is counted as not shown, never pooled.
         self.assertEqual({(row["cohort_key"], row["month"]): row["projects"] for row in trend["speed_by_cohort_month"]}, {("4", "2026-09"): 5, ("5", "2026-09"): 1})
-        self.assertEqual(trend["deadline_by_month"], [{"month": "2026-09", "evaluated": 5, "early": 2, "on_time": 1, "late": 2}])
+        self.assertEqual(trend["speed_projects_not_shown"], {"cohort_not_benchmark_eligible": 1})
+        self.assertEqual(trend["deadline_by_month"], [{"month": "2026-09", "evaluated": 5, "early": 2, "on_time": 1, "late": 2,
+                                                       "early_rate": 0.4, "on_time_rate": 0.2, "late_rate": 0.4}])
+
+    def test_workload_and_trend_carry_no_judgement(self):
+        text = json.dumps({"current_workload": self.profile["current_workload"], "trend": self.profile["trend"]}).lower()
+        for word in ("improv", "declin", "pressure", "capacity_score", "growth", "rating", "better", "worse", "overload"):
+            self.assertNotIn(word, text)
+        self.assertEqual(set(self.profile["trend"]), {"speed_by_cohort_month", "speed_projects_not_shown", "deadline_by_month", "note"})
 
     def test_unverified_editor_has_no_profile(self):
         with self.assertRaises(ProfileError):

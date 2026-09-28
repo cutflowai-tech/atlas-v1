@@ -52,6 +52,7 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 | Editor of a cycle = Editor Name value in effect at Ready For Approval, from column events or the creation value. A change inside the cycle quarantines it. | Editor Name is sometimes edited after work starts. | Latest Editor Name value. |
 | A quality occurrence is attributed to the Editor of the item's first completed cycle; if that Editor is unresolved, the occurrence is quarantined. The current Monday value is authoritative (a removed label does not count). | A label sits on a project, not on a person. | Editor in effect when the label was added. |
 | A faster/slower conclusion also needs at least one other eligible Editor in the cohort; if the team is only the subject Editor, the result is `no_other_editors_in_cohort` / `not_comparable`, with all data shown. | On real data most cohorts contain only Will, so the "team median" would be his own median. | Conclude against the Editor's own median. |
+| Editor Profile workload and monthly figures are descriptive only (editor-profile 1.3.0): current items grouped by current Monday status; monthly speed medians only per exact benchmark-eligible cohort, with sample sizes; monthly deadline counts and rates. No score, capacity or pressure rating, and no improving/declining conclusion. | Management asked for current state and monthly context without judgement. | — |
 | Median of an even-sized sample = mean of the two middle values, floored to whole seconds. | The contract stores integer seconds. | — |
 
 ## Open decisions
@@ -60,3 +61,4 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 2. **Unclassified Video Type labels** that appear in real cohorts: `Unbranded` (26) and `Reels Boost Pack` (22). Other unclassified labels do not yet appear in eligible cycles.
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
 4. **Conceptual status aliases:** is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.
+5. **Active workload statuses:** which current statuses count as an Editor's active work. Until this is decided, the profile lists current items by status without totals or judgement.
