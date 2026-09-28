@@ -47,7 +47,12 @@ def dataset():
              mf.dropdown("b1", "3", "dropdown_mm3tyvvc", "2026-09-03T00:00:00Z", [1], ["1- Exceptional Quality"]),
              mf.status("r1", "4", "2026-09-04T00:00:00Z", "Ready For Approval", "Sent"),
              mf.status("r2", "4", "2026-09-05T00:00:00Z", "Sent", "Revisions")]
-    items = {"items": [{"id": "3", "board": {"id": mf.BOARD}, "column_values": [{"id": "dropdown_mm3tyvvc", "type": "dropdown", "value": json.dumps({"ids": [1]}), "text": ""}]}]}
+    current = lambda item, editor, name, status: {"id": item, "board": {"id": mf.BOARD}, "column_values": [
+        {"id": mf.EDITOR, "type": "dropdown", "value": json.dumps({"ids": [editor]}), "text": name},
+        {"id": mf.STATUS, "type": "status", "value": json.dumps({"index": 9}), "text": status}]}
+    items = {"items": [{"id": "3", "board": {"id": mf.BOARD}, "column_values": [{"id": "dropdown_mm3tyvvc", "type": "dropdown", "value": json.dumps({"ids": [1]}), "text": ""}]},
+                       current("30", WILL, "Will", "In Progress"), current("31", WILL, "Will", "Revisions"), current("32", WILL, "Anas", "In Progress"),
+                       current("33", AHMED, "Ahmed", "In Progress")]}
     return mf.payload(*logs), items
 
 
@@ -61,7 +66,7 @@ class ProfileTests(unittest.TestCase):
         cls.profile = build_editor_profile(cls.result, cls.contract, "editor-label-6", NOW)
 
     def test_profile_is_contract_valid_and_has_no_score(self):
-        self.assertEqual(validate(self.profile, "editor-profile-v1.1.schema.json"), [])
+        self.assertEqual(validate(self.profile, "editor-profile-v1.2.schema.json"), [])
         self.assertEqual((self.profile["overall"]["status"], self.profile["overall"]["rule_version"]), (None, None))
         self.assertNotIn("score", json.dumps(self.profile).lower().replace("scoring", ""))
         self.assertEqual((self.profile["editor"]["display_name"], self.profile["executable_contract_version"]), ("Will", "1.3.0"))
@@ -100,6 +105,16 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(rows["21"]["requested_eta_issue"], "REQUESTED_ETA_DATE_ONLY")
         self.assertEqual(rows["1"]["quality_labels"], ["Late Delivery"])
         self.assertEqual(self.profile["coverage"]["states"]["deadline_not_classifiable_insufficient_eta_precision"], 1)
+
+    def test_current_workload_is_descriptive_and_name_guarded(self):
+        workload = self.profile["current_workload"]
+        self.assertEqual(workload["by_current_status"], {"In Progress": ["30"], "Revisions": ["31"]})  # 32 carries another name on label 6
+        self.assertEqual(workload["as_of"], NOW)
+
+    def test_trend_is_per_cohort_and_month_with_sample_sizes(self):
+        trend = self.profile["trend"]
+        self.assertEqual({(row["cohort_key"], row["month"]): row["projects"] for row in trend["speed_by_cohort_month"]}, {("4", "2026-09"): 5, ("5", "2026-09"): 1})
+        self.assertEqual(trend["deadline_by_month"], [{"month": "2026-09", "evaluated": 5, "early": 2, "on_time": 1, "late": 2}])
 
     def test_unverified_editor_has_no_profile(self):
         with self.assertRaises(ProfileError):

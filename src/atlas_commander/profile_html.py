@@ -128,6 +128,23 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  f"<div class=\"tile\"><b>{_pct(revisions['client_revision_rate'])}</b><span>revision rate</span></div>"
                  f"</div><p class=\"note\">{escape(revisions['note'])}</p></section>")
 
+    workload = profile["current_workload"]
+    workload_rows = "".join(f"<tr><td>{escape(status)}</td><td>{len(items)}</td><td>{', '.join(_item(i, monday_item_url) for i in items)}</td></tr>"
+                            for status, items in sorted(workload["by_current_status"].items(), key=lambda pair: -len(pair[1])))
+    parts.append(f"<section class=\"card\"><h2>Current items (as of {escape(str(workload['as_of']))})</h2><div class=\"scroll\"><table><thead><tr>"
+                 f"<th>Current status</th><th>Items</th><th>Projects</th></tr></thead><tbody>{workload_rows or '<tr><td colspan=3>None.</td></tr>'}"
+                 f"</tbody></table></div><p class=\"note\">{escape(workload['note'])}</p></section>")
+
+    trend = profile["trend"]
+    speed_rows = "".join(f"<tr><td><code>{escape(row['cohort_key'])}</code></td><td>{escape(row['month'])}</td><td>{row['projects']}</td><td>{_h(row['median_seconds'])}</td></tr>"
+                         for row in trend["speed_by_cohort_month"])
+    deadline_rows = "".join(f"<tr><td>{escape(row['month'])}</td><td>{row['evaluated']}</td><td class=\"early\">{row['early']}</td><td>{row['on_time']}</td>"
+                            f"<td class=\"late\">{row['late']}</td></tr>" for row in trend["deadline_by_month"])
+    parts.append("<section class=\"card\"><h2>By month</h2><details><summary>Show monthly figures</summary><div class=\"scroll\"><table><thead><tr>"
+                 f"<th>Cohort</th><th>Month</th><th>Projects</th><th>Median duration</th></tr></thead><tbody>{speed_rows}</tbody></table></div>"
+                 "<div class=\"scroll\"><table><thead><tr><th>Month</th><th>Deadlines evaluated</th><th>Early</th><th>On time</th><th>Late</th></tr></thead>"
+                 f"<tbody>{deadline_rows}</tbody></table></div></details><p class=\"note\">{escape(trend['note'])}</p></section>")
+
     reasons = "".join(f"<li><code>{escape(reason)}</code>: {count}</li>" for reason, count in coverage["exclusions_by_reason"].items()) or "<li>None</li>"
     states = "".join(f"<li><code>{escape(state)}</code>: {count}</li>" for state, count in coverage["states"].items() if count)
     parts.append(f"<section class=\"card\"><h2>Data coverage</h2><ul>{reasons}</ul><ul>{states}</ul><p class=\"note\">{escape(coverage['not_attributed_note'])}</p></section>")

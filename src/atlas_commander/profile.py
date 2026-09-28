@@ -12,14 +12,23 @@ from collections.abc import Mapping
 from typing import Any
 
 from atlas_commander.contracts import validate
-from atlas_commander.cycles import COMPLETED, CycleRecord
-from atlas_commander.metrics import MetricPolicy, deadline_eligible, deadline_result, deadline_summary, speed_benchmarks, speed_eligible
+from atlas_commander.cycles import COMPLETED, CyclePolicy, CycleRecord
+from atlas_commander.metrics import (
+    MetricPolicy,
+    classify_deadline,
+    deadline_eligible,
+    deadline_result,
+    deadline_summary,
+    median_seconds,
+    speed_benchmarks,
+    speed_eligible,
+)
 from atlas_commander.monday_source import dropdown_value_ids
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_quality
 from atlas_commander.quality import quality_summary, revision_context_summary
 
-CONTRACT_VERSION = "1.1.0"
-SCHEMA = "editor-profile-v1.1.schema.json"
+CONTRACT_VERSION = "1.2.0"
+SCHEMA = "editor-profile-v1.2.schema.json"
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
 POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
@@ -40,6 +49,55 @@ def _for_bonus_context(result: CycleReconstruction, contract: Mapping[str, Any],
     projects = sorted(item for item in item_ids if dropdown_value_ids((snapshots.get(item) or {}).get("value")))
     return {"affects_quality": False, "classification": "context-unclassified", "column_id": column, "projects": projects,
             "note": "For Bonus labels are shown as context only in V1 (approved decision); they are neither positive nor negative quality signals."}
+
+
+def _current_editor(snapshot: Mapping[str, Any] | None, policy: CyclePolicy) -> str | None:
+    """Editor for an item's *current* Editor Name value (current state only, never used for past work)."""
+    ids = dropdown_value_ids((snapshot or {}).get("value"))
+    if len(ids) != 1:
+        return None
+    candidates = policy.identity.candidates(ids[0])
+    if len(candidates) != 1:
+        return None
+    entry = candidates[0]
+    names = [name.strip() for name in str((snapshot or {}).get("text") or "").split(",") if name.strip()]
+    if entry.label_names and (len(names) != 1 or names[0] not in entry.label_names):
+        return None
+    return entry.editor_id
+
+
+def _current_workload(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str) -> dict[str, Any]:
+    board = contract["source_board"]
+    policy = CyclePolicy.from_contract(contract)
+    editors = result.item_snapshots.get(board["editor_column_id"], {})
+    statuses = result.item_snapshots.get(board["status_column_id"], {})
+    by_status: dict[str, list[str]] = {}
+    for item_id, snapshot in sorted(editors.items()):
+        if _current_editor(snapshot, policy) != editor_id:
+            continue
+        label = str((statuses.get(item_id) or {}).get("text") or "(no status)")
+        by_status.setdefault(label, []).append(item_id)
+    return {"as_of": result.ingestion.get("retrieved_at"), "basis": "current Monday Editor Name and Status values of each item",
+            "by_current_status": by_status,
+            "note": "Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made."}
+
+
+def _trend(cycles: list[CycleRecord], deadline_results: list[dict[str, Any]]) -> dict[str, Any]:
+    speed: dict[tuple[str, str], list[int]] = {}
+    for cycle in cycles:
+        if speed_eligible(cycle) and cycle.ready_for_approval_at and cycle.cohort_key and cycle.duration_seconds is not None:
+            speed.setdefault((cycle.cohort_key, cycle.ready_for_approval_at[:7]), []).append(cycle.duration_seconds)
+    deadline: dict[str, Counter[str]] = {}
+    for result in deadline_results:
+        month = result["metric"]["ready_for_approval_at"][:7]
+        deadline.setdefault(month, Counter())[classify_deadline(result["delta_seconds"])] += 1
+    return {
+        "speed_by_cohort_month": [{"cohort_key": key, "month": month, "projects": len(values), "median_seconds": median_seconds(values)}
+                                  for (key, month), values in sorted(speed.items())],
+        "deadline_by_month": [{"month": month, "evaluated": sum(counts.values()), "early": counts["early"], "on_time": counts["on_time"], "late": counts["late"]}
+                              for month, counts in sorted(deadline.items())],
+        "note": "Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown per exact Video Type cohort only. No trend conclusion is drawn.",
+    }
 
 
 def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, generated_at: str) -> dict[str, Any]:
@@ -113,6 +171,8 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
                     "for_bonus_context": _for_bonus_context(result, contract, {cycle.monday_item_id for cycle in completed}),
                     "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id]},
         "revisions": {**revision_context_summary(editor_id, result.cycles), "note": REVISION_NOTE},
+        "current_workload": _current_workload(result, contract, editor_id),
+        "trend": _trend(completed, deadline_results),
         "coverage": {
             "completed_projects": len(completed),
             "open_projects": sum(1 for cycle in cycles if cycle.state != COMPLETED),
