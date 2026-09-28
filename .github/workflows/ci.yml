@@ -80,5 +80,7 @@ jobs:
         run: make ingest-runs
       - name: One-shot sync orchestration tests
         run: make sync-run
+      - name: Atomic publish and rollback tests
+        run: make publish
       - name: JSON syntax
         run: make json
