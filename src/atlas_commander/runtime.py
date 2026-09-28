@@ -13,8 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATHS = {
     "1.0.0": ROOT / "config" / "monday-contract-v1.0.json",
     "1.1.0": ROOT / "config" / "monday-contract-v1.1.json",
+    "1.2.0": ROOT / "config" / "monday-contract-v1.2.json",
 }
-ACTIVE_CONTRACT_VERSION = "1.1.0"
+ACTIVE_CONTRACT_VERSION = "1.2.0"
 CONFIG_PATH = CONTRACT_PATHS[ACTIVE_CONTRACT_VERSION]
 
 

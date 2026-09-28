@@ -56,5 +56,7 @@ jobs:
         run: make monday-probe
       - name: Video Type cohort tests
         run: make video-type
+      - name: Work cycle and metric tests
+        run: make cycles-metrics
       - name: JSON syntax
         run: make json
