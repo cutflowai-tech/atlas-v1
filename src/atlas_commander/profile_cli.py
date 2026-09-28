@@ -93,8 +93,14 @@ def _entry_page(loc: Loc, target: str, alternate: tuple[Loc, str] | None = None)
 
 
 def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, profiles: list[dict[str, Any]],
-                          pages: dict[str, dict[str, str]], monday_item_url: str | None = None) -> dict[str, Any]:
-    """The CEO Dashboard document (``dashboard.json``), built once, rendered in every locale, plus the entry pages."""
+                          pages: dict[str, dict[str, str]], monday_item_url: str | None = None,
+                          status_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build the language-neutral dashboard and its localized pages.
+
+    ``status_snapshot`` is optional, language-neutral Task 7 context captured by the caller at
+    build time. This function neither derives nor validates it, and both locales receive the
+    exact same object.
+    """
     editor_ids = [profile["editor"]["editor_id"] for profile in profiles]
     dashboard = build_dashboard(profiles, generated_at, mapped_editors=contract["editor_attribution"]["entries"],
                                 attribution_coverage=attribution_coverage(result),
@@ -102,17 +108,19 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
     (out / site_layout.DASHBOARD_JSON).write_text(json.dumps(dashboard, indent=1) + "\n")
     for loc in locales():
         _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(
-            dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}"))
+            dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}",
+            status_snapshot=status_snapshot))
         _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html"))
     ar = EN.other()
     _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), (ar, site_layout.dashboard_html(ar.code))))
     return dashboard
 
 
-def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, monday_item_url: str | None = None) -> dict[str, Any]:
+def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, monday_item_url: str | None = None,
+              status_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
     """Every Editor Profile and the CEO Dashboard, as the bilingual site described in ``atlas_commander.site_layout``."""
     profiles, pages = build_profiles(result, contract, out, generated_at, monday_item_url)
-    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url)
+    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url, status_snapshot)
 
 
 def main(argv: list[str] | None = None) -> int:
