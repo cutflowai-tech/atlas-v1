@@ -16,6 +16,26 @@ make test
 
 Read [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRACTS.md](CONTRACTS.md), and [TASK_GRAPH.md](TASK_GRAPH.md) before execution. The operational runbook is [docs/SWARM.md](docs/SWARM.md), and [docs/ATLAS_V1_RULES.md](docs/ATLAS_V1_RULES.md) contains non-negotiable product rules.
 
+## Run locally with Docker
+
+The default Compose service runs the real deterministic Editor Profile pipeline against synthetic Monday-shaped data, then serves the generated dashboard locally:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+Open <http://localhost:8000>. Set `ATLAS_PORT` in a local `.env` file if port 8000 is already in use. Stop it with `docker compose down`; add `-v` only when you also want to delete the generated local data volumes.
+
+The optional tools container exposes the same code for CLI work:
+
+```bash
+docker compose --profile tools run --rm atlas-tools -m atlas_commander.profile_cli --help
+docker compose --profile tools run --rm atlas-tools -m unittest discover -s tests -v
+```
+
+For real Monday ingestion, copy `.env.example` to `.env`, set a read-only `MONDAY_API_TOKEN`, and write raw evidence only to the mounted `/atlas-raw` volume. The demo dashboard is synthetic until a verified real extract is ingested and explicitly used to build a profile.
+
 ## Launch the first real Atlas vertical slice
 
 From this repository, dispatch exactly one mission to the existing Commander:

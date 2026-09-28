@@ -1,0 +1,29 @@
+services:
+  atlas:
+    build:
+      context: .
+    image: atlas-waset:local
+    container_name: atlas-waset
+    ports:
+      - "${ATLAS_PORT:-8000}:8000"
+    volumes:
+      - atlas-data:/data
+    restart: unless-stopped
+
+  atlas-tools:
+    build:
+      context: .
+    image: atlas-waset:local
+    profiles: ["tools"]
+    environment:
+      MONDAY_API_TOKEN: "${MONDAY_API_TOKEN:-}"
+    volumes:
+      - atlas-data:/data
+      - atlas-raw:/atlas-raw
+    entrypoint: ["python"]
+    command: ["-m", "atlas_commander.profile_cli", "--help"]
+
+volumes:
+  atlas-data:
+  atlas-raw:
+

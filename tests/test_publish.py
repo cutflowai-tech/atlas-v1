@@ -64,8 +64,10 @@ class PublishTests(unittest.TestCase):
         return Path(attempt.staged_build_dir) / "site"
 
     def live(self):
-        """Where ``current`` points (resolved from the publish directory without following further links), or None."""
-        return os.path.normpath(self.publish_root / os.readlink(self.pointer)) if self.pointer.is_symlink() else None
+        """Where ``current`` points as a canonical path, or None."""
+        if not self.pointer.is_symlink():
+            return None
+        return str(Path(os.path.normpath(self.publish_root / os.readlink(self.pointer))).resolve())
 
     def assert_published(self, result, attempt, previous=None):
         self.assertEqual(result.status, pub.PUBLISHED, result.as_dict())
@@ -292,7 +294,7 @@ class PublishTests(unittest.TestCase):
         self.assertEqual((self.pointer / "index.html").read_text(), "hand-made")
         shutil.rmtree(self.pointer)
         os.symlink("/tmp", self.pointer)
-        self.assert_rejected(self.publish(attempt.attempt_id), "unsafe_current", "/tmp")
+        self.assert_rejected(self.publish(attempt.attempt_id), "unsafe_current", str(Path("/tmp").resolve()))
 
     # 16, 17 — history and CURRENT.json
     def test_16_17_history_and_current_metadata(self):
