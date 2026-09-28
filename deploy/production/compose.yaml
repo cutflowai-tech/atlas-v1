@@ -1,0 +1,24 @@
+name: waset-atlas
+
+services:
+  atlas-runtime:
+    image: "${ATLAS_IMAGE:?ATLAS_IMAGE must be an immutable production image digest}"
+    env_file:
+      - /etc/waset-atlas/atlas.env
+    restart: "no"
+    read_only: true
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,mode=1777
+    volumes:
+      - type: bind
+        source: /var/lib/waset-atlas
+        target: /var/lib/atlas
+      - type: bind
+        source: /etc/waset-atlas/secrets/monday_api_token
+        target: /run/secrets/monday_api_token
+        read_only: true

@@ -1,0 +1,14 @@
+[Unit]
+Description=Run Waset Atlas once per hour
+Documentation=file:/opt/waset-atlas/current/docs/PRODUCTION-RUNBOOK.md
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=10min
+AccuracySec=1min
+FixedRandomDelay=true
+Unit=waset-atlas.service
+
+[Install]
+WantedBy=timers.target
