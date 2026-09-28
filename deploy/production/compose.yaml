@@ -1,0 +1,52 @@
+name: waset-atlas-production
+
+services:
+  atlas-web:
+    image: ${ATLAS_WEB_IMAGE:-waset-atlas-web:production}
+    build:
+      context: ../..
+      dockerfile: deploy/production/Dockerfile.nginx
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "${ATLAS_HTTP_BIND:-127.0.0.1}:${ATLAS_HTTP_PORT:-8080}:8080"
+    volumes:
+      - atlas-data:/var/lib/waset-atlas:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+
+  atlas-ops:
+    image: ${ATLAS_APP_IMAGE:-waset-atlas-app:production}
+    build:
+      context: ../..
+      dockerfile: deploy/production/Dockerfile.app
+    profiles: ["operations"]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      ATLAS_DATA_DIR: /var/lib/waset-atlas
+      MONDAY_API_TOKEN_FILE: /run/secrets/monday_api_token
+    secrets:
+      - monday_api_token
+    volumes:
+      - atlas-data:/var/lib/waset-atlas
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    # Explicit operator invocation is required for scheduled-run; startup only reads persisted status.
+    command: ["status", "--json"]
+
+volumes:
+  atlas-data:
+    name: ${ATLAS_DATA_VOLUME:-waset-atlas-production-data}
+
+secrets:
+  monday_api_token:
+    external: true
+    name: ${ATLAS_MONDAY_TOKEN_SECRET:-waset-atlas-monday-token}
