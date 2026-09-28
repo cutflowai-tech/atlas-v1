@@ -25,6 +25,7 @@ from atlas_commander.attribution import TransitionRoleMapping, attribute_transit
 from atlas_commander.cycles import CyclePolicy, CycleRecord, build_item_cycle
 from atlas_commander.monday_source import ColumnChange, item_column_snapshots, parse_column_changes, status_log_records
 from atlas_commander.normalization import normalize_events, status_mapping_config
+from atlas_commander.quality import QualityPolicy, QualityResult, quality_occurrences
 
 
 @dataclass
@@ -36,8 +37,16 @@ class CycleReconstruction:
     column_changes: list[ColumnChange]
     transitions: list[dict[str, Any]]
     eta_snapshots: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Current item values from the items payload, per tracked column, keyed by item ID.
+    item_snapshots: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
     ingestion: dict[str, Any] = field(default_factory=dict)
     cycles: list[CycleRecord] = field(default_factory=list)
+
+
+def reconstruct_quality(result: CycleReconstruction, contract: Mapping[str, Any], calculated_at: str) -> QualityResult:
+    """Quality occurrences for a reconstruction, using the current item values when they were ingested."""
+    policy = QualityPolicy.from_contract(contract)
+    return quality_occurrences(result.cycles, result.column_changes, policy, calculated_at, result.item_snapshots.get(policy.column_id))
 
 
 def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[str, Any], items_payload: Mapping[str, Any] | None = None,
@@ -52,9 +61,11 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
     changes, rejected = parse_column_changes(dict(activity_payload), tracked)
     transitions = attribute_transitions(normalized.accepted, TransitionRoleMapping.from_contract(contract))
     meta = dict(ingestion or {})
-    snapshots = item_column_snapshots(items_payload, board["requested_eta_column_id"], meta.get("retrieved_at")) if items_payload is not None else {}
+    item_snapshots = {column: item_column_snapshots(items_payload, column, meta.get("retrieved_at")) for column in sorted(tracked)} if items_payload is not None else {}
+    snapshots = item_snapshots.get(board["requested_eta_column_id"], {})
     complete_ids = {str(value) for value in meta.get("complete_history_item_ids") or []}
-    result = CycleReconstruction(contract["contract_version"], normalized.accepted, normalized.quarantined, rejected, changes, transitions, snapshots, meta)
+    result = CycleReconstruction(contract["contract_version"], normalized.accepted, normalized.quarantined, rejected, changes, transitions, snapshots,
+                                 item_snapshots, meta)
 
     quarantined_by_item: dict[str, list[dict[str, Any]]] = {}
     for entry in normalized.quarantined:

@@ -28,6 +28,7 @@ These product decisions drive runtime behavior. Each one is encoded in a version
 - **Status label renames:**
   - Aliases bind to Monday's status label index.
   - Indexes that Monday reused for a different label (8, 10, 12, 14) are not aliased.
+- **Quality registry `monday-performance-issues-v1.0`:** the seven live Performance Issues labels, resolved by ID. Former names of IDs 3, 4, 5 and 7 (without the numeric prefix) are accepted only together with the same ID. The rule is 1 occurrence = 1 point, with no severity weights.
 - **Creation values:** `create_pulse.column_values_json` records the value an item was created with, with a real Monday timestamp.
 
 ## Engineering defaults (still open; not management decisions)
@@ -37,6 +38,7 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 | Default | Why a rule is needed | Alternative |
 |---|---|---|
 | Editor of a cycle = Editor Name value in effect at Ready For Approval, from column events or the creation value. A change inside the cycle quarantines it. | Editor Name is sometimes edited after work starts. | Latest Editor Name value. |
+| A quality occurrence is attributed to the Editor of the item's first completed cycle; if that Editor is unresolved, the occurrence is quarantined. The current Monday value is authoritative (a removed label does not count). | A label sits on a project, not on a person. | Editor in effect when the label was added. |
 | Median of an even-sized sample = mean of the two middle values, floored to whole seconds. | The contract stores integer seconds. | — |
 
 ## Open decisions (evidence in `docs/evidence/REAL-001-STATUS.md`)
