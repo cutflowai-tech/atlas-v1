@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-432 keys: 149 Approved from brief, 265 Implemented conservatively, 18 Needs Arabic Review.
+438 keys: 149 Approved from brief, 266 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -13,10 +13,15 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `noun.classified_delivery` | one: {n} classified delivery / other: {n} classified deliveries | zero: {n} عملية تسليم مصنفة / one: عملية تسليم واحدة مصنفة / two: عمليتا تسليم مصنفتان / two_gen: عمليتي تسليم مصنفتين / few: {n} عمليات تسليم مصنفة / many: {n} عملية تسليم مصنفة / other: {n} عملية تسليم مصنفة | Editor card headline | Needs Arabic Review | Dual forms (عمليتا/عمليتي) are formal; confirm the preferred register. |
 | `noun.editor` | one: {n} Editor / other: {n} Editors | zero: {n} مونتير / one: مونتير واحد / two: مونتيران / two_gen: مونتيرين / few: {n} مونتيرين / many: {n} مونتيرًا / other: {n} مونتير | Counted Editors (sample sizes) | Needs Arabic Review | Brief uses مونتيران for 2; confirm few (3–10) = مونتيرين and many (11–99) = مونتيرًا. |
 | `noun.issue_signal` | one: {n} issue signal / other: {n} issue signals | zero: {n} مؤشر مشكلات / one: مؤشر مشكلة واحد / two: مؤشرا مشكلات / two_gen: مؤشري مشكلات / few: {n} مؤشرات مشكلات / many: {n} مؤشرًا للمشكلات / other: {n} مؤشر مشكلات | Counted issue signals | Needs Arabic Review | Brief: 3 مؤشرات مشكلات. Dual and 11+ forms need confirmation. |
-| `ops.build_time` | Operational status captured at build time: {date}. For current runtime status, use the Atlas status command. | تم تسجيل الحالة التشغيلية وقت إنشاء هذا الإصدار: {date}. لمعرفة الحالة الحالية، استخدم أمر حالة Atlas. | Clarifies that static dashboard status is build-time context | Needs Arabic Review | Confirm wording for a static build-time operational snapshot. |
 | `ops.current_publication` | Current publication | الإصدار المنشور حاليًا | Build-time operational status section | Needs Arabic Review | Confirm terminology for the live atomic publication. |
 | `ops.failure_category` | Safe failure category | فئة الفشل الآمنة | Sync attempt field; never raw exception text | Needs Arabic Review | Technical operator wording; category value remains untranslated. |
 | `ops.freshness_state.stale` | Stale | قديمة وغير محدثة | Data freshness state | Needs Arabic Review | Confirm preferred operational term for stale data. |
+| `ops.scope_note.build_time` | This status was captured when this dashboard build was generated. The Atlas status CLI is authoritative for current runtime status. | تم تسجيل هذه الحالة وقت إنشاء هذا الإصدار من لوحة المتابعة. أمر حالة Atlas هو المرجع المعتمد للحالة التشغيلية الحالية. | Static dashboard operational-status scope explanation | Needs Arabic Review | Makes the distinction between static build context and authoritative current CLI status explicit. |
+| `ops.scope_note.runtime` | This is current runtime context from the injected snapshot. | هذه هي الحالة التشغيلية الحالية وفقًا للّقطة المضمّنة. | Runtime operational-status scope explanation | Needs Arabic Review | Reserved for consumers that render an authoritative runtime snapshot. |
+| `ops.scope_note.unknown` | The snapshot scope is unknown; do not treat this as current runtime status. | نطاق هذه اللقطة غير معروف؛ لا تتعامل معها باعتبارها الحالة التشغيلية الحالية. | Operational-status scope safety explanation | Needs Arabic Review | Fails safe when an older producer omits snapshot_scope. |
+| `ops.snapshot_context` | Snapshot scope: {scope}. Generated {date}. | نطاق اللقطة: {scope}. وقت الإنشاء: {date}. | Operational-status snapshot provenance | Needs Arabic Review | The language-neutral scope code remains available in data-status-value. |
+| `ops.snapshot_scope.build_time` | Build-time snapshot | لقطة وقت الإنشاء | Operational-status snapshot scope | Needs Arabic Review | Static context embedded while the dashboard build is generated. |
+| `ops.snapshot_scope.runtime` | Runtime snapshot | لقطة وقت التشغيل | Operational-status snapshot scope | Needs Arabic Review | Current context supplied by an authoritative runtime consumer. |
 | `ops.source_run` | Source run | تشغيل المصدر | Current publication and sync attempt field | Needs Arabic Review | Technical operator term; source run ID remains untranslated. |
 | `ops.stale_after` | Stale after (seconds) | تُعد قديمة بعد (بالثواني) | Freshness configuration field | Needs Arabic Review | Confirm concise threshold wording. |
 | `ops.system_state.degraded` | Degraded | متأثرة | System integrity state | Needs Arabic Review | Confirm terminology for usable but operationally degraded. |
@@ -146,6 +151,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ops.freshness_details` | Freshness thresholds | حدود حداثة البيانات | Build-time operational status section | Implemented conservatively |  |
 | `ops.freshness_state.unknown` | Unknown | غير معروفة | Data freshness state | Implemented conservatively |  |
 | `ops.publication_id` | Publication ID | معرّف الإصدار المنشور | Current publication field | Implemented conservatively |  |
+| `ops.snapshot_scope.unknown` | Unknown scope | نطاق غير معروف | Operational-status snapshot scope | Implemented conservatively |  |
 | `ops.started_at` | Started at | وقت البدء | Sync attempt field | Implemented conservatively |  |
 | `ops.system_state.failed` | Failed | متعطلة | System integrity state | Implemented conservatively |  |
 | `ops.system_state.healthy` | Healthy | سليمة | System integrity state | Implemented conservatively |  |

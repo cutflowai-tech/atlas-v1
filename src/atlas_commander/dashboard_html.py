@@ -1022,11 +1022,12 @@ def _status_attempt(title: Html, attempt: dict[str, Any] | None, loc: Loc) -> st
         (loc.t("ops.attempt_id"), _status_id(attempt.get("attempt_id"), loc)),
         (loc.t("common.status"), _status_code(attempt.get("status"), "ops.attempt_state", loc)),
         (loc.t("ops.started_at"), _status_date(attempt.get("started_at"), loc)),
-        (loc.t("ops.completed_at"), _status_date(attempt.get("completed_at") or attempt.get("failed_at"), loc)),
+        (loc.t("ops.completed_at"), _status_date(attempt.get("finished_at") or attempt.get("completed_at") or attempt.get("failed_at"), loc)),
         (loc.t("ops.source_run"), _status_id(attempt.get("source_run_id"), loc)),
     ]
-    if attempt.get("failure_category"):
-        rows.append((loc.t("ops.failure_category"), _status_id(attempt["failure_category"], loc)))
+    error_category = attempt.get("error_category") or attempt.get("failure_category")
+    if error_category:
+        rows.append((loc.t("ops.failure_category"), _status_id(error_category, loc)))
     return f'<div class="status-detail"><h4>{title}</h4>{_dl(rows)}</div>'
 
 
@@ -1048,10 +1049,13 @@ def operational_status(snapshot: dict[str, Any] | None, loc: Loc = EN) -> str:
     last_attempt = snapshot.get("last_attempt") or sync.get("last_attempt")
     last_success = snapshot.get("last_successful_attempt") or sync.get("last_successful_attempt")
     retrieved_at = current.get("monday_retrieved_at") or current.get("retrieved_at")
-    coverage_start = current.get("coverage_start") or coverage.get("start") or coverage.get("since")
-    coverage_end = current.get("coverage_end") or coverage.get("end") or coverage.get("until")
+    coverage_start = current.get("coverage_start") or coverage.get("history_start") or coverage.get("start") or coverage.get("since")
+    coverage_end = current.get("coverage_end") or coverage.get("history_end") or coverage.get("end") or coverage.get("until")
     coverage_value = f"{coverage_start or ''}/{coverage_end or ''}"
     coverage_display = Html(f'{escape(loc.date(coverage_start))} <span dir="ltr">→</span> {escape(loc.date(coverage_end))}')
+    snapshot_scope = str(snapshot.get("snapshot_scope") or "unknown").lower()
+    scope_key = f"ops.scope_note.{snapshot_scope}"
+    scope_note = loc.t(scope_key) if loc.has(scope_key) else loc.t("ops.scope_note.unknown")
 
     headline = (f'<div class="status-head"><div><span>{loc.t("ops.system_status")}</span>'
                 f'<b>{_status_code(snapshot.get("system_state"), "ops.system_state", loc)}</b></div>'
@@ -1075,7 +1079,7 @@ def operational_status(snapshot: dict[str, Any] | None, loc: Loc = EN) -> str:
     attempts = (_status_attempt(loc.t("ops.last_attempt"), last_attempt, loc)
                 + _status_attempt(loc.t("ops.last_success"), last_success, loc))
     return (f'<div class="card operational-status"><h3>{loc.t("ops.title")}</h3>{headline}'
-            f'<p class="small soft">{loc.t("ops.build_time", date=_status_date(snapshot.get("generated_at"), loc))}</p>'
+            f'<p class="small soft">{loc.t("ops.snapshot_context", scope=_status_code(snapshot_scope, "ops.snapshot_scope", loc), date=_status_date(snapshot.get("generated_at"), loc))} {scope_note}</p>'
             f'<div class="status-grid"><div class="status-detail"><h4>{loc.t("ops.current_publication")}</h4>{publication}</div>'
             f'<div class="status-detail"><h4>{loc.t("ops.freshness_details")}</h4>{freshness_rows}</div>{attempts}</div></div>')
 

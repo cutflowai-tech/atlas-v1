@@ -2195,13 +2195,6 @@
    "context": "Build-time operational status field",
    "status": "Implemented conservatively"
   },
-  "ops.build_time": {
-   "en": "Operational status captured at build time: {date}. For current runtime status, use the Atlas status command.",
-   "ar": "تم تسجيل الحالة التشغيلية وقت إنشاء هذا الإصدار: {date}. لمعرفة الحالة الحالية، استخدم أمر حالة Atlas.",
-   "context": "Clarifies that static dashboard status is build-time context",
-   "status": "Needs Arabic Review",
-   "notes": "Confirm wording for a static build-time operational snapshot."
-  },
   "ops.completed_at": {
    "en": "Completed / failed at",
    "ar": "وقت الاكتمال أو الفشل",
@@ -2307,6 +2300,54 @@
    "context": "Current publication and sync attempt field",
    "status": "Needs Arabic Review",
    "notes": "Technical operator term; source run ID remains untranslated."
+  },
+  "ops.scope_note.build_time": {
+   "en": "This status was captured when this dashboard build was generated. The Atlas status CLI is authoritative for current runtime status.",
+   "ar": "تم تسجيل هذه الحالة وقت إنشاء هذا الإصدار من لوحة المتابعة. أمر حالة Atlas هو المرجع المعتمد للحالة التشغيلية الحالية.",
+   "context": "Static dashboard operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Makes the distinction between static build context and authoritative current CLI status explicit."
+  },
+  "ops.scope_note.runtime": {
+   "en": "This is current runtime context from the injected snapshot.",
+   "ar": "هذه هي الحالة التشغيلية الحالية وفقًا للّقطة المضمّنة.",
+   "context": "Runtime operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Reserved for consumers that render an authoritative runtime snapshot."
+  },
+  "ops.scope_note.unknown": {
+   "en": "The snapshot scope is unknown; do not treat this as current runtime status.",
+   "ar": "نطاق هذه اللقطة غير معروف؛ لا تتعامل معها باعتبارها الحالة التشغيلية الحالية.",
+   "context": "Operational-status scope safety explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Fails safe when an older producer omits snapshot_scope."
+  },
+  "ops.snapshot_context": {
+   "en": "Snapshot scope: {scope}. Generated {date}.",
+   "ar": "نطاق اللقطة: {scope}. وقت الإنشاء: {date}.",
+   "context": "Operational-status snapshot provenance",
+   "status": "Needs Arabic Review",
+   "notes": "The language-neutral scope code remains available in data-status-value."
+  },
+  "ops.snapshot_scope.build_time": {
+   "en": "Build-time snapshot",
+   "ar": "لقطة وقت الإنشاء",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Static context embedded while the dashboard build is generated."
+  },
+  "ops.snapshot_scope.runtime": {
+   "en": "Runtime snapshot",
+   "ar": "لقطة وقت التشغيل",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Current context supplied by an authoritative runtime consumer."
+  },
+  "ops.snapshot_scope.unknown": {
+   "en": "Unknown scope",
+   "ar": "نطاق غير معروف",
+   "context": "Operational-status snapshot scope",
+   "status": "Implemented conservatively"
   },
   "ops.stale_after": {
    "en": "Stale after (seconds)",
