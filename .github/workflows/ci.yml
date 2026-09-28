@@ -66,5 +66,7 @@ jobs:
         run: make contract-v13
       - name: Editor Profile tests
         run: make profile
+      - name: Read-only ingestion tests
+        run: make ingest
       - name: JSON syntax
         run: make json
