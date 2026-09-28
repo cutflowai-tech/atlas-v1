@@ -2,13 +2,13 @@
   "report_version": "data-001-drift-v1",
   "contract": "contracts/normalized-status-event.schema.json",
   "contract_version": "1.0.0",
-  "contract_change_required": true,
+  "contract_change_required": false,
   "findings": [
     {
       "code": "STATUS_LABEL_VOCABULARY_DRIFT",
       "field": "from_status/to_status",
       "blocking": false,
-      "detail": "Monday labels are checked against the approved v1.0 status registry; unmapped labels are not inferred.",
+      "detail": "Monday labels are checked against the approved status registry; unmapped labels are not inferred.",
       "mapping_version": "monday-status-v1.0",
       "exact_text_matches": {
         "0": "Internal Revisions",
@@ -167,9 +167,9 @@
     {
       "code": "VIDEO_TYPE_MULTI_VALUE",
       "field": "video_type",
-      "blocking": true,
+      "blocking": false,
       "detail": "Video Type multi-select values use the approved exact normalized full-set cohort policy; no primary type is inferred.",
-      "mapping_version": "monday-video-type-v1.0",
+      "mapping_version": "monday-video-type-v1.1",
       "policy": "exact-normalized-full-set",
       "items": {
         "3243581913": [
@@ -178,9 +178,7 @@
         ]
       },
       "single_value_items": 4,
-      "unresolved_video_type_ids": [
-        "8"
-      ]
+      "unresolved_video_type_ids": []
     },
     {
       "code": "REQUESTED_ETA_TIMEZONE",

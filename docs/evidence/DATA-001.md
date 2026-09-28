@@ -1,6 +1,6 @@
 # DATA-001 evidence — real Monday probe for one known Editor
 
-Candidate: Atlas Builder Claude M · branch `agent/atlas-builder-claude-m/7ebeefdd6794` · approved contract `contracts/normalized-status-event.schema.json` v1.0.0 and executable configuration `config/monday-contract-v1.0.json`.
+Candidate: Atlas Builder Claude M · branch `agent/atlas-builder-claude-m/7ebeefdd6794` · approved contract `contracts/normalized-status-event.schema.json` v1.0.0 and executable configuration `config/monday-contract-v1.1.json` (Video Type mapping v1.1).
 
 ## Access
 
@@ -31,7 +31,7 @@ The raw store is write-once and read-only (`0444`), and the implementation refus
 ## Evidence artifacts
 
 - `sample-manifest.json` is regenerated from the sealed raw payloads. It retains raw log, board, item, column, actor, account, label, and timestamp identifiers while excluding item names, people names, emails, links, update bodies, and label colours.
-- `drift-report.json` is regenerated against the approved v1.0 schema **and** `config/monday-contract-v1.0.json`. It reports whether live labels and observed values are covered by the approved registries; it does not treat known v1.0 mappings as unresolved drift.
+- `drift-report.json` is regenerated against the approved normalized-event schema **and** `config/monday-contract-v1.1.json`. It reports whether live labels and observed values are covered by the approved registries; it does not treat known v1.1 Video Type mappings as unresolved drift.
 
 Regenerate both from the sealed raw directory:
 
@@ -44,18 +44,18 @@ PYTHONPATH=src python3 -m atlas_monday_probe report \
   --drift-out docs/evidence/DATA-001/drift-report.json
 ```
 
-## Findings against approved v1.0
+## Findings against approved v1.1 Video Type mapping
 
 1. **Status vocabulary: resolved.** All live status labels observed in the probe are present in the approved status registry and carry `monday-status-v1.0`. No status label is silently inferred or quarantined. Contract enum values not observed in this sample are not evidence of drift.
 2. **Editor attribution: resolved for the probed items.** The activity-log `user_id` values are recorded as audit metadata and are not used as Editor identity. The `Editor Name` label id `6` is covered by `monday-editor-v1.0`; the shared account `99154021` is not used to infer an Editor. No unresolved Editor label was found in the probed items.
-3. **Video Type cohorts: policy approved; one label remains unmapped.** Item `3243581913` has the multi-select value `[5,16]` (`Class B`, `Ai`). It is handled with the approved `exact-normalized-full-set` policy; no primary type or global fallback is inferred. The probe also observes Video Type label id `8` (`Class A+`), which is absent from the approved `monday-video-type-v1.0` label registry. Records containing id `8` remain quarantined from cohort comparisons until the mapping is explicitly added in a later contract version.
-4. **Cycle rules: approved and unchanged.** The probe observed repeated `In Progress`/`Create File` transitions and `Sent -> In Progress`. The approved v1.0 rules remain authoritative: the first transition into `In Progress` starts the cycle, repeated `In Progress`/`Create File` transitions stay in the same cycle, post-revision transitions stay in the original cycle, and the first qualifying `Ready For Approval` ends it. This probe computes no work-cycle metric.
+3. **Video Type cohorts: resolved by mapping v1.1.** Item `3243581913` has the multi-select value `[5,16]` (`Class B`, `Ai`). It is handled with the approved `exact-normalized-full-set` policy; no primary type or global fallback is inferred. The probe also observes Video Type label id `8` (`Class A+`) on three items; `monday-video-type-v1.1` maps it explicitly. Singleton `[8]` and mixed `[5,8]` values remain distinct exact cohorts.
+4. **Cycle rules: approved and unchanged.** The probe observed repeated `In Progress`/`Create File` transitions and `Sent -> In Progress`. The approved rules remain authoritative: the first transition into `In Progress` starts the cycle, repeated `In Progress`/`Create File` transitions stay in the same cycle, post-revision transitions stay in the original cycle, and the first qualifying `Ready For Approval` ends it. This probe computes no work-cycle metric.
 5. **Timestamp encoding: informational.** `activity_logs.created_at` is a 17-digit count of 100 ns ticks. The adapter converts it to RFC 3339 UTC while retaining the raw value.
 6. **Timestamp cross-check: informational.** The latest log label agrees with the items API status label for all five items; log-vs-column `changed_at` deltas are -13 ms to +694 ms.
 7. **Column type alias: informational.** Activity logs report the status column type as `color`; the columns API reports `status`.
 8. **Requested ETA timezone: informational.** Deadline logic must use the UTC `value`, not the account-local display text. The five populated ETAs show a consistent +3 hour display offset.
 
-`drift-report.json` has `contract_change_required: true` solely because Video Type label id `8` is not present in the approved v1.0 registry. The status vocabulary, Editor attribution, cycle rules, and multi-select policy are aligned with v1.0; only the unmapped `Class A+` label remains a data-coverage blocker.
+`drift-report.json` has `contract_change_required: false`. Status vocabulary, Editor attribution, cycle rules, and the exact full-set Video Type policy are aligned with the executable contract; label ID `8` is resolved by `monday-video-type-v1.1`.
 
 ## Tests
 

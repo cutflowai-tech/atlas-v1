@@ -14,7 +14,7 @@ from .raw_store import RawRecord
 
 MANIFEST_VERSION = "data-001-manifest-v1"
 DRIFT_VERSION = "data-001-drift-v1"
-CONTRACT_CONFIG = ROOT / "config" / "monday-contract-v1.0.json"
+CONTRACT_CONFIG = ROOT / "config" / "monday-contract-v1.1.json"
 # Only these StatusChange fields leave the raw store; item names, people names, links and update bodies never do.
 MANIFEST_FIELDS = (
     "log_id", "board_id", "item_id", "column_id", "column_type", "user_id", "account_id", "created_at_raw", "occurred_at",
@@ -109,7 +109,7 @@ def build_drift_report(
     unmatched = {index: text for index, text in status_labels.items() if text not in status_mapping}
     findings.append({
         "code": "STATUS_LABEL_VOCABULARY_DRIFT", "field": "from_status/to_status", "blocking": bool(unmatched),
-        "detail": "Monday labels are checked against the approved v1.0 status registry; unmapped labels are not inferred.",
+        "detail": "Monday labels are checked against the approved status registry; unmapped labels are not inferred.",
         "mapping_version": config["status_mapping_version"],
         "exact_text_matches": {index: text for index, text in status_labels.items() if text in status_mapping},
         "monday_labels_without_contract_value": unmatched,

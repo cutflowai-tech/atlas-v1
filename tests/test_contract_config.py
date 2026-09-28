@@ -45,8 +45,12 @@ class MondayContractRuntimeTests(unittest.TestCase):
         self.assertFalse(result.resolved)
 
     def test_video_type_runtime_requires_exact_resolved_full_set(self):
+        self.assertEqual(self.config["video_type_cohorts"]["mapping_version"], "monday-video-type-v1.1")
+        self.assertEqual(video_type_cohort(["Class A+"], self.config), "8")
+        self.assertEqual(video_type_cohort(["Class B", "Class A+"], self.config), "5:8")
         self.assertEqual(video_type_cohort(["Class B", "Ai"], self.config), "16:5")
         self.assertIsNone(video_type_cohort(["Class B", "Unknown"], self.config))
+        self.assertIsNone(video_type_cohort(["Class A+", "Unknown"], self.config))
         self.assertIsNone(video_type_cohort([], self.config))
 
 

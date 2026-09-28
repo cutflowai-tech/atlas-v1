@@ -8,7 +8,7 @@ from atlas_commander.identity import IdentityMapping, Resolution, resolve_editor
 from atlas_commander.normalization import NormalizationResult, normalize_events
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = ROOT / "config" / "monday-contract-v1.0.json"
+CONFIG_PATH = ROOT / "config" / "monday-contract-v1.1.json"
 
 
 def load_contract(path: Path = CONFIG_PATH) -> dict[str, Any]:
