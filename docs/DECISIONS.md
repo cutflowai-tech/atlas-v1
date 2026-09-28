@@ -62,3 +62,12 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
 4. **Conceptual status aliases:** is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.
 5. **Active workload statuses:** which current statuses count as an Editor's active work. Until this is decided, the profile lists current items by status without totals or judgement.
+6. **Requested ETA reset at Revisions (blocks the deadline section).** Evidence is in `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md` section 5.
+   - When a project enters `Revisions`, the shared account sets Requested ETA to the change time + 24 h. This affected 82 of 142 classified projects.
+   - D1 (latest ETA, even after RFA) therefore shows 98 early / 44 late, against 24 early / 118 late using the ETA in effect at Ready For Approval.
+   - 16 of the 17 `Late Delivery`-labelled projects show as early under D1.
+   - Options:
+     - keep D1;
+     - use the latest ETA set at or before Ready For Approval (deadline-v1.2, a new contract version);
+     - keep D1 but ignore only the changes made when a project enters Revisions.
+   - Recommendation: the latest ETA set at or before Ready For Approval. It still honours ETA changes made before the Editor submits, and it cannot be moved by later client revisions.

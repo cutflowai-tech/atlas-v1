@@ -10,6 +10,7 @@ from unittest import mock
 import monday_factory as mf
 
 from atlas_commander import ingest as ing
+from atlas_commander.ingest_verify import verify
 from atlas_commander.pipeline import reconstruct_cycles
 from atlas_commander.profile_cli import main as profile_cli
 from atlas_commander.runtime import load_contract
@@ -35,10 +36,15 @@ def project_logs(item, start, end):
 
 
 class FakeMonday:
-    """Serves Monday-shaped responses from a list of logs and items; records every query."""
+    """Serves Monday-shaped responses from a list of logs and items; records every query.
 
-    def __init__(self, logs, items, page_size=2):
-        self.logs, self.items, self.page_size, self.queries = logs, items, page_size, []
+    Windows are half-open [from, to), as observed on the live board: splitting 2026-09-20 at
+    11:55:36Z returned the log created at 11:55:36.39 only in the later half, and the two halves
+    together equalled the whole day. ``inclusive_to=True`` simulates an API that also returns logs
+    at the upper bound, to prove duplicates across split windows are removed."""
+
+    def __init__(self, logs, items, page_size=2, inclusive_to=False):
+        self.logs, self.items, self.page_size, self.queries, self.inclusive_to = logs, items, page_size, [], inclusive_to
 
     def _column(self, log):
         data = json.loads(log["data"])
@@ -52,7 +58,7 @@ class FakeMonday:
             since, until = re.search(r'from: "([^"]+)", to: "([^"]+)"', query).groups()
             page = int(re.search(r"page: (\d+)", query).group(1))
             lo, hi = mf.ticks(since), mf.ticks(until)
-            selected = [log for log in self.logs if lo <= log["created_at"] < hi]
+            selected = [log for log in self.logs if lo <= log["created_at"] < hi or (self.inclusive_to and log["created_at"] == hi)]
             if "column_ids" in query:
                 wanted = json.loads(re.search(r"column_ids: (\[[^\]]*\])", query).group(1))
                 selected = [log for log in selected if log["event"] == "update_column_value" and self._column(log) in wanted]
@@ -119,6 +125,44 @@ class IngestTests(unittest.TestCase):
             manifest = self.run_ingest()
         self.assertTrue(any(window.get("split") for window in manifest["windows"]))
         self.assertEqual(manifest["counts"]["column_logs"], 8)
+
+    def test_offline_verification_passes_for_plain_and_split_runs(self):
+        report = verify(self._run_and_dir())
+        self.assertTrue(report["passed"], report["failures"])
+        self.assertEqual((report["activity_logs"], report["items_created_inside_window_without_create_pulse"]), ({"create_pulse": 2, "update_column_value": 8}, []))
+        self.raw = outside_git()
+        with mock.patch.object(ing, "WINDOW_CAP", 7), mock.patch("atlas_commander.ingest_verify.WINDOW_CAP", 7):
+            report = verify(self._run_and_dir())
+        self.assertTrue(report["passed"], report["failures"])
+        self.assertGreater(report["windows"]["split"], 0)
+
+    def _run_and_dir(self):
+        self.run_ingest()
+        return self.raw
+
+    def test_offline_verification_detects_tampering(self):
+        raw = self._run_and_dir()
+        victim = next(path for path in raw.iterdir() if path.name.startswith("column_logs"))
+        victim.chmod(0o644)
+        victim.write_bytes(victim.read_bytes() + b" ")
+        report = verify(raw)
+        self.assertFalse(report["passed"])
+        self.assertTrue(any("SHA-256 mismatch" in failure for failure in report["failures"]))
+
+    def test_boundary_log_is_kept_once_across_split_windows(self):
+        # A tracked change exactly on the split point of a capped window (midpoint of 2026-09-01..2026-10-01).
+        boundary = mf.status("s-boundary", "1", "2026-09-16T00:00:00Z", "Ready For Approval", "Sent")
+        for inclusive_to in (False, True):
+            self.raw = outside_git()
+            self.client = ReadOnlyMondayClient(FakeMonday([*self.logs, boundary], items(), inclusive_to=inclusive_to))
+            with mock.patch.object(ing, "WINDOW_CAP", 7), mock.patch("atlas_commander.ingest_verify.WINDOW_CAP", 7):
+                manifest = self.run_ingest(since="2026-09-01T00:00:00Z", until="2026-10-01T00:00:00Z")
+                report = verify(self.raw)
+            self.assertTrue(report["passed"], report["failures"])
+            self.assertTrue(any(w["since"] == "2026-09-16T00:00:00Z" for w in manifest["windows"]))  # the boundary really is a split point
+            extract = json.loads((self.raw / "extract.json").read_text())
+            self.assertEqual([log["id"] for log in extract["activity"]["boards"][0]["activity_logs"]].count("s-boundary"), 1)
+            self.assertEqual(manifest["counts"]["column_logs"], 9)
 
     def test_raw_store_inside_git_is_refused(self):
         with self.assertRaises(RawStoreError):
