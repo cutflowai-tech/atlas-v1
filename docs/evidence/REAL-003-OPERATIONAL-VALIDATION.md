@@ -12,13 +12,13 @@ Once a read-only token is available as `MONDAY_API_TOKEN`, run:
 RUN=~/.atlas/raw/monday/$(date -u +%Y%m%dT%H%M%SZ)
 PYTHONPATH=src python3 -m atlas_commander.ingest --since 2026-02-01T00:00:00Z --raw-dir "$RUN"
 PYTHONPATH=src python3 -m atlas_commander.ingest_verify "$RUN"
-PYTHONPATH=src python3 scripts/real_data_analysis.py "$RUN/extract.json" 1.3.0 > "$RUN/analysis.json"
+PYTHONPATH=src python3 scripts/real_data_analysis.py "$RUN/extract.json" 1.4.0 > "$RUN/analysis.json"
 PYTHONPATH=src python3 -m atlas_commander.profile_cli build "$RUN/extract.json" editor-label-6 "$RUN/profile"
 ```
 
 - `--until` defaults to the time of the run.
 - `ingest_verify` must report `"passed": true` before the extract is used.
-- Compare `analysis.json` → `validation` with section 4.
+- Compare `analysis.json` → `validation` with section 6 (contract 1.4.0, the active contract); section 4 holds the contract 1.3.0 reference.
 - Compare the Will profile with `scripts/compare_profiles.py <reference> "$RUN/profile/editor-label-6.json"` when a reference profile is available. Also re-check the projects in section 3.
 
 ## 2. Ingestion behaviour verified without the token
@@ -127,3 +127,63 @@ The apparent late-to-early shift from April to September follows the start of th
 - D1 was approved before this evidence was available.
 - Changing it needs a management decision and a new contract version; see `docs/DECISIONS.md`, open decision 6.
 - Until then, the deadline section of the Editor Profile is not reliable for internal use.
+
+## 6. Deadline rule deadline-v1.2 (contract 1.4.0): ETA frozen at the first Ready For Approval
+
+Management approved decision D19 on 2026-09-28 after the finding in section 5. The deadline ETA is now the latest valid Requested ETA observed at or before the cycle's first Ready For Approval, and later changes never affect the result. Contract 1.3.0 is unchanged. Re-running it reproduces the earlier Will profile byte for byte.
+
+**Data:** the same reference extract (SHA-256 `d38c848d4a9c4b16…`).
+
+**Reproduce:**
+- `PYTHONPATH=src python3 scripts/real_data_analysis.py <extract> 1.3.0` for the previous rule;
+- `… 1.4.0` for the new rule.
+
+**All verified Editors (completed first cycles with a verified Editor):**
+
+| | Previous rule (1.3.0, latest ETA) | New rule (1.4.0, ETA at first RFA) |
+|---|---:|---:|
+| Classified | 142 | 142 |
+| Early | 98 | 24 |
+| On time | 0 | 0 |
+| Late | 44 | 118 |
+| Not classifiable: date-only ETA | 9 | 9 |
+| Not classifiable: missing ETA / none at or before RFA | 1 | 1 |
+| Not evaluated for other reasons (e.g. retired status in the window) | 18 | 18 |
+
+**Changes between the two rules:**
+- 74 projects changed result, all from early to late. No project changed in the other direction, and none gained or lost classification.
+- Every classified project had a valid ETA at or before its Ready For Approval.
+- Under the new rule, the selected ETA comes from an activity-log change in 131 projects and from the creation value in 11.
+- 89 completed cycles have at least one Requested ETA change after Ready For Approval. These are now listed as ignored evidence.
+
+**Will (editor-profile 1.4.0, 157 completed projects):**
+
+| Month (UTC, of RFA) | Classified | Early | On time | Late | Early rate | Late rate |
+|---|---:|---:|---:|---:|---:|---:|
+| 2026-04 | 15 | 2 | 0 | 13 | 13.3% | 86.7% |
+| 2026-05 | 12 | 2 | 0 | 10 | 16.7% | 83.3% |
+| 2026-06 | 25 | 1 | 0 | 24 | 4.0% | 96.0% |
+| 2026-07 | 31 | 2 | 0 | 29 | 6.5% | 93.5% |
+| 2026-08 | 25 | 3 | 0 | 22 | 12.0% | 88.0% |
+| 2026-09 | 21 | 10 | 0 | 11 | 47.6% | 52.4% |
+| **Total** | **129** | **20** | **0** | **109** | 15.5% | 84.5% |
+
+These are descriptive counts only; no trend conclusion is drawn.
+
+**Project-level comparison** (`scripts/compare_profiles.py`, Will, 1.3.0 → 1.4.0):
+- 67 projects changed from early to late.
+- 9 changed ETA and delta with the same result.
+- 6 changed ETA on projects that are not classified.
+- 75 kept the same ETA value, now traced to the exact Monday change event instead of the current item value.
+
+**Spot-check cases from section 3 under the new rule:**
+- 3218569766, 3040779228, 3162534522 and 3139361369 are now late against 09-13 09:00, 07-02 21:00, 08-16 09:00 and 08-06 21:00 respectively.
+- Each of those revision-time resets is listed in `ignored_later_requested_eta_changes`.
+- All other sampled results are unchanged.
+
+**Evidence for the revision-time reset pattern:** section 5 is unchanged and remains the record.
+- 170 post-RFA ETA changes on classified projects, all by user `99154021` (shared "Waset Co Studio" account).
+- 157 set the ETA to exactly the change time + 24 h, and 10 to + 12 h.
+- Every post-RFA change came within 10 s of entering `Revisions` in 82 of the 84 affected classified projects.
+- No native Monday automation on the board writes the date column.
+- The rule does not depend on identifying the integration: any change after the first Ready For Approval is ignored.

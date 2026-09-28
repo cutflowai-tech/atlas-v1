@@ -74,7 +74,7 @@ class CommanderTests(unittest.TestCase):
         # Every fixture task is done; the remaining tasks are blocked on the live token or on business decisions.
         self.assertEqual(ready_ids, set())
         tasks = {task["id"]: task for task in json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]}
-        self.assertTrue(all(tasks[task_id]["blocked_by"] for task_id in ("E2E-001", "DEADLINE-002", "ID-002")))
+        self.assertTrue(all(tasks[task_id]["blocked_by"] for task_id in ("E2E-001", "ID-002")))
 
     def test_no_composite_scoring_task_exists(self):
         tasks = json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]

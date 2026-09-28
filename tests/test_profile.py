@@ -142,7 +142,7 @@ class ProfileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             extract = Path(tmp) / "extract.json"
             extract.write_text(json.dumps({"retrieved_at": NOW, "activity": self.activity, "items": self.items}))
-            self.assertEqual(profile_cli(["build", str(extract), "editor-label-6", tmp, "--generated-at", NOW]), 0)
+            self.assertEqual(profile_cli(["--contract", "1.3.0", "build", str(extract), "editor-label-6", tmp, "--generated-at", NOW]), 0)
             written = json.loads((Path(tmp) / "editor-label-6.json").read_text())
             self.assertEqual(written, self.profile)
             self.assertIn("<h1>Will</h1>", (Path(tmp) / "editor-label-6.html").read_text())

@@ -4,7 +4,7 @@
     PYTHONPATH=src python3 -m atlas_commander.profile_cli build <extract.json> <editor_id> <out_dir> [--monday-item-url URL]
 
 The extract is the JSON written by the read-only ingestion (activity logs, items and
-ingestion metadata). Output is ``<editor_id>.json`` (editor-profile 1.3.0) and
+ingestion metadata). Output is ``<editor_id>.json`` (editor-profile 1.4.0; 1.3.0 with ``--contract 1.3.0``) and
 ``<editor_id>.html``. Nothing is written back to Monday.
 """
 

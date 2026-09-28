@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/editor-profile-v1.4.schema.json",
+  "title": "EditorProfileV1_4",
+  "description": "Evidence API response for one Editor. Every number is computed by the deterministic metric engine; the UI only formats it. There is no composite score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "subject_type",
+    "editor",
+    "generated_at",
+    "executable_contract_version",
+    "source",
+    "overall",
+    "speed",
+    "deadline",
+    "quality",
+    "revisions",
+    "coverage",
+    "projects",
+    "current_workload",
+    "trend"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.4.0"
+    },
+    "subject_type": {
+      "const": "editor"
+    },
+    "editor": {
+      "$ref": "editor-identity.schema.json"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executable_contract_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "system",
+        "board_ids",
+        "retrieved_at",
+        "history_coverage"
+      ],
+      "properties": {
+        "system": {
+          "const": "monday"
+        },
+        "board_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retrieved_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "history_coverage": {
+          "type": "object"
+        }
+      }
+    },
+    "overall": {
+      "type": "object",
+      "required": [
+        "status",
+        "rule_version",
+        "note"
+      ],
+      "properties": {
+        "status": {
+          "type": "null",
+          "description": "No overall status rule is approved in V1; the component sections are the performance picture."
+        },
+        "rule_version": {
+          "type": "null"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "speed": {
+      "type": "object",
+      "required": [
+        "rule_version",
+        "benchmark_statistic",
+        "minimum_editor_sample_size",
+        "cohorts",
+        "metrics"
+      ],
+      "properties": {
+        "rule_version": {
+          "type": "string"
+        },
+        "benchmark_statistic": {
+          "const": "median"
+        },
+        "minimum_editor_sample_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cohorts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "cohort_key",
+              "cohort_labels",
+              "benchmark_eligible",
+              "editor_sample_size",
+              "editor_median_seconds",
+              "team_sample_size",
+              "team_median_seconds",
+              "comparison_status",
+              "conclusion",
+              "editor_cycle_ids"
+            ],
+            "properties": {
+              "conclusion": {
+                "enum": [
+                  "faster_than_team_median",
+                  "slower_than_team_median",
+                  "equal_to_team_median",
+                  "insufficient_sample",
+                  "not_comparable"
+                ]
+              },
+              "editor_sample_size": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "speed-metric.schema.json"
+          }
+        }
+      }
+    },
+    "deadline": {
+      "type": "object",
+      "required": [
+        "rule_version",
+        "summary",
+        "results",
+        "requested_eta_selection"
+      ],
+      "properties": {
+        "rule_version": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "evaluated",
+            "early",
+            "on_time",
+            "late",
+            "not_classifiable_insufficient_eta_precision"
+          ]
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "deadline-metric-v1.2.schema.json"
+          }
+        },
+        "requested_eta_selection": {
+          "const": "latest-valid-requested-eta-at-or-before-first-ready-for-approval"
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": [
+        "rule_version",
+        "negative",
+        "positive",
+        "for_bonus_context",
+        "occurrences"
+      ],
+      "properties": {
+        "rule_version": {
+          "type": "string"
+        },
+        "negative": {
+          "type": "object",
+          "required": [
+            "total_occurrences",
+            "projects_with_issues",
+            "by_label"
+          ]
+        },
+        "positive": {
+          "type": "object",
+          "required": [
+            "source",
+            "count",
+            "note"
+          ],
+          "properties": {
+            "source": {
+              "type": "null"
+            },
+            "count": {
+              "const": 0
+            }
+          }
+        },
+        "for_bonus_context": {
+          "type": "object",
+          "required": [
+            "affects_quality",
+            "projects"
+          ],
+          "properties": {
+            "affects_quality": {
+              "const": false
+            }
+          }
+        },
+        "occurrences": {
+          "type": "array",
+          "items": {
+            "$ref": "quality-metric.schema.json"
+          }
+        }
+      }
+    },
+    "revisions": {
+      "type": "object",
+      "required": [
+        "context_only",
+        "note"
+      ],
+      "properties": {
+        "context_only": {
+          "const": true
+        }
+      }
+    },
+    "current_workload": {
+      "type": "object",
+      "required": [
+        "as_of",
+        "basis",
+        "by_current_status",
+        "note"
+      ],
+      "description": "Descriptive only: items whose current Editor Name is this Editor, grouped by current Monday status. No capacity judgement is made.",
+      "properties": {
+        "by_current_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "trend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "speed_by_cohort_month",
+        "speed_projects_not_shown",
+        "deadline_by_month",
+        "note"
+      ],
+      "description": "Descriptive monthly figures with sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort and is never pooled across cohorts. No score, rating or trend conclusion is drawn.",
+      "properties": {
+        "speed_by_cohort_month": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "cohort_key",
+              "month",
+              "projects",
+              "median_seconds"
+            ],
+            "properties": {
+              "cohort_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "month": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}$"
+              },
+              "projects": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "median_seconds": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "speed_projects_not_shown": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cohort_not_benchmark_eligible"
+          ],
+          "properties": {
+            "cohort_not_benchmark_eligible": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "deadline_by_month": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "month",
+              "evaluated",
+              "early",
+              "on_time",
+              "late",
+              "early_rate",
+              "on_time_rate",
+              "late_rate"
+            ],
+            "properties": {
+              "month": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}$"
+              },
+              "evaluated": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "early": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "on_time": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "late": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "early_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "on_time_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              },
+              "late_rate": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "completed_projects",
+        "speed_eligible_projects",
+        "exclusions_by_reason",
+        "states"
+      ]
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "monday_item_id",
+          "cycle_id",
+          "state",
+          "exclusions",
+          "flags",
+          "requested_eta_observed_at",
+          "requested_eta_changes_ignored_after_ready_for_approval"
+        ],
+        "properties": {
+          "monday_item_id": {
+            "type": "string"
+          },
+          "exclusions": {
+            "type": "array"
+          },
+          "flags": {
+            "type": "array"
+          },
+          "requested_eta_observed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_eta_changes_ignored_after_ready_for_approval": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "ai_annotation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Optional explanation only; never a source-of-truth field."
+    }
+  },
+  "x-atlas-invariants": [
+    "the profile never contains a composite score",
+    "revisions never alter speed, deadline or quality values",
+    "every metric keeps its own Monday evidence",
+    "deadline results use the Requested ETA in effect at the first Ready For Approval; later ETA changes are shown as ignored evidence and never change a result"
+  ]
+}
