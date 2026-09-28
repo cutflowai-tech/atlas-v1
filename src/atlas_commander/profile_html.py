@@ -1,4 +1,4 @@
-"""Static HTML view of an editor-profile 1.1.0 document.
+"""Static HTML view of an editor-profile 1.3.0 document.
 
 The page only formats values that are already in the profile (durations as hours, rates as
 percentages). It never computes a metric, a comparison or a conclusion.
@@ -139,10 +139,10 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     speed_rows = "".join(f"<tr><td><code>{escape(row['cohort_key'])}</code></td><td>{escape(row['month'])}</td><td>{row['projects']}</td><td>{_h(row['median_seconds'])}</td></tr>"
                          for row in trend["speed_by_cohort_month"])
     deadline_rows = "".join(f"<tr><td>{escape(row['month'])}</td><td>{row['evaluated']}</td><td class=\"early\">{row['early']}</td><td>{row['on_time']}</td>"
-                            f"<td class=\"late\">{row['late']}</td></tr>" for row in trend["deadline_by_month"])
+                            f"<td class=\"late\">{row['late']}</td><td>{_pct(row['early_rate'])}</td><td>{_pct(row['late_rate'])}</td></tr>" for row in trend["deadline_by_month"])
     parts.append("<section class=\"card\"><h2>By month</h2><details><summary>Show monthly figures</summary><div class=\"scroll\"><table><thead><tr>"
                  f"<th>Cohort</th><th>Month</th><th>Projects</th><th>Median duration</th></tr></thead><tbody>{speed_rows}</tbody></table></div>"
-                 "<div class=\"scroll\"><table><thead><tr><th>Month</th><th>Deadlines evaluated</th><th>Early</th><th>On time</th><th>Late</th></tr></thead>"
+                 "<div class=\"scroll\"><table><thead><tr><th>Month</th><th>Deadlines evaluated</th><th>Early</th><th>On time</th><th>Late</th><th>Early rate</th><th>Late rate</th></tr></thead>"
                  f"<tbody>{deadline_rows}</tbody></table></div></details><p class=\"note\">{escape(trend['note'])}</p></section>")
 
     reasons = "".join(f"<li><code>{escape(reason)}</code>: {count}</li>" for reason, count in coverage["exclusions_by_reason"].items()) or "<li>None</li>"
