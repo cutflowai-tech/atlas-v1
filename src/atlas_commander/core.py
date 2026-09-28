@@ -35,7 +35,7 @@ ROUTES = {
         {"slot": "builder-2", "agent": "Atlas Builder Codex W", "runtime": "Atlas Codex W", "family": "codex"},
         {"slot": "builder-3", "agent": "Atlas Builder Claude A", "runtime": "Atlas Claude A", "family": "claude"},
         {"slot": "validator-1", "agent": "Atlas Validator Codex", "runtime": "Atlas Codex A", "family": "codex"},
-        {"slot": "validator-2", "agent": "Atlas Validator Claude", "runtime": "Atlas Claude A", "family": "claude"},
+        {"slot": "validator-2", "agent": "Atlas Validator Claude M", "runtime": "Atlas Claude M", "family": "claude"},
         {"slot": "arbiter", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
         {"slot": "integrator", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
     ],

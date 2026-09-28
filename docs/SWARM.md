@@ -24,7 +24,7 @@ Critical means a change affects deterministic business rules, attribution, metri
 
 - `Atlas Codex A`, `Atlas Codex M`, `Atlas Codex W`: builders, reviewers, validators, arbiter/integrator.
 - `Atlas Claude A`: independent cross-family builder/validator.
-- `Atlas Claude M`: configured but must pass `./scripts/runtime-health` before assignment.
+- `Atlas Claude M`: separate subscription-backed builder/validator lane; critical validation uses this identity independently from the Claude A builder.
 - Hermes: audit/research/memory/documentation only; never a required coding dependency.
 
 ## Queue and DAG
@@ -40,4 +40,3 @@ Tasks live in `tasks/dag.json`. A task is READY only when its status is `todo`, 
 git worktree list
 make test
 ```
-

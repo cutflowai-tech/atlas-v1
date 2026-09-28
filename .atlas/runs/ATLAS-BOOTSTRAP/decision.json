@@ -10,7 +10,7 @@
       "codex-m": "ok",
       "codex-w": "ok",
       "claude-a": "ok",
-      "claude-m": "configured_disabled_pending_login",
+      "claude-m": "ok",
       "hermes": "ok"
     },
     "multica_squad_id": "2b3d37a5-41f0-417a-b765-485f35d1ac41",
@@ -19,7 +19,6 @@
     "worktree_smoke_task": "ATLAS-VERIFY"
   },
   "known_limitations": [
-    "The original /mnt/data execution-plan attachment was unavailable; explicit deterministic rules from the user brief are the baseline.",
-    "Atlas Claude M remains disabled until its separate Claude profile is authenticated."
+    "The original /mnt/data execution-plan attachment was unavailable; explicit deterministic rules from the user brief are the baseline."
   ]
 }
