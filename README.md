@@ -37,3 +37,20 @@ The Commander must classify and dispatch from `tasks/dag.json`; do not manually 
 - `task/<id>/<slot>`: one isolated candidate implementation or validation branch.
 
 Do not let builders share a worktree. Do not merge candidate branches directly to `main`.
+
+## Editor Profile (V1)
+
+Build an evidence-backed profile for one verified Editor from a read-only Monday extract:
+
+```bash
+PYTHONPATH=src python3 -m atlas_commander.profile_cli list <extract.json>
+PYTHONPATH=src python3 -m atlas_commander.profile_cli build <extract.json> editor-label-6 out/ \
+  --monday-item-url "https://<account>.monday.com/boards/<board>/pulses/{item_id}"
+```
+
+The output is `out/<editor_id>.json` (contract `editor-profile-v1.1`) and a static `out/<editor_id>.html`.
+
+- The page only formats values computed by the deterministic engine.
+- There is no composite score. Revisions are shown as context only.
+- Every project row lists its Monday event IDs.
+- Editors that cannot be verified have no profile.
