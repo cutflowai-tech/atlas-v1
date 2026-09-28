@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/editor-profile.schema.json",
+  "title": "EditorProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "subject_type", "editor", "work_cycles", "metrics", "generated_at"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "subject_type": {"const": "editor"},
+    "editor": {"$ref": "editor-identity.schema.json"},
+    "work_cycles": {"type": "array", "items": {"$ref": "work-cycle.schema.json"}},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["speed", "deadline", "quality"],
+      "properties": {
+        "speed": {"type": "array", "items": {"$ref": "speed-metric.schema.json"}},
+        "deadline": {"type": "array", "items": {"$ref": "deadline-metric.schema.json"}},
+        "quality": {"type": "array", "items": {"$ref": "quality-metric.schema.json"}}
+      }
+    },
+    "ai_annotation": {"type": ["string", "null"], "description": "Optional explanation only; never a source-of-truth field."},
+    "generated_at": {"type": "string", "format": "date-time"}
+  }
+}

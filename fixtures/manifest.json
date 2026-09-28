@@ -1,0 +1,23 @@
+{
+  "good": {
+    "good/editor-identity.json": "editor-identity.schema.json",
+    "good/status-in-progress.json": "normalized-status-event.schema.json",
+    "good/status-ready.json": "normalized-status-event.schema.json",
+    "good/work-cycle.json": "work-cycle.schema.json",
+    "good/speed-metric.json": "speed-metric.schema.json",
+    "good/deadline-metric.json": "deadline-metric.schema.json",
+    "good/quality-metric.json": "quality-metric.schema.json",
+    "good/editor-profile.json": "editor-profile.schema.json"
+  },
+  "bad": {
+    "bad/missing-editor.json": {"schema": "work-cycle.schema.json", "code": "SCHEMA_INVALID"},
+    "bad/missing-video-type.json": {"schema": "work-cycle.schema.json", "code": "SCHEMA_INVALID"},
+    "bad/missing-eta.json": {"schema": "work-cycle.schema.json", "code": "MISSING_REQUESTED_ETA"},
+    "bad/missing-start.json": {"schema": "work-cycle.schema.json", "code": "SCHEMA_INVALID"},
+    "bad/missing-end.json": {"schema": "work-cycle.schema.json", "code": "SCHEMA_INVALID"},
+    "bad/end-before-start.json": {"schema": "work-cycle.schema.json", "code": "END_BEFORE_START"},
+    "bad/duplicate-event.json": {"schema": "normalized-status-event.schema.json", "code": "DUPLICATE_EVENT"},
+    "bad/unknown-transition.json": {"schema": "normalized-status-event.schema.json", "code": "SCHEMA_INVALID"},
+    "bad/unresolved-waset-co.json": {"schema": "normalized-status-event.schema.json", "code": "UNRESOLVED_ACTOR"}
+  }
+}

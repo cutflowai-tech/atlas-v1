@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/speed-metric.schema.json",
+  "title": "SpeedMetric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "metric_name", "editor_id", "video_type", "duration_seconds", "cohort_video_type", "cohort_median_seconds", "evidence"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "metric_name": {"const": "speed"},
+    "editor_id": {"type": "string", "minLength": 1},
+    "video_type": {"type": "string", "minLength": 1},
+    "duration_seconds": {"type": "integer", "minimum": 1},
+    "cohort_video_type": {"type": "string", "minLength": 1},
+    "cohort_median_seconds": {"type": ["integer", "null"], "minimum": 1},
+    "evidence": {"$ref": "common.schema.json#/$defs/evidence"}
+  },
+  "x-atlas-invariants": ["cohort_video_type equals video_type; no global fallback"]
+}
