@@ -1,0 +1,25 @@
+{
+  "task_id": "ATLAS-BOOTSTRAP",
+  "decision": "accepted",
+  "accepted_commit": "aaba3d1f19f573251c20553e64a4b572ab124285",
+  "arbiter": "Atlas setup operator with Hermes audit validation",
+  "evidence": {
+    "tests": "make test passed, including deterministic routing and contract checks",
+    "runtime_health": {
+      "codex-a": "ok",
+      "codex-m": "ok",
+      "codex-w": "ok",
+      "claude-a": "ok",
+      "claude-m": "configured_disabled_pending_login",
+      "hermes": "ok"
+    },
+    "multica_squad_id": "2b3d37a5-41f0-417a-b765-485f35d1ac41",
+    "multica_autopilot_id": "79261669-6dee-4aba-a26b-f43cfb8c85a7",
+    "github_ci": "main and integration passed Atlas CI",
+    "worktree_smoke_task": "ATLAS-VERIFY"
+  },
+  "known_limitations": [
+    "The original /mnt/data execution-plan attachment was unavailable; explicit deterministic rules from the user brief are the baseline.",
+    "Atlas Claude M remains disabled until its separate Claude profile is authenticated."
+  ]
+}

@@ -1,7 +1,6 @@
 .worktrees/
-.atlas/runs/
+.atlas/runs/**/fanout.json
 __pycache__/
 *.pyc
 .pytest_cache/
 .DS_Store
-

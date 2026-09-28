@@ -37,6 +37,22 @@ class CommanderTests(unittest.TestCase):
         self.assertEqual(builder_families, {"codex", "claude"})
         self.assertEqual(validator_families, {"codex", "claude"})
 
+    def test_all_routes_reference_registered_enabled_runtimes(self):
+        registered = {
+            item["name"]
+            for item in json.loads((ROOT / "config" / "runtimes.json").read_text())["runtimes"]
+            if item["enabled"]
+        }
+        for risk in ("simple", "normal", "critical"):
+            for assignment in assignments_for(risk):
+                self.assertIn(assignment["runtime"], registered)
+                self.assertTrue(assignment["agent"])
+
+    def test_event_evidence_cannot_be_empty(self):
+        schema = json.loads((ROOT / "contracts" / "atlas-v1.schema.json").read_text())
+        event_ids = schema["properties"]["evidence"]["properties"]["event_ids"]
+        self.assertEqual(event_ids["minItems"], 1)
+
     def test_all_dag_entries_satisfy_task_contract(self):
         tasks = json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]
         required = {"id", "title", "risk", "status", "depends_on", "acceptance_tests", "evidence_requirements", "affected_contracts", "contract_owner_gate"}

@@ -34,7 +34,7 @@
         "source": {"const": "monday"},
         "record_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "column_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-        "event_ids": {"type": "array", "items": {"type": "string"}},
+        "event_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
         "source_timestamps": {"type": "array", "items": {"type": "string", "format": "date-time"}, "minItems": 1},
         "source_values": {"type": "object", "minProperties": 1}
       }

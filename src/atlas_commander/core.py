@@ -19,25 +19,25 @@ REQUIRED_TASK_FIELDS = {
 
 ROUTES = {
     "simple": [
-        {"slot": "builder-1", "runtime": "Atlas Codex W", "family": "codex"},
-        {"slot": "reviewer-1", "runtime": "Atlas Codex A", "family": "codex"},
-        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+        {"slot": "builder-1", "agent": "Atlas Builder Codex W", "runtime": "Atlas Codex W", "family": "codex"},
+        {"slot": "reviewer-1", "agent": "Atlas Validator Codex", "runtime": "Atlas Codex A", "family": "codex"},
+        {"slot": "integrator", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
     ],
     "normal": [
-        {"slot": "builder-1", "runtime": "Atlas Builder Codex M", "family": "codex"},
-        {"slot": "builder-2", "runtime": "Atlas Builder Claude A", "family": "claude"},
-        {"slot": "reviewer-1", "runtime": "Atlas Validator Codex", "family": "codex"},
-        {"slot": "arbiter", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
-        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+        {"slot": "builder-1", "agent": "Atlas Builder Codex M", "runtime": "Atlas Codex M", "family": "codex"},
+        {"slot": "builder-2", "agent": "Atlas Builder Claude A", "runtime": "Atlas Claude A", "family": "claude"},
+        {"slot": "reviewer-1", "agent": "Atlas Validator Codex", "runtime": "Atlas Codex A", "family": "codex"},
+        {"slot": "arbiter", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
+        {"slot": "integrator", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
     ],
     "critical": [
-        {"slot": "builder-1", "runtime": "Atlas Builder Codex M", "family": "codex"},
-        {"slot": "builder-2", "runtime": "Atlas Builder Codex W", "family": "codex"},
-        {"slot": "builder-3", "runtime": "Atlas Builder Claude A", "family": "claude"},
-        {"slot": "validator-1", "runtime": "Atlas Validator Codex", "family": "codex"},
-        {"slot": "validator-2", "runtime": "Atlas Validator Claude", "family": "claude"},
-        {"slot": "arbiter", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
-        {"slot": "integrator", "runtime": "Atlas Arbiter Integrator", "family": "codex"},
+        {"slot": "builder-1", "agent": "Atlas Builder Codex M", "runtime": "Atlas Codex M", "family": "codex"},
+        {"slot": "builder-2", "agent": "Atlas Builder Codex W", "runtime": "Atlas Codex W", "family": "codex"},
+        {"slot": "builder-3", "agent": "Atlas Builder Claude A", "runtime": "Atlas Claude A", "family": "claude"},
+        {"slot": "validator-1", "agent": "Atlas Validator Codex", "runtime": "Atlas Codex A", "family": "codex"},
+        {"slot": "validator-2", "agent": "Atlas Validator Claude", "runtime": "Atlas Claude A", "family": "claude"},
+        {"slot": "arbiter", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
+        {"slot": "integrator", "agent": "Atlas Arbiter Integrator", "runtime": "Atlas Codex M", "family": "codex"},
     ],
 }
 
