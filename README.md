@@ -76,3 +76,24 @@ The output is `out/<editor_id>.json` (contract `editor-profile-v1.4` under the a
 - There is no composite score. Revisions are shown as context only.
 - Every project row lists its Monday event IDs.
 - Editors that cannot be verified have no profile.
+
+## CEO Dashboard (V1 shell)
+
+Build every Editor Profile and the management dashboard from one extract:
+
+```bash
+PYTHONPATH=src python3 -m atlas_commander.profile_cli dashboard <extract.json> out/ \
+  --monday-item-url "https://<account>.monday.com/boards/<board>/pulses/{item_id}"
+```
+
+This writes three things:
+- `out/profiles/<editor_id>.json|.html`: the same `build_editor_profile` output as `build`, for every Editor with attributed projects;
+- `out/dashboard.json`: the dashboard document (`ceo-dashboard-v0.1`);
+- `out/dashboard.html`: a self-contained page with the team overview, a snapshot and monthly history per Editor, and each full profile embedded.
+
+The dashboard is organised in three layers:
+- **Metric engine** (`cycles`, `metrics`, `quality`, `pipeline`): unchanged.
+- **Summary layer** (`dashboard.py`, `dashboard_html.py`): reads only Editor Profile documents. Every figure names the profile field it comes from.
+- **Management rules** (`management.py`): holds the not-yet-approved rules, such as overall status, score, needs-attention, trend, workload capacity and recommendations. Each is shown as "Rule not approved yet" and never gets a value until a rule is approved in a new contract version.
+
+Write the output outside git, like the raw extract: it contains real Monday data.
