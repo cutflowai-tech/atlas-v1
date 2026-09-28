@@ -59,6 +59,15 @@ def semantic_codes(instance: Any, schema_name: str) -> list[str]:
         return codes
     if schema_name == "speed-metric.schema.json" and instance.get("video_type") != instance.get("cohort_video_type"):
         return ["CROSS_VIDEO_TYPE_COHORT"]
+    if schema_name == "deadline-metric-v1.1.schema.json" and instance.get("ready_for_approval_at") and instance.get("requested_eta"):
+        codes = []
+        delta = int((_timestamp(instance["ready_for_approval_at"]) - _timestamp(instance["requested_eta"])).total_seconds())
+        if instance.get("delta_seconds") != delta:
+            codes.append("DEADLINE_DELTA_MISMATCH")
+        expected = "early" if delta < 0 else "on_time" if delta == 0 else "late"
+        if instance.get("result") != expected:
+            codes.append("DEADLINE_RESULT_MISMATCH")
+        return codes
     if schema_name == "deadline-metric.schema.json" and instance.get("ready_for_approval_at") and instance.get("requested_eta"):
         expected = "on_time" if _timestamp(instance["ready_for_approval_at"]) <= _timestamp(instance["requested_eta"]) else "late"
         if instance.get("result") != expected:

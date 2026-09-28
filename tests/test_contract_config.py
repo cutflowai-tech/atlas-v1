@@ -2,7 +2,7 @@ import unittest
 
 from atlas_commander.contracts import schema_errors
 from atlas_commander.identity import EditorObservation
-from atlas_commander.runtime import load_contract, normalize_contract_events, resolve_contract_editor, video_type_cohort
+from atlas_commander.runtime import load_contract, load_contract_version, normalize_contract_events, resolve_contract_editor, video_type_cohort
 
 
 class MondayContractRuntimeTests(unittest.TestCase):
@@ -15,7 +15,8 @@ class MondayContractRuntimeTests(unittest.TestCase):
             "id": "event-1", "board_id": "board-1", "created_at": "2026-09-01T09:00:00Z", "user_id": "99154021",
             "data": {"pulse_id": "item-1", "column_id": "status", "previous_value": {"label": {"text": "Create File"}}, "value": {"label": {"text": "In Progress"}}},
         }
-        result = normalize_contract_events([raw], self.config)
+        # Pinned to contract 1.1.0 (status mapping v1.0) for reproducibility; 1.2.0 is covered in test_status_sources.
+        result = normalize_contract_events([raw], load_contract_version("1.1.0"))
         self.assertEqual(result.quarantined, [])
         event = result.accepted[0]
         self.assertEqual(event["raw_from_status"], "Create File")
@@ -45,13 +46,19 @@ class MondayContractRuntimeTests(unittest.TestCase):
         self.assertFalse(result.resolved)
 
     def test_video_type_runtime_requires_exact_resolved_full_set(self):
-        self.assertEqual(self.config["video_type_cohorts"]["mapping_version"], "monday-video-type-v1.1")
-        self.assertEqual(video_type_cohort(["Class A+"], self.config), "8")
+        # Pinned to the approved contract 1.1.0 so its results stay reproducible after later versions.
+        v11 = load_contract_version("1.1.0")
+        self.assertEqual(v11["video_type_cohorts"]["mapping_version"], "monday-video-type-v1.1")
+        self.assertEqual(video_type_cohort(["Class A+"], v11), "8")
+        self.assertEqual(video_type_cohort(["Class B", "Class A+"], v11), "5:8")
+        self.assertEqual(video_type_cohort(["Class B", "Ai"], v11), "16:5")
+        self.assertIsNone(video_type_cohort(["Class B", "Unknown"], v11))
+        self.assertIsNone(video_type_cohort(["Class A+", "Unknown"], v11))
+        self.assertIsNone(video_type_cohort(["Class A"], v11))
+        self.assertIsNone(video_type_cohort([], v11))
+        # The active contract applies the same exact-full-set rules with its own mapping version.
         self.assertEqual(video_type_cohort(["Class B", "Class A+"], self.config), "5:8")
-        self.assertEqual(video_type_cohort(["Class B", "Ai"], self.config), "16:5")
-        self.assertIsNone(video_type_cohort(["Class B", "Unknown"], self.config))
         self.assertIsNone(video_type_cohort(["Class A+", "Unknown"], self.config))
-        self.assertIsNone(video_type_cohort([], self.config))
 
 
 if __name__ == "__main__":

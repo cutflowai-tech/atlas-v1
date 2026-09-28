@@ -7,7 +7,8 @@
     "good/speed-metric.json": "speed-metric.schema.json",
     "good/deadline-metric.json": "deadline-metric.schema.json",
     "good/quality-metric.json": "quality-metric.schema.json",
-    "good/editor-profile.json": "editor-profile.schema.json"
+    "good/editor-profile.json": "editor-profile.schema.json",
+    "good/deadline-metric-v1.1.json": "deadline-metric-v1.1.schema.json"
   },
   "bad": {
     "bad/missing-editor.json": {"schema": "work-cycle.schema.json", "code": "SCHEMA_INVALID"},
@@ -18,6 +19,8 @@
     "bad/end-before-start.json": {"schema": "work-cycle.schema.json", "code": "END_BEFORE_START"},
     "bad/duplicate-event.json": {"schema": "normalized-status-event.schema.json", "code": "DUPLICATE_EVENT"},
     "bad/unknown-transition.json": {"schema": "normalized-status-event.schema.json", "code": "SCHEMA_INVALID"},
-    "bad/unresolved-waset-co.json": {"schema": "normalized-status-event.schema.json", "code": "UNRESOLVED_ACTOR"}
+    "bad/unresolved-waset-co.json": {"schema": "normalized-status-event.schema.json", "code": "UNRESOLVED_ACTOR"},
+    "bad/deadline-v1.1-early-reported-on-time.json": {"schema": "deadline-metric-v1.1.schema.json", "code": "DEADLINE_RESULT_MISMATCH"},
+    "bad/deadline-v1.1-wrong-delta.json": {"schema": "deadline-metric-v1.1.schema.json", "code": "DEADLINE_DELTA_MISMATCH"}
   }
 }

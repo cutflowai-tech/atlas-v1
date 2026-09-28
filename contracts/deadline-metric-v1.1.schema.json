@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/deadline-metric-v1.1.schema.json",
+  "title": "DeadlineMetricV1_1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "metric_name", "editor_id", "ready_for_approval_at", "requested_eta", "requested_eta_selection", "delta_seconds", "result", "evidence"],
+  "properties": {
+    "contract_version": {"const": "1.1.0"},
+    "metric_name": {"const": "deadline"},
+    "editor_id": {"type": "string", "minLength": 1},
+    "ready_for_approval_at": {"type": "string", "format": "date-time"},
+    "requested_eta": {"type": "string", "format": "date-time"},
+    "requested_eta_selection": {"const": "latest-available-requested-eta"},
+    "delta_seconds": {"type": "integer"},
+    "result": {"type": "string", "enum": ["early", "on_time", "late"]},
+    "evidence": {"$ref": "common.schema.json#/$defs/evidence"}
+  },
+  "x-atlas-invariants": [
+    "delta_seconds equals ready_for_approval_at minus requested_eta in whole seconds",
+    "result is early iff delta_seconds < 0, on_time iff delta_seconds == 0, late iff delta_seconds > 0; there is no tolerance",
+    "requested_eta is the latest available Requested ETA, even when it changed after ready_for_approval_at",
+    "missing or date-only requested_eta yields no metric"
+  ]
+}
