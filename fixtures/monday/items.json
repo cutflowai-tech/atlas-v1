@@ -1,0 +1,80 @@
+{
+ "items": [
+  {
+   "id": "100002",
+   "created_at": "2026-09-21T17:00:00Z",
+   "updated_at": "2026-09-21T17:28:39Z",
+   "board": {
+    "id": "900001"
+   },
+   "group": {
+    "id": "g1"
+   },
+   "creator_id": "500001",
+   "column_values": [
+    {
+     "id": "date",
+     "type": "date",
+     "text": "2026-09-22 00:00",
+     "value": "{\"date\": \"2026-09-21\", \"time\": \"21:00:00\"}"
+    },
+    {
+     "id": "dropdown_mm1emgt8",
+     "type": "dropdown",
+     "text": "Synthetic Editor",
+     "value": "{\"ids\": [6]}"
+    },
+    {
+     "id": "dropdown_mm062ga0",
+     "type": "dropdown",
+     "text": "Class B, Ai",
+     "value": "{\"ids\": [5, 16]}"
+    },
+    {
+     "id": "project_status",
+     "type": "status",
+     "text": "Ready For Approval",
+     "value": "{\"index\": 3, \"changed_at\": \"2026-09-21T17:28:39.000Z\"}"
+    }
+   ]
+  },
+  {
+   "id": "100003",
+   "created_at": "2026-09-21T17:00:00Z",
+   "updated_at": "2026-09-22T02:29:20Z",
+   "board": {
+    "id": "900001"
+   },
+   "group": {
+    "id": "g1"
+   },
+   "creator_id": "500001",
+   "column_values": [
+    {
+     "id": "date",
+     "type": "date",
+     "text": "",
+     "value": null
+    },
+    {
+     "id": "dropdown_mm1emgt8",
+     "type": "dropdown",
+     "text": "Synthetic Editor",
+     "value": "{\"ids\": [6]}"
+    },
+    {
+     "id": "dropdown_mm062ga0",
+     "type": "dropdown",
+     "text": "Class A",
+     "value": "{\"ids\": [4]}"
+    },
+    {
+     "id": "project_status",
+     "type": "status",
+     "text": "Sent",
+     "value": "{\"index\": 7, \"changed_at\": \"2026-09-22T02:29:20.500Z\"}"
+    }
+   ]
+  }
+ ]
+}

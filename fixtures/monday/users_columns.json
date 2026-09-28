@@ -1,0 +1,38 @@
+{
+ "users": [
+  {
+   "id": "500001",
+   "name": "SYNTHETIC PERSON"
+  }
+ ],
+ "boards": [
+  {
+   "columns": [
+    {
+     "id": "date",
+     "title": "Requested ETA",
+     "type": "date",
+     "settings_str": "{}"
+    },
+    {
+     "id": "dropdown_mm1emgt8",
+     "title": "Editor Name",
+     "type": "dropdown",
+     "settings_str": "{\"labels\": [{\"id\": 6, \"name\": \"Synthetic Editor\"}, {\"id\": 12, \"name\": \"Synthetic New\"}], \"deactivated_labels\": [1, 8]}"
+    },
+    {
+     "id": "dropdown_mm062ga0",
+     "title": "Video Type",
+     "type": "dropdown",
+     "settings_str": "{}"
+    },
+    {
+     "id": "project_status",
+     "title": "Status",
+     "type": "status",
+     "settings_str": "{\"labels\": {\"3\": \"Ready For Approval\", \"5\": \"\", \"7\": \"Sent\", \"8\": \"Captions Revisions\", \"9\": \"In Progress\", \"13\": \"Create File\"}}"
+    }
+   ]
+  }
+ ]
+}
