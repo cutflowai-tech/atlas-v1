@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas — Editor Profile</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Atlas · Editor Profile</h1>
+    <form id="editor-form" method="get" action="/">
+      <label for="editor-input">Editor ID</label>
+      <input id="editor-input" name="editor" autocomplete="off" required pattern="[A-Za-z0-9_.:\-]{1,128}">
+      <button type="submit">Load</button>
+    </form>
+  </header>
+  <main id="app" aria-live="polite" aria-busy="true">
+    <noscript><p class="state">JavaScript is required to load the editor profile.</p></noscript>
+  </main>
+</body>
+</html>

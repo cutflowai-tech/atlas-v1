@@ -1,0 +1,11 @@
+{
+  "name": "atlas-web",
+  "private": true,
+  "type": "module",
+  "description": "Atlas Editor Profile UI (no runtime or dev dependencies).",
+  "engines": {"node": ">=20"},
+  "scripts": {
+    "demo": "node mock-server.mjs",
+    "test": "node --test tests/profile.test.mjs tests/e2e.test.mjs"
+  }
+}

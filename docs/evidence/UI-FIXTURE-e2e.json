@@ -1,0 +1,46 @@
+{
+  "task": "UI-FIXTURE",
+  "development_mode": "fixture",
+  "scenarios": [
+    {
+      "editor_id": "editor-42",
+      "request": "GET /api/editors/editor-42",
+      "view_status": "ready",
+      "data_mode": "fixture",
+      "rendered_sha256": "958dc272c17c594f75ac87c8ff25434beb7c10596bbfaf04f6fb19d25ff149dc",
+      "evidence_blocks": 7
+    },
+    {
+      "editor_id": "editor-empty",
+      "request": "GET /api/editors/editor-empty",
+      "view_status": "ready",
+      "data_mode": "fixture",
+      "rendered_sha256": "329b9c881d48a16916c996237b869386ddee89e3ba2c4db771832a5b16c93f1a",
+      "evidence_blocks": 0
+    },
+    {
+      "editor_id": "editor-unknown",
+      "request": "GET /api/editors/editor-unknown",
+      "view_status": "not_found",
+      "data_mode": "fixture",
+      "rendered_sha256": "d12c68bc0160263be4a46633f1ac3d492912b65f137657ff242d61239dd78973",
+      "evidence_blocks": 0
+    },
+    {
+      "editor_id": "fixture-server-error",
+      "request": "GET /api/editors/fixture-server-error",
+      "view_status": "error",
+      "data_mode": "fixture",
+      "rendered_sha256": "dc96d4a6e014d2a28c115dc5fce2646dbc371b29e06c6c0b6493e3b9dea0d612",
+      "evidence_blocks": 0
+    },
+    {
+      "editor_id": "fixture-bad-contract",
+      "request": "GET /api/editors/fixture-bad-contract",
+      "view_status": "contract_error",
+      "data_mode": "fixture",
+      "rendered_sha256": "87ef92279e2c82e0acd395f6dc3ac850a990e39c6cbcf86b28657344197f87e3",
+      "evidence_blocks": 0
+    }
+  ]
+}
