@@ -1,5 +1,8 @@
 .PHONY: doctor lint typecheck unit contract integration e2e test runtime-health
 
+# Dedicated suites run through their own targets locally and in CI.
+UNIT_TEST_FILES := $(filter-out tests/test_contracts.py tests/test_integration.py tests/test_e2e.py,$(wildcard tests/test_*.py))
+
 doctor:
 	./scripts/atlas doctor
 
@@ -10,7 +13,9 @@ typecheck:
 	mypy src
 
 unit:
-	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_commander.py' -v
+	@set -e; for test_file in $(UNIT_TEST_FILES); do \
+		PYTHONPATH=src python3 -m unittest discover -s tests -p "$${test_file##*/}" -v; \
+	done
 
 contract:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_contracts.py' -v
