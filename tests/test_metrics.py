@@ -1,6 +1,7 @@
 import copy
 import json
 import unittest
+from dataclasses import replace
 
 from atlas_commander.contracts import ROOT, validate
 from atlas_commander.metrics import (
@@ -8,6 +9,7 @@ from atlas_commander.metrics import (
     MetricError,
     PerformanceLabelObservation,
     QualityLabelMapping,
+    SourceObservation,
     derive_deadline_metric,
     derive_deadline_metrics,
     derive_quality_metric,
@@ -41,10 +43,19 @@ def _cycle(cycle_id, video_type="short-form", duration=7200, **overrides):
 
 
 def _source(cycle):
-    return CycleSource(cycle=cycle, status_column_id="status", video_type_column_id="video_type", requested_eta_column_id="requested_eta")
+    def observed(column, event, timestamp, value):
+        return SourceObservation(cycle["monday_board_id"], cycle["monday_item_id"], column, event, timestamp, value)
+    observations = (
+        observed("status", cycle["in_progress_event_id"], cycle["in_progress_at"], cycle["start_status"]),
+        observed("status", cycle["ready_for_approval_event_id"], cycle["ready_for_approval_at"], cycle["end_status"]),
+        observed("video_type", "video-type-event", cycle["in_progress_at"], cycle.get("video_type")),
+        observed("requested_eta", "eta-event", cycle["in_progress_at"], cycle["requested_eta"]),
+    )
+    return CycleSource(cycle, "status", "video_type", "requested_eta", observations)
 
 
 MAPPING = QualityLabelMapping(
+    monday_board_id="board-1",
     version="quality-label-v1",
     label_column_id="performance_label",
     approved=True,
@@ -62,6 +73,8 @@ def _observation(label="Meets Expectations", **overrides):
         "label": label,
     }
     values.update(overrides)
+    values["source_observation"] = SourceObservation(values["monday_board_id"], values["monday_item_id"],
+        values["column_id"], values["event_id"], values["observed_at"], values["label"])
     return PerformanceLabelObservation(**values)
 
 
@@ -177,7 +190,7 @@ class QualityMetricTests(unittest.TestCase):
         self.assertNotIn("score", metric)
 
     def test_mapping_translates_monday_label_value(self):
-        mapping = QualityLabelMapping("quality-label-v2", "performance_label", True, {"Great": "Exceeds Expectations"})
+        mapping = QualityLabelMapping("quality-label-v2", "performance_label", True, {"Great": "Exceeds Expectations"}, "board-1")
         metric = derive_quality_metric(_source(_fixture("good/work-cycle.json")), _observation("Great"), mapping, CALCULATED_AT)
         self.assertEqual(metric["performance_label"], "Exceeds Expectations")
         self.assertEqual(metric["label_mapping_version"], "quality-label-v2")
@@ -185,13 +198,13 @@ class QualityMetricTests(unittest.TestCase):
 
     def test_unapproved_or_unknown_labels_rejected(self):
         source = _source(_fixture("good/work-cycle.json"))
-        unapproved = QualityLabelMapping("quality-label-v1", "performance_label", False, MAPPING.labels)
+        unapproved = QualityLabelMapping("quality-label-v1", "performance_label", False, MAPPING.labels, "board-1")
         cases = [
             ("UNAPPROVED_LABEL_MAPPING", _observation(), unapproved),
             ("UNSUPPORTED_PERFORMANCE_LABEL", _observation("AI says great"), MAPPING),
             ("LABEL_COLUMN_MISMATCH", _observation(column_id="notes"), MAPPING),
             ("LABEL_ITEM_MISMATCH", _observation(monday_item_id="item-9"), MAPPING),
-            ("UNVERSIONED_LABEL_MAPPING", _observation(), QualityLabelMapping("", "performance_label", True, MAPPING.labels)),
+            ("UNVERSIONED_LABEL_MAPPING", _observation(), QualityLabelMapping("", "performance_label", True, MAPPING.labels, "board-1")),
         ]
         for code, observation, mapping in cases:
             with self.subTest(code=code), self.assertRaises(MetricError) as caught:
@@ -226,6 +239,61 @@ class RevisionNeutralityTests(unittest.TestCase):
         metric = derive_quality_metric(_source(cycle), _observation(), MAPPING, CALCULATED_AT)
         metric["revision_context"]["count"] = 99
         self.assertEqual(cycle["revision_context"], {"count": 3})
+
+
+class SourceIntegrityTests(unittest.TestCase):
+    def test_fractional_duration_rejected(self):
+        cycle = _cycle("fractional", ready_for_approval_at="2026-09-01T02:00:00.5Z")
+        with self.assertRaises(MetricError) as caught:
+            derive_speed_metrics([_source(cycle)], CALCULATED_AT)
+        self.assertEqual(caught.exception.code, "UNSUPPORTED_FRACTIONAL_DURATION")
+
+    def test_submicrosecond_precision_rejected(self):
+        cycle = _cycle("fractional", ready_for_approval_at="2026-09-01T02:00:00.0000001Z")
+        with self.assertRaises(MetricError) as caught:
+            derive_speed_metrics([_source(cycle)], CALCULATED_AT)
+        self.assertEqual(caught.exception.code, "UNSUPPORTED_TIMESTAMP_PRECISION")
+
+    def test_source_records_must_prove_each_claim(self):
+        source = _source(_fixture("good/work-cycle.json"))
+        for index in range(4):
+            for field, value in (("monday_board_id", "other"), ("monday_item_id", "other"),
+                                 ("column_id", "unrelated"), ("value", "unrelated")):
+                observations = list(source.observations)
+                observations[index] = replace(observations[index], **{field: value})
+                with self.subTest(index=index, field=field), self.assertRaises(MetricError) as caught:
+                    derive_speed_metrics([replace(source, observations=observations)], CALCULATED_AT)
+                self.assertEqual(caught.exception.code, "SOURCE_EVIDENCE_MISMATCH")
+        for field, value in (("event_id", "unrelated"), ("observed_at", "2026-08-01T00:00:00Z")):
+            observations = list(source.observations)
+            observations[1] = replace(observations[1], **{field: value})
+            with self.assertRaises(MetricError):
+                derive_deadline_metric(replace(source, observations=observations), CALCULATED_AT)
+
+    def test_quality_mapping_requires_board_scope_and_boolean_approval(self):
+        source = _source(_fixture("good/work-cycle.json"))
+        for mapping, code in ((replace(MAPPING, monday_board_id="other"), "LABEL_BOARD_MISMATCH"),
+                              (replace(MAPPING, approved=1), "UNAPPROVED_LABEL_MAPPING")):
+            with self.assertRaises(MetricError) as caught:
+                derive_quality_metric(source, _observation(), mapping, CALCULATED_AT)
+            self.assertEqual(caught.exception.code, code)
+
+    def test_quality_requires_matching_source_record(self):
+        source = _source(_fixture("good/work-cycle.json"))
+        for field, value in (("event_id", "other"), ("observed_at", "2026-08-01T00:00:00Z"),
+                             ("label", "Exceeds Expectations")):
+            with self.subTest(field=field), self.assertRaises(MetricError) as caught:
+                derive_quality_metric(source, replace(_observation(), **{field: value}), MAPPING, CALCULATED_AT)
+            self.assertEqual(caught.exception.code, "LABEL_SOURCE_MISMATCH")
+
+    def test_nested_context_and_mapping_evidence_are_detached(self):
+        cycle = _fixture("good/work-cycle.json")
+        cycle["revision_context"] = {"notes": [{"text": ["original"]}]}
+        metric = derive_quality_metric(_source(cycle), _observation(), MAPPING, CALCULATED_AT)
+        metric["revision_context"]["notes"][0]["text"].append("changed")
+        metric["evidence"]["source_values"]["approved_mapping"]["labels"]["Meets Expectations"] = "changed"
+        self.assertEqual(cycle["revision_context"], {"notes": [{"text": ["original"]}]})
+        self.assertEqual(MAPPING.labels["Meets Expectations"], "Meets Expectations")
 
 
 if __name__ == "__main__":

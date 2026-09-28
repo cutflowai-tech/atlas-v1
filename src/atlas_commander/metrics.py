@@ -6,7 +6,9 @@ cite them. No clock reads, no AI, no fallbacks: callers pass ``calculated_at``.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
@@ -35,6 +37,18 @@ class MetricError(ValueError):
 
 
 @dataclass(frozen=True)
+class SourceObservation:
+    """A Monday field value with its event identity and observation timestamp."""
+
+    monday_board_id: str
+    monday_item_id: str
+    column_id: str
+    event_id: str
+    observed_at: str
+    value: Any
+
+
+@dataclass(frozen=True)
 class CycleSource:
     """A contract-valid WorkCycle and the Monday column IDs it was read from."""
 
@@ -42,6 +56,7 @@ class CycleSource:
     status_column_id: str
     video_type_column_id: str
     requested_eta_column_id: str
+    observations: Sequence[SourceObservation] = ()
 
 
 @dataclass(frozen=True)
@@ -54,6 +69,7 @@ class PerformanceLabelObservation:
     event_id: str
     observed_at: str
     label: str | None
+    source_observation: SourceObservation | None = None
 
 
 @dataclass(frozen=True)
@@ -64,9 +80,13 @@ class QualityLabelMapping:
     label_column_id: str
     approved: bool
     labels: Mapping[str, str] = field(default_factory=dict)
+    monday_board_id: str = ""
 
 
 def _timestamp(value: str) -> datetime:
+    fraction = re.search(r"\d{2}:\d{2}:\d{2}\.(\d+)", value)
+    if fraction and len(fraction.group(1)) > 6:
+        raise MetricError("UNSUPPORTED_TIMESTAMP_PRECISION", "timestamps support at most microsecond precision")
     parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
         raise MetricError("NAIVE_TIMESTAMP", f"timestamp {value!r} has no UTC offset")
@@ -93,7 +113,49 @@ def _validate_cycle(source: CycleSource) -> Mapping[str, Any]:
     for name in ("status_column_id", "video_type_column_id", "requested_eta_column_id"):
         if not getattr(source, name):
             raise MetricError("MISSING_SOURCE_COLUMN", f"{name} is required for cycle {cycle['cycle_id']!r}")
+    elapsed = _timestamp(cycle["ready_for_approval_at"]) - _timestamp(cycle["in_progress_at"])
+    if elapsed.microseconds:
+        raise MetricError("UNSUPPORTED_FRACTIONAL_DURATION", "integer contract cannot represent exact timestamp duration")
+    if elapsed.days * 86400 + elapsed.seconds != cycle["duration_seconds"]:
+        raise MetricError("DURATION_MISMATCH", "duration must equal exact timestamp difference")
+    _cycle_observations(source)
     return cycle
+
+
+def _matching_observation(
+    source: CycleSource, column: str, value: Any, event: str | None = None, timestamp: str | None = None,
+) -> SourceObservation:
+    cycle = source.cycle
+    for observation in source.observations:
+        if (observation.monday_board_id, observation.monday_item_id, observation.column_id, observation.value) != (
+            cycle["monday_board_id"], cycle["monday_item_id"], column, value,
+        ):
+            continue
+        if event is not None and observation.event_id != event:
+            continue
+        if not observation.event_id:
+            continue
+        _require_timestamp(observation.observed_at, "source observed_at")
+        if timestamp is not None and _timestamp(observation.observed_at) != _timestamp(timestamp):
+            continue
+        return observation
+    raise MetricError("SOURCE_EVIDENCE_MISMATCH", f"missing matching Monday source for {column!r}, event {event!r}")
+
+
+def _cycle_observations(source: CycleSource) -> list[SourceObservation]:
+    cycle = source.cycle
+    observations = [
+        _matching_observation(source, source.status_column_id, cycle["start_status"], cycle["in_progress_event_id"], cycle["in_progress_at"]),
+        _matching_observation(source, source.status_column_id, cycle["end_status"], cycle["ready_for_approval_event_id"], cycle["ready_for_approval_at"]),
+        _matching_observation(source, source.video_type_column_id, cycle["video_type"]),
+    ]
+    if cycle["requested_eta"] is not None:
+        observations.append(_matching_observation(source, source.requested_eta_column_id, cycle["requested_eta"]))
+    return observations
+
+
+def _observation_evidence(observation: SourceObservation) -> dict[str, Any]:
+    return deepcopy(vars(observation))
 
 
 def _validate_cycles(sources: Sequence[CycleSource]) -> list[CycleSource]:
@@ -128,6 +190,10 @@ def _cohort_source(source: CycleSource) -> dict[str, Any]:
         "in_progress_event_id": cycle["in_progress_event_id"],
         "ready_for_approval_event_id": cycle["ready_for_approval_event_id"],
         "duration_seconds": cycle["duration_seconds"],
+        "video_type": cycle["video_type"],
+        "in_progress_at": cycle["in_progress_at"],
+        "ready_for_approval_at": cycle["ready_for_approval_at"],
+        "source_observations": [_observation_evidence(value) for value in _cycle_observations(source)[:3]],
     }
 
 
@@ -175,6 +241,7 @@ def derive_speed_metrics(sources: Sequence[CycleSource], calculated_at: str) -> 
                     "end": cycle["end_status"],
                     "video_type": video_type,
                     "cycle_id": cycle["cycle_id"],
+                    "source_observations": [_observation_evidence(value) for value in _cycle_observations(source)[:3]],
                     "cohort_size": len(cohort),
                     "cohort_median_status": median_status,
                     "cohort_median_exact": _exact_decimal(median),
@@ -215,6 +282,7 @@ def derive_deadline_metric(source: CycleSource, calculated_at: str) -> dict[str,
             "source_values": {
                 "ready_for_approval_at": ready_at,
                 "requested_eta": requested_eta,
+                "source_observations": [_observation_evidence(value) for value in _cycle_observations(source)[1::2]],
                 "cycle_id": cycle["cycle_id"],
             },
             "rule_version": DEADLINE_RULE_VERSION,
@@ -243,8 +311,10 @@ def derive_quality_metric(
     _require_timestamp(calculated_at, "calculated_at")
     _require_timestamp(observation.observed_at, "observed_at")
     cycle = _validate_cycle(source)
-    if not mapping.approved:
+    if mapping.approved is not True:
         raise MetricError("UNAPPROVED_LABEL_MAPPING", f"label mapping {mapping.version!r} is not approved")
+    if mapping.monday_board_id != cycle["monday_board_id"]:
+        raise MetricError("LABEL_BOARD_MISMATCH", "approved mapping must be scoped to the source board")
     if not mapping.version or not mapping.label_column_id:
         raise MetricError("UNVERSIONED_LABEL_MAPPING", "label mapping requires a version and label column ID")
     if observation.column_id != mapping.label_column_id:
@@ -254,6 +324,10 @@ def derive_quality_metric(
         )
     if (observation.monday_board_id, observation.monday_item_id) != (cycle["monday_board_id"], cycle["monday_item_id"]):
         raise MetricError("LABEL_ITEM_MISMATCH", f"label observation is not for the item of cycle {cycle['cycle_id']!r}")
+    expected = SourceObservation(observation.monday_board_id, observation.monday_item_id,
+                                 observation.column_id, observation.event_id, observation.observed_at, observation.label)
+    if observation.source_observation != expected or not observation.event_id:
+        raise MetricError("LABEL_SOURCE_MISMATCH", "label requires a matching Monday source observation")
     if observation.label is None or observation.label == "":
         return None
     if observation.label not in mapping.labels:
@@ -269,7 +343,7 @@ def derive_quality_metric(
         "performance_label": mapping.labels[observation.label],
         "label_column_id": mapping.label_column_id,
         "label_mapping_version": mapping.version,
-        "revision_context": dict(revision_context) if revision_context is not None else None,
+        "revision_context": deepcopy(revision_context),
         "evidence": {
             "source": "monday",
             "monday_board_id": observation.monday_board_id,
@@ -277,7 +351,11 @@ def derive_quality_metric(
             "column_ids": [observation.column_id],
             "event_ids": [observation.event_id],
             "source_timestamps": [observation.observed_at],
-            "source_values": {"performance_label": observation.label, "cycle_id": cycle["cycle_id"]},
+            "source_values": {"performance_label": observation.label, "cycle_id": cycle["cycle_id"],
+                              "source_observation": _observation_evidence(expected),
+                              "approved_mapping": {"version": mapping.version, "column_id": mapping.label_column_id,
+                                                   "approved": True, "monday_board_id": mapping.monday_board_id,
+                                                   "labels": deepcopy(dict(mapping.labels))}},
             "rule_version": QUALITY_RULE_VERSION,
             "calculated_at": calculated_at,
         },
