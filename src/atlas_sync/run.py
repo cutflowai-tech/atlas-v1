@@ -346,14 +346,15 @@ def run_once(environ: Mapping[str, str] | None = None, *, config: SyncConfig | N
     result = SyncResult(attempt_id=attempt_id_factory(started), started_at=_iso(started))
     lock = ExitStack()
     try:
-        return _attempt(result, lock, environ, config, transport, clock, monotonic, sleep, max_duration_seconds, monday_item_url, t0, started)
+        return _attempt(result, lock, environ, config, transport, clock, monotonic, sleep, max_duration_seconds,
+                        monday_item_url, t0, started, acquire_lock=True)
     finally:
         lock.close()   # releases the production lock, whatever happened
 
 
 def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | None, cfg: SyncConfig | None, transport: Transport | None,
              clock: Clock, monotonic: Callable[[], float], sleep: Callable[[float], None], max_duration_seconds: float | None,
-             monday_item_url: str | None, t0: float, started: datetime) -> SyncResult:
+             monday_item_url: str | None, t0: float, started: datetime, *, acquire_lock: bool) -> SyncResult:
     stage = STAGES[0]
     build: Path | None = None
     run_ids: list[str] = []
@@ -369,7 +370,8 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
         contract = cfg.contract()
 
         stage = "lock"   # before any Monday request, raw run or build; held for the rest of the attempt
-        lock.enter_context(production_lock(cfg, "run-once", target=result.attempt_id, clock=clock))
+        if acquire_lock:
+            lock.enter_context(production_lock(cfg, "run-once", target=result.attempt_id, clock=clock))
         held = True
         budget = Budget(max_duration_seconds if max_duration_seconds is not None else cfg.max_sync_duration_seconds, monotonic, sleep, started=t0)
 
@@ -470,6 +472,25 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
         raise
     _finish(result, cfg if held else None, build, run_ids, clock, monotonic, t0)   # records are written only under the lock
     return result
+
+
+def _run_once_locked(*, config: SyncConfig, transport: Transport | None = None, clock: Clock = utc_now,
+                     monotonic: Callable[[], float] = time.monotonic, sleep: Callable[[float], None] = time.sleep,
+                     attempt_id_factory: Callable[[datetime], str] = new_run_id,
+                     max_duration_seconds: float | None = None, monday_item_url: str | None = None) -> SyncResult:
+    """Run one exact attempt while the caller holds the shared production lock.
+
+    Private by design: public :func:`run_once` remains the ownership boundary for direct callers. The scheduled
+    cycle owns the same lock across this helper and the exact-attempt publish helper, avoiding re-entry.
+    """
+    t0, started = monotonic(), clock()
+    result = SyncResult(attempt_id=attempt_id_factory(started), started_at=_iso(started))
+    lock = ExitStack()
+    try:
+        return _attempt(result, lock, None, config, transport, clock, monotonic, sleep, max_duration_seconds,
+                        monday_item_url, t0, started, acquire_lock=False)
+    finally:
+        lock.close()
 
 
 def _fail(result: SyncResult, stage: str, error: BaseException) -> None:

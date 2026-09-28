@@ -1,4 +1,4 @@
-"""The single cross-process lock for Atlas production operations (run-once, publish, rollback).
+"""The single cross-process lock for Atlas production operations (run-once, publish, rollback, scheduled-run).
 
 Ownership comes only from an OS advisory lock (``flock``) on ``<ATLAS_LOCK_DIR>/production.lock``
 (default ``<ATLAS_DATA_DIR>/locks/production.lock``). The file itself may stay on disk forever: its existence
@@ -16,6 +16,7 @@ Ownership layer: the public entry points :func:`atlas_sync.run.run_once`, :func:
 and :func:`atlas_sync.publish.rollback` each take this lock once for their whole operation. The CLI only
 calls those entry points and never takes the lock itself. The lock is deliberately not re-entrant: taking it
 again in the same process (a programming error) fails fast with :class:`OperationLocked` instead of hanging.
+The scheduled-cycle entry point owns one lock across its private already-locked run and publish helpers.
 """
 
 from __future__ import annotations
@@ -38,8 +39,8 @@ from .config import SyncConfig
 
 LOCK_FILE_NAME = "production.lock"
 LOCK_VERSION = "atlas-lock-v1"
-OPERATIONS = ("run-once", "publish", "rollback")
-# One exit code for lock contention across run-once, publish and rollback (EX_TEMPFAIL: try again later).
+OPERATIONS = ("run-once", "publish", "rollback", "scheduled-run")
+# One exit code for lock contention across every production operation (EX_TEMPFAIL: try again later).
 EXIT_LOCKED = 75
 LOCKED_CATEGORY = "operation_locked"
 _METADATA_KEYS: dict[str, Any] = {"lock_version": str, "operation": str, "pid": int, "hostname": str, "acquired_at": str, "target": (str, type(None))}
