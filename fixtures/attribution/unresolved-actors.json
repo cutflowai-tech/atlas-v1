@@ -1,0 +1,59 @@
+{
+  "mapping": "attribution/actor-mapping-v1.json",
+  "base_event": {
+    "contract_version": "1.0.0",
+    "monday_board_id": "board-1",
+    "monday_item_id": "item-1",
+    "status_column_id": "status",
+    "occurred_at": "2026-09-01T09:00:00Z",
+    "from_status": "Backlog",
+    "to_status": "In Progress"
+  },
+  "cases": [
+    {
+      "event_id": "event-attr-resolved-person",
+      "actor": {"monday_id": "person-42", "kind": "person", "display_name": "Fixture Editor"},
+      "expected": {"status": "resolved", "reason": null, "actor_id": "editor-42", "actor_resolution": "canonical_monday_id"}
+    },
+    {
+      "event_id": "event-attr-resolved-team",
+      "actor": {"monday_id": "team-edit-7", "kind": "team", "display_name": "Edit Team 7"},
+      "expected": {"status": "resolved", "reason": null, "actor_id": "editor-team-7", "actor_resolution": "canonical_monday_id"}
+    },
+    {
+      "event_id": "event-attr-waset-team",
+      "actor": {"monday_id": "team-waset-co", "kind": "team", "display_name": "Waset Co"},
+      "expected": {"status": "unresolved", "reason": "waset_co_shared_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-waset-shared-person",
+      "actor": {"monday_id": "person-waset-shared", "kind": "person", "display_name": "Waset Co"},
+      "expected": {"status": "unresolved", "reason": "waset_co_shared_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-unknown",
+      "actor": {"monday_id": "person-999", "kind": "person", "display_name": "Fixture Editor"},
+      "expected": {"status": "unresolved", "reason": "unknown_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-ambiguous",
+      "actor": {"monday_id": "person-77", "kind": "person", "display_name": "Twin Editor"},
+      "expected": {"status": "unresolved", "reason": "ambiguous_mapping", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-kind-mismatch",
+      "actor": {"monday_id": "person-42", "kind": "team", "display_name": "Fixture Editor"},
+      "expected": {"status": "unresolved", "reason": "unknown_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-missing",
+      "actor": null,
+      "expected": {"status": "unresolved", "reason": "missing_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    },
+    {
+      "event_id": "event-attr-name-only",
+      "actor": {"display_name": "Fixture Editor"},
+      "expected": {"status": "unresolved", "reason": "missing_actor", "actor_id": null, "actor_resolution": "unresolved_waset_co"}
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "mapping_version": "actor-v1",
+  "entries": [
+    {"monday_kind": "person", "monday_id": "person-42", "actor_id": "editor-42"},
+    {"monday_kind": "team", "monday_id": "team-edit-7", "actor_id": "editor-team-7"},
+    {"monday_kind": "person", "monday_id": "person-77", "actor_id": "editor-77"},
+    {"monday_kind": "person", "monday_id": "person-77", "actor_id": "editor-78"},
+    {"monday_kind": "person", "monday_id": "person-waset-shared", "actor_id": "editor-42"}
+  ],
+  "waset_co_shared_actors": [
+    {"monday_kind": "person", "monday_id": "person-waset-shared"},
+    {"monday_kind": "team", "monday_id": "team-waset-co"}
+  ]
+}
