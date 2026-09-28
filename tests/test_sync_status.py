@@ -75,7 +75,38 @@ class StatusTests(unittest.TestCase):
         path.write_text(json.dumps(document))
         snapshot = self.evaluate()
         self.assertEqual((snapshot.system_state, snapshot.current_publication["attempt_id"]), ("degraded", self.attempt.attempt_id))
-        self.assertIn("current_metadata_inconsistent", snapshot.warnings)
+        self.assertTrue(snapshot.live_usable)
+        self.assertIn("publication_metadata_inconsistent", snapshot.warnings)
+
+    def test_future_retrieval_is_unknown_and_never_clamped(self):
+        snapshot = self.evaluate(-1)
+        self.assertEqual((snapshot.freshness_state, snapshot.freshness["age_seconds"]), ("unknown", -1.0))
+        self.assertEqual((snapshot.system_state, snapshot.live_usable), ("failed", True))
+
+    def test_unstable_pointer_is_bounded_concurrent_transition(self):
+        live = ("ok", self.attempt.attempt_id)
+        missing = ("ok", None)
+        with mock.patch("atlas_sync.status._pointer_state", side_effect=[live, missing, live, missing]):
+            snapshot = status.evaluate_status(config=self.config, clock=lambda: self.retrieved + timedelta(seconds=1))
+        self.assertEqual((snapshot.system_state, snapshot.live_usable), ("unknown", False))
+        self.assertEqual(snapshot.failure_categories, ["concurrent_transition"])
+
+    def test_full_current_and_history_mismatch_is_degraded_but_usable(self):
+        current_path = self.data / "published/CURRENT.json"
+        current = json.loads(current_path.read_text())
+        for key in ("source_run_id", "build_metadata_sha256", "contract_version", "board_id",
+                    "publication_id", "published_at", "current_link", "current_target", "status"):
+            current[key] = "wrong"
+        current_path.write_text(json.dumps(current))
+        history_path = next((self.data / "published/history").glob("*.json"))
+        history_path.chmod(0o644)
+        history = json.loads(history_path.read_text())
+        history["source_run_id"] = "wrong"
+        history_path.write_text(json.dumps(history))
+        snapshot = self.evaluate()
+        self.assertEqual((snapshot.system_state, snapshot.live_usable), ("degraded", True))
+        checks = {check.name: check.status for check in snapshot.checks}
+        self.assertEqual((checks["current_metadata"], checks["publication_history"]), ("warning", "warning"))
 
     def test_missing_incomplete_or_tampered_live_build_fails(self):
         (self.build / run.COMPLETE_NAME).unlink()
@@ -117,6 +148,46 @@ class StatusTests(unittest.TestCase):
         self.assertIn("timeout", encoded)
         self.assertNotIn("SecretRawException", encoded)
         self.assertNotIn(TOKEN, encoded)
+
+    def test_consecutive_failure_threshold_and_success_reset(self):
+        attempts = self.data / "builds/attempts"
+
+        def record(number, state):
+            attempt_id = f"2099010{number}T000000Z-00000000000{number}"
+            (attempts / f"{attempt_id}.json").write_text(json.dumps({
+                "attempt_id": attempt_id, "started_at": f"2099-01-0{number}T00:00:00Z",
+                "finished_at": f"2099-01-0{number}T00:01:00Z", "status": state,
+                "error_category": "timeout" if state == "failed" else None, "source_run_id": None,
+            }))
+
+        record(1, "failed")
+        one = self.evaluate()
+        self.assertEqual((one.system_state, one.live_usable, one.consecutive_failures), ("degraded", True, 1))
+        record(2, "failed")
+        record(3, "failed")
+        threshold = self.evaluate()
+        self.assertEqual((threshold.system_state, threshold.live_usable, threshold.consecutive_failures), ("failed", True, 3))
+        self.assertIn("consecutive_sync_failures", threshold.failure_categories)
+        record(4, "success")
+        reset = self.evaluate()
+        self.assertEqual((reset.system_state, reset.consecutive_failures), ("healthy", 0))
+
+    def test_success_snapshot_has_all_named_health_checks(self):
+        names = {check.name for check in self.evaluate().checks}
+        self.assertTrue({"current_pointer", "current_metadata", "publication_history", "build_completion",
+                         "build_metadata", "artifact_hashes", "locales", "raw_source", "raw_verification",
+                         "provenance", "coverage_chronology"} <= names)
+
+    def test_build_time_snapshot_is_pure_and_has_the_shared_shape(self):
+        snapshot = status.build_time_snapshot(
+            config=self.config, generated_at=self.meta["attempt"]["profiles_generated_at"],
+            attempt_id=self.attempt.attempt_id, source_run_id=self.attempt.source_run_id,
+            retrieved_at=self.meta["source"]["retrieved_at"], coverage=self.meta["source"]["coverage"], verified=True,
+        )
+        self.assertEqual((snapshot.snapshot_scope, snapshot.live_usable), ("build_time", False))
+        self.assertEqual(set(snapshot.as_dict()), set(self.evaluate().as_dict()))
+        source = (Path(__file__).parents[1] / "src/atlas_sync/status.py").read_text()
+        self.assertNotRegex(source, r"from \.run import|import atlas_sync\.run")
 
     def test_latest_success_can_differ_from_current_published_attempt(self):
         staged = self.stage(3)
