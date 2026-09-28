@@ -1,0 +1,20 @@
+#!/bin/sh
+set -u
+
+check() {
+  name=$1
+  shift
+  if output=$("$@" 2>&1); then
+    printf '%s\tOK\n' "$name"
+  else
+    printf '%s\tFAIL\t%s\n' "$name" "$(printf '%s' "$output" | tail -1)"
+  fi
+}
+
+check codex-a codex-a login status
+check codex-m codex-m login status
+check codex-w codex-w login status
+check claude-a claude-a auth status --text
+check claude-m claude-m auth status --text
+check hermes hermes status
+

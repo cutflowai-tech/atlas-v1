@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "id": "ATLAS-BOOTSTRAP",
+      "title": "Atlas V1 engineering control plane",
+      "risk": "critical",
+      "status": "done",
+      "depends_on": [],
+      "contract_owner_gate": "approved"
+    }
+  ]
+}
+

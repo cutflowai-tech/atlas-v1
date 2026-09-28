@@ -1,0 +1,11 @@
+{
+  "runtimes": [
+    {"name": "Atlas Codex A", "command": "codex-a", "family": "codex", "enabled": true},
+    {"name": "Atlas Codex M", "command": "codex-m", "family": "codex", "enabled": true},
+    {"name": "Atlas Codex W", "command": "codex-w", "family": "codex", "enabled": true},
+    {"name": "Atlas Claude A", "command": "claude-a", "family": "claude", "enabled": true},
+    {"name": "Atlas Claude M", "command": "claude-m", "family": "claude", "enabled": false, "reason": "separate profile requires login"}
+  ],
+  "hermes": {"role": "audit_research_memory_docs", "coding_critical_path": false}
+}
+

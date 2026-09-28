@@ -1,0 +1,24 @@
+{
+  "simple": {
+    "builders": 1,
+    "reviewers": 1,
+    "validators": 0,
+    "requires_arbiter": false,
+    "requires_cross_family": false
+  },
+  "normal": {
+    "builders": 2,
+    "reviewers": 1,
+    "validators": 0,
+    "requires_arbiter": true,
+    "requires_cross_family": false
+  },
+  "critical": {
+    "builders": 3,
+    "reviewers": 0,
+    "validators": 2,
+    "requires_arbiter": true,
+    "requires_cross_family": true
+  }
+}
+

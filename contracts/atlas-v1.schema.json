@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/atlas-v1.schema.json",
+  "title": "Atlas Metric Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["monday_item_id", "editor_id", "video_type", "metric", "evidence", "rule_version", "calculated_at"],
+  "properties": {
+    "monday_item_id": {"type": "string", "minLength": 1},
+    "editor_id": {"type": "string", "minLength": 1},
+    "video_type": {"type": "string", "minLength": 1},
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "value": {"type": ["number", "integer", "string", "null"]},
+        "unit": {"type": ["string", "null"]}
+      }
+    },
+    "deadline": {"type": ["string", "null"], "format": "date-time"},
+    "requested_eta": {"type": ["string", "null"], "format": "date-time"},
+    "in_progress_at": {"type": ["string", "null"], "format": "date-time"},
+    "ready_for_approval_at": {"type": ["string", "null"], "format": "date-time"},
+    "quality_label": {"type": ["string", "null"]},
+    "revision_context": {"type": ["object", "null"]},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "record_ids", "event_ids"],
+      "properties": {
+        "source": {"const": "monday"},
+        "record_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "event_ids": {"type": "array", "items": {"type": "string"}},
+        "source_values": {"type": "object"}
+      }
+    },
+    "rule_version": {"type": "string", "minLength": 1},
+    "calculated_at": {"type": "string", "format": "date-time"},
+    "ai_annotation": {"type": ["string", "null"], "description": "Explanatory only; never authoritative."}
+  }
+}
+
