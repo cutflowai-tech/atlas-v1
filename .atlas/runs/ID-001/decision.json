@@ -1,0 +1,16 @@
+{
+  "task_id": "ID-001",
+  "decision": "accept",
+  "selected_commit": "2a315fd0730018a7e830ec69f88361b13f0c8e59",
+  "arbiter": "Atlas Commander",
+  "validators": [
+    "Codex W",
+    "Claude M"
+  ],
+  "reason": "Both validators accept builder-1. Exact canonical person-ID matching and pinned version, historical event required, missing/ambiguous identity exceptions carry source evidence. No current snapshot bypass. Caller retains success evidence alongside frozen identity fields. Malformed mapping row types fail closed; explicit config prevalidation remains adapter responsibility.",
+  "contract_change": false,
+  "tests": {
+    "baseline_and_identity": 34
+  },
+  "evidence_note": "Commander committed tested files after builder Git metadata sandbox denial; no-commit note is historical."
+}
