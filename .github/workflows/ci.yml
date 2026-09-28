@@ -64,6 +64,8 @@ jobs:
         run: make quality
       - name: Contract 1.3.0 tests
         run: make contract-v13
+      - name: Deadline v1.2 (ETA frozen at Ready For Approval) tests
+        run: make deadline-v12
       - name: Editor Profile tests
         run: make profile
       - name: Read-only ingestion tests

@@ -1,4 +1,4 @@
-"""Static HTML view of an editor-profile 1.3.0 document.
+"""Static HTML view of an editor-profile 1.3.0 or 1.4.0 document.
 
 The page only formats values that are already in the profile (durations as hours, rates as
 percentages). It never computes a metric, a comparison or a conclusion.
@@ -41,6 +41,13 @@ th{color:var(--muted);font-weight:600}.scroll{overflow-x:auto}.pill{display:inli
 
 def _h(seconds: Any) -> str:
     return "—" if seconds is None else f"{seconds / 3600:.1f} h"
+
+
+def _deadline_note(deadline: dict[str, Any]) -> str:
+    if deadline.get("requested_eta_selection"):
+        return ("First Ready For Approval compared with the Requested ETA in effect at that moment; later ETA changes (for example a revision "
+                "round) are listed as evidence and never change the result. No tolerance: exactly at the ETA is on time.")
+    return "Ready For Approval compared with the latest Requested ETA. No tolerance: exactly at the ETA is on time."
 
 
 def _pct(rate: Any) -> str:
@@ -108,7 +115,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  f"<div class=\"tile\"><b>{_signed_h(summary.get('median_delta_seconds'))}</b><span>median margin (negative = early)</span></div>"
                  f"<div class=\"tile\"><b>{summary['not_classifiable_insufficient_eta_precision']}</b><span>ETA without a time (not classified)</span></div>"
                  f"<div class=\"tile\"><b>{summary.get('not_classifiable_missing_eta', 0)}</b><span>no ETA</span></div>"
-                 "</div><p class=\"note\">Ready For Approval compared with the latest Requested ETA. No tolerance: exactly at the ETA is on time.</p></section>")
+                 f"</div><p class=\"note\">{escape(_deadline_note(deadline))}</p></section>")
 
     labels = "".join(f"<tr><td>{escape(row['label'])}</td><td>{row['occurrences']}</td><td>{', '.join(_item(i, monday_item_url) for i in row['monday_item_ids'])}</td></tr>"
                      for row in quality["negative"]["by_label"])

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/deadline-metric-v1.2.schema.json",
+  "title": "DeadlineMetricV1_2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "metric_name",
+    "editor_id",
+    "ready_for_approval_at",
+    "requested_eta",
+    "requested_eta_selection",
+    "delta_seconds",
+    "result",
+    "evidence",
+    "requested_eta_observed_at",
+    "ignored_later_requested_eta_changes"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": "1.2.0"
+    },
+    "metric_name": {
+      "const": "deadline"
+    },
+    "editor_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ready_for_approval_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requested_eta": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "requested_eta_selection": {
+      "const": "latest-valid-requested-eta-at-or-before-first-ready-for-approval"
+    },
+    "delta_seconds": {
+      "type": "integer"
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "early",
+        "on_time",
+        "late"
+      ]
+    },
+    "evidence": {
+      "$ref": "common.schema.json#/$defs/evidence"
+    },
+    "requested_eta_observed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "when the selected Requested ETA value was set (activity-log time, or Monday changed_at for an item snapshot); always at or before ready_for_approval_at"
+    },
+    "ignored_later_requested_eta_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "occurred_at"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_eta": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issue": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "x-atlas-invariants": [
+    "delta_seconds equals ready_for_approval_at minus requested_eta in whole seconds",
+    "result is early iff delta_seconds < 0, on_time iff delta_seconds == 0, late iff delta_seconds > 0; there is no tolerance",
+    "requested_eta is the latest valid Requested ETA observed at or before the first ready_for_approval_at; requested_eta_observed_at <= ready_for_approval_at",
+    "Requested ETA changes after ready_for_approval_at never change the result; they are listed in ignored_later_requested_eta_changes",
+    "missing, date-only, or post-submission-only requested_eta yields no metric"
+  ]
+}

@@ -13,7 +13,7 @@ from atlas_commander import ingest as ing
 from atlas_commander.ingest_verify import verify
 from atlas_commander.pipeline import reconstruct_cycles
 from atlas_commander.profile_cli import main as profile_cli
-from atlas_commander.runtime import load_contract
+from atlas_commander.runtime import load_contract, load_contract_version
 from atlas_monday_probe.client import ReadOnlyMondayClient, ReadOnlyViolation
 from atlas_monday_probe.raw_store import RawStoreError
 
@@ -107,7 +107,11 @@ class IngestTests(unittest.TestCase):
         result = reconstruct_cycles(extract["activity"], load_contract(), items_payload=extract["items"], ingestion=extract["ingestion"])
         by_item = {cycle.monday_item_id: cycle for cycle in result.cycles}
         self.assertEqual((by_item["1"].editor_id, by_item["1"].cohort_key, by_item["1"].video_type_source), ("editor-label-6", "4", "create_pulse"))
-        self.assertEqual(by_item["1"].requested_eta, "2026-09-02T21:00:00Z")  # current item value is the latest ETA
+        # Contract 1.4.0 freezes the ETA at Ready For Approval: the logged 20:00 value (set before RFA) is used, not the
+        # current item value (21:00), whose setting time is unknown. Contract 1.3.0 keeps the latest value.
+        self.assertEqual((by_item["1"].requested_eta, by_item["1"].requested_eta_event_id), ("2026-09-02T20:00:00Z", "eta-1"))
+        latest = reconstruct_cycles(extract["activity"], load_contract_version("1.3.0"), items_payload=extract["items"], ingestion=extract["ingestion"])
+        self.assertEqual({c.monday_item_id: c.requested_eta for c in latest.cycles}["1"], "2026-09-02T21:00:00Z")
         with tempfile.TemporaryDirectory() as out:
             self.assertEqual(profile_cli(["build", str(self.raw / "extract.json"), "editor-label-6", out, "--generated-at", "2026-09-28T00:00:00Z"]), 0)
             self.assertEqual(json.loads((Path(out) / "editor-label-6.json").read_text())["coverage"]["completed_projects"], 2)

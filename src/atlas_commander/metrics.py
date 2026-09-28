@@ -23,12 +23,13 @@ from statistics import median
 from typing import Any
 
 from atlas_commander.contracts import validate
-from atlas_commander.cycles import COMPLETED, CycleRecord, parse_time
+from atlas_commander.cycles import COMPLETED, ETA_AT_READY_FOR_APPROVAL, LATEST_ETA, NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL, CycleRecord, parse_time
 from atlas_commander.video_type import VideoTypeMapping, partition_by_cohort
 
 CONTRACT_VERSION = "1.0.0"
-DEADLINE_CONTRACT_VERSION = "1.1.0"
-DEADLINE_SCHEMA = "deadline-metric-v1.1.schema.json"
+# Deadline metric contract per Requested ETA selection rule; earlier contracts keep their original output.
+DEADLINE_CONTRACTS = {LATEST_ETA: ("1.1.0", "deadline-metric-v1.1.schema.json"),
+                      ETA_AT_READY_FOR_APPROVAL: ("1.2.0", "deadline-metric-v1.2.schema.json")}
 EARLY = "early"
 ON_TIME = "on_time"
 LATE = "late"
@@ -59,13 +60,15 @@ class MetricPolicy:
     video_types: VideoTypeMapping | None = None
     benchmark_statistic: str = "median"
     require_other_editor: bool = False
+    requested_eta_selection: str = LATEST_ETA
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> MetricPolicy:
         deadline = contract["deadline"]
         speed = contract["speed_benchmark"]
-        if deadline.get("requested_eta_selection") != "latest-available-requested-eta":
-            raise ValueError("deadline policy must select the latest available Requested ETA")
+        selection = deadline.get("requested_eta_selection")
+        if selection not in DEADLINE_CONTRACTS:
+            raise ValueError(f"unknown Requested ETA selection rule {selection!r}")
         if speed.get("cohort") != "exact-video-type-cohort-only":
             raise ValueError("speed benchmark must compare within the exact Video Type cohort only")
         minimum = speed.get("minimum_editor_sample_size")
@@ -76,7 +79,7 @@ class MetricPolicy:
             raise ValueError("only the median benchmark statistic is implemented")
         board = contract["source_board"]
         return cls(deadline["rule_version"], speed["rule_version"], minimum, board["status_column_id"], board["requested_eta_column_id"],
-                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic, bool(speed.get("peer_requirement")))
+                   board["video_type_column_id"], VideoTypeMapping.from_contract(contract), statistic, bool(speed.get("peer_requirement")), selection)
 
 
 def cohort_benchmark_eligibility(canonical_ids: Iterable[str], mapping: VideoTypeMapping | None) -> tuple[bool, list[str]]:
@@ -130,13 +133,17 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
     event_ids = [cycle.ready_for_approval_event["event_id"]] if cycle.ready_for_approval_event else []
     if cycle.requested_eta_event_id and cycle.requested_eta_event_id not in event_ids:
         event_ids.append(cycle.requested_eta_event_id)
-    metric = {
-        "contract_version": DEADLINE_CONTRACT_VERSION,
+    if cycle.requested_eta_selection != policy.requested_eta_selection:
+        raise ValueError("cycle and metric policy use different Requested ETA selection rules")
+    contract_version, schema = DEADLINE_CONTRACTS[policy.requested_eta_selection]
+    frozen = policy.requested_eta_selection == ETA_AT_READY_FOR_APPROVAL
+    metric: dict[str, Any] = {
+        "contract_version": contract_version,
         "metric_name": "deadline",
         "editor_id": cycle.editor_id,
         "ready_for_approval_at": ready,
         "requested_eta": cycle.requested_eta,
-        "requested_eta_selection": "latest-available-requested-eta",
+        "requested_eta_selection": policy.requested_eta_selection,
         "delta_seconds": delta,
         "result": classify_deadline(delta),
         "evidence": {
@@ -148,7 +155,7 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
             "source_timestamps": [ready],
             "source_values": {
                 "ready_for_approval_at": ready,
-                "latest_requested_eta": cycle.requested_eta,
+                ("selected_requested_eta" if frozen else "latest_requested_eta"): cycle.requested_eta,
                 "requested_eta_source": cycle.requested_eta_source,
                 "requested_eta_history": [{key: entry.get(key) for key in ("source", "event_id", "occurred_at", "source_changed_at", "retrieved_at",
                                                                            "requested_eta", "issue")}
@@ -159,7 +166,16 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
             "calculated_at": calculated_at,
         },
     }
-    errors = validate(metric, DEADLINE_SCHEMA)
+    if frozen:
+        ignored = [dict(entry) for entry in cycle.requested_eta_ignored_after_ready_for_approval]
+        metric["requested_eta_observed_at"] = cycle.requested_eta_observed_at
+        metric["ignored_later_requested_eta_changes"] = ignored
+        evidence: dict[str, Any] = metric["evidence"]
+        evidence["source_timestamps"] = [ready, cycle.requested_eta_observed_at]
+        evidence["source_values"].update({"requested_eta_observed_at": cycle.requested_eta_observed_at,
+                                                    "requested_eta_skipped_event_ids": list(cycle.requested_eta_skipped_event_ids),
+                                                    "ignored_later_requested_eta_changes": ignored})
+    errors = validate(metric, schema)
     if errors:
         raise ValueError(f"deadline metric violates contract: {errors}")
     return {"cycle_id": cycle.cycle_id, "monday_item_id": cycle.monday_item_id, "delta_seconds": delta, "metric": metric}
@@ -174,7 +190,7 @@ def deadline_not_evaluated(cycle: CycleRecord) -> dict[str, Any]:
     reasons = sorted(set(cycle.exclusions) | ({cycle.requested_eta_issue} if cycle.requested_eta_issue else set()))
     if cycle.requested_eta_issue == "REQUESTED_ETA_DATE_ONLY":
         classification = NOT_CLASSIFIABLE_ETA_PRECISION
-    elif cycle.requested_eta_issue == "MISSING_REQUESTED_ETA":
+    elif cycle.requested_eta_issue in {"MISSING_REQUESTED_ETA", NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL}:
         classification = NOT_CLASSIFIABLE_MISSING_ETA
     else:
         classification = NOT_EVALUATED
