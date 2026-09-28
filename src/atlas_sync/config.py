@@ -19,6 +19,7 @@ ATLAS_DATA_DIR                            *         Base directory; derives the 
 ATLAS_RAW_DIR                             *         Immutable raw Monday evidence (default DATA/raw/monday).
 ATLAS_BUILD_DIR                           *         Generated builds (default DATA/builds).
 ATLAS_PUBLISH_DIR                         *         Published output (default DATA/published).
+ATLAS_LOCK_DIR                            **        Holds the production-operation lock file (default DATA/locks).
 ATLAS_HISTORY_START                       no        UTC start of the activity-log history
                                                     (default 2026-02-01T00:00:00Z).
 ATLAS_SYNC_INTERVAL_SECONDS               no        Seconds between syncs (default 3600).
@@ -30,6 +31,8 @@ ATLAS_SYNC_MAX_DURATION_SECONDS           no        Time budget for one sync att
 ========================================  ========  ==============================================
 
 ``*`` Either ATLAS_DATA_DIR, or all three of ATLAS_RAW_DIR, ATLAS_BUILD_DIR and ATLAS_PUBLISH_DIR.
+``**`` Needed by run-once, publish and rollback: derived from ATLAS_DATA_DIR, or set explicitly (and then, with
+ATLAS_DATA_DIR, it must be inside it). It must not overlap the raw, build or publish directories.
 
 The token is held in a :class:`Secret`, which never renders its value in ``repr``/``str``, cannot be
 serialised to JSON, and is only released by :meth:`Secret.reveal` when a Monday client is built.
@@ -66,6 +69,7 @@ DATA_DIR_ENV = "ATLAS_DATA_DIR"
 RAW_DIR_ENV = "ATLAS_RAW_DIR"
 BUILD_DIR_ENV = "ATLAS_BUILD_DIR"
 PUBLISH_DIR_ENV = "ATLAS_PUBLISH_DIR"
+LOCK_DIR_ENV = "ATLAS_LOCK_DIR"
 HISTORY_START_ENV = "ATLAS_HISTORY_START"
 INTERVAL_ENV = "ATLAS_SYNC_INTERVAL_SECONDS"
 STALE_ENV = "ATLAS_STALE_AFTER_SECONDS"
@@ -139,6 +143,8 @@ class SyncConfig:
     stale_after_seconds: int
     max_consecutive_failures: int
     max_sync_duration_seconds: int = DEFAULT_MAX_DURATION_SECONDS
+    # Directory of the production-operation lock (see atlas_sync.lock); None when neither ATLAS_DATA_DIR nor ATLAS_LOCK_DIR is set.
+    lock_dir: Path | None = None
 
     def require_monday_token(self) -> Secret:
         """The token, or MissingAccess (fail closed) when a Monday operation needs one and none is configured."""
@@ -169,6 +175,7 @@ class SyncConfig:
             "stale_after_seconds": self.stale_after_seconds,
             "max_consecutive_failures": self.max_consecutive_failures,
             "max_sync_duration_seconds": self.max_sync_duration_seconds,
+            "lock_dir": str(self.lock_dir) if self.lock_dir is not None else None,
         }
 
 
@@ -266,8 +273,14 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
     raw_dir = _directory(env, RAW_DIR_ENV, base, "raw/monday", problems)
     build_dir = _directory(env, BUILD_DIR_ENV, base, "builds", problems)
     publish_dir = _directory(env, PUBLISH_DIR_ENV, base, "published", problems)
+    lock_dir: Path | None = None
+    if env.get(LOCK_DIR_ENV, "").strip() or base is not None:
+        lock_dir = _directory(env, LOCK_DIR_ENV, base, "locks", problems)
+        if lock_dir is not None and base is not None and base.resolve() not in lock_dir.resolve().parents:
+            problems.append(f"{LOCK_DIR_ENV} must be inside {DATA_DIR_ENV} ({base}), got {lock_dir}")
     if raw_dir and build_dir and publish_dir:
-        _check_directories({RAW_DIR_ENV: raw_dir, BUILD_DIR_ENV: build_dir, PUBLISH_DIR_ENV: publish_dir}, problems)
+        dirs = {RAW_DIR_ENV: raw_dir, BUILD_DIR_ENV: build_dir, PUBLISH_DIR_ENV: publish_dir}
+        _check_directories({**dirs, LOCK_DIR_ENV: lock_dir} if lock_dir is not None else dirs, problems)
 
     history_start = env.get(HISTORY_START_ENV, "").strip() or DEFAULT_HISTORY_START
     try:
@@ -288,4 +301,4 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
     return SyncConfig(monday_token=token, monday_token_source=source, monday_api_version=api_version, contract_version=contract_version,
                       board_id=board_id, raw_dir=raw_dir, build_dir=build_dir, publish_dir=publish_dir, history_start=history_start,
                       sync_interval_seconds=interval, stale_after_seconds=stale, max_consecutive_failures=failures,
-                      max_sync_duration_seconds=max_duration)
+                      max_sync_duration_seconds=max_duration, lock_dir=lock_dir)

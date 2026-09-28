@@ -64,14 +64,16 @@ class PublishTests(unittest.TestCase):
         return Path(attempt.staged_build_dir) / "site"
 
     def live(self):
-        return os.readlink(self.pointer) if self.pointer.is_symlink() else None
+        """Where ``current`` points (resolved from the publish directory without following further links), or None."""
+        return os.path.normpath(self.publish_root / os.readlink(self.pointer)) if self.pointer.is_symlink() else None
 
     def assert_published(self, result, attempt, previous=None):
         self.assertEqual(result.status, pub.PUBLISHED, result.as_dict())
         self.assertEqual(pub.exit_code(result), 0)
         self.assertTrue(result.switched)
         self.assertEqual((result.attempt_id, result.previous_attempt_id, result.source_run_id), (attempt.attempt_id, previous, attempt.source_run_id))
-        self.assertEqual(Path(os.readlink(self.pointer)), self.site(attempt))
+        self.assertEqual(os.readlink(self.pointer), f"../builds/{attempt.attempt_id}/site")     # relative link text
+        self.assertEqual(result.current_link, os.readlink(self.pointer))
         self.assertEqual(self.pointer.resolve(), self.site(attempt).resolve())
         self.assertEqual(result.current_target, str(self.site(attempt)))
         self.assertTrue(pub.current_consistency(self.config)["consistent"])
@@ -310,8 +312,9 @@ class PublishTests(unittest.TestCase):
             self.assertEqual(stat.S_IMODE((self.publish_root / "history" / name).stat().st_mode), 0o444)
         current = json.loads((self.publish_root / "CURRENT.json").read_text())
         self.assertEqual(current["publication_id"], two.publication_id)
-        self.assertEqual(Path(current["current_target"]), Path(os.readlink(self.pointer)))
-        self.assertEqual(current["attempt_id"], Path(os.readlink(self.pointer)).parent.name)
+        self.assertEqual(Path(current["current_target"]), self.pointer.resolve())
+        self.assertEqual(current["current_link"], os.readlink(self.pointer))
+        self.assertEqual(current["attempt_id"], self.pointer.resolve().parent.name)
         self.assertEqual(current["history_record"], two.history_record)
         self.assertNotEqual(one.publication_id, two.publication_id)
 

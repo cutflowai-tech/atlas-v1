@@ -30,6 +30,7 @@ import json
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +47,7 @@ from atlas_monday_probe.client import DEFAULT_API_VERSION, ReadOnlyMondayClient,
 from atlas_monday_probe.raw_store import inside_git_worktree, write_immutable_atomic
 
 from .config import ConfigError, SyncConfig, load_sync_config
+from .lock import EXIT_LOCKED, OperationLocked, production_lock
 
 Transport = Callable[[str, dict[str, Any]], bytes]
 
@@ -56,7 +58,7 @@ COMPLETE_NAME = "COMPLETE.json"         # completion marker, written last and on
 FAILED_NAME = "FAILED.json"             # present only in a build directory whose attempt failed
 ATTEMPTS_DIR = "attempts"               # <build root>/attempts/<attempt_id>.json: one safe result per attempt
 DASHBOARD_FILES = ("dashboard.json", "dashboard.html")
-STAGES = ("configuration", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
+STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
           "validation", "metadata", "completion")
 PROFILE_SCHEMAS = {version: schema for version, schema in PROFILE_CONTRACTS.values()}
 STAGED_NOTE = "Staged build only: it has not been published, and the published dashboard was not modified."
@@ -148,6 +150,7 @@ class SyncResult:
     verification: dict[str, Any] | None = None
     attempt_record: str | None = None
     published: bool = False
+    lock: dict[str, Any] | None = None   # set only when the production lock was held by another operation
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -326,14 +329,28 @@ def run_once(environ: Mapping[str, str] | None = None, *, config: SyncConfig | N
              monday_item_url: str | None = None) -> SyncResult:
     """Run one sync attempt and return its :class:`SyncResult`. Never publishes; never raises for a failed stage.
 
+    Holds the production lock (:mod:`atlas_sync.lock`) from before the Monday client is created until the attempt
+    record is written. If another production operation holds it, nothing is read, written or built: the result has
+    status ``locked``. This is the ownership layer for run-once; callers (including the CLI) must not take the lock.
+
     ``transport`` replaces the HTTPS transport (tests); ``clock``/``monotonic``/``sleep`` make timing deterministic."""
     t0 = monotonic()
     started = clock()
     result = SyncResult(attempt_id=attempt_id_factory(started), started_at=_iso(started))
+    lock = ExitStack()
+    try:
+        return _attempt(result, lock, environ, config, transport, clock, monotonic, sleep, max_duration_seconds, monday_item_url, t0, started)
+    finally:
+        lock.close()   # releases the production lock, whatever happened
+
+
+def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | None, cfg: SyncConfig | None, transport: Transport | None,
+             clock: Clock, monotonic: Callable[[], float], sleep: Callable[[float], None], max_duration_seconds: float | None,
+             monday_item_url: str | None, t0: float, started: datetime) -> SyncResult:
     stage = STAGES[0]
-    cfg: SyncConfig | None = config
     build: Path | None = None
     run_ids: list[str] = []
+    held = False
 
     def remember(moment: datetime) -> str:
         run_ids.append(new_run_id(moment))
@@ -342,8 +359,12 @@ def run_once(environ: Mapping[str, str] | None = None, *, config: SyncConfig | N
     try:
         if cfg is None:
             cfg = load_sync_config(environ, require_token=True, now=started)
-        budget = Budget(max_duration_seconds if max_duration_seconds is not None else cfg.max_sync_duration_seconds, monotonic, sleep, started=t0)
         contract = cfg.contract()
+
+        stage = "lock"   # before any Monday request, raw run or build; held for the rest of the attempt
+        lock.enter_context(production_lock(cfg, "run-once", target=result.attempt_id, clock=clock))
+        held = True
+        budget = Budget(max_duration_seconds if max_duration_seconds is not None else cfg.max_sync_duration_seconds, monotonic, sleep, started=t0)
 
         stage = "monday_client"
         budget.check(stage)
@@ -424,13 +445,16 @@ def run_once(environ: Mapping[str, str] | None = None, *, config: SyncConfig | N
                                            "build_metadata_sha256": _sha256(metadata_bytes), "completed_at": _iso(clock()),
                                            "published": False, "note": STAGED_NOTE})
         result.status = "success"
+    except OperationLocked as locked:   # another operation is running: nothing was started, nothing is written
+        _fail(result, stage, locked)
+        result.status, result.lock = "locked", locked.as_dict()
     except Exception as error:   # noqa: BLE001 - every failure ends the attempt; it is recorded, never hidden as success
         _fail(result, stage, error)
-    except BaseException as error:   # interrupted: record it, then let the interruption propagate
+    except BaseException as error:   # interrupted: record it, then let the interruption propagate (the lock is released after)
         _fail(result, stage, error)
-        _finish(result, cfg, build, run_ids, clock, monotonic, t0)
+        _finish(result, cfg if held else None, build, run_ids, clock, monotonic, t0)
         raise
-    _finish(result, cfg, build, run_ids, clock, monotonic, t0)
+    _finish(result, cfg if held else None, build, run_ids, clock, monotonic, t0)   # records are written only under the lock
     return result
 
 
@@ -471,12 +495,14 @@ def build_state(build: Path) -> str:
 
 
 EXIT_OK, EXIT_ACCESS, EXIT_MONDAY, EXIT_VERIFICATION, EXIT_BUILD, EXIT_TIMEOUT = 0, 2, 3, 4, 5, 6
-ACCESS_CATEGORIES = {"configuration", "invalid_configuration", "missing_access", "authentication", "permission"}
+ACCESS_CATEGORIES = {"configuration", "lock_configuration", "invalid_configuration", "missing_access", "authentication", "permission"}
 
 
 def exit_code(result: SyncResult) -> int:
     if result.status == "success":
         return EXIT_OK
+    if result.status == "locked":
+        return EXIT_LOCKED
     if result.error_category == "timeout":
         return EXIT_TIMEOUT
     if result.error_category in ACCESS_CATEGORIES:
@@ -489,6 +515,11 @@ def exit_code(result: SyncResult) -> int:
 
 
 def summary(result: SyncResult) -> str:
+    if result.status == "locked":
+        holder = (result.lock or {}).get("holder") or {}
+        return "\n".join([f"SYNC NOT STARTED (LOCKED): another Atlas production operation is running; attempt {result.attempt_id} did nothing",
+                          f"  lock holder (diagnostic): {holder.get('operation', 'unknown')} pid {holder.get('pid', '?')} since {holder.get('acquired_at', '?')}",
+                          "  NOT PUBLISHED: nothing was read from Monday, built or published."])
     lines = [f"SYNC {'SUCCEEDED' if result.status == 'success' else 'FAILED'}: attempt {result.attempt_id}"]
     if result.status != "success":
         lines.append(f"  failed at stage: {result.failing_stage} [{result.error_category}]")

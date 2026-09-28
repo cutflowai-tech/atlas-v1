@@ -4,7 +4,12 @@
     PYTHONPATH=src python3 -m atlas_sync rollback [<attempt_id>]
 
 The live site is the symlink ``<ATLAS_PUBLISH_DIR>/current``, pointing at exactly one completed build's
-``<ATLAS_BUILD_DIR>/<attempt_id>/site``. Nothing is copied and no build file is modified.
+``<ATLAS_BUILD_DIR>/<attempt_id>/site``. The link text is relative (e.g. ``../builds/<attempt_id>/site``), so the
+layout survives mounting the data root elsewhere; it must resolve to exactly that site, or the publish is
+refused. Nothing is copied and no build file is modified.
+
+Both commands hold the production lock (:mod:`atlas_sync.lock`) from before reading ``current`` until the
+metadata is written. If another production operation holds it, nothing is validated, switched or recorded.
 
 Publishing a build:
 
@@ -45,6 +50,7 @@ from atlas_monday_probe.client import InvalidMondaySetting, validate_api_version
 from atlas_monday_probe.raw_store import write_immutable_atomic
 
 from .config import PRODUCTION_CONTRACT_VERSIONS, ConfigError, SyncConfig, load_sync_config
+from .lock import EXIT_LOCKED, LockError, OperationLocked, production_lock
 from .run import BUILD_METADATA_NAME, BUILD_METADATA_VERSION, COMPLETE_NAME, DASHBOARD_FILES, FAILED_NAME, PROFILE_SCHEMAS, SITE_DIR, build_state
 
 POINTER_NAME = "current"
@@ -56,6 +62,7 @@ MAX_PROBLEMS = 20
 
 # Result statuses. Only "published" is full success; "published_metadata_inconsistent" means the switch happened.
 PUBLISHED, REJECTED, SWITCH_FAILED, INCONSISTENT = "published", "rejected", "switch_failed", "published_metadata_inconsistent"
+LOCKED = "locked"   # another production operation held the lock; nothing was done
 
 
 class PublishRejected(Exception):
@@ -89,6 +96,7 @@ class PublishResult:
     source_run_id: str | None = None
     published_at: str | None = None
     current_target: str | None = None
+    current_link: str | None = None
     build_metadata_sha256: str | None = None
     contract_version: str | None = None
     board_id: str | None = None
@@ -98,6 +106,7 @@ class PublishResult:
     problems: list[str] = field(default_factory=list)
     history_record: str | None = None
     current_metadata: str | None = None
+    lock: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -261,8 +270,10 @@ def live_attempt(config: SyncConfig) -> str | None:
         if pointer.exists():
             raise PublishRejected("unsafe_current", [f"{POINTER_NAME} exists and is not a symlink; it is never overwritten"])
         return None
+    build_root, publish_root, _ = _roots(config)
     target = Path(os.readlink(pointer))
-    build_root, _, _ = _roots(config)
+    if not target.is_absolute():   # relative links resolve from the publish directory; earlier absolute links are still read
+        target = Path(os.path.normpath(publish_root / target))
     if target.parent.parent != build_root or target.name != SITE_DIR or not RUN_ID_PATTERN.match(target.parent.name):
         raise PublishRejected("unsafe_current", [f"{POINTER_NAME} points outside the Atlas build root"])
     return target.parent.name
@@ -276,8 +287,20 @@ def _fsync_dir(directory: Path) -> None:
         os.close(fd)
 
 
-def _create_temporary_pointer(site: Path, temporary: Path) -> None:
-    os.symlink(str(site), temporary)   # exclusive: fails if the name exists
+def link_text(config: SyncConfig, site: Path) -> str:
+    """The relative symlink text from the publish directory to ``site``; refused unless it resolves to exactly ``site``."""
+    _, publish_root, _ = _roots(config)
+    try:
+        text = os.path.relpath(site, publish_root)
+    except ValueError:   # e.g. different drives: no relative path exists
+        raise PublishRejected("unsafe_path", ["no relative link can be formed from the publish directory to the build site"]) from None
+    if os.path.isabs(text) or Path(os.path.normpath(publish_root / text)) != site or (publish_root / text).resolve() != site:
+        raise PublishRejected("unsafe_path", ["a relative link from the publish directory would not resolve to the build site"])
+    return text
+
+
+def _create_temporary_pointer(text: str, temporary: Path) -> None:
+    os.symlink(text, temporary)   # exclusive: fails if the name exists
 
 
 def _replace_pointer(temporary: Path, pointer: Path) -> None:
@@ -287,9 +310,9 @@ def _replace_pointer(temporary: Path, pointer: Path) -> None:
     _fsync_dir(pointer.parent)
 
 
-def _verify_pointer(pointer: Path, build: ValidatedBuild) -> bool:
+def _verify_pointer(pointer: Path, build: ValidatedBuild, text: str) -> bool:
     try:
-        return (pointer.is_symlink() and Path(os.readlink(pointer)) == build.site and pointer.resolve() == build.site
+        return (pointer.is_symlink() and os.readlink(pointer) == text and pointer.resolve() == build.site
                 and _sha256((pointer / "dashboard.html").read_bytes()) == build.dashboard_sha256)
     except OSError:
         return False
@@ -328,7 +351,7 @@ def _write_current_metadata(config: SyncConfig, result: PublishResult) -> Path:
     _, publish_root, _ = _roots(config)
     document = {"publication_version": PUBLICATION_VERSION, "pointer": POINTER_NAME,
                 **{key: getattr(result, key) for key in ("publication_id", "action", "attempt_id", "previous_attempt_id", "source_run_id",
-                                                         "published_at", "current_target", "build_metadata_sha256", "contract_version",
+                                                         "published_at", "current_target", "current_link", "build_metadata_sha256", "contract_version",
                                                          "board_id", "history_record")},
                 "status": PUBLISHED}
     data = json.dumps(document, indent=1, sort_keys=True).encode() + b"\n"
@@ -369,10 +392,11 @@ def _switch(config: SyncConfig, build: ValidatedBuild, result: PublishResult, cl
     publish_root.mkdir(parents=True, exist_ok=True)
     pointer = publish_root / POINTER_NAME
     temporary = publish_root / f".{POINTER_NAME}.{result.publication_id}.tmp"
+    text = link_text(config, build.site)   # raises PublishRejected before anything is created
     result.failure_stage = "switch"
     try:
-        _create_temporary_pointer(build.site, temporary)
-        if Path(os.readlink(temporary)) != build.site:
+        _create_temporary_pointer(text, temporary)
+        if os.readlink(temporary) != text:
             raise PublishRejected("switch_failed", ["temporary pointer does not point at the build site"])
         _replace_pointer(temporary, pointer)
     except Exception as error:  # noqa: BLE001 - before the rename completes, current still points at the previous build
@@ -384,8 +408,9 @@ def _switch(config: SyncConfig, build: ValidatedBuild, result: PublishResult, cl
     result.switched = True
     result.published_at = _iso(clock())
     result.current_target = str(build.site)
+    result.current_link = text
     problems: list[str] = []
-    if not _verify_pointer(pointer, build):
+    if not _verify_pointer(pointer, build, text):
         result.failure_stage, result.failure_category = "post_switch_verification", "post_switch_verification_failed"
         problems.append(f"{POINTER_NAME} was replaced but does not resolve to the expected build site")
     result.status = PUBLISHED if not problems else INCONSISTENT
@@ -439,6 +464,20 @@ def _run(action: str, requested: str | None, environ: Mapping[str, str] | None, 
         result.problems = error.problems[:MAX_PROBLEMS]
         return result
     try:
+        # The ownership layer for publish and rollback: one lock for the whole operation, before `current` is read.
+        with production_lock(cfg, "publish" if action == "publish" else "rollback", target=requested, clock=clock):
+            return _run_locked(action, requested, cfg, result, clock)
+    except OperationLocked as locked:   # nothing validated, switched or recorded
+        result.status, result.failure_stage, result.failure_category, result.lock = LOCKED, "lock", locked.failure_category, locked.as_dict()
+        return result
+    except LockError as error:          # unsafe or missing lock location: fail closed, nothing recorded
+        result.status, result.failure_stage, result.failure_category, result.problems = REJECTED, "lock", error.failure_category, [error.message]
+        return result
+
+
+def _run_locked(action: str, requested: str | None, cfg: SyncConfig, result: PublishResult, clock: Clock) -> PublishResult:
+    """Publish or roll back; the caller holds the production lock (never call this without it)."""
+    try:
         result.failure_stage = "current"
         result.previous_attempt_id = live_attempt(cfg)
         if action == "rollback":
@@ -487,23 +526,29 @@ EXIT_PUBLISHED, EXIT_CONFIG, EXIT_REJECTED, EXIT_SWITCH_FAILED, EXIT_INCONSISTEN
 def exit_code(result: PublishResult) -> int:
     if result.status == PUBLISHED:
         return EXIT_PUBLISHED
+    if result.status == LOCKED:
+        return EXIT_LOCKED
     if result.status == INCONSISTENT:
         return EXIT_INCONSISTENT
     if result.status == SWITCH_FAILED:
         return EXIT_SWITCH_FAILED
-    return EXIT_CONFIG if result.failure_category == "configuration" else EXIT_REJECTED
+    return EXIT_CONFIG if result.failure_category in {"configuration", "lock_configuration"} else EXIT_REJECTED
 
 
 def summary(result: PublishResult) -> str:
     verb = "ROLLBACK" if result.action == "rollback" else "PUBLISH"
     headline = {PUBLISHED: "SUCCEEDED", REJECTED: "REJECTED (live site unchanged)", SWITCH_FAILED: "FAILED (live site unchanged)",
-                INCONSISTENT: "SWITCHED, METADATA INCONSISTENT (new build is live; see below)"}.get(result.status, result.status.upper())
+                INCONSISTENT: "SWITCHED, METADATA INCONSISTENT (new build is live; see below)",
+                LOCKED: "NOT STARTED (LOCKED): another Atlas production operation is running; live site unchanged"}.get(result.status, result.status.upper())
     lines = [f"{verb} {headline}: publication {result.publication_id}",
              f"  build:          {result.attempt_id or 'none'}",
              f"  previous live:  {result.previous_attempt_id or 'none'}",
              f"  source raw run: {result.source_run_id or 'none'}"]
     if result.switched:
         lines.append(f"  live target:    {result.current_target} (since {result.published_at})")
+    if result.lock and result.lock.get("holder"):
+        holder = result.lock["holder"]
+        lines.append(f"  lock holder (diagnostic): {holder.get('operation', 'unknown')} pid {holder.get('pid', '?')} since {holder.get('acquired_at', '?')}")
     if result.failure_category:
         lines.append(f"  failure:        {result.failure_stage} [{result.failure_category}]")
     lines += [f"  - {problem}" for problem in result.problems]

@@ -13,6 +13,9 @@ validation, metadata); 6 time budget exhausted.
 live site to it atomically; they never rebuild. Exit status: 0 only after the switch was verified and its
 metadata written; 2 configuration; 3 rejected (live site unchanged); 4 switch failed (live site unchanged);
 5 switched, but verification or metadata failed (the new build is live; the output says how to recover).
+
+All three commands exit 75 (EX_TEMPFAIL) when another Atlas production operation holds the shared lock;
+nothing is started. The lock is taken inside run_once, publish and rollback, never here.
 """
 
 from __future__ import annotations

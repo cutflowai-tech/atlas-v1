@@ -82,5 +82,7 @@ jobs:
         run: make sync-run
       - name: Atomic publish and rollback tests
         run: make publish
+      - name: Production lock tests
+        run: make lock
       - name: JSON syntax
         run: make json
