@@ -1,0 +1,17 @@
+{
+  "task_id": "ATTR-001",
+  "decision": "accept",
+  "selected_commit": "a863750e3cee1148caf20b16afa896dda8a25fc6",
+  "arbiter": "Atlas Commander",
+  "validators": [
+    "Codex W",
+    "Claude M"
+  ],
+  "reason": "Both validators accept builder-1. Immutable validated mapping records, exact person/team ID matching, explicit ambiguity and shared-entry exclusion, preserved source ID and mapping version. Note: authoritative rules require unique versioned canonical-ID resolution; no blanket prohibition on an approved deterministic mapping is added. shared=True explicitly marks an unresolved account.",
+  "contract_change": false,
+  "tests": {
+    "baseline_and_attribution": 30,
+    "independent_attribution_checks": 28
+  },
+  "evidence_note": "Builder sandbox prevented its commit; Commander preserved tested files as a863750. Earlier no-commit note is historical."
+}
