@@ -1,17 +1,21 @@
 # Atlas V1 deterministic rules
 
-These rules are the authoritative baseline until the missing original execution-plan file is restored.
+These rules are the authoritative baseline until superseded by a later approved
+contract version. The approved v1.0 executable configuration is
+`config/monday-contract-v1.0.json`; registries with no entries are deliberately
+unresolved and must quarantine records rather than infer mappings.
 
-1. **Monday is authoritative.** Persist Monday board/item/column/event identifiers and source timestamps. Derived data must point back to those identifiers.
-2. **Editor is the evaluated entity.** Metrics are attributed to the editor responsible for the work interval, not to the reviewer, manager, client, or AI.
-3. **Work duration is exact.** Measure from the transition into `In Progress` through the transition into `Ready For Approval`. Waiting, revision, and review intervals are not silently substituted.
-4. **Deadline uses Requested ETA.** Compare the `Ready For Approval` timestamp with the Monday `Requested ETA`. On time means `Ready For Approval <= Requested ETA`; a missing ETA yields no result and must not be replaced by another field.
-5. **Comparable benchmarks only.** An editor/project is benchmarked only against records with the same canonical `video_type`.
-6. **Waset Co actor attribution is deterministic.** Resolve actors using canonical Monday person/team IDs and a versioned mapping. Ambiguity goes to an exception queue; no fuzzy AI choice.
-7. **Revisions are context.** Revision counts and notes can explain outcomes but cannot directly lower a quality score without an explicit deterministic business rule.
-8. **Quality is label-derived.** Quality values come from approved Monday labels and a versioned label mapping.
-9. **Evidence is mandatory.** Every metric stores source record IDs, event IDs, field values, formula/rule version, and calculation time.
-10. **AI is not authoritative.** AI can summarize, investigate, recommend, or flag anomalies. It cannot invent facts or overwrite deterministic source-derived values.
+1. **Monday is authoritative.** Persist every raw Monday label plus board/item/column/event identifiers and source timestamps. Each normalized event carries `mapping_version`.
+2. **Status mappings are explicit.** Use the v1.0 phase mapping in the executable configuration. Unmapped, deprecated, and newly introduced labels are quarantined; no silent inference.
+3. **Editor is the evaluated entity.** The item `Editor Name` field is authoritative. Activity-log `user_id` is audit metadata only. Use a versioned person/label-ID mapping, including historical and deactivated identities; unresolved identities are quarantined. Account `99154021` never infers an Editor.
+4. **Work duration is exact.** Only the first transition into `In Progress` starts the cycle, and only the first qualifying transition into `Ready For Approval` ends it. Repeated `In Progress`/`Create File` and post-revision transitions stay in the original cycle.
+5. **Anomalies and open cycles are retained safely.** Duplicate or reversed transitions are ignored for timing and flagged. Incomplete cycles are retained as open/right-censored records and excluded from completed-cycle duration aggregates.
+6. **Comparable benchmarks only.** Normalize multi-select Video Type values to an exact full set, key cohorts by sorted canonical IDs, and compare only within the same resolved cohort. Blank, unknown, or new types are quarantined; there is no global fallback.
+7. **Deadline uses Requested ETA.** Compare the `Ready For Approval` timestamp with the Monday `Requested ETA`. On time means `Ready For Approval <= Requested ETA`; a missing ETA yields no result and must not be replaced by another field.
+8. **Revisions are context.** Revision counts and notes can explain outcomes but cannot directly lower a quality score without an explicit deterministic business rule.
+9. **Quality is label-derived.** Quality values come from approved Monday labels and a versioned label mapping.
+10. **Evidence is mandatory.** Every metric stores source record IDs, event IDs, field values, formula/rule version, and calculation time.
+11. **AI is not authoritative.** AI can summarize, investigate, recommend, or flag anomalies. It cannot invent facts or overwrite deterministic source-derived values.
 
 ## Contract ownership
 

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/config/monday-contract-v1.0.json",
+  "contract_version": "1.0.0",
+  "status_mapping_version": "monday-status-v1.0",
+  "status_mapping": {
+    "Create File": "pre-cycle",
+    "In Progress": "active-production",
+    "Internal Revisions": "internal-rework",
+    "Revisions": "external-client-rework",
+    "TOPAZ": "delivery-preparation",
+    "Ready To Send": "delivery-preparation",
+    "Sent": "delivered",
+    "Ready For Approval": "approval-terminal"
+  },
+  "caption_states": {
+    "phase": "pre-cycle",
+    "labels": [],
+    "resolution": "explicit-label-registry-only"
+  },
+  "cycle_boundaries": {
+    "start_label": "In Progress",
+    "end_label": "Ready For Approval",
+    "start_policy": "first-transition-only",
+    "end_policy": "first-qualifying-transition-only",
+    "repeated_in_progress_create_file": "same-cycle",
+    "post_revision_transitions": "same-cycle",
+    "incomplete_cycles": "retain-open-right-censored-exclude-from-completed-duration-aggregates",
+    "duplicate_or_reversed_transitions": "ignore-for-timing-and-flag-anomaly"
+  },
+  "editor_attribution": {
+    "authoritative_field": "Editor Name",
+    "activity_log_user_id": "audit-metadata-only",
+    "mapping_version": "monday-editor-v1.0",
+    "entries": [],
+    "unresolved_policy": "quarantine-from-per-editor-metrics",
+    "shared_accounts_never_infer_editor": ["99154021"]
+  },
+  "video_type_cohorts": {
+    "mapping_version": "monday-video-type-v1.0",
+    "label_to_id": {},
+    "multi_select_policy": "exact-normalized-full-set",
+    "cohort_key": "sorted-canonical-video-type-ids",
+    "comparison_policy": "same-resolved-cohort-only-no-global-fallback",
+    "unresolved_policy": "quarantine-from-cohort-comparisons"
+  },
+  "quarantine_policy": {
+    "unmapped_deprecated_or_new_status": true,
+    "missing_ambiguous_or_unresolved_editor": true,
+    "blank_unknown_or_new_video_type": true,
+    "silent_inference": false
+  }
+}
