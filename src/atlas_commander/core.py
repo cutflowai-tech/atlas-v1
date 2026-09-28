@@ -55,10 +55,16 @@ def fanout(task_id: str, risk: str, base: str) -> dict:
         if path.exists():
             assignments.append({"slot": slot, "branch": branch, "worktree": str(path), "existing": True})
             continue
-        try:
-            git("show-ref", "--verify", f"refs/heads/{branch}")
+        branch_exists = subprocess.run(
+            ["git", "show-ref", "--verify", f"refs/heads/{branch}"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode == 0
+        if branch_exists:
             git("worktree", "add", str(path), branch)
-        except subprocess.CalledProcessError:
+        else:
             git("worktree", "add", "-b", branch, str(path), base)
         assignments.append({"slot": slot, "branch": branch, "worktree": str(path), "existing": False})
     manifest = {"task_id": task_id, "risk": risk, "base": base, "assignments": assignments}

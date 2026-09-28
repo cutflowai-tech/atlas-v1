@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+PATH="$HOME/bin:$PATH"
+export PATH
 PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m atlas_commander.core "$@"
-

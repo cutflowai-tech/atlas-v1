@@ -1,5 +1,7 @@
 #!/bin/sh
 set -u
+PATH="$HOME/bin:$PATH"
+export PATH
 
 check() {
   name=$1
@@ -17,4 +19,3 @@ check codex-w codex-w login status
 check claude-a claude-a auth status --text
 check claude-m claude-m auth status --text
 check hermes hermes status
-
