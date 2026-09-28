@@ -4,7 +4,7 @@
   "title": "NormalizedStatusEvent",
   "type": "object",
   "additionalProperties": false,
-  "required": ["contract_version", "event_id", "monday_board_id", "monday_item_id", "status_column_id", "occurred_at", "from_status", "to_status", "actor_resolution"],
+  "required": ["contract_version", "event_id", "monday_board_id", "monday_item_id", "status_column_id", "occurred_at", "from_status", "to_status", "raw_from_status", "raw_to_status", "status_phase_from", "status_phase_to", "actor_resolution", "mapping_version"],
   "properties": {
     "contract_version": {"const": "1.0.0"},
     "event_id": {"type": "string", "minLength": 1},
@@ -12,17 +12,22 @@
     "monday_item_id": {"type": "string", "minLength": 1},
     "status_column_id": {"type": "string", "minLength": 1},
     "occurred_at": {"type": "string", "format": "date-time"},
-    "from_status": {"type": ["string", "null"], "enum": [null, "Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered"]},
-    "to_status": {"type": "string", "enum": ["Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered"]},
+    "from_status": {"type": ["string", "null"], "enum": [null, "Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered", "Create File", "Internal Revisions", "Revisions", "TOPAZ", "Ready To Send", "Sent", "Done", "Waiting", "Captions Revisions", "Captions In Progress", "Waiting For Captions", "Captions Done"]},
+    "to_status": {"type": "string", "enum": ["Backlog", "In Progress", "Ready For Approval", "Revision", "Approved", "Delivered", "Create File", "Internal Revisions", "Revisions", "TOPAZ", "Ready To Send", "Sent", "Done", "Waiting", "Captions Revisions", "Captions In Progress", "Waiting For Captions", "Captions Done"]},
+    "raw_from_status": {"type": ["string", "null"]},
+    "raw_to_status": {"type": "string", "minLength": 1},
+    "status_phase_from": {"type": ["string", "null"], "minLength": 1},
+    "status_phase_to": {"type": "string", "minLength": 1},
     "actor_resolution": {"type": "string", "enum": ["canonical_monday_id", "unresolved_waset_co"]},
     "actor_monday_id": {"type": ["string", "null"], "minLength": 1},
     "actor_id": {"type": ["string", "null"], "minLength": 1},
-    "mapping_version": {"type": ["string", "null"], "minLength": 1}
+    "mapping_version": {"type": "string", "minLength": 1},
+    "actor_mapping_version": {"type": ["string", "null"], "minLength": 1}
   },
   "allOf": [
     {
       "if": {"properties": {"actor_resolution": {"const": "canonical_monday_id"}}},
-      "then": {"required": ["actor_monday_id", "actor_id", "mapping_version"], "properties": {"actor_monday_id": {"type": "string"}, "actor_id": {"type": "string"}, "mapping_version": {"type": "string"}}}
+      "then": {"required": ["actor_monday_id", "actor_id", "actor_mapping_version"], "properties": {"actor_monday_id": {"type": "string"}, "actor_id": {"type": "string"}, "actor_mapping_version": {"type": "string"}}}
     },
     {
       "if": {"properties": {"actor_resolution": {"const": "unresolved_waset_co"}}},
