@@ -11,8 +11,9 @@ Checks the run directory written by ``atlas_commander.ingest`` and prints a JSON
 - every activity log in the extract lies inside the coverage window;
 - every item has a current-value snapshot, and ``create_pulse`` coverage of items created
   inside the window is reported (never assumed);
-- the complete-history item list is exactly the items created inside the window, and only
-  when every window was complete.
+- the complete-history item list is exactly the items created on this board inside the window
+  (``since`` <= created < ``until``, with a ``create_pulse``), and only when every window was complete.
+  Items moved in from another board or created after ``until`` are reported, never declared complete.
 
 Exit status is 0 when every check passes and 1 otherwise. Nothing is modified.
 """
@@ -100,13 +101,14 @@ def verify(raw_dir: Path) -> dict[str, Any]:
     if len(items) != counts["items"]:
         failures.append(f"extract has {len(items)} items, manifest says {counts['items']}")
     without_snapshot = sorted(str(item["id"]) for item in items if not item.get("column_values"))
-    created_inside = sorted(str(item["id"]) for item in items if _time(str(item["created_at"])) >= _time(since))
+    created_inside = sorted(str(item["id"]) for item in items if _time(since) <= _time(str(item["created_at"])) < _time(until))
+    created_after = sorted(str(item["id"]) for item in items if _time(str(item["created_at"])) >= _time(until))
     with_creation = {_creation_item(log) for log in logs if log["event"] == "create_pulse"}
     created_without_create_pulse = sorted(set(created_inside) - with_creation)
     all_complete = all(w.get("complete") for w in leaves)
-    expected_complete = created_inside if all_complete else []
+    expected_complete = sorted(set(created_inside) & with_creation) if all_complete else []
     if sorted(extract["ingestion"]["complete_history_item_ids"]) != expected_complete:
-        failures.append("complete_history_item_ids does not equal the items created inside a fully read window")
+        failures.append("complete_history_item_ids does not equal the items created on this board inside a fully read window")
 
     return {
         "raw_dir": str(raw_dir),
@@ -121,6 +123,7 @@ def verify(raw_dir: Path) -> dict[str, Any]:
         "items_without_snapshot": without_snapshot,
         "items_created_inside_window": len(created_inside),
         "items_created_inside_window_without_create_pulse": created_without_create_pulse,
+        "items_created_after_window": created_after,
         "complete_history_items": len(extract["ingestion"]["complete_history_item_ids"]),
     }
 

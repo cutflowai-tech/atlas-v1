@@ -19,8 +19,9 @@ outside git. The command also writes:
 - ``extract.json``: the pipeline input (activity logs, items, ingestion metadata);
 - ``manifest.json``: the window, every raw file with its SHA-256, counts, and coverage.
 
-An item's Requested ETA history is declared complete only when the ingestion window starts at
-or before the item's creation and every window was read to its last page.
+An item's Requested ETA history is declared complete only when the item was created on this board
+inside the window (its ``create_pulse`` was read) and every window was read to its last page. Items
+moved in from another board, or created after ``until`` but before the items read, are not.
 """
 
 from __future__ import annotations
@@ -123,6 +124,17 @@ def _read_window(client: ReadOnlyMondayClient, run: IngestRun, kind: str, start:
             keep(log)
 
 
+def _created_at(item: dict[str, Any]) -> datetime:
+    return datetime.fromisoformat(str(item["created_at"]).replace("Z", "+00:00"))
+
+
+def _pulse_id(log: dict[str, Any]) -> str:
+    data = log.get("data")
+    if isinstance(data, str):
+        data = json.loads(data)
+    return str((data or {}).get("pulse_id"))
+
+
 def _month_windows(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
     windows = []
     cursor = start
@@ -186,15 +198,18 @@ def ingest(client: ReadOnlyMondayClient, board_id: str, columns: list[str], sinc
 
     retrieved_at = _iso(datetime.now(timezone.utc))
     complete_windows = all(window.get("complete") or window.get("split") for window in run.windows)
+    # An item's history is complete only when it was created on this board inside the window: its create_pulse was read.
+    # Items created after `until` (before the items read) or moved in from another board have no create_pulse here.
+    created_here = {_pulse_id(log) for log in run.creations.values()}
     complete_items = sorted(str(item["id"]) for item in run.items
-                            if complete_windows and datetime.fromisoformat(str(item["created_at"]).replace("Z", "+00:00")) >= start)
+                            if complete_windows and start <= _created_at(item) < end and str(item["id"]) in created_here)
     ingestion = {
         "ingest_version": INGEST_VERSION,
         "retrieved_at": retrieved_at,
         "activity_log_window": {"since": since, "until": until},
         "complete_history_item_ids": complete_items,
-        "complete_history_basis": ("item created at or after the window start and every activity-log window was read to its last page "
-                                   "below the API cap; tracked-column changes and create_pulse initial values are therefore all present"),
+        "complete_history_basis": ("item created on this board inside the window (its create_pulse was read) and every activity-log window was "
+                                   "read to its last page below the API cap; tracked-column changes and create_pulse initial values are therefore all present"),
     }
     extract = {"retrieved_at": retrieved_at, "board_id": run.board_id, "ingestion": ingestion,
                "activity": {"boards": [{"activity_logs": sorted([*run.logs.values(), *run.creations.values()], key=lambda log: (str(log["created_at"]), str(log["id"])))}]},
