@@ -36,7 +36,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_monday_probe.client import MissingAccess, ReadOnlyMondayClient
+from atlas_monday_probe.client import InvalidMondaySetting, MissingAccess, ReadOnlyMondayClient
 from atlas_monday_probe.raw_store import RawRecord, write_immutable
 
 INGEST_VERSION = "atlas-ingest-v1"
@@ -60,6 +60,11 @@ def _parse(value: str) -> datetime:
     if not _ISO.match(value):
         raise IngestError(f"timestamps must be UTC RFC 3339 without fractions, got {value!r}")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def parse_utc_timestamp(value: str) -> datetime:
+    """Parse a UTC RFC 3339 timestamp without fractions (``2026-02-01T00:00:00Z``); raises IngestError otherwise."""
+    return _parse(value)
 
 
 def _board_id(value: str) -> str:
@@ -253,6 +258,9 @@ def main(argv: list[str] | None = None, client: ReadOnlyMondayClient | None = No
         manifest = ingest(client, args.board, args.columns, args.since, until, Path(args.raw_dir))
     except MissingAccess as error:
         print(f"MISSING_ACCESS: {error}", file=sys.stderr)
+        return 2
+    except InvalidMondaySetting as error:
+        print(f"INVALID_CONFIGURATION: {error}", file=sys.stderr)
         return 2
     print(json.dumps({"raw_dir": str(Path(args.raw_dir).expanduser()), "counts": manifest["counts"], "extract": manifest["extract"]}, indent=1))
     return 0

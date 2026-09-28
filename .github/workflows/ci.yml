@@ -68,7 +68,11 @@ jobs:
         run: make deadline-v12
       - name: Editor Profile tests
         run: make profile
+      - name: CEO Dashboard tests
+        run: make dashboard
       - name: Read-only ingestion tests
         run: make ingest
+      - name: Sync configuration and secrets tests
+        run: make sync-config
       - name: JSON syntax
         run: make json

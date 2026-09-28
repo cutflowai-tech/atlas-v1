@@ -19,8 +19,12 @@ class RawRecord:
     size_bytes: int
 
 
-def _inside_git_worktree(path: Path) -> bool:
+def inside_git_worktree(path: Path) -> bool:
+    """True when ``path`` is, or would be created, inside a Git checkout."""
     return any((parent / ".git").exists() for parent in [path, *path.parents])
+
+
+_inside_git_worktree = inside_git_worktree
 
 
 def sha256_file(path: Path) -> str:
