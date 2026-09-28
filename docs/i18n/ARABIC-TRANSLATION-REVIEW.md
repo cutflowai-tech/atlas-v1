@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-399 keys: 137 Approved from brief, 252 Implemented conservatively, 10 Needs Arabic Review.
+438 keys: 149 Approved from brief, 266 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -13,6 +13,19 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `noun.classified_delivery` | one: {n} classified delivery / other: {n} classified deliveries | zero: {n} عملية تسليم مصنفة / one: عملية تسليم واحدة مصنفة / two: عمليتا تسليم مصنفتان / two_gen: عمليتي تسليم مصنفتين / few: {n} عمليات تسليم مصنفة / many: {n} عملية تسليم مصنفة / other: {n} عملية تسليم مصنفة | Editor card headline | Needs Arabic Review | Dual forms (عمليتا/عمليتي) are formal; confirm the preferred register. |
 | `noun.editor` | one: {n} Editor / other: {n} Editors | zero: {n} مونتير / one: مونتير واحد / two: مونتيران / two_gen: مونتيرين / few: {n} مونتيرين / many: {n} مونتيرًا / other: {n} مونتير | Counted Editors (sample sizes) | Needs Arabic Review | Brief uses مونتيران for 2; confirm few (3–10) = مونتيرين and many (11–99) = مونتيرًا. |
 | `noun.issue_signal` | one: {n} issue signal / other: {n} issue signals | zero: {n} مؤشر مشكلات / one: مؤشر مشكلة واحد / two: مؤشرا مشكلات / two_gen: مؤشري مشكلات / few: {n} مؤشرات مشكلات / many: {n} مؤشرًا للمشكلات / other: {n} مؤشر مشكلات | Counted issue signals | Needs Arabic Review | Brief: 3 مؤشرات مشكلات. Dual and 11+ forms need confirmation. |
+| `ops.current_publication` | Current publication | الإصدار المنشور حاليًا | Build-time operational status section | Needs Arabic Review | Confirm terminology for the live atomic publication. |
+| `ops.failure_category` | Safe failure category | فئة الفشل الآمنة | Sync attempt field; never raw exception text | Needs Arabic Review | Technical operator wording; category value remains untranslated. |
+| `ops.freshness_state.stale` | Stale | قديمة وغير محدثة | Data freshness state | Needs Arabic Review | Confirm preferred operational term for stale data. |
+| `ops.scope_note.build_time` | This status was captured when this dashboard build was generated. The Atlas status CLI is authoritative for current runtime status. | تم تسجيل هذه الحالة وقت إنشاء هذا الإصدار من لوحة المتابعة. أمر حالة Atlas هو المرجع المعتمد للحالة التشغيلية الحالية. | Static dashboard operational-status scope explanation | Needs Arabic Review | Makes the distinction between static build context and authoritative current CLI status explicit. |
+| `ops.scope_note.runtime` | This is current runtime context from the injected snapshot. | هذه هي الحالة التشغيلية الحالية وفقًا للّقطة المضمّنة. | Runtime operational-status scope explanation | Needs Arabic Review | Reserved for consumers that render an authoritative runtime snapshot. |
+| `ops.scope_note.unknown` | The snapshot scope is unknown; do not treat this as current runtime status. | نطاق هذه اللقطة غير معروف؛ لا تتعامل معها باعتبارها الحالة التشغيلية الحالية. | Operational-status scope safety explanation | Needs Arabic Review | Fails safe when an older producer omits snapshot_scope. |
+| `ops.snapshot_context` | Snapshot scope: {scope}. Generated {date}. | نطاق اللقطة: {scope}. وقت الإنشاء: {date}. | Operational-status snapshot provenance | Needs Arabic Review | The language-neutral scope code remains available in data-status-value. |
+| `ops.snapshot_scope.build_time` | Build-time snapshot | لقطة وقت الإنشاء | Operational-status snapshot scope | Needs Arabic Review | Static context embedded while the dashboard build is generated. |
+| `ops.snapshot_scope.runtime` | Runtime snapshot | لقطة وقت التشغيل | Operational-status snapshot scope | Needs Arabic Review | Current context supplied by an authoritative runtime consumer. |
+| `ops.source_run` | Source run | تشغيل المصدر | Current publication and sync attempt field | Needs Arabic Review | Technical operator term; source run ID remains untranslated. |
+| `ops.stale_after` | Stale after (seconds) | تُعد قديمة بعد (بالثواني) | Freshness configuration field | Needs Arabic Review | Confirm concise threshold wording. |
+| `ops.system_state.degraded` | Degraded | متأثرة | System integrity state | Needs Arabic Review | Confirm terminology for usable but operationally degraded. |
+| `ops.unavailable` | No operational status snapshot was injected for this build. This page does not infer system health from whether the HTML loaded. | لم يتم تضمين ملخص للحالة التشغيلية في هذا الإصدار. ولا تستنتج هذه الصفحة سلامة النظام من مجرد نجاح تحميلها. | Shown when the optional build-time status snapshot is absent | Needs Arabic Review | Safety wording: absence must never appear healthy. |
 | `pending.overall_score.label` | Overall score | الدرجة العامة | Unapproved management rule (Data & System) | Needs Arabic Review |  |
 | `pending.overall_score.reason` | Atlas V1 has no approved scoring; speed, deadline and quality stay separate with their own evidence. | لا يوجد في Atlas V1 أي نظام درجات معتمد؛ تبقى السرعة والالتزام بمواعيد التسليم والجودة منفصلة ولكل منها أدلتها. | Why the rule is not evaluated | Needs Arabic Review |  |
 | `system.contract` | Executable contract | إصدار العقد التنفيذي | Field | Needs Arabic Review | Technical term for the versioned Monday contract; confirm wording. |
@@ -129,6 +142,20 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `note.workload` | Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made. | وصفي فقط. لم يتم في V1 تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي للمونتير، لذلك لا يوجد أي حكم على الطاقة الاستيعابية. | Profile note (workload) | Implemented conservatively |  |
 | `noun.client_revision_event` | one: {n} client revision event / other: {n} client revision events | zero: {n} تعديل من العميل / one: تعديل واحد من العميل / two: تعديلان من العميل / two_gen: تعديلين من العميل / few: {n} تعديلات من العميل / many: {n} تعديلًا من العميل / other: {n} تعديل من العميل | Counted client revisions (context only) | Implemented conservatively |  |
 | `noun.later_eta_change` | one: {n} later Requested ETA change after Ready For Approval, ignored by the deadline rule. / other: {n} later Requested ETA changes after Ready For Approval, ignored by the deadline rule. | zero: {n} تغيير لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم. / one: تغيير واحد لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم. / two: تغييران لاحقان على Requested ETA بعد Ready For Approval، ولا تعتمد عليهما قاعدة مواعيد التسليم. / few: {n} تغييرات لاحقة على Requested ETA بعد Ready For Approval، ولا تعتمد عليها قاعدة مواعيد التسليم. / many: {n} تغييرًا لاحقًا على Requested ETA بعد Ready For Approval، ولا تعتمد عليها قاعدة مواعيد التسليم. / other: {n} تغيير لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم. | Project evidence note | Implemented conservatively |  |
+| `ops.age_seconds` | Data age (seconds) | عمر البيانات (بالثواني) | Build-time operational status field | Implemented conservatively |  |
+| `ops.attempt_id` | Attempt ID | معرّف محاولة المزامنة | Build-time operational status field | Implemented conservatively |  |
+| `ops.attempt_state.running` | In progress | قيد التنفيذ | Sync attempt state | Implemented conservatively |  |
+| `ops.board_id` | Monday board ID | معرّف لوحة Monday | Build-time operational status field | Implemented conservatively |  |
+| `ops.completed_at` | Completed / failed at | وقت الاكتمال أو الفشل | Sync attempt field | Implemented conservatively |  |
+| `ops.expected_interval` | Expected sync interval (seconds) | الفاصل المتوقع للمزامنة (بالثواني) | Freshness configuration field | Implemented conservatively |  |
+| `ops.freshness_details` | Freshness thresholds | حدود حداثة البيانات | Build-time operational status section | Implemented conservatively |  |
+| `ops.freshness_state.unknown` | Unknown | غير معروفة | Data freshness state | Implemented conservatively |  |
+| `ops.publication_id` | Publication ID | معرّف الإصدار المنشور | Current publication field | Implemented conservatively |  |
+| `ops.snapshot_scope.unknown` | Unknown scope | نطاق غير معروف | Operational-status snapshot scope | Implemented conservatively |  |
+| `ops.started_at` | Started at | وقت البدء | Sync attempt field | Implemented conservatively |  |
+| `ops.system_state.failed` | Failed | متعطلة | System integrity state | Implemented conservatively |  |
+| `ops.system_state.healthy` | Healthy | سليمة | System integrity state | Implemented conservatively |  |
+| `ops.system_state.unknown` | Unknown | غير معروفة | System integrity state | Implemented conservatively |  |
 | `page.dashboard_title` | Atlas — Editing team | Atlas — فريق المونتاج | Browser tab title of the dashboard | Implemented conservatively |  |
 | `patterns.empty_detail` | Atlas currently shows shared evidence without assigning a team-level cause. | يعرض Atlas حاليًا الأدلة المشتركة دون تحديد سبب على مستوى الفريق. | Empty state detail | Implemented conservatively |  |
 | `patterns.empty_title` | Pattern detection is not active yet. | رصد الأنماط غير مفعّل حتى الآن. | Empty state | Implemented conservatively |  |
@@ -341,6 +368,18 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `noun.completed_project` | one: {n} completed project / other: {n} completed projects | zero: {n} مشروع مكتمل / one: مشروع واحد مكتمل / two: مشروعان مكتملان / two_gen: مشروعين مكتملين / few: {n} مشاريع مكتملة / many: {n} مشروعًا مكتملًا / other: {n} مشروع مكتمل | Counted completed projects | Approved from brief | Brief: 7 مشاريع مكتملة. |
 | `noun.project` | one: {n} project / other: {n} projects | zero: {n} مشروع / one: مشروع واحد / two: مشروعان / two_gen: مشروعين / few: {n} مشاريع / many: {n} مشروعًا / other: {n} مشروع | Counted projects | Approved from brief | Examples from the brief: 5 مشاريع, 10 مشاريع, في مشروعين, مشروعان. |
 | `noun.unclassified_project` | one: {n} unclassified / other: {n} unclassified | zero: {n} مشروع غير مصنف / one: مشروع واحد غير مصنف / two: مشروعان غير مصنفين / two_gen: مشروعين غير مصنفين / few: {n} مشاريع غير مصنفة / many: {n} مشروعًا غير مصنف / other: {n} مشروع غير مصنف | Deadline-unclassified projects | Approved from brief | Brief: مشروعان غير مصنفين. |
+| `ops.attempt_state.failed` | Failed | فشلت | Sync attempt state | Approved from brief |  |
+| `ops.attempt_state.success` | Successful | ناجحة | Sync attempt state | Approved from brief |  |
+| `ops.data_freshness` | Data freshness | حداثة البيانات | Operational status dimension | Approved from brief |  |
+| `ops.evidence_coverage` | Evidence coverage | نطاق البيانات | Current publication field | Approved from brief |  |
+| `ops.freshness_state.delayed` | Delayed | متأخرة | Data freshness state | Approved from brief |  |
+| `ops.freshness_state.fresh` | Fresh | حديثة | Data freshness state | Approved from brief |  |
+| `ops.last_attempt` | Last sync attempt | آخر محاولة مزامنة | Build-time operational status section | Approved from brief |  |
+| `ops.last_success` | Last successful sync | آخر مزامنة ناجحة | Build-time operational status section | Approved from brief |  |
+| `ops.monday_retrieved` | Monday data retrieved | وقت جلب بيانات Monday | Current publication field; freshness clock | Approved from brief |  |
+| `ops.published_at` | Published at | وقت النشر | Current publication field | Approved from brief |  |
+| `ops.system_status` | System status | حالة النظام | Operational status dimension | Approved from brief |  |
+| `ops.title` | Data & System status | حالة البيانات والنظام | Build-time operational status card heading | Approved from brief |  |
 | `overall.aria` | Overall: Not evaluated yet | التقييم العام: لم يتم تقييمه بعد | Accessible label | Approved from brief |  |
 | `overall.label` | Overall | التقييم العام | Editor card / profile header | Approved from brief |  |
 | `pending.overall_status.label` | Overall status | التقييم العام | Unapproved management rule (Data & System) | Approved from brief |  |

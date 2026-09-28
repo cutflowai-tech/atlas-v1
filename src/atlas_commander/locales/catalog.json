@@ -2159,6 +2159,253 @@
    "context": "Speed comparison status",
    "status": "Approved from brief"
   },
+  "ops.age_seconds": {
+   "en": "Data age (seconds)",
+   "ar": "عمر البيانات (بالثواني)",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_id": {
+   "en": "Attempt ID",
+   "ar": "معرّف محاولة المزامنة",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_state.failed": {
+   "en": "Failed",
+   "ar": "فشلت",
+   "context": "Sync attempt state",
+   "status": "Approved from brief"
+  },
+  "ops.attempt_state.running": {
+   "en": "In progress",
+   "ar": "قيد التنفيذ",
+   "context": "Sync attempt state",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_state.success": {
+   "en": "Successful",
+   "ar": "ناجحة",
+   "context": "Sync attempt state",
+   "status": "Approved from brief"
+  },
+  "ops.board_id": {
+   "en": "Monday board ID",
+   "ar": "معرّف لوحة Monday",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.completed_at": {
+   "en": "Completed / failed at",
+   "ar": "وقت الاكتمال أو الفشل",
+   "context": "Sync attempt field",
+   "status": "Implemented conservatively"
+  },
+  "ops.current_publication": {
+   "en": "Current publication",
+   "ar": "الإصدار المنشور حاليًا",
+   "context": "Build-time operational status section",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm terminology for the live atomic publication."
+  },
+  "ops.data_freshness": {
+   "en": "Data freshness",
+   "ar": "حداثة البيانات",
+   "context": "Operational status dimension",
+   "status": "Approved from brief"
+  },
+  "ops.evidence_coverage": {
+   "en": "Evidence coverage",
+   "ar": "نطاق البيانات",
+   "context": "Current publication field",
+   "status": "Approved from brief"
+  },
+  "ops.expected_interval": {
+   "en": "Expected sync interval (seconds)",
+   "ar": "الفاصل المتوقع للمزامنة (بالثواني)",
+   "context": "Freshness configuration field",
+   "status": "Implemented conservatively"
+  },
+  "ops.failure_category": {
+   "en": "Safe failure category",
+   "ar": "فئة الفشل الآمنة",
+   "context": "Sync attempt field; never raw exception text",
+   "status": "Needs Arabic Review",
+   "notes": "Technical operator wording; category value remains untranslated."
+  },
+  "ops.freshness_details": {
+   "en": "Freshness thresholds",
+   "ar": "حدود حداثة البيانات",
+   "context": "Build-time operational status section",
+   "status": "Implemented conservatively"
+  },
+  "ops.freshness_state.delayed": {
+   "en": "Delayed",
+   "ar": "متأخرة",
+   "context": "Data freshness state",
+   "status": "Approved from brief"
+  },
+  "ops.freshness_state.fresh": {
+   "en": "Fresh",
+   "ar": "حديثة",
+   "context": "Data freshness state",
+   "status": "Approved from brief"
+  },
+  "ops.freshness_state.stale": {
+   "en": "Stale",
+   "ar": "قديمة وغير محدثة",
+   "context": "Data freshness state",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm preferred operational term for stale data."
+  },
+  "ops.freshness_state.unknown": {
+   "en": "Unknown",
+   "ar": "غير معروفة",
+   "context": "Data freshness state",
+   "status": "Implemented conservatively"
+  },
+  "ops.last_attempt": {
+   "en": "Last sync attempt",
+   "ar": "آخر محاولة مزامنة",
+   "context": "Build-time operational status section",
+   "status": "Approved from brief"
+  },
+  "ops.last_success": {
+   "en": "Last successful sync",
+   "ar": "آخر مزامنة ناجحة",
+   "context": "Build-time operational status section",
+   "status": "Approved from brief"
+  },
+  "ops.monday_retrieved": {
+   "en": "Monday data retrieved",
+   "ar": "وقت جلب بيانات Monday",
+   "context": "Current publication field; freshness clock",
+   "status": "Approved from brief"
+  },
+  "ops.publication_id": {
+   "en": "Publication ID",
+   "ar": "معرّف الإصدار المنشور",
+   "context": "Current publication field",
+   "status": "Implemented conservatively"
+  },
+  "ops.published_at": {
+   "en": "Published at",
+   "ar": "وقت النشر",
+   "context": "Current publication field",
+   "status": "Approved from brief"
+  },
+  "ops.source_run": {
+   "en": "Source run",
+   "ar": "تشغيل المصدر",
+   "context": "Current publication and sync attempt field",
+   "status": "Needs Arabic Review",
+   "notes": "Technical operator term; source run ID remains untranslated."
+  },
+  "ops.scope_note.build_time": {
+   "en": "This status was captured when this dashboard build was generated. The Atlas status CLI is authoritative for current runtime status.",
+   "ar": "تم تسجيل هذه الحالة وقت إنشاء هذا الإصدار من لوحة المتابعة. أمر حالة Atlas هو المرجع المعتمد للحالة التشغيلية الحالية.",
+   "context": "Static dashboard operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Makes the distinction between static build context and authoritative current CLI status explicit."
+  },
+  "ops.scope_note.runtime": {
+   "en": "This is current runtime context from the injected snapshot.",
+   "ar": "هذه هي الحالة التشغيلية الحالية وفقًا للّقطة المضمّنة.",
+   "context": "Runtime operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Reserved for consumers that render an authoritative runtime snapshot."
+  },
+  "ops.scope_note.unknown": {
+   "en": "The snapshot scope is unknown; do not treat this as current runtime status.",
+   "ar": "نطاق هذه اللقطة غير معروف؛ لا تتعامل معها باعتبارها الحالة التشغيلية الحالية.",
+   "context": "Operational-status scope safety explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Fails safe when an older producer omits snapshot_scope."
+  },
+  "ops.snapshot_context": {
+   "en": "Snapshot scope: {scope}. Generated {date}.",
+   "ar": "نطاق اللقطة: {scope}. وقت الإنشاء: {date}.",
+   "context": "Operational-status snapshot provenance",
+   "status": "Needs Arabic Review",
+   "notes": "The language-neutral scope code remains available in data-status-value."
+  },
+  "ops.snapshot_scope.build_time": {
+   "en": "Build-time snapshot",
+   "ar": "لقطة وقت الإنشاء",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Static context embedded while the dashboard build is generated."
+  },
+  "ops.snapshot_scope.runtime": {
+   "en": "Runtime snapshot",
+   "ar": "لقطة وقت التشغيل",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Current context supplied by an authoritative runtime consumer."
+  },
+  "ops.snapshot_scope.unknown": {
+   "en": "Unknown scope",
+   "ar": "نطاق غير معروف",
+   "context": "Operational-status snapshot scope",
+   "status": "Implemented conservatively"
+  },
+  "ops.stale_after": {
+   "en": "Stale after (seconds)",
+   "ar": "تُعد قديمة بعد (بالثواني)",
+   "context": "Freshness configuration field",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm concise threshold wording."
+  },
+  "ops.started_at": {
+   "en": "Started at",
+   "ar": "وقت البدء",
+   "context": "Sync attempt field",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.degraded": {
+   "en": "Degraded",
+   "ar": "متأثرة",
+   "context": "System integrity state",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm terminology for usable but operationally degraded."
+  },
+  "ops.system_state.failed": {
+   "en": "Failed",
+   "ar": "متعطلة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.healthy": {
+   "en": "Healthy",
+   "ar": "سليمة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.unknown": {
+   "en": "Unknown",
+   "ar": "غير معروفة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_status": {
+   "en": "System status",
+   "ar": "حالة النظام",
+   "context": "Operational status dimension",
+   "status": "Approved from brief"
+  },
+  "ops.title": {
+   "en": "Data & System status",
+   "ar": "حالة البيانات والنظام",
+   "context": "Build-time operational status card heading",
+   "status": "Approved from brief"
+  },
+  "ops.unavailable": {
+   "en": "No operational status snapshot was injected for this build. This page does not infer system health from whether the HTML loaded.",
+   "ar": "لم يتم تضمين ملخص للحالة التشغيلية في هذا الإصدار. ولا تستنتج هذه الصفحة سلامة النظام من مجرد نجاح تحميلها.",
+   "context": "Shown when the optional build-time status snapshot is absent",
+   "status": "Needs Arabic Review",
+   "notes": "Safety wording: absence must never appear healthy."
+  },
   "system.approved_rules": {
    "en": "Approved rules in use",
    "ar": "القواعد المعتمدة حاليًا",

@@ -28,6 +28,7 @@ from __future__ import annotations
 import calendar
 import json
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime
 from html import escape
 from typing import Any
@@ -158,6 +159,11 @@ section{margin-top:var(--s-7)}
 .sys table{width:100%;border-collapse:collapse;font-size:13.5px}.sys th,.sys td{text-align:start;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
 .sys th{font-weight:500;color:var(--ink-3);font-size:12.5px}.sys .card{margin-top:var(--s-4)}.sys h3{margin:0 0 var(--s-3);font-size:17px;font-weight:500}
 .sys code,.drawer code{font-size:12px;background:var(--surface-2);padding:1px 6px;border-radius:6px;word-break:break-all}
+.status-head{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4);margin:var(--s-3) 0 var(--s-4)}
+.status-head>div,.status-detail{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s-4)}
+.status-head span{display:block;color:var(--ink-3);font-size:12.5px}.status-head b{display:block;margin-top:4px;font-size:20px;font-weight:500}
+.status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4);margin-top:var(--s-4)}
+.status-detail h4{margin:0 0 var(--s-3);font-size:14px;font-weight:500}.status-detail dl{grid-template-columns:minmax(120px,170px) 1fr}
 .scrim{position:fixed;inset:0;background:rgba(29,30,24,.28);opacity:0;pointer-events:none;transition:opacity var(--t);z-index:20}
 .drawer{position:fixed;top:12px;inset-inline-end:12px;bottom:12px;width:min(520px,calc(100vw - 24px));background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);
 transform:translateX(calc(100% + 24px));transition:transform var(--t);z-index:21;display:flex;flex-direction:column}
@@ -174,7 +180,7 @@ body.drawer-open .scrim{opacity:1;pointer-events:auto}body.drawer-open .drawer{t
 @media (max-width:760px){.shell{margin:0;border-radius:0;padding:var(--s-4) var(--s-4) var(--s-7)}.focus{grid-template-columns:1fr;padding:var(--s-5)}
 .grid-ed{grid-template-columns:1fr}.ctx{grid-template-columns:1fr}.hist .row{grid-template-columns:1fr;gap:var(--s-2)}.phead{grid-template-columns:auto 1fr}
 .phead .overall{grid-column:1/-1;text-align:start;margin:0}.metrics{grid-template-columns:1fr 1fr}.line{grid-template-columns:96px 1fr}
-.list button{grid-template-columns:1fr 1fr;row-gap:2px}.metric .v{font-size:32px}.topbar{margin-bottom:var(--s-5)}}
+.list button{grid-template-columns:1fr 1fr;row-gap:2px}.metric .v{font-size:32px}.topbar{margin-bottom:var(--s-5)}.status-head,.status-grid{grid-template-columns:1fr}}
 /* ---- language and direction (structural; the same design in both languages) */
 .topnav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .lang{padding:8px 16px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--surface);text-decoration:none;font-size:14px;color:var(--ink)}
@@ -339,7 +345,7 @@ def template(tid: str, title: str, content: str) -> str:
     return f'<template id="{escape(tid)}" data-title="{_attr(title)}">{content}</template>'
 
 
-def _dl(rows: list[tuple[str, str]]) -> str:
+def _dl(rows: Sequence[tuple[str, str]]) -> str:
     return "<dl>" + "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in rows) + "</dl>"
 
 
@@ -987,7 +993,98 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
 
 # ---------------------------------------------------------------- Data & System
 
-def data_system(doc: dict[str, Any], loc: Loc = EN) -> str:
+def _status_value(raw: Any, rendered: Any) -> Html:
+    """Rendered status value carrying its unchanged language-neutral source for parity checks."""
+    value = "" if raw is None else str(raw)
+    return Html(f'<span data-status-value="{_attr(value)}">{rendered}</span>')
+
+
+def _status_date(value: Any, loc: Loc) -> Html:
+    return _status_value(value, escape(loc.date(value)))
+
+
+def _status_code(value: Any, prefix: str, loc: Loc) -> Html:
+    if value is None:
+        value = "unknown"
+    code = str(value).lower()
+    key = f"{prefix}.{code}"
+    rendered = loc.t(key) if loc.has(key) else loc.tech(value)
+    return _status_value(value, rendered)
+
+
+def _status_id(value: Any, loc: Loc) -> Html:
+    return _status_value(value, loc.tech(value) if value else Html("—"))
+
+
+def _status_attempt(title: Html, attempt: dict[str, Any] | None, loc: Loc) -> str:
+    attempt = attempt or {}
+    rows = [
+        (loc.t("ops.attempt_id"), _status_id(attempt.get("attempt_id"), loc)),
+        (loc.t("common.status"), _status_code(attempt.get("status"), "ops.attempt_state", loc)),
+        (loc.t("ops.started_at"), _status_date(attempt.get("started_at"), loc)),
+        (loc.t("ops.completed_at"), _status_date(attempt.get("finished_at") or attempt.get("completed_at") or attempt.get("failed_at"), loc)),
+        (loc.t("ops.source_run"), _status_id(attempt.get("source_run_id"), loc)),
+    ]
+    error_category = attempt.get("error_category") or attempt.get("failure_category")
+    if error_category:
+        rows.append((loc.t("ops.failure_category"), _status_id(error_category, loc)))
+    return f'<div class="status-detail"><h4>{title}</h4>{_dl(rows)}</div>'
+
+
+def operational_status(snapshot: dict[str, Any] | None, loc: Loc = EN) -> str:
+    """Render one injected Task 7 snapshot without deriving health or freshness.
+
+    Accepted interface: top-level ``generated_at``, ``system_state`` and
+    ``freshness_state``; ``current_publication``; ``freshness``; and either top-level or
+    ``sync``-nested ``last_attempt`` and ``last_successful_attempt``.
+    """
+    if snapshot is None:
+        return (f'<div class="card operational-status"><h3>{loc.t("ops.title")}</h3>'
+                f'<p class="small soft">{loc.t("ops.unavailable")}</p></div>')
+
+    current = snapshot.get("current_publication") or {}
+    sync = snapshot.get("sync") or {}
+    freshness = snapshot.get("freshness") or {}
+    coverage = current.get("coverage") or {}
+    last_attempt = snapshot.get("last_attempt") or sync.get("last_attempt")
+    last_success = snapshot.get("last_successful_attempt") or sync.get("last_successful_attempt")
+    retrieved_at = current.get("monday_retrieved_at") or current.get("retrieved_at")
+    coverage_start = current.get("coverage_start") or coverage.get("history_start") or coverage.get("start") or coverage.get("since")
+    coverage_end = current.get("coverage_end") or coverage.get("history_end") or coverage.get("end") or coverage.get("until")
+    coverage_value = f"{coverage_start or ''}/{coverage_end or ''}"
+    coverage_display = Html(f'{escape(loc.date(coverage_start))} <span dir="ltr">→</span> {escape(loc.date(coverage_end))}')
+    snapshot_scope = str(snapshot.get("snapshot_scope") or "unknown").lower()
+    scope_key = f"ops.scope_note.{snapshot_scope}"
+    scope_note = loc.t(scope_key) if loc.has(scope_key) else loc.t("ops.scope_note.unknown")
+
+    headline = (f'<div class="status-head"><div><span>{loc.t("ops.system_status")}</span>'
+                f'<b>{_status_code(snapshot.get("system_state"), "ops.system_state", loc)}</b></div>'
+                f'<div><span>{loc.t("ops.data_freshness")}</span>'
+                f'<b>{_status_code(snapshot.get("freshness_state"), "ops.freshness_state", loc)}</b></div></div>')
+    publication = _dl([
+        (loc.t("ops.attempt_id"), _status_id(current.get("attempt_id"), loc)),
+        (loc.t("ops.publication_id"), _status_id(current.get("publication_id"), loc)),
+        (loc.t("ops.published_at"), _status_date(current.get("published_at"), loc)),
+        (loc.t("ops.source_run"), _status_id(current.get("source_run_id"), loc)),
+        (loc.t("ops.monday_retrieved"), _status_date(retrieved_at, loc)),
+        (loc.t("ops.evidence_coverage"), _status_value(coverage_value, coverage_display)),
+        (loc.t("system.contract"), _status_id(current.get("contract_version"), loc)),
+        (loc.t("ops.board_id"), _status_id(current.get("board_id"), loc)),
+    ])
+    freshness_rows = _dl([
+        (loc.t("ops.age_seconds"), _status_value(freshness.get("age_seconds"), loc.num(freshness.get("age_seconds")))),
+        (loc.t("ops.expected_interval"), _status_value(freshness.get("expected_interval_seconds"), loc.num(freshness.get("expected_interval_seconds")))),
+        (loc.t("ops.stale_after"), _status_value(freshness.get("stale_after_seconds"), loc.num(freshness.get("stale_after_seconds")))),
+    ])
+    attempts = (_status_attempt(loc.t("ops.last_attempt"), last_attempt, loc)
+                + _status_attempt(loc.t("ops.last_success"), last_success, loc))
+    return (f'<div class="card operational-status"><h3>{loc.t("ops.title")}</h3>{headline}'
+            f'<p class="small soft">{loc.t("ops.snapshot_context", scope=_status_code(snapshot_scope, "ops.snapshot_scope", loc), date=_status_date(snapshot.get("generated_at"), loc))} {scope_note}</p>'
+            f'<div class="status-grid"><div class="status-detail"><h4>{loc.t("ops.current_publication")}</h4>{publication}</div>'
+            f'<div class="status-detail"><h4>{loc.t("ops.freshness_details")}</h4>{freshness_rows}</div>{attempts}</div></div>')
+
+
+def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, Any] | None = None) -> str:
     source = doc["source"]
     window = source.get("activity_log_window") or {}
     snapshot = _dl([(loc.t("system.retrieved"), escape(loc.date(source.get("retrieved_at")))),
@@ -1035,6 +1132,7 @@ def data_system(doc: dict[str, Any], loc: Loc = EN) -> str:
 
     return (f'<div data-view="system" class="sys" hidden><div class="hello"><div><span class="eyebrow">Atlas</span><h1>{loc.t("nav.system")}</h1>'
             f'<p>{loc.t("system.sub")}</p></div></div>'
+            f'{operational_status(status_snapshot, loc)}'
             f'<div class="card"><h3>{loc.t("system.snapshot")}</h3>{snapshot}</div>'
             f'<div class="card"><h3>{loc.t("system.approved_rules")}</h3>{approved}</div>'
             f'<div class="card"><h3>{loc.t("common.not_evaluated")}</h3>{table(["system.head.field", "common.status", "common.reason"], pending)}</div>'
@@ -1056,7 +1154,7 @@ def language_switch(loc: Loc, href: str, keep_hash: bool = False) -> str:
 
 
 def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], monday_item_url: str | None = None, loc: Loc = EN,
-                          switch_href: str | None = None) -> str:
+                          switch_href: str | None = None, status_snapshot: dict[str, Any] | None = None) -> str:
     """Render the dashboard in ``loc``. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML (same language), embedded
     unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
@@ -1086,7 +1184,7 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
             f"<title>{loc.t('page.dashboard_title')}</title><style>{CSS}</style></head><body><div class=\"shell\">"
             f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><div class="topnav"><nav class="nav" aria-label="{_attr(loc.text("nav.main_label"))}">'
             f'<a href="#/" data-nav="team" aria-current="page">{loc.t("nav.team")}</a><a href="#/system" data-nav="system">{loc.t("nav.system")}</a></nav>{switch}</div></header>'
-            f'<main>{body}{data_system(doc, loc)}</main></div>'
+            f'<main>{body}{data_system(doc, loc, status_snapshot)}</main></div>'
             '<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
             f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{_attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>'
             f'<script type="application/json" id="atlas-reports">{blob}</script><script>{SCRIPT}</script></body></html>')

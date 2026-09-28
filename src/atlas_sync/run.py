@@ -50,6 +50,7 @@ from atlas_monday_probe.raw_store import inside_git_worktree, write_immutable_at
 
 from .config import ConfigError, SyncConfig, load_sync_config
 from .lock import EXIT_LOCKED, OperationLocked, production_lock
+from .status import build_time_snapshot
 
 Transport = Callable[[str, dict[str, Any]], bytes]
 
@@ -413,7 +414,14 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
 
         stage = "dashboard"
         budget.check(stage)
-        build_dashboard_files(reconstruction, contract, site, generated_at, profiles, pages, monday_item_url)
+        status_snapshot = build_time_snapshot(
+            config=cfg, generated_at=generated_at, attempt_id=result.attempt_id,
+            source_run_id=run_id, retrieved_at=manifest["retrieved_at"],
+            coverage=manifest["coverage"], verified=bool(result.verification["passed"]),
+            started_at=result.started_at,
+        )
+        build_dashboard_files(reconstruction, contract, site, generated_at, profiles, pages, monday_item_url,
+                              status_snapshot=status_snapshot.as_dict())
 
         stage = "validation"
         budget.check(stage)
@@ -537,4 +545,3 @@ def summary(result: SyncResult) -> str:
               f"  attempt record: {result.attempt_record or 'not written'}",
               "  NOT PUBLISHED: this command only stages a build; the published dashboard was not modified."]
     return "\n".join(lines)
-
