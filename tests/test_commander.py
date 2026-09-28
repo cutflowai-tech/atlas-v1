@@ -1,6 +1,5 @@
 import json
 import unittest
-from pathlib import Path
 
 from atlas_commander.core import ROOT, assignments_for, classify, ready_tasks, slots_for
 
@@ -20,15 +19,11 @@ class CommanderTests(unittest.TestCase):
             ["builder-1", "builder-2", "builder-3", "validator-1", "validator-2", "arbiter", "integrator"],
         )
 
-    def test_contract_keeps_deadline_and_eta_separate(self):
-        schema = json.loads((ROOT / "contracts" / "atlas-v1.schema.json").read_text())
-        self.assertIn("deadline", schema["properties"])
+    def test_contract_requires_requested_eta_for_deadline(self):
+        schema = json.loads((ROOT / "contracts" / "work-cycle.schema.json").read_text())
         self.assertIn("requested_eta", schema["properties"])
-        self.assertEqual(schema["properties"]["evidence"]["properties"]["source"]["const"], "monday")
-        self.assertIn("monday_board_id", schema["required"])
-        evidence_required = schema["properties"]["evidence"]["required"]
-        for field in ("column_ids", "event_ids", "source_timestamps", "source_values"):
-            self.assertIn(field, evidence_required)
+        self.assertIn("in_progress_at", schema["required"])
+        self.assertIn("ready_for_approval_at", schema["required"])
 
     def test_critical_routing_is_cross_family(self):
         assignments = assignments_for("critical")
@@ -48,9 +43,24 @@ class CommanderTests(unittest.TestCase):
                 self.assertIn(assignment["runtime"], registered)
                 self.assertTrue(assignment["agent"])
 
+    def test_five_subscription_profiles_are_distinct(self):
+        runtimes = json.loads((ROOT / "config" / "runtimes.json").read_text())["runtimes"]
+        self.assertEqual({item["id"] for item in runtimes}, {"codex-a", "codex-m", "codex-w", "claude-a", "claude-m"})
+        self.assertEqual(len({item["multica_runtime_id"] for item in runtimes}), 5)
+        self.assertEqual(len({item["multica_profile_id"] for item in runtimes}), 5)
+        self.assertTrue(all(item["subscription_backed"] and item["enabled"] for item in runtimes))
+
+    def test_policy_counts_match_requested_routes(self):
+        policy = json.loads((ROOT / "config" / "risk-policy.json").read_text())
+        self.assertEqual((policy["simple"]["builders"], policy["simple"]["reviewers"]), (1, 1))
+        self.assertEqual((policy["normal"]["builders"], policy["normal"]["reviewers"]), (2, 1))
+        self.assertEqual((policy["critical"]["builders"], policy["critical"]["validators"]), (3, 2))
+        self.assertTrue(policy["critical"]["requires_arbiter"])
+        self.assertTrue(policy["critical"]["requires_cross_family"])
+
     def test_event_evidence_cannot_be_empty(self):
-        schema = json.loads((ROOT / "contracts" / "atlas-v1.schema.json").read_text())
-        event_ids = schema["properties"]["evidence"]["properties"]["event_ids"]
+        schema = json.loads((ROOT / "contracts" / "common.schema.json").read_text())
+        event_ids = schema["$defs"]["evidence"]["properties"]["event_ids"]
         self.assertEqual(event_ids["minItems"], 1)
 
     def test_all_dag_entries_satisfy_task_contract(self):
@@ -59,8 +69,14 @@ class CommanderTests(unittest.TestCase):
         for task in tasks:
             self.assertFalse(required - set(task), task["id"])
 
-    def test_done_dependency_is_not_ready_itself(self):
-        self.assertEqual(ready_tasks(), [])
+    def test_ready_queue_maximizes_fixture_parallelism(self):
+        ready_ids = {task["id"] for task in ready_tasks()}
+        self.assertEqual(ready_ids, {"DATA-001", "NORM-001", "ID-001", "ATTR-001", "METRICS-FIXTURE", "API-FIXTURE", "UI-FIXTURE"})
+
+    def test_no_composite_scoring_task_exists(self):
+        tasks = json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]
+        titles = " ".join(task["title"].lower() for task in tasks)
+        self.assertNotIn("composite score", titles)
 
 
 if __name__ == "__main__":

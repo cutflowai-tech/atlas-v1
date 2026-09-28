@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/deadline-metric.schema.json",
+  "title": "DeadlineMetric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "metric_name", "editor_id", "ready_for_approval_at", "requested_eta", "result", "evidence"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "metric_name": {"const": "deadline"},
+    "editor_id": {"type": "string", "minLength": 1},
+    "ready_for_approval_at": {"type": "string", "format": "date-time"},
+    "requested_eta": {"type": "string", "format": "date-time"},
+    "result": {"type": "string", "enum": ["on_time", "late"]},
+    "evidence": {"$ref": "common.schema.json#/$defs/evidence"}
+  },
+  "x-atlas-invariants": ["result is on_time iff ready_for_approval_at <= requested_eta", "missing requested_eta yields no metric"]
+}

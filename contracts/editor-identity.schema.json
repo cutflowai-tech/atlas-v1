@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/editor-identity.schema.json",
+  "title": "EditorIdentity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "editor_id", "monday_person_id", "display_name", "mapping_version", "resolution"],
+  "properties": {
+    "contract_version": {"const": "1.0.0"},
+    "editor_id": {"type": "string", "minLength": 1},
+    "monday_person_id": {"type": "string", "minLength": 1},
+    "display_name": {"type": "string", "minLength": 1},
+    "mapping_version": {"type": "string", "minLength": 1},
+    "resolution": {"const": "canonical_monday_id"}
+  }
+}
