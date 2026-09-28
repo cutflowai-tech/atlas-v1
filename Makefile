@@ -1,4 +1,4 @@
-.PHONY: doctor lint typecheck unit contract integration e2e test runtime-health
+.PHONY: doctor lint typecheck unit contract integration e2e test runtime-health monday-probe
 
 # Dedicated suites run through their own targets locally and in CI.
 UNIT_TEST_FILES := $(filter-out tests/test_contracts.py tests/test_integration.py tests/test_e2e.py,$(wildcard tests/test_*.py))
@@ -26,7 +26,10 @@ integration:
 e2e:
 	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_e2e.py' -v
 
-test: lint typecheck unit contract integration e2e
+monday-probe:
+	PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_monday_probe.py' -v
+
+test: lint typecheck unit contract integration e2e monday-probe
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
 runtime-health:

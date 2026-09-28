@@ -1,0 +1,198 @@
+{
+  "access": {
+    "known_editor_canonical_mapping_available": false,
+    "live_request_attempted": false,
+    "monday_environment_variables_found": false,
+    "monday_mcp_configured": false
+  },
+  "drift": {
+    "activity_history": "not_exported_per_source_manifest",
+    "board_id": "5091110326",
+    "columns": [
+      {
+        "id": "name",
+        "type": "name"
+      },
+      {
+        "id": "subtasks_mm06fxem",
+        "type": "subtasks"
+      },
+      {
+        "id": "priority_1",
+        "type": "status"
+      },
+      {
+        "id": "text_mm06hmag",
+        "type": "text"
+      },
+      {
+        "id": "text_mm066x8y",
+        "type": "text"
+      },
+      {
+        "id": "date",
+        "type": "date"
+      },
+      {
+        "id": "project_timeline",
+        "type": "timeline"
+      },
+      {
+        "id": "hour_mm36hre7",
+        "type": "hour"
+      },
+      {
+        "id": "date_mm06p38v",
+        "type": "date"
+      },
+      {
+        "id": "dropdown_mm1emgt8",
+        "type": "dropdown"
+      },
+      {
+        "id": "dropdown_mm06f3t1",
+        "type": "dropdown"
+      },
+      {
+        "id": "color_mm4jg5zg",
+        "type": "status"
+      },
+      {
+        "id": "project_owner",
+        "type": "people"
+      },
+      {
+        "id": "dropdown_mm062ga0",
+        "type": "dropdown"
+      },
+      {
+        "id": "numeric_mm0fftfb",
+        "type": "numbers"
+      },
+      {
+        "id": "project_status",
+        "type": "status"
+      },
+      {
+        "id": "link_mm06mjxf",
+        "type": "link"
+      },
+      {
+        "id": "link_mm06bswn",
+        "type": "link"
+      },
+      {
+        "id": "link_mm06rpzj",
+        "type": "link"
+      },
+      {
+        "id": "link_mm4f2qmp",
+        "type": "link"
+      },
+      {
+        "id": "link_mm4f1h5k",
+        "type": "link"
+      },
+      {
+        "id": "dropdown_mm4pc085",
+        "type": "dropdown"
+      },
+      {
+        "id": "numbers",
+        "type": "numbers"
+      },
+      {
+        "id": "numeric_mm06d5hj",
+        "type": "numbers"
+      },
+      {
+        "id": "numeric_mm4pdhpp",
+        "type": "numbers"
+      },
+      {
+        "id": "numeric_mm0k76r7",
+        "type": "numbers"
+      },
+      {
+        "id": "numeric_mm0ks2qw",
+        "type": "numbers"
+      },
+      {
+        "id": "numeric_mm3fp8cq",
+        "type": "numbers"
+      },
+      {
+        "id": "dropdown_mm3tyvvc",
+        "type": "dropdown"
+      },
+      {
+        "id": "dropdown_mm3tyk8g",
+        "type": "dropdown"
+      },
+      {
+        "id": "board_relation_mm389zqg",
+        "type": "board_relation"
+      },
+      {
+        "id": "board_relation_mm10abp6",
+        "type": "board_relation"
+      },
+      {
+        "id": "lookup_mm10yxtd",
+        "type": "mirror"
+      },
+      {
+        "id": "board_relation_mm0k9vc3",
+        "type": "board_relation"
+      },
+      {
+        "id": "lookup_mm0kzjdn",
+        "type": "mirror"
+      },
+      {
+        "id": "long_text_mm3kkq98",
+        "type": "long_text"
+      },
+      {
+        "id": "color_mm1ryfcb",
+        "type": "status"
+      }
+    ],
+    "contract_statuses_not_observed": [
+      "Approved",
+      "Backlog",
+      "Delivered",
+      "Revision"
+    ],
+    "editor_identity": "dropdown_label_is_not_canonical_monday_user_id",
+    "metric_outputs": [],
+    "normalization": "blocked_missing_history_and_approved_versioned_mappings",
+    "observed_items": 959,
+    "quality_mapping": "not_approved_or_inferred",
+    "source_format": "exported_markdown_not_api_response",
+    "status_labels_outside_contract": [
+      "",
+      "Captions Done",
+      "Captions In Progress",
+      "Create File",
+      "Done",
+      "Internal Revisions",
+      "Ready To Send",
+      "Revisions",
+      "Sent",
+      "TOPAZ",
+      "Waiting",
+      "Waiting For Captions"
+    ]
+  },
+  "sample": {
+    "bytes": 6044737,
+    "raw_file": "ce2d38870381fcc8f92ed68f2c3de4babe08c5f9fa2e89e98b1f3bedb428e870.raw",
+    "sha256": "ce2d38870381fcc8f92ed68f2c3de4babe08c5f9fa2e89e98b1f3bedb428e870"
+  },
+  "source_manifest": {
+    "bytes": 7217,
+    "raw_file": "ea378cb380b52b0a266aa9c79ee1241f24ab460b1b6f24695a1ce6c46f4cf605.raw",
+    "sha256": "ea378cb380b52b0a266aa9c79ee1241f24ab460b1b6f24695a1ce6c46f4cf605"
+  }
+}
