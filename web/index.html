@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Atlas · Editor Profile Fixture</title><link rel="stylesheet" href="style.css"></head>
+<body><div class="banner">FIXTURE DEMO · Synthetic Monday data · Not a live evaluation</div><main><nav aria-label="Profile actions"><strong>ATLAS</strong><button id="reload" type="button">Reload profile</button></nav><div id="profile" aria-live="polite"></div><noscript>JavaScript is required to fetch the editor profile.</noscript><footer>Monday is the source of truth. Metrics are supplied by the API.</footer></main><script type="module">
+import {loadProfile} from './app.mjs';
+const id = new URLSearchParams(location.search).get('editor_id') ?? 'editor-42';
+const reload = () => loadProfile(document.querySelector('#profile'), id);
+document.querySelector('#reload').addEventListener('click', reload);
+reload();
+</script></body></html>

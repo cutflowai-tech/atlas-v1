@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Fixture flow artifact</title><link rel="stylesheet" href="../style.css"><body><div class="banner">FIXTURE · fetch-to-render harness artifact</div><main><header><p>EDITOR PROFILE</p><h1>Fixture Editor</h1><dl><div class="field"><dt>Canonical editor ID</dt><dd>editor-42</dd></div><div class="field"><dt>Monday person ID</dt><dd>person-42</dd></div><div class="field"><dt>Identity mapping version</dt><dd>identity-v1</dd></div><div class="field"><dt>Generated at</dt><dd>2026-09-01T11:15:00Z</dd></div></dl></header><section><h2>Quality</h2><p>Approved Monday labels, supplied by the API.</p><article><dl><div class="field"><dt>Monday Performance Label</dt><dd>Meets Expectations</dd></div><div class="field"><dt>Label column ID</dt><dd>performance_label</dd></div><div class="field"><dt>Label mapping version</dt><dd>quality-label-v1</dd></div><div class="field"><dt>Revision context — no quality penalty</dt><dd>{
+  &quot;count&quot;: 3
+}</dd></div></dl><details><summary>Source evidence · item-1</summary><dl><div class="field"><dt>source</dt><dd>monday</dd></div><div class="field"><dt>monday_board_id</dt><dd>board-1</dd></div><div class="field"><dt>monday_item_id</dt><dd>item-1</dd></div><div class="field"><dt>column_ids</dt><dd>[
+  &quot;performance_label&quot;
+]</dd></div><div class="field"><dt>event_ids</dt><dd>[
+  &quot;event-102&quot;
+]</dd></div><div class="field"><dt>source_timestamps</dt><dd>[
+  &quot;2026-09-01T11:10:00Z&quot;
+]</dd></div><div class="field"><dt>source_values</dt><dd>{
+  &quot;performance_label&quot;: &quot;Meets Expectations&quot;
+}</dd></div><div class="field"><dt>rule_version</dt><dd>quality-v1</dd></div><div class="field"><dt>calculated_at</dt><dd>2026-09-01T11:12:00Z</dd></div></dl></details></article></section><section><h2>Speed</h2><p>In Progress → Ready For Approval. Benchmarks use the same canonical Video Type only.</p><h3>Video Type · short-form</h3><article><dl><div class="field"><dt>Duration (seconds)</dt><dd>7200</dd></div><div class="field"><dt>Cohort Video Type</dt><dd>short-form</dd></div><div class="field"><dt>Cohort median (seconds)</dt><dd>7500</dd></div></dl><details><summary>Source evidence · item-1</summary><dl><div class="field"><dt>source</dt><dd>monday</dd></div><div class="field"><dt>monday_board_id</dt><dd>board-1</dd></div><div class="field"><dt>monday_item_id</dt><dd>item-1</dd></div><div class="field"><dt>column_ids</dt><dd>[
+  &quot;status&quot;,
+  &quot;video_type&quot;
+]</dd></div><div class="field"><dt>event_ids</dt><dd>[
+  &quot;event-100&quot;,
+  &quot;event-101&quot;
+]</dd></div><div class="field"><dt>source_timestamps</dt><dd>[
+  &quot;2026-09-01T09:00:00Z&quot;,
+  &quot;2026-09-01T11:00:00Z&quot;
+]</dd></div><div class="field"><dt>source_values</dt><dd>{
+  &quot;start&quot;: &quot;In Progress&quot;,
+  &quot;end&quot;: &quot;Ready For Approval&quot;,
+  &quot;video_type&quot;: &quot;short-form&quot;
+}</dd></div><div class="field"><dt>rule_version</dt><dd>speed-v1</dd></div><div class="field"><dt>calculated_at</dt><dd>2026-09-01T11:05:00Z</dd></div></dl></details></article></section><section><h2>Deadline</h2><p>Ready For Approval ≤ Requested ETA. Missing ETA has no metric; no fallback is inferred.</p><article><dl><div class="field"><dt>API deadline result</dt><dd>on_time</dd></div><div class="field"><dt>Ready For Approval</dt><dd>2026-09-01T11:00:00Z</dd></div><div class="field"><dt>Requested ETA</dt><dd>2026-09-01T11:30:00Z</dd></div></dl><details><summary>Source evidence · item-1</summary><dl><div class="field"><dt>source</dt><dd>monday</dd></div><div class="field"><dt>monday_board_id</dt><dd>board-1</dd></div><div class="field"><dt>monday_item_id</dt><dd>item-1</dd></div><div class="field"><dt>column_ids</dt><dd>[
+  &quot;status&quot;,
+  &quot;requested_eta&quot;
+]</dd></div><div class="field"><dt>event_ids</dt><dd>[
+  &quot;event-101&quot;
+]</dd></div><div class="field"><dt>source_timestamps</dt><dd>[
+  &quot;2026-09-01T11:00:00Z&quot;
+]</dd></div><div class="field"><dt>source_values</dt><dd>{
+  &quot;ready_for_approval_at&quot;: &quot;2026-09-01T11:00:00Z&quot;,
+  &quot;requested_eta&quot;: &quot;2026-09-01T11:30:00Z&quot;
+}</dd></div><div class="field"><dt>rule_version</dt><dd>deadline-v1</dd></div><div class="field"><dt>calculated_at</dt><dd>2026-09-01T11:05:00Z</dd></div></dl></details></article></section><section><h2>Revision context</h2><p>Context only. Revisions never apply an automatic quality penalty.</p><article><dl><div class="field"><dt>Cycle ID</dt><dd>cycle-1</dd></div><div class="field"><dt>Monday board ID</dt><dd>board-1</dd></div><div class="field"><dt>Monday item ID</dt><dd>item-1</dd></div><div class="field"><dt>In Progress event ID</dt><dd>event-100</dd></div><div class="field"><dt>Ready For Approval event ID</dt><dd>event-101</dd></div><div class="field"><dt>Requested ETA</dt><dd>2026-09-01T11:30:00Z</dd></div><div class="field"><dt>Revision context — no quality penalty</dt><dd>{
+  &quot;count&quot;: 3
+}</dd></div></dl></article></section></main></body></html>
