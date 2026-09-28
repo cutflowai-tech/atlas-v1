@@ -65,7 +65,7 @@ def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, 
                                 attribution_coverage=attribution_coverage(result),
                                 profile_refs={editor_id: f"profiles/{editor_id}.json" for editor_id in pages})
     (out / "dashboard.json").write_text(json.dumps(dashboard, indent=1) + "\n")
-    (out / "dashboard.html").write_text(render_dashboard_html(dashboard, pages))
+    (out / "dashboard.html").write_text(render_dashboard_html(dashboard, pages, monday_item_url))
     return dashboard
 
 

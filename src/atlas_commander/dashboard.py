@@ -25,6 +25,10 @@ def month_name(month: str) -> str:
     return f"{calendar.month_name[int(number)]} {year}"
 
 
+def _item_id(cycle_id: str) -> str:
+    return cycle_id.rsplit(":", 1)[-1]
+
+
 def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
     speed = profile["speed"]
     cohorts = []
@@ -37,6 +41,9 @@ def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
             "team_median_seconds": None if alone else cohort["team_median_seconds"],
             "editor_vs_team_median_pct": None if alone else cohort["editor_vs_team_median_pct"],
             "conclusion": cohort["conclusion"], "comparison_status": cohort["comparison_status"],
+            "benchmark_eligible": cohort.get("benchmark_eligible"),
+            "team_typical_range_seconds": None if alone else cohort.get("team_typical_range_seconds"),
+            "editor_project_ids": [_item_id(cycle_id) for cycle_id in cohort.get("editor_cycle_ids") or []],
         })
     status_counts: dict[str, int] = {}
     for cohort in cohorts:
@@ -63,9 +70,37 @@ def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
             "for_bonus_context_projects": len(profile["quality"]["for_bonus_context"]["projects"])}
 
 
+PROJECT_FIELDS = ("monday_item_id", "state", "in_progress_at", "ready_for_approval_at", "duration_seconds", "cohort_key", "cohort_labels",
+                  "speed_eligible", "requested_eta", "requested_eta_issue", "requested_eta_observed_at", "deadline_result", "deadline_delta_seconds",
+                  "quality_labels", "client_revision_events", "exclusions", "flags", "evidence_event_ids",
+                  "requested_eta_changes_ignored_after_ready_for_approval")
+
+
+def _projects(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The profile's project rows (the evidence behind every figure), most recent Ready For Approval first."""
+    rows = [{key: row.get(key) for key in PROJECT_FIELDS} for row in profile["projects"]]
+    return sorted(rows, key=lambda row: (row["ready_for_approval_at"] or "", row["monday_item_id"]), reverse=True)
+
+
+def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Dated facts already in the profile: each completed project's first Ready For Approval (with its deadline result, if
+    classified) and each Monday Performance Issues label, at the time it was added. Revision events are not dated in the
+    profile, so they appear only as context on their project."""
+    events = [{"kind": "delivery", "at": row["ready_for_approval_at"], "monday_item_id": row["monday_item_id"],
+               "deadline_result": row["deadline_result"], "deadline_delta_seconds": row["deadline_delta_seconds"],
+               "cohort_labels": list(row["cohort_labels"]), "client_revision_events": row["client_revision_events"]}
+              for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]]
+    for occurrence in profile["quality"]["occurrences"]:
+        timestamps = occurrence["evidence"].get("source_timestamps") or []
+        events.append({"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
+                       "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
+    return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
+
+
 def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
     revisions = profile["revisions"]
     return {"source": "revisions", "context_only": True, "completed_projects": revisions["completed_projects"],
+            "monday_item_ids_with_client_revisions": list(revisions.get("monday_item_ids_with_client_revisions") or []),
             "projects_with_client_revisions": revisions["projects_with_client_revisions"],
             "client_revision_events": revisions["client_revision_events"], "internal_revision_events": revisions.get("internal_revision_events"),
             "note": revisions["note"]}
@@ -155,6 +190,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
                    "speed_eligible_projects": coverage["speed_eligible_projects"], "exclusions_by_reason": dict(coverage["exclusions_by_reason"])},
         "speed": speed, "deadline": deadline, "quality": quality, "revisions": _revisions(profile), "current_workload": workload,
         "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence,
+        "projects": _projects(profile), "events": _events(profile),
         "snapshot": _snapshot(speed, deadline, quality, workload, coverage, intelligence),
     }
 
