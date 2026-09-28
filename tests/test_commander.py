@@ -71,7 +71,10 @@ class CommanderTests(unittest.TestCase):
 
     def test_ready_queue_maximizes_fixture_parallelism(self):
         ready_ids = {task["id"] for task in ready_tasks()}
-        self.assertEqual(ready_ids, {"DATA-001", "NORM-001", "ID-001", "ATTR-001", "METRICS-FIXTURE", "API-FIXTURE", "UI-FIXTURE"})
+        # Every fixture task is done; the remaining tasks are blocked on the live token or on business decisions.
+        self.assertEqual(ready_ids, set())
+        tasks = {task["id"]: task for task in json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]}
+        self.assertTrue(all(tasks[task_id]["blocked_by"] for task_id in ("E2E-001", "DEADLINE-002", "ID-002")))
 
     def test_no_composite_scoring_task_exists(self):
         tasks = json.loads((ROOT / "tasks" / "dag.json").read_text())["tasks"]
