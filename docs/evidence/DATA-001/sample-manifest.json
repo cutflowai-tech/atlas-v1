@@ -1,13 +1,13 @@
 {
   "manifest_version": "data-001-manifest-v1",
   "source": "monday",
-  "access": "Monday MCP connector (claude.ai monday.com) all_api_read \u2014 read-only GraphQL; mutations rejected by the connector; no MONDAY_API_TOKEN in runtime env",
+  "access": "authorized read-only Monday MCP connector (all_api_read)",
   "mutation_performed": false,
   "scope": {
     "board_id": "5091110326",
-    "board": "Customer Projects",
+    "status_column_id": "project_status",
     "editor_column_id": "dropdown_mm1emgt8",
-    "editor_label_id": 6,
+    "known_editor_label_id": "6",
     "item_ids": [
       "3236714197",
       "3241413361",
@@ -16,10 +16,9 @@
       "3246525128"
     ],
     "activity_window": {
-      "from": "2026-09-15T00:00:00Z",
-      "to": "2026-09-28T23:59:59Z"
-    },
-    "status_column_id": "project_status"
+      "since": "2026-09-15T00:00:00Z",
+      "until": "2026-09-28T23:59:59Z"
+    }
   },
   "raw_payloads": [
     {

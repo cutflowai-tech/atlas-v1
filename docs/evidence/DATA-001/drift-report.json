@@ -7,26 +7,26 @@
     {
       "code": "STATUS_LABEL_VOCABULARY_DRIFT",
       "field": "from_status/to_status",
-      "blocking": true,
-      "detail": "Monday status labels are not the contract enum; only exact-text matches are listed and no mapping is inferred.",
+      "blocking": false,
+      "detail": "Monday labels are checked against the approved v1.0 status registry; unmapped labels are not inferred.",
+      "mapping_version": "monday-status-v1.0",
       "exact_text_matches": {
-        "3": "Ready For Approval",
-        "9": "In Progress"
-      },
-      "monday_labels_without_contract_value": {
         "0": "Internal Revisions",
         "1": "Done",
         "2": "Revisions",
+        "3": "Ready For Approval",
         "4": "Ready To Send",
         "6": "Waiting",
         "7": "Sent",
         "8": "Captions Revisions",
+        "9": "In Progress",
         "10": "Captions In Progress",
         "13": "Create File",
         "14": "Waiting For Captions",
         "16": "TOPAZ",
         "17": "Captions Done"
       },
+      "monday_labels_without_contract_value": {},
       "contract_values_without_monday_label": [
         "Approved",
         "Backlog",
@@ -63,17 +63,7 @@
         "TOPAZ -> Sent": 1,
         "Waiting For Captions -> Captions In Progress": 2
       },
-      "outside_contract_enum": [
-        "Captions Done",
-        "Captions In Progress",
-        "Create File",
-        "Internal Revisions",
-        "Ready To Send",
-        "Revisions",
-        "Sent",
-        "TOPAZ",
-        "Waiting For Captions"
-      ]
+      "outside_contract_enum": []
     },
     {
       "code": "TIMESTAMP_ENCODING",
@@ -152,8 +142,10 @@
     {
       "code": "ACTOR_IS_NOT_EDITOR",
       "field": "actor_resolution/actor_id",
-      "blocking": true,
-      "detail": "Log user_id is the Monday account that changed the status; the evaluated Editor is a 'dropdown' label on the item, not a Monday user. No versioned actor or editor mapping exists, so no event can be canonical_monday_id and none is guessed.",
+      "blocking": false,
+      "detail": "Log user_id is audit metadata; the evaluated Editor is the Editor Name field. Editor attribution uses the approved versioned label mapping and never infers identity from the actor.",
+      "mapping_version": "monday-editor-v1.0",
+      "authoritative_field": "Editor Name",
       "actor_user_ids": {
         "99154021": 32,
         "105392408": 9,
@@ -166,20 +158,29 @@
       "editor_column": {
         "id": "dropdown_mm1emgt8",
         "type": "dropdown"
-      }
+      },
+      "resolved_editor_label_ids": [
+        "6"
+      ],
+      "unresolved_editor_label_ids": []
     },
     {
       "code": "VIDEO_TYPE_MULTI_VALUE",
       "field": "video_type",
       "blocking": true,
-      "detail": "Video Type is a multi-select dropdown; items with several labels have no single speed cohort without an approved rule.",
+      "detail": "Video Type multi-select values use the approved exact normalized full-set cohort policy; no primary type is inferred.",
+      "mapping_version": "monday-video-type-v1.0",
+      "policy": "exact-normalized-full-set",
       "items": {
         "3243581913": [
           5,
           16
         ]
       },
-      "single_value_items": 4
+      "single_value_items": 4,
+      "unresolved_video_type_ids": [
+        "8"
+      ]
     },
     {
       "code": "REQUESTED_ETA_TIMEZONE",
@@ -218,41 +219,6 @@
           "text_minus_value_hours": 3.0
         }
       ]
-    },
-    {
-      "code": "LABEL_DRIFT_SINCE_BASELINE",
-      "field": "status/editor labels",
-      "blocking": false,
-      "detail": "Live column settings compared with the immutable raw snapshot baseline.",
-      "status_labels": {
-        "added": {
-          "8": "Captions Revisions"
-        },
-        "removed": {},
-        "renamed": {}
-      },
-      "editor_labels": {
-        "added": {
-          "12": "Ahmed",
-          "13": "Michael",
-          "14": "Mansour",
-          "15": "Sobhy",
-          "16": "Ezz",
-          "17": "Ali",
-          "18": "Mohamed Mansour (Office)"
-        },
-        "removed": {},
-        "renamed": {}
-      },
-      "editor_deactivated": {
-        "baseline": [
-          1
-        ],
-        "live": [
-          1,
-          8
-        ]
-      }
     }
   ]
 }

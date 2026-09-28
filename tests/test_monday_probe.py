@@ -157,8 +157,13 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(vocabulary["monday_labels_without_contract_value"], {})
         self.assertEqual(findings["COLUMN_TYPE_ALIAS"]["log_column_types"], ["color"])
         self.assertEqual(findings["VIDEO_TYPE_MULTI_VALUE"]["items"], {"100002": [5, 16]})
+        self.assertTrue(findings["VIDEO_TYPE_MULTI_VALUE"]["blocking"])
+        self.assertEqual(findings["VIDEO_TYPE_MULTI_VALUE"]["unresolved_video_type_ids"], ["4"])
         self.assertEqual(findings["REQUESTED_ETA_TIMEZONE"]["items"][0]["value_utc"], "2026-09-21T21:00:00Z")
         self.assertEqual(findings["ACTOR_IS_NOT_EDITOR"]["editor_column"]["type"], "dropdown")
+        self.assertFalse(findings["ACTOR_IS_NOT_EDITOR"]["blocking"])
+        self.assertEqual(findings["ACTOR_IS_NOT_EDITOR"]["resolved_editor_label_ids"], ["6"])
+        self.assertEqual(findings["ACTOR_IS_NOT_EDITOR"]["unresolved_editor_label_ids"], [])
         drift = findings["LABEL_DRIFT_SINCE_BASELINE"]
         self.assertEqual(drift["status_labels"]["added"], {"8": "Captions Revisions"})
         self.assertEqual(drift["editor_labels"]["added"], {"12": "Synthetic New"})

@@ -1,91 +1,65 @@
 # DATA-001 evidence — real Monday probe for one known Editor
 
-Candidate: Atlas Builder Claude M · branch `agent/atlas-builder-claude-m/7ebeefdd6794` · contract `contracts/normalized-status-event.schema.json` v1.0.0 (not edited).
+Candidate: Atlas Builder Claude M · branch `agent/atlas-builder-claude-m/7ebeefdd6794` · approved contract `contracts/normalized-status-event.schema.json` v1.0.0 and executable configuration `config/monday-contract-v1.0.json`.
 
 ## Access
 
 | Path | Result |
 |---|---|
-| Existing raw snapshot `raw/monday/2026-07-25` (Second Brain) | Customer Projects `5091110326` present, 959 items, **no activity logs** (manifest: "not requested in this pass"). Used as the label baseline only. |
-| `MONDAY_API_TOKEN` in runtime env | **Not set.** The repo adapter's `capture` command exits `2` with `MISSING_ACCESS: MONDAY_API_TOKEN is not set`. No token or secret was read, printed or stored. |
-| Monday MCP connector (claude.ai monday.com, `all_api_read`) | **Authorized, read-only**. The same integration produced the 2026-07-25 snapshot. The connector rejects mutations before sending. This path was used for the real pull. |
-
-No mutation was issued: the three GraphQL requests were all `query` operations (activity logs, items, users + column settings).
+| Monday MCP connector | Authorized read-only (`all_api_read`); the three requests were GraphQL `query` operations only. |
+| `MONDAY_API_TOKEN` in runtime env | Not set. The repository `capture` command exits `2` with `MISSING_ACCESS`; no token or secret was read, printed, or stored. |
+| Raw retention | The raw payloads are sealed outside git at `~/.atlas/raw/monday/DATA-001/2026-09-28/`. |
 
 ## Probe scope
 
 - Board `5091110326` (Customer Projects), status column `project_status`.
-- Known Editor: Editor Name dropdown `dropdown_mm1emgt8` label id `6`. It is the most frequent editor in the 2026-07-25 snapshot (121 items). The label is a raw source ID, and no canonical editor identity was assigned.
-- Items: the 5 most recently updated items with that label: `3236714197`, `3241413361`, `3241464823`, `3243581913`, `3246525128`.
-- Activity window `2026-09-15T00:00:00Z` – `2026-09-28T23:59:59Z`. Result: 58 `update_column_value` status logs, 0 undo actions.
+- Known Editor: `Editor Name` dropdown `dropdown_mm1emgt8`, label id `6` (`Will` in the raw Monday response). This label is resolved through the approved `monday-editor-v1.0` mapping; activity-log `user_id` remains audit metadata only.
+- Items: `3236714197`, `3241413361`, `3241464823`, `3243581913`, `3246525128`.
+- Activity window: `2026-09-15T00:00:00Z`–`2026-09-28T23:59:59Z`.
+- Result: 58 `update_column_value` status logs, including 0 undo actions.
 
-## Raw retention (outside git, immutable)
+## Raw retention
 
-The raw store is `~/.atlas/raw/monday/DATA-001/2026-09-28/` on the Claude M runtime host. Files are mode `0444` and write-once (`raw_store.write_immutable` refuses different bytes and refuses any path inside a git worktree).
+The raw store is write-once and read-only (`0444`), and the implementation refuses paths inside a git worktree.
 
-| File | sha256 | Bytes | Provenance |
-|---|---|---|---|
-| `activity_logs.json` | `88447f27496a7ff4267f6279ff8a1b326a1b02abce17bfc3c6cb1cad4a5c89b0` | 56266 | Byte-for-byte MCP response persisted by the harness |
-| `items.json` | `50b4065d15f8ce0d132bf30b399f4ada918e61a3f422cb8dc22722f026b829e6` | 3310 | MCP response text, written verbatim by the agent |
-| `users_columns.json` | `d7f9506270320ec78b0dd37652d43db6470ceb1566f7550b014aea65f5f7a8b6` | 4424 | MCP response text, written verbatim by the agent (includes staff display names, which is why it stays out of git) |
+| File | SHA-256 | Bytes |
+|---|---|---:|
+| `activity_logs.json` | `88447f27496a7ff4267f6279ff8a1b326a1b02abce17bfc3c6cb1cad4a5c89b0` | 56266 |
+| `items.json` | `50b4065d15f8ce0d132bf30b399f4ada918e61a3f422cb8dc22722f026b829e6` | 3310 |
+| `users_columns.json` | `d7f9506270320ec78b0dd37652d43db6470ceb1566f7550b014aea65f5f7a8b6` | 4424 |
 
-## Evidence artifacts (in git, redacted)
+## Evidence artifacts
 
-- `docs/evidence/DATA-001/sample-manifest.json` is the redacted sample manifest. It lists all 58 status changes with raw `log_id`, `board_id`, `item_id`, `user_id`, `account_id`, raw 17-digit `created_at_raw`, converted `occurred_at`, and label index/text. Item names, people names, emails, links, update bodies and colours are excluded by a field whitelist.
-- `docs/evidence/DATA-001/drift-report.json` is the schema drift report against `normalized-status-event.schema.json` v1.0.0.
+- `sample-manifest.json` is regenerated from the sealed raw payloads. It retains raw log, board, item, column, actor, account, label, and timestamp identifiers while excluding item names, people names, emails, links, update bodies, and label colours.
+- `drift-report.json` is regenerated against the approved v1.0 schema **and** `config/monday-contract-v1.0.json`. It reports whether live labels and observed values are covered by the approved registries; it does not treat known v1.0 mappings as unresolved drift.
 
-Regenerate both from the sealed raw dir:
+Regenerate both from the sealed raw directory:
 
+```text
+PYTHONPATH=src python3 -m atlas_monday_probe report \
+  --raw-dir ~/.atlas/raw/monday/DATA-001/2026-09-28 \
+  --access "authorized read-only Monday MCP connector (all_api_read)" \
+  --scope '{"board_id":"5091110326","status_column_id":"project_status","editor_column_id":"dropdown_mm1emgt8","known_editor_label_id":"6","item_ids":["3236714197","3241413361","3241464823","3243581913","3246525128"],"activity_window":{"since":"2026-09-15T00:00:00Z","until":"2026-09-28T23:59:59Z"}}' \
+  --manifest-out docs/evidence/DATA-001/sample-manifest.json \
+  --drift-out docs/evidence/DATA-001/drift-report.json
 ```
-PYTHONPATH=src python3 -m atlas_monday_probe report --raw-dir ~/.atlas/raw/monday/DATA-001/2026-09-28 \
-  --baseline-snapshot "<Second Brain>/raw/monday/2026-07-25/boards/customer-projects--5091110326.md" \
-  --access "..." --scope '{...}' --manifest-out docs/evidence/DATA-001/sample-manifest.json --drift-out docs/evidence/DATA-001/drift-report.json
-```
 
-## Drift findings (real data)
+## Findings against approved v1.0
 
-Blocking findings mean the contract cannot be populated from Monday without an owner decision.
+1. **Status vocabulary: resolved.** All live status labels observed in the probe are present in the approved status registry and carry `monday-status-v1.0`. No status label is silently inferred or quarantined. Contract enum values not observed in this sample are not evidence of drift.
+2. **Editor attribution: resolved for the probed items.** The activity-log `user_id` values are recorded as audit metadata and are not used as Editor identity. The `Editor Name` label id `6` is covered by `monday-editor-v1.0`; the shared account `99154021` is not used to infer an Editor. No unresolved Editor label was found in the probed items.
+3. **Video Type cohorts: policy approved; one label remains unmapped.** Item `3243581913` has the multi-select value `[5,16]` (`Class B`, `Ai`). It is handled with the approved `exact-normalized-full-set` policy; no primary type or global fallback is inferred. The probe also observes Video Type label id `8` (`Class A+`), which is absent from the approved `monday-video-type-v1.0` label registry. Records containing id `8` remain quarantined from cohort comparisons until the mapping is explicitly added in a later contract version.
+4. **Cycle rules: approved and unchanged.** The probe observed repeated `In Progress`/`Create File` transitions and `Sent -> In Progress`. The approved v1.0 rules remain authoritative: the first transition into `In Progress` starts the cycle, repeated `In Progress`/`Create File` transitions stay in the same cycle, post-revision transitions stay in the original cycle, and the first qualifying `Ready For Approval` ends it. This probe computes no work-cycle metric.
+5. **Timestamp encoding: informational.** `activity_logs.created_at` is a 17-digit count of 100 ns ticks. The adapter converts it to RFC 3339 UTC while retaining the raw value.
+6. **Timestamp cross-check: informational.** The latest log label agrees with the items API status label for all five items; log-vs-column `changed_at` deltas are -13 ms to +694 ms.
+7. **Column type alias: informational.** Activity logs report the status column type as `color`; the columns API reports `status`.
+8. **Requested ETA timezone: informational.** Deadline logic must use the UTC `value`, not the account-local display text. The five populated ETAs show a consistent +3 hour display offset.
 
-1. **STATUS_LABEL_VOCABULARY_DRIFT (blocking).** Only `In Progress` (idx 9) and `Ready For Approval` (idx 3) match the contract enum exactly. Twelve Monday labels have no contract value: Internal Revisions, Done, Revisions, Ready To Send, Waiting, Sent, Captions Revisions, Captions In Progress, Create File, Waiting For Captions, TOPAZ, Captions Done. Four contract values have no Monday label: Backlog, Revision, Approved, Delivered. Transitions observed in real data include `Sent -> Revisions`, `Ready For Approval -> Ready To Send` and `Create File -> In Progress`, so `from_status` for real In Progress events is usually outside the enum. The raw logs also contain an empty label (idx 5 `""`) and null labels.
-2. **ACTOR_IS_NOT_EDITOR (blocking).** Log `user_id` is the Monday account that clicked the status, while the evaluated Editor is a dropdown label on the item and not a Monday user. 32 of 58 changes were made by user `99154021`, the board-owner account. Every status change on the sample cycle item was made by that account. No versioned actor or editor mapping exists, so no event can be `canonical_monday_id`. Classifying `99154021` as the shared Waset Co account needs an owner-approved mapping; it was not hard-coded.
-3. **VIDEO_TYPE_MULTI_VALUE (blocking for speed cohorts).** Video Type is a multi-select (item `3243581913` = ids `[5,16]` "Class B, Ai"). A single same-Video-Type cohort needs an approved rule.
-4. **TIMESTAMP_ENCODING.** `activity_logs.created_at` is a 17-digit count of 100 ns ticks (e.g. `17906001359122650` → `2026-09-28T12:55:35.912265Z`). The adapter converts losslessly to microseconds and rejects any other shape.
-5. **TIMESTAMP_CROSS_CHECK.** The latest log per item agrees with the items API status label (5/5). The log time is −13 ms to +694 ms from the column `changed_at`. The log timestamp is the event time, and `changed_at` is kept only as a cross-check.
-6. **COLUMN_TYPE_ALIAS.** Logs call the status column type `color`; the columns API calls it `status`.
-7. **REQUESTED_ETA_TIMEZONE.** The `date` value is UTC date+time; `text` is account-local (+3 h on all 5 items). Deadline logic must use `value`. Items with an empty ETA stay missing and are not guessed.
-8. **LABEL_DRIFT_SINCE_BASELINE (vs 2026-07-25 snapshot).** New status label `8 Captions Revisions`. Editor labels 12–18 were added (Ahmed, Michael, Mansour, Sobhy, Ezz, Ali, Mohamed Mansour (Office)). Samra (id 8) is now deactivated. Status and editor label IDs must be versioned, not treated as static.
-
-Observed, not decided: item `3246525128` has `Sent -> In Progress` right after creation (the item appears to be copied from a sent item), then In Progress ⇄ Create File three times, then `In Progress -> Ready For Approval` (`1093f34d-…`, 2026-09-28T12:55:35.912265Z). Which `In Progress` event starts the work cycle is a rule decision for the contract owner. No work-cycle or metric was computed.
-
-## Implementation
-
-`src/atlas_monday_probe/`:
-
-- `client.py`: `ReadOnlyMondayClient` rejects `mutation` and `subscription` operations (comments and string literals stripped first) before calling the transport. The token comes only from `MONDAY_API_TOKEN`, and `repr` redacts it. Missing access raises `MissingAccess` with the exact missing item.
-- `raw_store.py`: write-once `0444` retention outside git, with sha256 records.
-- `adapter.py`: `parse_status_changes` keeps every raw identifier and timestamp. `normalize` emits a `NormalizedStatusEvent` only when an explicit `StatusMapping` (board+column scoped, versioned) and `ActorMapping` (versioned, with declared Waset Co accounts → `unresolved_waset_co`) are supplied. Otherwise it returns reason codes. Output is validated against the frozen contract.
-- `report.py`: redacted manifest (field whitelist) and drift report.
-- `__main__.py`: `capture` (live, needs token) and `report` (from a sealed raw dir).
+`drift-report.json` has `contract_change_required: true` solely because Video Type label id `8` is not present in the approved v1.0 registry. The status vocabulary, Editor attribution, cycle rules, and multi-select policy are aligned with v1.0; only the unmapped `Class A+` label remains a data-coverage blocker.
 
 ## Tests
 
-- `make monday-probe`: 19 tests, OK (timestamp conversion, raw ID/timestamp retention, write-once/outside-git raw store, mutation rejection before transport, read-only capture path, missing-token handling, mapping-gated normalization incl. Waset Co unresolved, scope mismatch, undo, redaction, drift detection, CLI end-to-end).
-- `make test`: lint OK, mypy OK (9 files), unit 11, contract 6, integration 2, e2e 2, monday-probe 19. All pass, exit 0.
+- `make monday-probe`: read-only enforcement, timestamp conversion, immutable raw retention, redaction, approved-config coverage, drift detection, and CLI end-to-end behavior.
+- `make test`: lint, typecheck, unit, contract, integration, E2E, runtime normalization, identity, and Monday-probe suites.
 
-Fixtures in `fixtures/monday/` are synthetic and shaped like the real payloads. They contain no real names or IDs.
-
-## Assumptions
-
-- The Monday MCP connector counts as the authorized read-only access. It is the integration that produced the existing immutable snapshot.
-- "One known Editor" = Editor Name label id 6 on board `5091110326`, chosen by frequency. The label is not mapped to any person or Atlas ID.
-- Raw payloads live on the runtime host. A shared or durable raw location, such as the Second Brain `raw/monday/` tree, is for the owner to choose; nothing was written there.
-
-## Contract impact
-
-No contract edited. The findings above show that `normalized-status-event.schema.json` v1.0.0 cannot be populated from real Monday data until the owner approves:
-
-- a versioned status-label mapping, or an enum change covering Create File, Sent, Ready To Send, Revisions, Internal Revisions, the captions states and TOPAZ;
-- a versioned actor mapping, including the Waset Co account;
-- a separate editor-attribution source, because the actor is not the Editor;
-- a multi-value Video Type cohort rule;
-- a cycle-start rule when an item has repeated In Progress entries.
+Fixtures are synthetic and contain no real names or IDs. No contract schema was changed by DATA-001.

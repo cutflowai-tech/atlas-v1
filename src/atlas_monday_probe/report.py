@@ -7,13 +7,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_commander.contracts import CONTRACTS
+from atlas_commander.contracts import CONTRACTS, ROOT
 
 from .adapter import StatusChange, dropdown_ids
 from .raw_store import RawRecord
 
 MANIFEST_VERSION = "data-001-manifest-v1"
 DRIFT_VERSION = "data-001-drift-v1"
+CONTRACT_CONFIG = ROOT / "config" / "monday-contract-v1.0.json"
 # Only these StatusChange fields leave the raw store; item names, people names, links and update bodies never do.
 MANIFEST_FIELDS = (
     "log_id", "board_id", "item_id", "column_id", "column_type", "user_id", "account_id", "created_at_raw", "occurred_at",
@@ -25,6 +26,10 @@ def contract_statuses() -> list[str]:
     schema = json.loads((CONTRACTS / "normalized-status-event.schema.json").read_text())
     statuses: list[str] = schema["properties"]["to_status"]["enum"]
     return statuses
+
+
+def approved_contract() -> dict[str, Any]:
+    return json.loads(CONTRACT_CONFIG.read_text())
 
 
 def column_settings(users_columns: dict[str, Any], column_id: str) -> dict[str, Any]:
@@ -95,15 +100,18 @@ def build_drift_report(
     columns: dict[str, str],
 ) -> dict[str, Any]:
     enum = contract_statuses()
+    config = approved_contract()
     status_live = column_settings(users_columns, columns["status"])
     status_labels = _status_labels(status_live["settings"])
     findings: list[dict[str, Any]] = []
 
-    unmatched = {index: text for index, text in status_labels.items() if text not in enum}
+    status_mapping = config["status_mapping"]
+    unmatched = {index: text for index, text in status_labels.items() if text not in status_mapping}
     findings.append({
-        "code": "STATUS_LABEL_VOCABULARY_DRIFT", "field": "from_status/to_status", "blocking": True,
-        "detail": "Monday status labels are not the contract enum; only exact-text matches are listed and no mapping is inferred.",
-        "exact_text_matches": {index: text for index, text in status_labels.items() if text in enum},
+        "code": "STATUS_LABEL_VOCABULARY_DRIFT", "field": "from_status/to_status", "blocking": bool(unmatched),
+        "detail": "Monday labels are checked against the approved v1.0 status registry; unmapped labels are not inferred.",
+        "mapping_version": config["status_mapping_version"],
+        "exact_text_matches": {index: text for index, text in status_labels.items() if text in status_mapping},
         "monday_labels_without_contract_value": unmatched,
         "contract_values_without_monday_label": sorted(set(enum) - set(status_labels.values())),
     })
@@ -143,20 +151,35 @@ def build_drift_report(
     })
     actor_counts = Counter(change.user_id for change in changes)
     editor_column = column_settings(users_columns, columns["editor"])
+    editor_mapping = {str(entry["monday_person_id"]): entry for entry in config["editor_attribution"]["entries"]}
+    editor_ids = {
+        str(label_id)
+        for item in items.get("items") or []
+        for label_id in dropdown_ids(item, columns["editor"])
+    }
+    unresolved_editor_ids = sorted(editor_ids - set(editor_mapping), key=int)
     findings.append({
-        "code": "ACTOR_IS_NOT_EDITOR", "field": "actor_resolution/actor_id", "blocking": True,
-        "detail": ("Log user_id is the Monday account that changed the status; the evaluated Editor is a "
-                   f"'{editor_column['type']}' label on the item, not a Monday user. No versioned actor or editor mapping exists, "
-                   "so no event can be canonical_monday_id and none is guessed."),
+        "code": "ACTOR_IS_NOT_EDITOR", "field": "actor_resolution/actor_id", "blocking": bool(unresolved_editor_ids),
+        "detail": ("Log user_id is audit metadata; the evaluated Editor is the Editor Name field. "
+                   "Editor attribution uses the approved versioned label mapping and never infers identity from the actor."),
+        "mapping_version": config["editor_attribution"]["mapping_version"],
+        "authoritative_field": config["editor_attribution"]["authoritative_field"],
         "actor_user_ids": dict(actor_counts.most_common()),
         "editor_column": {"id": columns["editor"], "type": editor_column["type"]},
+        "resolved_editor_label_ids": sorted(editor_ids - set(unresolved_editor_ids), key=int),
+        "unresolved_editor_label_ids": unresolved_editor_ids,
     })
     video_type_items = {str(item["id"]): dropdown_ids(item, columns["video_type"]) for item in items.get("items") or []}
+    video_mapping = {str(value) for value in config["video_type_cohorts"]["label_to_id"].values()}
+    unresolved_video_ids = sorted({str(label_id) for ids in video_type_items.values() for label_id in ids} - video_mapping, key=int)
     findings.append({
-        "code": "VIDEO_TYPE_MULTI_VALUE", "field": "video_type", "blocking": True,
-        "detail": "Video Type is a multi-select dropdown; items with several labels have no single speed cohort without an approved rule.",
+        "code": "VIDEO_TYPE_MULTI_VALUE", "field": "video_type", "blocking": bool(unresolved_video_ids),
+        "detail": "Video Type multi-select values use the approved exact normalized full-set cohort policy; no primary type is inferred.",
+        "mapping_version": config["video_type_cohorts"]["mapping_version"],
+        "policy": config["video_type_cohorts"]["multi_select_policy"],
         "items": {item_id: ids for item_id, ids in video_type_items.items() if len(ids) > 1},
         "single_value_items": sum(1 for ids in video_type_items.values() if len(ids) == 1),
+        "unresolved_video_type_ids": unresolved_video_ids,
     })
     etas = []
     for item in items.get("items") or []:
