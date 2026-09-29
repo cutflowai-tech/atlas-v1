@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-531 keys: 149 Approved from brief, 359 Implemented conservatively, 23 Needs Arabic Review.
+533 keys: 149 Approved from brief, 361 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -131,6 +131,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `home.pulse_sub` | What happened, day by day. Select a marker for its evidence. | ما حدث يومًا بيوم. اختر أي علامة لعرض الأدلة الخاصة بها. | Section subheading | Implemented conservatively |  |
 | `home.pulse_title` | Team Pulse | نبض الفريق | Section heading | Implemented conservatively |  |
 | `home.team_sub` | Current performance evidence across the editing team. | أدلة الأداء الحالية لفريق المونتاج. | Section subheading | Implemented conservatively |  |
+| `interp.all_history` | all history | كل السجل | Scope label for all-history counts (1.5 Overview card) | Implemented conservatively |  |
 | `interp.card.components` | Q {quality} · S {speed} · D {deadline} | ج {quality} · س {speed} · م {deadline} | Compact component states on the Overview card | Implemented conservatively |  |
 | `interp.component.overall_lookup` | Overall Status lookup table | جدول تحديد الحالة العامة | Why-this-status row | Implemented conservatively |  |
 | `interp.coverage` | This Editor: {current} projects in the current window, {comparison} in the comparison window, {excluded} excluded | هذا المونتير: {current} مشروع في الفترة الحالية، و{comparison} في فترة المقارنة، و{excluded} مستبعد | Editor-scoped coverage | Implemented conservatively |  |
@@ -255,6 +256,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `pending.trend_direction.reason` | No trend rule is approved; monthly figures are shown with their sample sizes only. | لا توجد قاعدة معتمدة للاتجاه؛ تُعرض الأرقام الشهرية مع حجم العينة فقط. | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.workload_capacity.label` | Workload / capacity judgement | الحكم على عبء العمل / الطاقة الاستيعابية | Unapproved management rule (Data & System) | Implemented conservatively |  |
 | `pending.workload_capacity.reason` | Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5). | لم يتم بعد تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي (DECISIONS.md، القرار المفتوح 5). | Why the rule is not evaluated | Implemented conservatively |  |
+| `pending_v15.needs_attention.label` | Needs Attention Now | يحتاج إلى انتباه الآن | Glossary term (change-based, D-glossary); contract 1.5 | Implemented conservatively |  |
 | `pending_v15.positive_signals.reason` | Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved. | تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
 | `pending_v15.reward_recommendation.reason` | No reward rule is approved; positive labels are evidence and never an automatic reward recommendation. | لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
 | `pending_v15.trend_direction.reason` | Recent Change is shown as a fact with both windows and samples; no Trend materiality threshold is approved. | يُعرض التغيّر الأخير كحقيقة مع الفترتين وحجم العينة؛ ولا توجد عتبة معتمدة لأهمية تغيّر الاتجاه. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |

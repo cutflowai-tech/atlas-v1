@@ -3332,6 +3332,18 @@
    "context": "Rate difference in percentage points",
    "status": "Implemented conservatively"
   },
+  "interp.all_history": {
+   "en": "all history",
+   "ar": "كل السجل",
+   "context": "Scope label for all-history counts (1.5 Overview card)",
+   "status": "Implemented conservatively"
+  },
+  "pending_v15.needs_attention.label": {
+   "en": "Needs Attention Now",
+   "ar": "يحتاج إلى انتباه الآن",
+   "context": "Glossary term (change-based, D-glossary); contract 1.5",
+   "status": "Implemented conservatively"
+  },
   "workload.footer": {
    "en": "Factual context. Capacity is not evaluated.",
    "ar": "سياق فعلي فقط. لا يتم تقييم الطاقة الاستيعابية.",

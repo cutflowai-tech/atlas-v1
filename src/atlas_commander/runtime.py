@@ -39,7 +39,7 @@ def contract_config_errors(config: Any) -> list[str]:
     if schema is None:
         return []
     errors = schema_errors(config, schema)
-    if version == "1.5.0":
+    if version == "1.5.0":   # data checks of this exact config file (its attested identities); behaviour gates use capabilities
         expected = {f"D{number}" for number in range(20, 52)}
         authority_value = config.get("authority")
         authority: dict[str, Any] = authority_value if isinstance(authority_value, dict) else {}

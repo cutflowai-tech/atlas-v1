@@ -144,6 +144,21 @@ class ContractV15ConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractConfigError, "D49 identity attestations"):
                 load_contract(path)
 
+    def test_loader_rejects_misspelled_or_alias_rule_keys(self):
+        # A typo in a threshold key must fail loudly, never silently leave the rule unapproved (SF-1).
+        cases = {"quality typo": ("interpretation", "quality_component", "negative_rate_treshold", 0.3),
+                 "overall alias": ("interpretation", "overall_status", "lookup", {}),
+                 "trend singular": ("interpretation", "trend", "material_change_threshold", None)}
+        for name, (section, rule, key, value) in cases.items():
+            with self.subTest(case=name):
+                invalid = copy.deepcopy(self.contract)
+                invalid[section][rule][key] = value
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "contract.json"
+                    path.write_text(json.dumps(invalid))
+                    with self.assertRaises(ContractConfigError):
+                        load_contract(path)
+
     def test_loader_rejects_a_historical_tuple_made_ongoing_or_an_editor_made_historical(self):
         for key, validity in ((("5", "Ahmed"), "ongoing"), (("4", "Mario"), "historical")):
             with self.subTest(identity=key):

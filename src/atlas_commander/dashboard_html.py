@@ -36,7 +36,7 @@ from typing import Any
 from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
 from atlas_commander.interpretation_html import CSS as IA_CSS
-from atlas_commander.interpretation_html import interpretation_section, overall_badge
+from atlas_commander.interpretation_html import interpretation_section, overall_badge, window_caption
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 
 SPEED_WORD = {"faster_than_team_median": "faster", "slower_than_team_median": "slower", "equal_to_team_median": "level"}
@@ -528,10 +528,16 @@ def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
     lines.append(("spark", loc.t("card.positive"), positive))
     lines.append(("stack", loc.t("common.current_work"), workload_chips(s["current_workload"], 3, loc)))
     body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{k}</span><div>{v}</div></div>' for ic, k, v in lines)
+    completed = loc.count("noun.completed_project", s["sample"]["completed_projects"])
+    scope = ""
+    if "interpretation" in s:
+        # Contract 1.5: the project count covers all history; every line below it is the current Cairo window (D24, D42).
+        completed = Html(f'{completed} · {loc.t("interp.all_history")}')
+        scope = f'<p class="tiny quiet" data-scope="current-window">{window_caption(s["interpretation"], loc)}</p>'
     return (f'<article class="card ed" aria-label="{_attr(s["display_name"])}">'
             f'<div class="who">{avatar(s["display_name"])}<div><h3>{loc.src(s["display_name"])}</h3>'
-            f'<span class="small quiet">{loc.count("noun.completed_project", s["sample"]["completed_projects"])}</span></div>{_overall(s, loc)}</div>'
-            f'{hero}{body}'
+            f'<span class="small quiet">{completed}</span></div>{_overall(s, loc)}</div>'
+            f'{scope}{hero}{body}'
             f'<a class="cta stretch" href="#/editor/{escape(s["editor_id"])}">{loc.t("card.view_profile")} {icon("arrow", 15)}</a></article>')
 
 
@@ -985,8 +991,9 @@ def fact_text(fact: dict[str, Any], loc: Loc = EN) -> Html:
     return loc.t(f"fact.{kind}")
 
 
-def pending_label(slot: str, loc: Loc = EN) -> Html:
-    return loc.t(f"pending.{slot}.label")
+def pending_label(slot: str, loc: Loc = EN, v15: bool = False) -> Html:
+    # Contract 1.5 uses the glossary's "Needs Attention Now" (a change-based concept), never "Needs attention" as a status.
+    return loc.t(f"pending_v15.{slot}.label" if v15 and loc.has(f"pending_v15.{slot}.label") else f"pending.{slot}.label")
 
 
 def _snapshot(s: dict[str, Any], loc: Loc = EN) -> str:
@@ -994,7 +1001,7 @@ def _snapshot(s: dict[str, Any], loc: Loc = EN) -> str:
     for block in s["snapshot"]:
         facts = block.get("fact_data") or []
         items = "".join(f"<li>{fact_text(f, loc)}</li>" for f in facts) or f'<li class="quiet" style="list-style:none;margin-inline-start:-18px">{loc.t("common.no_signal")}</li>'
-        judged = (f'<div class="j">{pending_label(block["judgement"]["slot"], loc)}: {loc.t("common.not_evaluated")}</div>' if block["judgement"]
+        judged = (f'<div class="j">{pending_label(block["judgement"]["slot"], loc, "interpretation" in s)}: {loc.t("common.not_evaluated")}</div>' if block["judgement"]
                   else '<div class="j">&nbsp;</div>')
         out.append(f'<div class="card"><h3>{loc.t("snapshot.head." + block["key"])}</h3>{judged}<ul>{items}</ul></div>')
     return f'<div class="qa">{"".join(out)}</div>'
@@ -1148,7 +1155,7 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
         approved = "<ul>" + "".join(f"<li><b>{loc.t(name)}</b> — {text}</li>" for name, text in rules) + "</ul>"
     v15 = capabilities(doc["source"]["executable_contract_version"]).editor_intelligence
     slots = [slot for slot in PENDING_RULES if not (v15 and slot not in V15_PENDING_SLOTS)]
-    pending = "".join(f'<tr><td>{pending_label(slot, loc)}</td><td>{loc.t("common.not_evaluated")}</td>'
+    pending = "".join(f'<tr><td>{pending_label(slot, loc, v15)}</td><td>{loc.t("common.not_evaluated")}</td>'
                       f'<td>{loc.t(f"pending_v15.{slot}.reason" if v15 and slot in V15_REASONS else f"pending.{slot}.reason")}</td></tr>'
                       for slot in slots)
     editors = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.tech(s["editor_id"])}</td><td>{loc.src(s["monday_label"])}</td>'

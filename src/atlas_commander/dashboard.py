@@ -54,7 +54,7 @@ def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
             "compared_cohorts": [c for c in cohorts if c["conclusion"] in COMPARED], "comparison_status_counts": status_counts,
             **({"leave_one_out": speed.get("leave_one_out"),
                 "minimum_comparator_sample_size": speed.get("minimum_comparator_sample_size"),
-                "component": speed.get("component")} if "leave_one_out" in speed else {})}
+                "component": speed.get("component")} if capabilities(profile["executable_contract_version"]).editor_intelligence else {})}
 
 
 def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
@@ -68,12 +68,13 @@ def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
 def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
     quality = profile["quality"]
     negative = quality["negative"]
-    result = {"source": "quality" if "context" in quality else "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
+    taxonomy = capabilities(profile["executable_contract_version"]).label_taxonomy
+    result = {"source": "quality" if taxonomy else "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
             "completed_projects_attributed": negative["completed_projects_attributed"],
             "by_label": [{"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
                          for row in negative["by_label"]],
             "for_bonus_context_projects": len(quality["for_bonus_context"]["projects"])}
-    if "context" in quality:
+    if taxonomy:
         def block(name: str) -> dict[str, Any]:
             value = quality[name]
             return {
@@ -146,7 +147,7 @@ def _workload(profile: Mapping[str, Any]) -> dict[str, Any]:
     summary = {"source": "current_workload.by_current_status", "as_of": workload["as_of"],
             "by_current_status": {status: len(items) for status, items in sorted(workload["by_current_status"].items(), key=lambda p: (-len(p[1]), p[0]))},
             "note": workload["note"]}
-    if "active_work" in workload:
+    if capabilities(profile["executable_contract_version"]).editor_intelligence:
         summary.update({
             "active_work_count": workload["active_work"]["count"],
             "awaiting_approval_count": workload["awaiting_approval"]["count"],

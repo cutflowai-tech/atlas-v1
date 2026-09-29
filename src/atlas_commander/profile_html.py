@@ -153,7 +153,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     bonus = quality["for_bonus_context"]
     no_labels = f"<tr><td colspan=3>{t('report.no_issue_labels')}</td></tr>"
     taxonomy_tables = ""
-    if "context" in quality:
+    if v15:
         positive_rows = quality_rows("positive")
         context_rows = quality_rows("context")
         taxonomy_tables = (
@@ -176,7 +176,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  f"<p class=\"note\">{t('report.quality_note')} {t('note.positive_v15' if v15 else 'note.positive')}</p></section>")
 
     revision_tiles = tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
-    if "internal" in revisions:
+    if v15:
         revision_tiles += tile(loc.num(revisions["internal"]["events"]), t("revisions.internal_events"))
     revision_tiles += tile(loc.num(revisions["projects_with_client_revisions"]), t("report.tile.projects_with_revisions", total=loc.num(revisions["completed_projects"])))
     revision_tiles += tile(loc.pct(revisions["client_revision_rate"]), t("report.tile.revision_rate"))
@@ -188,12 +188,12 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                             for status, items in sorted(workload["by_current_status"].items(), key=lambda pair: -len(pair[1])))
     none_row = f"<tr><td colspan=3>{t('common.none')}</td></tr>"
     workload_summary = ""
-    if "active_work" in workload:
+    if v15:
         workload_summary = (f'<div class="tiles">{tile(loc.num(workload["active_work"]["count"]), t("workload.active_work"))}'
                             f'{tile(loc.num(workload["awaiting_approval"]["count"]), t("workload.awaiting_approval"))}</div>')
     parts.append(f"<section class=\"card\"><h2>{t('report.current_title', date=loc.tech(workload['as_of']))}</h2>{workload_summary}<div class=\"scroll\"><table><thead><tr>"
                  f"<th scope=col>{t('report.head.current_status')}</th><th scope=col>{t('report.head.items')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
-                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload_v15' if 'active_work' in workload else 'note.workload')}</p></section>")
+                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload_v15' if v15 else 'note.workload')}</p></section>")
 
     trend = profile["trend"]
     speed_rows = "".join(f"<tr><td>{loc.tech(row['cohort_key'])}</td><td>{escape(loc.month(row['month']))}</td><td>{loc.num(row['projects'])}</td><td>{loc.hours(row['median_seconds'])}</td></tr>"

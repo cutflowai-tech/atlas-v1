@@ -85,7 +85,7 @@ def _for_bonus_context(result: CycleReconstruction, contract: Mapping[str, Any],
     column = contract["quality_labels"].get("for_bonus", {}).get("column_id")
     snapshots = result.item_snapshots.get(column, {}) if column else {}
     projects = sorted(item for item in item_ids if dropdown_value_ids((snapshots.get(item) or {}).get("value")))
-    if str(contract.get("contract_version")) == "1.5.0":
+    if capabilities(contract).label_taxonomy:
         return {"affects_quality": "per-label", "classification": "per-label-registry", "column_id": column, "projects": projects,
                 "note": "For Bonus is a storage column. Each label is classified independently as Positive or Context; On Time Delivery remains visible but is not scored in Quality."}
     return {"affects_quality": False, "classification": "context-unclassified", "column_id": column, "projects": projects,
@@ -300,7 +300,7 @@ def _quality_class_result(result: QualityResult, label_class: str, item_ids: set
         occurrences=[
             metric for metric in result.occurrences
             if metric["editor_id"] and metric["evidence"]["monday_item_id"] in item_ids
-            and metric["evidence"]["source_values"].get("label_class", "Negative") == label_class
+            and metric["evidence"]["source_values"]["label_class"] == label_class
         ],
         quarantined=list(result.quarantined),
     )
