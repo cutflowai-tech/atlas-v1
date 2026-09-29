@@ -30,6 +30,12 @@ After the run/publish outcome, Atlas evaluates the existing Task 7 runtime statu
 that same snapshot to update operational alert state. No second health implementation and
 no Monday request are used for this step.
 
+Only after publication, status evaluation, durable outcome evidence, and alert state all
+succeed, the same lock holder applies bounded retention. The cleanup result is included in
+the finalized cycle record. `ATLAS_RETENTION_SECONDS` defaults to `345600` (96 hours).
+Retention failure is reported separately and never changes a successful publication into a
+failed one. Failed or inconsistent cycles do no cleanup.
+
 ## Persisted operational state
 
 The already validated `ATLAS_LOCK_DIR` (normally `<ATLAS_DATA_DIR>/locks`) is also the safe
@@ -39,6 +45,7 @@ operational-state root. It is separate from raw evidence, builds, and published 
 - `scheduled-cycles/<cycle_id>.outcome.json`: immutable core outcome written before alerts;
 - `scheduled-cycles/<cycle_id>.json`: immutable finalized cycle result;
 - `alerts/state.json`: atomically replaced alert lifecycle state.
+- `retention/latest.json`: atomically replaced safe aggregate/report from the last completed cleanup.
 
 These append-only phases form one crash-recoverable journal. A start without an outcome is
 reconstructed as an interrupted failed cycle; an outcome without a final record remains the
@@ -74,6 +81,27 @@ transport exists in Task 8.
 A later fully successful scheduled run publishes only its new validated build, resets the
 scheduled-failure streak, and resolves conditions that are no longer present. A failed cycle
 does not delete, replace, or invalidate the last-good dashboard before the atomic switch.
+
+## Bounded retention
+
+`python -m atlas_sync retention --dry-run --json` takes the production lock and emits the
+exact deterministic decisions without deleting or writing the latest report. The non-dry
+command is available for controlled operator use; normal cleanup is the post-success step of
+`scheduled-run`.
+
+Retention considers only exact Atlas run IDs and publication/cycle filenames directly under
+the configured roots. It never follows symlinks. Unknown objects, incomplete work, unsafe or
+outside-root references, corrupt JSON, and ambiguous provenance are retained. The current
+publication, the actual default rollback target selected by publication history, every
+successful publication still inside the retention window, and all of their attempt/build/raw
+provenance are retained transitively. The exact 96-hour boundary is retained; an object must
+be strictly older than the cutoff to be eligible. Terminal failed attempts may expire, while
+running/incomplete artifacts and orphaned cycle starts remain protected.
+
+The JSON report includes per-object kind/name/action/reason/bytes plus deleted, retained, and
+dry-run-would-delete counts and bytes. A clean report also contains aggregate retained storage
+by evidence kind. Treat `blocked` or `partial` as a request for operator investigation; do not
+delete around it manually.
 
 ## Exit codes
 

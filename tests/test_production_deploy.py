@@ -77,6 +77,7 @@ class ProductionDeploymentTests(unittest.TestCase):
             "ATLAS_UID", "ATLAS_GID", "ATLAS_HTTP_BIND", "ATLAS_HTTP_PORT", "ATLAS_HISTORY_START",
             "ATLAS_SYNC_INTERVAL_SECONDS",
             "ATLAS_STALE_AFTER_SECONDS", "ATLAS_MAX_CONSECUTIVE_FAILURES", "ATLAS_SYNC_MAX_DURATION_SECONDS",
+            "ATLAS_RETENTION_SECONDS",
             "ATLAS_CONTRACT_VERSION", "ATLAS_MONDAY_BOARD_ID", "MONDAY_API_VERSION",
         }
         assigned = {match.group(1) for match in re.finditer(r"^([A-Z][A-Z0-9_]*)=", env, re.MULTILINE)}
@@ -115,7 +116,7 @@ class ProductionDeploymentTests(unittest.TestCase):
             self.assertIn(command, book)
         self.assertIn("Task 6", book)
         self.assertIn("exit 75", book)
-        self.assertIn("no retention deletion", book)
+        self.assertIn("96-hour bounded retention", book)
         self.assertIn("https://atlas.wasetco.com", book)
         self.assertIn("TLS", book)
         self.assertIn("not delivered externally", book)

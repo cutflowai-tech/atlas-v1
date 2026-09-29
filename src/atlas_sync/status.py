@@ -57,6 +57,7 @@ class StatusSnapshot:
     failure_categories: list[str] = field(default_factory=list)
     active_alert_types: list[str] = field(default_factory=list)
     alert_state_status: str = "not_applicable"
+    retention: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -324,6 +325,32 @@ def _attach_alert_state(snapshot: StatusSnapshot, config: SyncConfig) -> StatusS
     return snapshot
 
 
+def _attach_retention(snapshot: StatusSnapshot, config: SyncConfig) -> StatusSnapshot:
+    """Expose aggregate storage only from a clean, allow-listed retention report."""
+    if config.lock_dir is None:
+        return snapshot
+    document = _json_object(config.lock_dir.resolve() / "retention" / "latest.json")
+    if not document or document.get("report_version") != "atlas-retention-v1" or document.get("status") != "complete":
+        return snapshot
+    storage = document.get("storage")
+    if not isinstance(storage, dict):
+        return snapshot
+    clean: dict[str, dict[str, int]] = {}
+    for kind, values in storage.items():
+        if not isinstance(kind, str) or not isinstance(values, dict):
+            return snapshot
+        count, size = values.get("count"), values.get("bytes")
+        if not isinstance(count, int) or count < 0 or not isinstance(size, int) or size < 0:
+            return snapshot
+        clean[kind] = {"count": count, "bytes": size}
+    snapshot.retention = {
+        "generated_at": document.get("generated_at"), "cutoff": document.get("cutoff"),
+        "retention_seconds": document.get("retention_seconds"), "storage": clean,
+        "deleted_count": document.get("deleted_count"), "deleted_bytes": document.get("deleted_bytes"),
+    }
+    return snapshot
+
+
 def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncConfig | None = None,
                     clock: Callable[[], datetime] = utc_now) -> StatusSnapshot:
     """Evaluate a bounded, pointer-stable runtime view without locks, network, cache, or writes."""
@@ -341,9 +368,9 @@ def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncCon
         snapshot = _evaluate_observation(cfg, now, before, records)
         after = _pointer_state(cfg)
         if before == after:
-            return _attach_alert_state(snapshot, cfg)
+            return _attach_retention(_attach_alert_state(snapshot, cfg), cfg)
     successes = [record for record in records if record.get("status") == "success"]
-    return _attach_alert_state(
+    return _attach_retention(_attach_alert_state(
         StatusSnapshot(_iso(now), "runtime", SYSTEM_UNKNOWN, FRESHNESS_UNKNOWN, False, None,
                        _safe_attempt(records[-1]) if records else None,
                        _safe_attempt(successes[-1]) if successes else None,
@@ -352,7 +379,7 @@ def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncCon
                        cfg.max_consecutive_failures, [HealthCheck("current_pointer", "unknown", "concurrent_transition")],
                        ["concurrent_transition"], ["concurrent_transition"]),
         cfg,
-    )
+    ), cfg)
 
 
 def build_time_snapshot(*, config: SyncConfig, generated_at: str, attempt_id: str, source_run_id: str,

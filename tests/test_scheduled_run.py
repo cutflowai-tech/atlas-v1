@@ -17,7 +17,7 @@ from test_sync_run import HISTORY, T0, TOKEN, Clock, Faulty, Monotonic, logs
 
 from atlas_monday_probe.client import HttpFailure
 from atlas_sync import __main__ as cli
-from atlas_sync import alerts, lock, publish, run, scheduled
+from atlas_sync import alerts, lock, publish, retention, run, scheduled
 from atlas_sync.config import load_sync_config
 
 CYCLE_ID = "20260920T120000Z-aaaaaaaaaaaa"
@@ -179,6 +179,23 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertEqual(scheduled._cycle_records(self.config)[-1]["status"], "published")
         state = alerts.read_alert_state(self.config.lock_dir)
         self.assertEqual(state["last_observation"]["consecutive_scheduled_failures"], 0)
+
+    def test_retention_runs_last_under_same_lock_and_failure_does_not_invalidate_publication(self):
+        observed = []
+
+        def cleanup(**kwargs):
+            with self.assertRaises(lock.OperationLocked), lock.production_lock(self.config, "retention", clock=lambda: T0):
+                pass
+            observed.append(Path(kwargs["config"].lock_dir, "scheduled-cycles", f"{CYCLE_ID}.outcome.json").exists())
+            raise OSError("cleanup failure")
+
+        with mock.patch.object(retention, "_cleanup_locked", side_effect=cleanup):
+            result = self.cycle()
+        self.assertEqual((result.status, result.retention_status, scheduled.exit_code(result)),
+                         ("published", "failed", 0))
+        self.assertEqual(observed, [True])
+        self.assertEqual(self.live_attempt(), ATTEMPT_ID)
+        self.assertEqual(json.loads(Path(result.cycle_record).read_text())["retention_status"], "failed")
 
     def test_started_record_is_durable_before_monday_and_orphan_is_recovered_as_failure(self):
         with mock.patch.object(scheduled, "_record_started", side_effect=OSError("disk")):

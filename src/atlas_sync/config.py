@@ -75,6 +75,7 @@ INTERVAL_ENV = "ATLAS_SYNC_INTERVAL_SECONDS"
 STALE_ENV = "ATLAS_STALE_AFTER_SECONDS"
 FAILURES_ENV = "ATLAS_MAX_CONSECUTIVE_FAILURES"
 MAX_DURATION_ENV = "ATLAS_SYNC_MAX_DURATION_SECONDS"
+RETENTION_ENV = "ATLAS_RETENTION_SECONDS"
 
 # Production sync runs only the contract validated live (REAL-004). Older contracts stay loadable for
 # reproducing historical results and fixtures, but never for production sync.
@@ -85,6 +86,7 @@ DEFAULT_INTERVAL_SECONDS = 3600
 DEFAULT_STALE_AFTER_SECONDS = 7200
 DEFAULT_MAX_CONSECUTIVE_FAILURES = 3
 DEFAULT_MAX_DURATION_SECONDS = 7200
+DEFAULT_RETENTION_SECONDS = 96 * 60 * 60
 MIN_MAX_DURATION_SECONDS = 60
 MIN_INTERVAL_SECONDS = 300
 MAX_INTERVAL_SECONDS = 86_400
@@ -143,6 +145,7 @@ class SyncConfig:
     stale_after_seconds: int
     max_consecutive_failures: int
     max_sync_duration_seconds: int = DEFAULT_MAX_DURATION_SECONDS
+    retention_seconds: int = DEFAULT_RETENTION_SECONDS
     # Directory of the production-operation lock (see atlas_sync.lock); None when neither ATLAS_DATA_DIR nor ATLAS_LOCK_DIR is set.
     lock_dir: Path | None = None
 
@@ -175,6 +178,7 @@ class SyncConfig:
             "stale_after_seconds": self.stale_after_seconds,
             "max_consecutive_failures": self.max_consecutive_failures,
             "max_sync_duration_seconds": self.max_sync_duration_seconds,
+            "retention_seconds": self.retention_seconds,
             "lock_dir": str(self.lock_dir) if self.lock_dir is not None else None,
         }
 
@@ -293,6 +297,7 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
     stale = _int(env, STALE_ENV, DEFAULT_STALE_AFTER_SECONDS, MIN_INTERVAL_SECONDS, None, problems)
     failures = _int(env, FAILURES_ENV, DEFAULT_MAX_CONSECUTIVE_FAILURES, 1, 100, problems)
     max_duration = _int(env, MAX_DURATION_ENV, DEFAULT_MAX_DURATION_SECONDS, MIN_MAX_DURATION_SECONDS, MAX_INTERVAL_SECONDS, problems)
+    retention = _int(env, RETENTION_ENV, DEFAULT_RETENTION_SECONDS, 3600, None, problems)
     if stale <= interval:
         problems.append(f"{STALE_ENV} ({stale}) must be greater than {INTERVAL_ENV} ({interval})")
 
@@ -301,4 +306,4 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
     return SyncConfig(monday_token=token, monday_token_source=source, monday_api_version=api_version, contract_version=contract_version,
                       board_id=board_id, raw_dir=raw_dir, build_dir=build_dir, publish_dir=publish_dir, history_start=history_start,
                       sync_interval_seconds=interval, stale_after_seconds=stale, max_consecutive_failures=failures,
-                      max_sync_duration_seconds=max_duration, lock_dir=lock_dir)
+                      max_sync_duration_seconds=max_duration, retention_seconds=retention, lock_dir=lock_dir)

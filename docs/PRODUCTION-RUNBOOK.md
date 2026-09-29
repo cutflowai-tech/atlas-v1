@@ -49,7 +49,8 @@ Compose YAML, shell history, tickets, or journals. The container sees the secret
 
 `atlas.env` is the single deployment configuration source for image digests, host data/token paths,
 UID/GID, local HTTP bind, API version, board and contract versions, history start, hourly interval,
-stale threshold, maximum consecutive failures, and maximum cycle duration. Inside the container,
+stale threshold, maximum consecutive failures, maximum cycle duration, and
+`ATLAS_RETENTION_SECONDS=345600`, the conservative 96-hour evidence window. Inside the container,
 `ATLAS_DATA_DIR=/var/lib/waset-atlas` is fixed deliberately. The application's existing configuration
 derives `raw/monday`, `builds`, `published`, `locks`, `locks/alerts`, and
 `locks/scheduled-cycles` from that root; do not duplicate or override those directories separately.
@@ -66,8 +67,9 @@ The host directory `/var/lib/waset-atlas` is mounted at the identical absolute p
   published/CURRENT.json      operational metadata, not the live pointer
   published/history/          immutable publication history
   locks/production.lock       Task 6 shared operation lock
-  locks/scheduled-cycles/      immutable scheduled-cycle journal
+  locks/scheduled-cycles/      bounded immutable scheduled-cycle journal
   locks/alerts/state.json      atomically replaced alert lifecycle state
+  locks/retention/latest.json  latest safe retention report/storage aggregate
 ```
 
 The actual `published/current` symlink is authoritative for what is served. Task 7 status is
@@ -266,8 +268,11 @@ missed interval produces at most one activation, not one activation per missed h
   `docker history --no-trunc`, generated site, Compose config, unit files, and captured test output
   for credential patterns. Report only pass/fail and safe identifiers—never echo a discovered value.
 - Monitor `df -h /var/lib/waset-atlas`, `df -i /var/lib/waset-atlas`, and
-  `du -sh /var/lib/waset-atlas/*`. Atlas performs no retention deletion in Task 9. Never improvise
-  deletion of raw evidence, builds, publication history, scheduled cycles, or alert history.
+  `du -sh /var/lib/waset-atlas/*`. Atlas applies conservative 96-hour bounded retention only after
+  a successful scheduled publication/status cycle and under the production lock. Preview exact
+  decisions with `atlas_sync retention --dry-run --json`. Never improvise deletion of raw evidence,
+  builds, publication history, scheduled cycles, or alert history; investigate `blocked`/`partial`
+  reports instead.
 - Before a backup, stop the timer and confirm the service is inactive. Back up
   `/var/lib/waset-atlas` with permissions, timestamps, and symlinks preserved. Back up
   `/etc/waset-atlas` separately into an encrypted secret store with stricter access. Restore into a

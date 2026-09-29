@@ -63,6 +63,7 @@ class SyncConfigTests(unittest.TestCase):
                          (self.data / "raw/monday", self.data / "builds", self.data / "published"))
         self.assertEqual((config.history_start, config.sync_interval_seconds, config.stale_after_seconds, config.max_consecutive_failures),
                          ("2026-02-01T00:00:00Z", 3600, 7200, 3))
+        self.assertEqual(config.retention_seconds, 96 * 60 * 60)
         self.assertEqual(config.contract()["source_board"]["board_id"], config.board_id)
 
     def test_missing_data_directories_fail_clearly(self):
