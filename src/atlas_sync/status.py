@@ -57,6 +57,7 @@ class StatusSnapshot:
     failure_categories: list[str] = field(default_factory=list)
     active_alert_types: list[str] = field(default_factory=list)
     alert_state_status: str = "not_applicable"
+    storage_retention: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -300,7 +301,8 @@ def _evaluate_observation(config: SyncConfig, now: datetime, pointer: tuple[str,
 def _attach_alert_state(snapshot: StatusSnapshot, config: SyncConfig) -> StatusSnapshot:
     """Attach only safe active alert kinds from persisted Task 8 state; never mutate it."""
     from . import alerts  # Lazy import avoids the alerts -> status model dependency at module load.
-
+    from .retention import latest_summary
+    snapshot.storage_retention = latest_summary(config)
     lock_dir = config.lock_dir
     if lock_dir is None:
         snapshot.alert_state_status = "not_configured"

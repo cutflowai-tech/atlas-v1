@@ -19,7 +19,7 @@ from typing import Any
 from atlas_commander.ingest import RUN_ID_PATTERN, Clock, new_run_id, utc_now
 from atlas_monday_probe.raw_store import write_immutable_atomic
 
-from . import alerts
+from . import alerts, retention
 from . import publish as publication
 from . import run as sync
 from . import status as operational_status
@@ -75,6 +75,7 @@ class ScheduledResult:
     outcome_record: str | None = None
     cycle_record: str | None = None
     lock: dict[str, Any] | None = None
+    retention: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -173,6 +174,11 @@ def _evaluate_status(result: ScheduledResult, config: SyncConfig, clock: Clock) 
 def _complete(result: ScheduledResult, config: SyncConfig, clock: Clock, *, evaluate: bool = True) -> ScheduledResult:
     result.resulting_live_attempt = _actual_live(config)
     snapshot = _evaluate_status(result, config, clock) if evaluate else None
+    # Retention is maintenance after a successful publish and status evaluation.  It runs under
+    # this cycle's existing lock, and its failure is evidence—not a retroactive publication failure.
+    if result.status == PUBLISHED and snapshot is not None:
+        cleanup = retention._cleanup_locked(config, clock=clock)
+        result.retention = {key: value for key, value in cleanup.as_dict().items() if key != "items"}
     result.completed_at = _iso(clock())
     try:
         # The core outcome is durable before mutable alert state changes. Restart

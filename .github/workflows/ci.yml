@@ -92,6 +92,8 @@ jobs:
         run: make sync-status
       - name: Scheduled cycle tests
         run: make scheduled-run
+      - name: Retention tests
+        run: make retention
       - name: Alert state tests
         run: make alerts
       - name: Production container asset tests

@@ -30,6 +30,14 @@ After the run/publish outcome, Atlas evaluates the existing Task 7 runtime statu
 that same snapshot to update operational alert state. No second health implementation and
 no Monday request are used for this step.
 
+After, and only after, both publication and status evaluation succeed, the cycle applies bounded
+retention while it still holds the production-operation lock. Terminal Atlas-owned raw runs,
+builds/attempt records, publication history, and scheduled-cycle evidence older than
+`ATLAS_RETENTION_HOURS` (default 96) are eligible. The live publication, the default rollback target,
+their transitive raw sources, incomplete artifacts, malformed or ambiguous evidence, symlinks, and
+unknown filesystem objects are retained. Cleanup errors are reported but never change a successful
+publication into a failed one.
+
 ## Persisted operational state
 
 The already validated `ATLAS_LOCK_DIR` (normally `<ATLAS_DATA_DIR>/locks`) is also the safe

@@ -17,7 +17,7 @@ from test_sync_run import HISTORY, T0, TOKEN, Clock, Faulty, Monotonic, logs
 
 from atlas_monday_probe.client import HttpFailure
 from atlas_sync import __main__ as cli
-from atlas_sync import alerts, lock, publish, run, scheduled
+from atlas_sync import alerts, lock, publish, retention, run, scheduled
 from atlas_sync.config import load_sync_config
 
 CYCLE_ID = "20260920T120000Z-aaaaaaaaaaaa"
@@ -87,6 +87,19 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertEqual(document["resulting_live_attempt"], ATTEMPT_ID)
         self.assertEqual(document["final_system_state"], "healthy")
         self.assertIn("active_alert_types", document)
+        self.assertIsNotNone(scheduled.operational_status.evaluate_status(config=self.config, clock=Clock(T0)).storage_retention)
+
+    def test_cleanup_failure_is_evidence_and_does_not_invalidate_publication(self):
+        failed_cleanup = retention.RetentionReport(
+            "2026-09-20T12:00:03Z", "2026-09-16T12:00:03Z", 96, False,
+            status="failed", error_category="cleanup_failed",
+        ).finish()
+        with mock.patch.object(retention, "_cleanup_locked", return_value=failed_cleanup):
+            result = self.cycle()
+        self.assertEqual((result.status, scheduled.exit_code(result), self.live_attempt()),
+                         ("published", 0, ATTEMPT_ID))
+        self.assertEqual(result.retention["error_category"], "cleanup_failed")
+        self.assertEqual(json.loads(Path(result.cycle_record).read_text())["status"], "published")
 
     def test_contention_records_skip_but_does_no_request_build_publish_or_alert_update(self):
         with lock.production_lock(self.config, "publish", clock=lambda: T0):

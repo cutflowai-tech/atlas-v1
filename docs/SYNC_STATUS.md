@@ -41,3 +41,7 @@ published, a build-time snapshot always reports system state `unknown` and
 freshness thresholds and in-progress attempt. The static page labels this scope
 explicitly, while `atlas_sync status` remains authoritative for current runtime
 and publication state.
+
+When the last applied retention pass completed cleanly, `status --json` includes its aggregate
+`storage_retention` counts, bytes, cutoff, and reasons. It never exposes cleanup paths or a failed,
+partial report. Status remains read-only.

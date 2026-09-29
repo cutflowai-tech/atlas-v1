@@ -266,8 +266,10 @@ missed interval produces at most one activation, not one activation per missed h
   `docker history --no-trunc`, generated site, Compose config, unit files, and captured test output
   for credential patterns. Report only pass/fail and safe identifiers—never echo a discovered value.
 - Monitor `df -h /var/lib/waset-atlas`, `df -i /var/lib/waset-atlas`, and
-  `du -sh /var/lib/waset-atlas/*`. Atlas performs no retention deletion in Task 9. Never improvise
-  deletion of raw evidence, builds, publication history, scheduled cycles, or alert history.
+  `du -sh /var/lib/waset-atlas/*`. Successful scheduled publications apply the configured 96-hour
+  minimum retention to terminal Atlas-owned evidence. Preview the exact deterministic decision with
+  `python3 -m atlas_sync retention --dry-run --json`; the preview also takes the production lock.
+  Never improvise deletion of raw evidence, builds, publication history, scheduled cycles, or alert history.
 - Before a backup, stop the timer and confirm the service is inactive. Back up
   `/var/lib/waset-atlas` with permissions, timestamps, and symlinks preserved. Back up
   `/etc/waset-atlas` separately into an encrypted secret store with stricter access. Restore into a

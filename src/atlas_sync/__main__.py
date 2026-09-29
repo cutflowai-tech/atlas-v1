@@ -30,6 +30,7 @@ import json
 import sys
 
 from . import publish as publication
+from . import retention
 from . import status as operational_status
 from .run import exit_code, run_once, summary
 from .scheduled import exit_code as scheduled_exit_code
@@ -52,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--json", action="store_true", help="print the structured status snapshot")
     scheduled = sub.add_parser("scheduled-run", help="run one sync and publish that exact completed attempt atomically")
     scheduled.add_argument("--json", action="store_true", help="print the safe scheduled-cycle result")
+    retained = sub.add_parser("retention", help="remove expired Atlas-owned evidence under the production lock")
+    retained.add_argument("--dry-run", action="store_true", help="report candidates without deleting anything")
+    retained.add_argument("--json", action="store_true", help="print the structured retention report")
     args = parser.parse_args(argv)
     if args.command == "run-once":
         result = run_once()
@@ -65,6 +69,10 @@ def main(argv: list[str] | None = None) -> int:
         scheduled_result = scheduled_run()
         print(json.dumps(scheduled_result.as_dict(), indent=1) if args.json else scheduled_summary(scheduled_result))
         return scheduled_exit_code(scheduled_result)
+    if args.command == "retention":
+        report = retention.cleanup(dry_run=args.dry_run)
+        print(json.dumps(report.as_dict(), indent=1) if args.json else retention.summary(report))
+        return retention.exit_code(report)
     outcome = publication.publish(args.attempt_id) if args.command == "publish" else publication.rollback(args.attempt_id)
     print(json.dumps(outcome.as_dict(), indent=1) if args.json else publication.summary(outcome))
     return publication.exit_code(outcome)
