@@ -98,6 +98,8 @@ jobs:
         run: make lock
       - name: Arabic and English presentation tests
         run: make i18n
+      - name: Contract 1.5 Editors app UI tests
+        run: make ui-v15
       - name: Status dashboard UI tests
         run: make status-ui
       - name: Sync status and data health tests

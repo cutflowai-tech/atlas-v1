@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-534 keys: 149 Approved from brief, 362 Implemented conservatively, 23 Needs Arabic Review.
+607 keys: 149 Approved from brief, 362 Implemented conservatively, 96 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -30,6 +30,79 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `pending.overall_score.reason` | Atlas V1 has no approved scoring; speed, deadline and quality stay separate with their own evidence. | لا يوجد في Atlas V1 أي نظام درجات معتمد؛ تبقى السرعة والالتزام بمواعيد التسليم والجودة منفصلة ولكل منها أدلتها. | Why the rule is not evaluated | Needs Arabic Review |  |
 | `system.contract` | Executable contract | إصدار العقد التنفيذي | Field | Needs Arabic Review | Technical term for the versioned Monday contract; confirm wording. |
 | `system.dashboard_document` | Dashboard document | إصدار مستند لوحة المتابعة | Field | Needs Arabic Review | Confirm 'لوحة المتابعة' for Dashboard. |
+| `ui.back` | All Editors | كل المونتيرين | Back link from an Editor Profile to the overview | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.calculated` | Calculated | وقت الحساب | Drawer row: calculation time | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.card.sample` | {n} in window · {active} active | {n} في الفترة · {active} نشطة | Editor card subtitle: projects in the current window and Active Work count | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.change.short` | Recent change | التغيّر الأخير | Profile section bar: Recent Change | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.change.sub` | Current window {window} against {cwindow}. Facts only; no judgement without an approved rule. | الفترة الحالية {window} مقارنةً بالفترة {cwindow}. حقائق فقط؛ لا حكم دون قاعدة معتمدة. | Recent Change section subtitle with both windows | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.change.was` | before: {value} · n={n} | سابقًا: {value} · العدد={n} | Recent Change card: value in the comparison window | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.component_drawer_intro` | The state, the rule that produced it and every project it was calculated from. | الحالة، والقاعدة التي أنتجتها، وكل مشروع حُسبت منه. | Component evidence drawer introduction (HANDOFF-V2 §18) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.component_drawer_title` | {component} evidence · {name} | أدلة {component} · {name} | Drawer title for a component's evidence | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.data_status` | Data status and rules | حالة البيانات والقواعد | Tooltip of the data freshness link in the top bar | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.component` | Deadline component | مكوّن مواعيد التسليم | Deadline card heading with its state | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.early` | early · {n} projects | مبكر · {n} مشروع | Deadline stat: early share | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.fact` | Late {rate} ({late} of {n}) | متأخر {rate} ({late} من أصل {n}) | Deadline fact: absolute late rate with counts | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.late` | late · {n} projects | متأخر · {n} مشروع | Deadline stat: late share | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.on_time` | on time (exactly at ETA) · {n} projects | في الموعد (عند الموعد تمامًا) · {n} مشروع | Deadline stat: on-time share; no tolerance | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.deadline.unclassified` | {n} not classified ({no_time} ETA without a time, {no_eta} no ETA). | {n} غير مصنّف ({no_time} موعد دون وقت، {no_eta} دون موعد). | Deadline: unclassified projects and why (never guessed) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.evidence.coverage` | Data coverage | تغطية البيانات | Profile data coverage card (HANDOFF-V2 #26) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.evidence.excluded_window` | excluded in the current window | مستبعدة في الفترة الحالية | Coverage stat: projects excluded in the window | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.evidence.title` | Data & evidence | البيانات والأدلة | Profile evidence section heading | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.filter.all` | All | الكل | Status filter: no filter | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.filter.none` | Not classified | غير مصنّف | Status filter: Editors without an Overall Status (not enough evidence or approved logic) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.filter_label` | Filter by Overall Status | التصفية حسب الحالة العامة | Accessible label of the status filter group | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.history.short` | History | السجل | Profile section bar: history | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.history.title` | History | السجل | Profile history section heading | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.kpi.deadline` | late rate · {late} of {n} · other Editors {others} | نسبة التأخير · {late} من أصل {n} · المونتيرون الآخرون {others} | Profile key figure: Deadline, absolute and comparison | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.kpi.quality` | scored issue rate · positive {pos} · n={n} | نسبة المشكلات المحتسبة · الإيجابية {pos} · العدد={n} | Profile key figure: Quality | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.kpi.work` | In progress or in revision · {n} awaiting approval | قيد التنفيذ أو التعديل · {n} بانتظار الاعتماد | Profile key figure: Active Work and Awaiting Approval | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.labels_on_project` | Monday Performance labels | علامات الأداء في Monday | Project evidence: labels on this project (all classes) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.nav.editors` | Editors | المونتيرون | Top navigation: the Editors overview (HANDOFF-V2 §12) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.nav.system` | Data & rules | البيانات والقواعد | Top navigation: data freshness, rules and coverage | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.no_match` | No Editor matches this search or filter. | لا يوجد مونتير يطابق هذا البحث أو التصفية. | Overview empty state after search/filter | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.none_this_month` | None this month | لا شيء هذا الشهر | Empty state of a label class for the month | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.open_evidence` | Open evidence | عرض الأدلة | Link opening a component's evidence drawer | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.overview_note` | Cards are in alphabetical order. Filters narrow the list; Atlas never ranks Editors. | البطاقات مرتبة أبجديًا. عوامل التصفية تضيّق القائمة فقط؛ Atlas لا يرتّب المونتيرين حسب الأداء. | Overview: explains order and filtering (no leaderboard, HANDOFF-V2 §24) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.period` | Period | الفترة | Drawer row: date range used | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.presentation.order` | Editor cards are in alphabetical order and can be filtered by Overall Status; there is no ranking. | بطاقات المونتيرين مرتبة أبجديًا ويمكن تصفيتها حسب الحالة العامة؛ ولا يوجد ترتيب حسب الأداء. | Presentation note: card order | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.profile.sub` | Current window {window} · compared with {cwindow} · data updated {updated} | الفترة الحالية {window} · مقارنةً بالفترة {cwindow} · آخر تحديث للبيانات {updated} | Editor Profile header: the one time window used by every figure (HANDOFF-V2 #24) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.quality.component` | Quality component | مكوّن الجودة | Quality card heading with its state | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.quality.fact` | Issues {nrate} · positive {prate} · n={n} | المشكلات {nrate} · الإيجابية {prate} · العدد={n} | Editor card Quality line: scored negative and positive label rates with the sample | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.quality.negative_rate` | scored issue rate · {n} of {total} projects | نسبة المشكلات المحتسبة · {n} من أصل {total} مشروع | Quality stat: scored negative rate with denominator (HANDOFF-V2 #11) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.quality.positive_rate` | scored positive rate · {n} of {total} projects | نسبة المؤشرات الإيجابية المحتسبة · {n} من أصل {total} مشروع | Quality stat: scored positive rate with denominator | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.quality.sub` | From Monday Performance labels: one occurrence is one event, no severity weights. | من علامات الأداء في Monday: كل ظهور يُحتسب مرة واحدة، دون أوزان للشدة. | Quality section subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.release` | Release | الإصدار | Data & rules: publication identity row | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.revisions.projects` | projects with client revisions · of {total} completed | مشاريع بها تعديلات من العميل · من أصل {total} مكتمل | Revision stat with denominator | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.rule` | Rule | القاعدة | Drawer row: rule version and approval | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.rules.pending` | Not evaluated yet | لم يُقيَّم بعد | Data & rules: judgements without an approved rule | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.rules.title` | Rules in use | القواعد المطبّقة | Data & rules: approval state of each rule | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.search_label` | Search Editors | ابحث عن مونتير | Accessible label of the Editor search box | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.search_placeholder` | Search by name…  ( / ) | ابحث بالاسم…  ( / ) | Placeholder of the Editor search box; / is the keyboard shortcut | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.sections_label` | Profile sections | أقسام الملف | Accessible label of the sticky profile section bar | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.deadline` | Deadline {relative}: late {rate} vs {others} for other Editors | مواعيد التسليم {relative}: التأخير {rate} مقابل {others} لدى المونتيرين الآخرين | Signal: approved Deadline component state with both late rates | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.label` | {label} ×{n} · {projects} | {label} ×{n} · {projects} | Signal: a Monday label and how often it occurs | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.quality_negative` | Quality component is Negative | مكوّن الجودة سلبي | Signal: approved Quality state Negative | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.quality_positive` | Quality component is Positive | مكوّن الجودة إيجابي | Signal: approved Quality state Positive | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.speed_faster` | {pct} faster than other Editors in {labels} (n={n}) | أسرع بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n}) | Signal: approved speed verdict Faster in one Video Type | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signal.speed_slower` | {pct} slower than other Editors in {labels} (n={n}) | أبطأ بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n}) | Signal: approved speed verdict Slower in one Video Type (a comparison, not a judgement) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signals.good` | Positive signals | مؤشرات إيجابية | Profile signals column: positive facts | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signals.review` | Worth reviewing | تستحق المراجعة | Profile signals column: facts management may want to look at (never a judgement of the person) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signals.short` | Signals | المؤشرات | Profile section bar: signals | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signals.sub` | Supported facts only, each with its evidence. These are not Strength or Attention ratings. | حقائق مدعومة بالبيانات فقط، ولكل منها أدلتها. هذه ليست تقييمات لنقاط القوة أو لما يحتاج إلى متابعة. | Profile signals subtitle: no unapproved judgement | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.signals.title` | Signals in the current window | المؤشرات في الفترة الحالية | Profile: supported facts grouped by direction | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.speed.component` | Speed component | مكوّن السرعة | Speed card heading with its state | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.speed.fact` | {labels}: {editor} vs {others} · n={n} | {labels}: {editor} مقابل {others} · العدد={n} | Speed fact: this Editor's median vs other Editors' median in one Video Type | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.speed.fact_alone` | {labels}: {editor} · n={n} · no comparison | {labels}: {editor} · العدد={n} · بلا مقارنة | Speed fact when no other Editor is in the Video Type | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.speed.note` | Each Video Type is compared only within itself; other Editors exclude this Editor. | تُقارن كل Video Type بنفسها فقط؛ والمونتيرون الآخرون لا يشملون هذا المونتير. | Speed section note: segmentation and leave-one-out | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.speed.sample` | n = {e} this Editor · {t} other Editors' projects · {editors} Editors | العدد = {e} لهذا المونتير · {t} مشروع للمونتيرين الآخرين · {editors} مونتير | Speed row sample sizes (HANDOFF-V2 #15) | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.team.labels` | Labels this month | العلامات هذا الشهر | Team context tab: label activity by class | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.team.labels_sub` | Monday Performance labels added in {period}, by class. | علامات الأداء في Monday التي أُضيفت في {period}، حسب الفئة. | Team labels tab subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.team.sub` | Shared context across the team. Secondary to each Editor's picture. | سياق مشترك على مستوى الفريق، وهو ثانوي مقارنة بصورة كل مونتير. | Overview: team context section subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.timeline.context_marker` | Context label: {label} | علامة سياق: {label} | Timeline marker description | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.timeline.legend_context` | Context label added | إضافة علامة سياق | Timeline legend | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.timeline.legend_positive` | Positive label added | إضافة علامة إيجابية | Timeline legend | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.timeline.positive_marker` | Positive label: {label} | علامة إيجابية: {label} | Timeline marker description | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.work.sub` | Items by their current Monday status, as of {date}. | العناصر حسب حالتها الحالية في Monday، حتى {date}. | Current work section subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `activity.empty_detail` | A missing label is not an assessment of quality. | غياب المؤشرات لا يُعد تقييمًا لجودة العمل. | Empty state detail | Implemented conservatively |  |
 | `activity.empty_title` | No issue labels added this month | لم تتم إضافة أي مؤشرات مشكلات هذا الشهر | Empty state | Implemented conservatively |  |
 | `activity.footer` | Factual counts, no severity weighting. Which activity needs attention is not evaluated yet. | أعداد فعلية بدون أوزان للخطورة. لم يتم بعد تقييم أي نشاط يحتاج للانتباه. | Card footnote | Implemented conservatively |  |

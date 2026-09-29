@@ -1220,6 +1220,10 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
     v15 = capabilities(source["executable_contract_version"]).editor_intelligence
+    if v15:
+        # Contract 1.5+: the redesigned Editors app. This module keeps the 1.3/1.4 pages byte for byte (fixtures/golden).
+        from atlas_commander.web import render_app
+        return render_app(doc, profile_pages, monday_item_url, loc, switch_href, status_snapshot)
     publication = doc.get("publication") or {}
     release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     retrieved = source.get("retrieved_at")

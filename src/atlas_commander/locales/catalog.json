@@ -3367,6 +3367,517 @@
    "ar": "المشاريع حسب حالتها الحالية على Monday",
    "context": "Card subheading",
    "status": "Implemented conservatively"
+  },
+  "ui.nav.editors": {
+   "en": "Editors",
+   "ar": "المونتيرون",
+   "context": "Top navigation: the Editors overview (HANDOFF-V2 §12)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.nav.system": {
+   "en": "Data & rules",
+   "ar": "البيانات والقواعد",
+   "context": "Top navigation: data freshness, rules and coverage",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.back": {
+   "en": "All Editors",
+   "ar": "كل المونتيرين",
+   "context": "Back link from an Editor Profile to the overview",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.data_status": {
+   "en": "Data status and rules",
+   "ar": "حالة البيانات والقواعد",
+   "context": "Tooltip of the data freshness link in the top bar",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.release": {
+   "en": "Release",
+   "ar": "الإصدار",
+   "context": "Data & rules: publication identity row",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.overview_note": {
+   "en": "Cards are in alphabetical order. Filters narrow the list; Atlas never ranks Editors.",
+   "ar": "البطاقات مرتبة أبجديًا. عوامل التصفية تضيّق القائمة فقط؛ Atlas لا يرتّب المونتيرين حسب الأداء.",
+   "context": "Overview: explains order and filtering (no leaderboard, HANDOFF-V2 §24)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.search_label": {
+   "en": "Search Editors",
+   "ar": "ابحث عن مونتير",
+   "context": "Accessible label of the Editor search box",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.search_placeholder": {
+   "en": "Search by name…  ( / )",
+   "ar": "ابحث بالاسم…  ( / )",
+   "context": "Placeholder of the Editor search box; / is the keyboard shortcut",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter_label": {
+   "en": "Filter by Overall Status",
+   "ar": "التصفية حسب الحالة العامة",
+   "context": "Accessible label of the status filter group",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter.all": {
+   "en": "All",
+   "ar": "الكل",
+   "context": "Status filter: no filter",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter.none": {
+   "en": "Not classified",
+   "ar": "غير مصنّف",
+   "context": "Status filter: Editors without an Overall Status (not enough evidence or approved logic)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.no_match": {
+   "en": "No Editor matches this search or filter.",
+   "ar": "لا يوجد مونتير يطابق هذا البحث أو التصفية.",
+   "context": "Overview empty state after search/filter",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.card.sample": {
+   "en": "{n} in window · {active} active",
+   "ar": "{n} في الفترة · {active} نشطة",
+   "context": "Editor card subtitle: projects in the current window and Active Work count",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.fact": {
+   "en": "Issues {nrate} · positive {prate} · n={n}",
+   "ar": "المشكلات {nrate} · الإيجابية {prate} · العدد={n}",
+   "context": "Editor card Quality line: scored negative and positive label rates with the sample",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.fact": {
+   "en": "{labels}: {editor} vs {others} · n={n}",
+   "ar": "{labels}: {editor} مقابل {others} · العدد={n}",
+   "context": "Speed fact: this Editor's median vs other Editors' median in one Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.fact_alone": {
+   "en": "{labels}: {editor} · n={n} · no comparison",
+   "ar": "{labels}: {editor} · العدد={n} · بلا مقارنة",
+   "context": "Speed fact when no other Editor is in the Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.fact": {
+   "en": "Late {rate} ({late} of {n})",
+   "ar": "متأخر {rate} ({late} من أصل {n})",
+   "context": "Deadline fact: absolute late rate with counts",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.profile.sub": {
+   "en": "Current window {window} · compared with {cwindow} · data updated {updated}",
+   "ar": "الفترة الحالية {window} · مقارنةً بالفترة {cwindow} · آخر تحديث للبيانات {updated}",
+   "context": "Editor Profile header: the one time window used by every figure (HANDOFF-V2 #24)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.quality": {
+   "en": "scored issue rate · positive {pos} · n={n}",
+   "ar": "نسبة المشكلات المحتسبة · الإيجابية {pos} · العدد={n}",
+   "context": "Profile key figure: Quality",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.deadline": {
+   "en": "late rate · {late} of {n} · other Editors {others}",
+   "ar": "نسبة التأخير · {late} من أصل {n} · المونتيرون الآخرون {others}",
+   "context": "Profile key figure: Deadline, absolute and comparison",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.work": {
+   "en": "In progress or in revision · {n} awaiting approval",
+   "ar": "قيد التنفيذ أو التعديل · {n} بانتظار الاعتماد",
+   "context": "Profile key figure: Active Work and Awaiting Approval",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.sections_label": {
+   "en": "Profile sections",
+   "ar": "أقسام الملف",
+   "context": "Accessible label of the sticky profile section bar",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.short": {
+   "en": "Recent change",
+   "ar": "التغيّر الأخير",
+   "context": "Profile section bar: Recent Change",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.sub": {
+   "en": "Current window {window} against {cwindow}. Facts only; no judgement without an approved rule.",
+   "ar": "الفترة الحالية {window} مقارنةً بالفترة {cwindow}. حقائق فقط؛ لا حكم دون قاعدة معتمدة.",
+   "context": "Recent Change section subtitle with both windows",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.was": {
+   "en": "before: {value} · n={n}",
+   "ar": "سابقًا: {value} · العدد={n}",
+   "context": "Recent Change card: value in the comparison window",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.short": {
+   "en": "Signals",
+   "ar": "المؤشرات",
+   "context": "Profile section bar: signals",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.title": {
+   "en": "Signals in the current window",
+   "ar": "المؤشرات في الفترة الحالية",
+   "context": "Profile: supported facts grouped by direction",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.sub": {
+   "en": "Supported facts only, each with its evidence. These are not Strength or Attention ratings.",
+   "ar": "حقائق مدعومة بالبيانات فقط، ولكل منها أدلتها. هذه ليست تقييمات لنقاط القوة أو لما يحتاج إلى متابعة.",
+   "context": "Profile signals subtitle: no unapproved judgement",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.good": {
+   "en": "Positive signals",
+   "ar": "مؤشرات إيجابية",
+   "context": "Profile signals column: positive facts",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.review": {
+   "en": "Worth reviewing",
+   "ar": "تستحق المراجعة",
+   "context": "Profile signals column: facts management may want to look at (never a judgement of the person)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.speed_faster": {
+   "en": "{pct} faster than other Editors in {labels} (n={n})",
+   "ar": "أسرع بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n})",
+   "context": "Signal: approved speed verdict Faster in one Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.speed_slower": {
+   "en": "{pct} slower than other Editors in {labels} (n={n})",
+   "ar": "أبطأ بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n})",
+   "context": "Signal: approved speed verdict Slower in one Video Type (a comparison, not a judgement)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.deadline": {
+   "en": "Deadline {relative}: late {rate} vs {others} for other Editors",
+   "ar": "مواعيد التسليم {relative}: التأخير {rate} مقابل {others} لدى المونتيرين الآخرين",
+   "context": "Signal: approved Deadline component state with both late rates",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.quality_positive": {
+   "en": "Quality component is Positive",
+   "ar": "مكوّن الجودة إيجابي",
+   "context": "Signal: approved Quality state Positive",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.quality_negative": {
+   "en": "Quality component is Negative",
+   "ar": "مكوّن الجودة سلبي",
+   "context": "Signal: approved Quality state Negative",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.label": {
+   "en": "{label} ×{n} · {projects}",
+   "ar": "{label} ×{n} · {projects}",
+   "context": "Signal: a Monday label and how often it occurs",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.sub": {
+   "en": "From Monday Performance labels: one occurrence is one event, no severity weights.",
+   "ar": "من علامات الأداء في Monday: كل ظهور يُحتسب مرة واحدة، دون أوزان للشدة.",
+   "context": "Quality section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.component": {
+   "en": "Quality component",
+   "ar": "مكوّن الجودة",
+   "context": "Quality card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.negative_rate": {
+   "en": "scored issue rate · {n} of {total} projects",
+   "ar": "نسبة المشكلات المحتسبة · {n} من أصل {total} مشروع",
+   "context": "Quality stat: scored negative rate with denominator (HANDOFF-V2 #11)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.positive_rate": {
+   "en": "scored positive rate · {n} of {total} projects",
+   "ar": "نسبة المؤشرات الإيجابية المحتسبة · {n} من أصل {total} مشروع",
+   "context": "Quality stat: scored positive rate with denominator",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.component": {
+   "en": "Speed component",
+   "ar": "مكوّن السرعة",
+   "context": "Speed card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.sample": {
+   "en": "n = {e} this Editor · {t} other Editors' projects · {editors} Editors",
+   "ar": "العدد = {e} لهذا المونتير · {t} مشروع للمونتيرين الآخرين · {editors} مونتير",
+   "context": "Speed row sample sizes (HANDOFF-V2 #15)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.note": {
+   "en": "Each Video Type is compared only within itself; other Editors exclude this Editor.",
+   "ar": "تُقارن كل Video Type بنفسها فقط؛ والمونتيرون الآخرون لا يشملون هذا المونتير.",
+   "context": "Speed section note: segmentation and leave-one-out",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.component": {
+   "en": "Deadline component",
+   "ar": "مكوّن مواعيد التسليم",
+   "context": "Deadline card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.early": {
+   "en": "early · {n} projects",
+   "ar": "مبكر · {n} مشروع",
+   "context": "Deadline stat: early share",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.on_time": {
+   "en": "on time (exactly at ETA) · {n} projects",
+   "ar": "في الموعد (عند الموعد تمامًا) · {n} مشروع",
+   "context": "Deadline stat: on-time share; no tolerance",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.late": {
+   "en": "late · {n} projects",
+   "ar": "متأخر · {n} مشروع",
+   "context": "Deadline stat: late share",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.unclassified": {
+   "en": "{n} not classified ({no_time} ETA without a time, {no_eta} no ETA).",
+   "ar": "{n} غير مصنّف ({no_time} موعد دون وقت، {no_eta} دون موعد).",
+   "context": "Deadline: unclassified projects and why (never guessed)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.revisions.projects": {
+   "en": "projects with client revisions · of {total} completed",
+   "ar": "مشاريع بها تعديلات من العميل · من أصل {total} مكتمل",
+   "context": "Revision stat with denominator",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.work.sub": {
+   "en": "Items by their current Monday status, as of {date}.",
+   "ar": "العناصر حسب حالتها الحالية في Monday، حتى {date}.",
+   "context": "Current work section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.history.short": {
+   "en": "History",
+   "ar": "السجل",
+   "context": "Profile section bar: history",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.history.title": {
+   "en": "History",
+   "ar": "السجل",
+   "context": "Profile history section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.title": {
+   "en": "Data & evidence",
+   "ar": "البيانات والأدلة",
+   "context": "Profile evidence section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.coverage": {
+   "en": "Data coverage",
+   "ar": "تغطية البيانات",
+   "context": "Profile data coverage card (HANDOFF-V2 #26)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.excluded_window": {
+   "en": "excluded in the current window",
+   "ar": "مستبعدة في الفترة الحالية",
+   "context": "Coverage stat: projects excluded in the window",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.open_evidence": {
+   "en": "Open evidence",
+   "ar": "عرض الأدلة",
+   "context": "Link opening a component's evidence drawer",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.component_drawer_title": {
+   "en": "{component} evidence · {name}",
+   "ar": "أدلة {component} · {name}",
+   "context": "Drawer title for a component's evidence",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.component_drawer_intro": {
+   "en": "The state, the rule that produced it and every project it was calculated from.",
+   "ar": "الحالة، والقاعدة التي أنتجتها، وكل مشروع حُسبت منه.",
+   "context": "Component evidence drawer introduction (HANDOFF-V2 §18)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rule": {
+   "en": "Rule",
+   "ar": "القاعدة",
+   "context": "Drawer row: rule version and approval",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.period": {
+   "en": "Period",
+   "ar": "الفترة",
+   "context": "Drawer row: date range used",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.calculated": {
+   "en": "Calculated",
+   "ar": "وقت الحساب",
+   "context": "Drawer row: calculation time",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.labels_on_project": {
+   "en": "Monday Performance labels",
+   "ar": "علامات الأداء في Monday",
+   "context": "Project evidence: labels on this project (all classes)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.sub": {
+   "en": "Shared context across the team. Secondary to each Editor's picture.",
+   "ar": "سياق مشترك على مستوى الفريق، وهو ثانوي مقارنة بصورة كل مونتير.",
+   "context": "Overview: team context section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.labels": {
+   "en": "Labels this month",
+   "ar": "العلامات هذا الشهر",
+   "context": "Team context tab: label activity by class",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.labels_sub": {
+   "en": "Monday Performance labels added in {period}, by class.",
+   "ar": "علامات الأداء في Monday التي أُضيفت في {period}، حسب الفئة.",
+   "context": "Team labels tab subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.none_this_month": {
+   "en": "None this month",
+   "ar": "لا شيء هذا الشهر",
+   "context": "Empty state of a label class for the month",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.positive_marker": {
+   "en": "Positive label: {label}",
+   "ar": "علامة إيجابية: {label}",
+   "context": "Timeline marker description",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.context_marker": {
+   "en": "Context label: {label}",
+   "ar": "علامة سياق: {label}",
+   "context": "Timeline marker description",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.legend_positive": {
+   "en": "Positive label added",
+   "ar": "إضافة علامة إيجابية",
+   "context": "Timeline legend",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.legend_context": {
+   "en": "Context label added",
+   "ar": "إضافة علامة سياق",
+   "context": "Timeline legend",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rules.title": {
+   "en": "Rules in use",
+   "ar": "القواعد المطبّقة",
+   "context": "Data & rules: approval state of each rule",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rules.pending": {
+   "en": "Not evaluated yet",
+   "ar": "لم يُقيَّم بعد",
+   "context": "Data & rules: judgements without an approved rule",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.presentation.order": {
+   "en": "Editor cards are in alphabetical order and can be filtered by Overall Status; there is no ranking.",
+   "ar": "بطاقات المونتيرين مرتبة أبجديًا ويمكن تصفيتها حسب الحالة العامة؛ ولا يوجد ترتيب حسب الأداء.",
+   "context": "Presentation note: card order",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
   }
  }
 }

@@ -54,6 +54,10 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
 
     ``dashboard_href`` and ``switch_href`` add a page header with a link back to the dashboard and to the same profile in the
     other language (standalone pages); without them the page has no navigation (the embedded audit view)."""
+    if capabilities(profile["executable_contract_version"]).editor_intelligence:
+        # Contract 1.5+: the redesigned report. This module keeps the 1.3/1.4 pages byte for byte (fixtures/golden).
+        from atlas_commander.web import render_report
+        return render_report(profile, monday_item_url, loc, dashboard_href=dashboard_href, switch_href=switch_href, publication=publication)
     t = loc.t
     editor = profile["editor"]
     speed, deadline, quality, revisions, coverage = profile["speed"], profile["deadline"], profile["quality"], profile["revisions"], profile["coverage"]
