@@ -139,6 +139,13 @@ class ParityTests(unittest.TestCase):
         self.assertEqual(sorted(set(narrative.T) - set(used)), [])
         self.assertEqual(sorted({finding["finding_type"] for finding in self.findings} - set(narrative.TITLES)), [])
 
+    def test_every_parameter_a_finding_uses_is_declared_in_the_detector_catalog(self):
+        declared = {detector.detector_id: set(detector.parameters) for detector in DETECTORS}
+        for finding in self.findings:
+            owner = "data.quality" if finding["finding_type"].startswith("data.") else finding["finding_type"]
+            used = {use["name"] for use in finding["parameters"]}
+            self.assertLessEqual(used, declared[owner], finding["finding_type"])
+
     def test_both_languages_state_the_same_values(self):
         for finding in self.findings:
             en, ar = texts(finding, "en"), texts(finding, "ar")

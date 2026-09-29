@@ -303,7 +303,8 @@ DETECTORS = [
     Detector("contradiction.bad_headline", VERSION, "34, 35", "A late rate above the other Editors' that deeper evidence qualifies: competitive execution speed, "
              "late projects clustered in short runway, late despite typical execution, peers as late on the same mix, ETA passed before work started",
              ("deadline_result", "execution_runway", "editor_execution_interval", "video_type", "editor_identity"),
-             ("evidence.minimum_outcome_events", "deadline.minimum_editor_projects"),
+             ("evidence.minimum_outcome_events", "deadline.minimum_editor_projects", "runway.short_rule", "evidence.minimum_group_projects",
+              "evidence.material_rate_difference"),
              "Editor deadline-classifiable projects >= deadline.minimum_editor_projects (D52); each check's own minimum",
              "one hidden-context finding per Editor with every check (holds / does not hold / not assessed) and contradicting evidence blocks",
              "Editor sample vs minimum; replication = checks that hold", (cm.NO_CAUSE_EVIDENCE, cm.TYPICAL_WHOLE_HISTORY), run_bad_headline),

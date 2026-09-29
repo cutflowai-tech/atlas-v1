@@ -308,8 +308,8 @@ DETECTORS = [
              "qualifying Editors (>= minimum projects inside and outside) >= evidence.minimum_editors_for_breadth",
              "system pattern (shared) or editor-specific pattern (confined), with every qualifying Editor's two rates",
              "qualifying Editors vs minimum; replication = each Editor agreeing with the conclusion", (cm.VIDEO_TYPE_ONLY, cm.NO_CAUSE_EVIDENCE), run_shared),
-    Detector("pattern.repeated_delay", VERSION, "27", "Repeated combinations (Video Type x runway band, Video Type x workload band) with elevated lateness in both halves "
-             "of the history", ("video_type", "execution_runway", "concurrent_workload_history", "deadline_result"),
+    Detector("pattern.repeated_delay", VERSION, "27", "Repeated combinations (Video Type x runway band, Video Type x workload band) late materially more often than "
+             "the same Video Type as a whole, in both halves of the history", ("video_type", "execution_runway", "concurrent_workload_history", "deadline_result"),
              ("runway.short_rule", "workload.band_rule", "evidence.minimum_group_projects", "evidence.minimum_outcome_events", "evidence.material_rate_difference",
               "patterns.maximum_combinations"), "cell >= evidence.minimum_group_projects and late >= evidence.minimum_outcome_events",
              "one finding per repeated combination; cells tested published", "cell vs minimums; replication = both halves of history",
@@ -318,7 +318,8 @@ DETECTORS = [
              ("performance_labels", "video_type", "editor_identity"), ("evidence.minimum_outcome_events", "evidence.minimum_editors_for_breadth"),
              "occurrences >= evidence.minimum_outcome_events across >= evidence.minimum_editors_for_breadth Editors", "one finding per repeated label and Video Type",
              "occurrences and Editors vs minimums", (cm.LABELS_LOWER_BOUND,), run_repeated_quality),
-    Detector("pattern.time", VERSION, "30", "Late rate by Cairo weekday of first In Progress and by period of the month, reported only when it repeats in >= 2 months",
+    Detector("pattern.time", VERSION, "30", "Late rate by Cairo weekday of first In Progress and by period of the month against the rate its Video Type mix predicts, "
+             "reported only when it repeats in >= 2 months",
              ("deadline_result", "status_history"), ("evidence.minimum_group_projects", "evidence.minimum_outcome_events", "evidence.material_rate_difference"),
              "bucket >= evidence.minimum_group_projects with >= evidence.minimum_outcome_events late", "one finding per repeated timing bucket",
              "bucket vs minimum; replication = months where the bucket is elevated", (cm.MULTIPLE_COMPARISONS, cm.ASSOCIATION_NOT_CAUSE), run_time),
