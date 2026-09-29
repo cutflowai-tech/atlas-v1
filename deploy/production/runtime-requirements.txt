@@ -4,3 +4,7 @@ jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 referencing==0.35.1
 rpds-py==0.22.3
+# jsonschema checks "format": "date-time" only when this validator is installed; without it every contract
+# timestamp format check is silently skipped. The contracts use date-time throughout.
+rfc3339-validator==0.1.4
+six==1.17.0

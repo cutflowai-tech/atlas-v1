@@ -34,6 +34,31 @@ class ProductionAssetTests(unittest.TestCase):
         self.assertNotRegex(dockerfile, r"requirements-dev|COPY \. |scheduled-run|MONDAY_API_TOKEN=")
         self.assertIn("chmod -R a-w /opt/waset-atlas", dockerfile)
 
+    def test_runtime_requirements_enforce_every_contract_format(self):
+        """jsonschema skips a "format" whose validator package is absent, so production would validate less than CI."""
+        providers = {"date-time": "rfc3339-validator", "date": None}   # None: checked by the standard library
+        used = set()
+
+        def collect(node):
+            if isinstance(node, dict):
+                if isinstance(node.get("format"), str):
+                    used.add(node["format"])
+                for value in node.values():
+                    collect(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect(value)
+
+        for path in (ROOT / "contracts").glob("*.schema.json"):
+            collect(json.loads(path.read_text()))
+        self.assertIn("date-time", used)
+        self.assertLessEqual(used, set(providers), "a contract uses a format with no known validator package")
+        pinned = {line.split("==")[0].strip().lower() for line in self.text("runtime-requirements.txt").splitlines()
+                  if line.strip() and not line.startswith("#")}
+        for name in sorted(used):
+            if providers[name]:
+                self.assertIn(providers[name], pinned, f"format {name!r} would not be checked in the production image")
+
     def test_dockerfile_specific_contexts_exclude_secrets_tests_fixtures_and_raw(self):
         app = self.text("Dockerfile.app.dockerignore")
         web = self.text("Dockerfile.nginx.dockerignore")
@@ -119,6 +144,12 @@ class DockerRuntimeTests(unittest.TestCase):
                               f"! grep -R -F {self.sentinel!r} /opt/waset-atlas /etc 2>/dev/null").stdout
         for forbidden in ("/tests", "/fixtures", "/.git", "/raw"):
             self.assertNotIn(forbidden, listing)
+        formats = self.docker("run", "--rm", "--network", "none", "--read-only", "--entrypoint", "python", self.app_image, "-c",
+                              "from atlas_commander.contracts import schema_errors; "
+                              "print(bool(schema_errors({'generated_at': 'not-a-timestamp'}, 'editor-profile-v1.4.schema.json')) "
+                              "and any('date-time' in e for e in schema_errors({'generated_at': 'not-a-timestamp'}, "
+                              "'editor-profile-v1.4.schema.json')))").stdout.strip()
+        self.assertEqual(formats, "True", "the production image does not enforce contract date-time formats")
 
     def test_compose_uses_external_images_environment_and_host_bind(self):
         env_path = self.data_dir.parent / f"atlas-compose-{uuid.uuid4().hex}.env"
