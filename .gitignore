@@ -14,3 +14,7 @@ secrets/
 *.secret
 *.token
 monday_api_token*
+
+# Local development
+.venv/
+/out/

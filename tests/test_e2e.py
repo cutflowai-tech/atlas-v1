@@ -1,8 +1,11 @@
 import json
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 from atlas_commander.contracts import ROOT, assert_valid
+from atlas_commander.demo import build_demo
 
 
 class ControlPlaneE2ETests(unittest.TestCase):
@@ -19,6 +22,19 @@ class ControlPlaneE2ETests(unittest.TestCase):
         profile = json.loads((ROOT / "fixtures/good/editor-profile.json").read_text())
         assert_valid(profile, "editor-profile.schema.json")
         self.assertEqual(profile["subject_type"], "editor")
+
+    def test_local_demo_runs_the_real_profile_pipeline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = build_demo(Path(directory))
+            profile = json.loads(paths["profile"].read_text())
+            dashboard = json.loads(paths["dashboard"].read_text())
+            self.assertEqual(profile["editor"]["display_name"], "Will")
+            self.assertEqual(profile["coverage"]["completed_projects"], 7)
+            self.assertEqual([editor["display_name"] for editor in dashboard["editors"]], ["Will", "Ahmed"])
+            self.assertIn("en/dashboard.html", paths["index"].read_text())
+            self.assertIn("Editing team overview", paths["html"].read_text())
+            self.assertIn('lang="ar" dir="rtl"', paths["arabic_html"].read_text())
+            self.assertEqual((Path(directory) / "healthz").read_text(), "ok\n")
 
 
 if __name__ == "__main__":

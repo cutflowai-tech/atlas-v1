@@ -1,4 +1,4 @@
-.PHONY: doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-container-docker production-deploy json test runtime-health
+.PHONY: demo doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-container-docker production-deploy json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -109,3 +109,7 @@ test: lint typecheck unit contract integration e2e runtime normalization identit
 
 runtime-health:
 	./scripts/runtime-health
+
+# Local dashboard on synthetic Monday-shaped data (no token, no network): http://127.0.0.1:8000
+demo:
+	PYTHONPATH=src python3 -m atlas_commander.demo serve --out out/demo

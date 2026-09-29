@@ -8,3 +8,4 @@
 !deploy/
 !deploy/production/
 !deploy/production/runtime-requirements.txt
+src/atlas_commander/demo.py

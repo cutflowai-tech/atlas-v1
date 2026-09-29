@@ -69,6 +69,7 @@ class ProductionAssetTests(unittest.TestCase):
             self.assertNotIn(forbidden, web)
         self.assertIn("!src/**", app)
         self.assertNotIn("!src", web)
+        self.assertEqual(app.splitlines()[-1], "src/atlas_commander/demo.py")   # the local demo server is not shipped
 
     def test_nginx_only_exposes_current_english_and_arabic(self):
         config = self.text("nginx.conf")
@@ -146,7 +147,7 @@ class DockerRuntimeTests(unittest.TestCase):
         self.assertNotIn(self.sentinel, combined)
         listing = self.docker("run", "--rm", "--network", "none", "--read-only", "--entrypoint", "/bin/sh",
                               self.app_image, "-c", "find /opt/waset-atlas -maxdepth 2 -type d -print; "
-                              "test ! -w /opt/waset-atlas/src; "
+                              "test ! -w /opt/waset-atlas/src; test ! -e /opt/waset-atlas/src/atlas_commander/demo.py; "
                               f"! grep -R -F {self.sentinel!r} /opt/waset-atlas /etc 2>/dev/null").stdout
         for forbidden in ("/tests", "/fixtures", "/.git", "/raw"):
             self.assertNotIn(forbidden, listing)
