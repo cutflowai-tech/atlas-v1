@@ -46,6 +46,8 @@ ATTESTED_TUPLES: tuple[dict[str, Any], ...] = (
     {"source_label_id": "9", "logged_name": "Michael", "editor_id": "editor-label-13", "display_name": "Michael", "first_day": "2026-03-14", "last_day": "2026-05-02"},
 )
 
+ATTESTATION_SOURCE = "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md"
+
 QUARANTINED_TUPLES = (
     ("11", "New", "invalid workflow residue"),
     ("2", "Done", "invalid workflow residue"),
@@ -143,7 +145,19 @@ def contract_with_attestations(contract: Mapping[str, Any], tuple_ranges: Mappin
             raise RuntimeError(f"attested tuple range mismatch for {key!r}: expected {expected!r}, got {actual!r}")
         if key in existing:
             mapped = existing[key]
-            if mapped.get("editor_id") != attested["editor_id"] or (mapped.get("canonical_editor_name") or mapped.get("display_name")) != attested["display_name"]:
+            try:
+                bounds_match = (
+                    parse_time(str(mapped.get("first_observed_at"))) == observed["first_observed_at"]
+                    and parse_time(str(mapped.get("last_observed_at"))) == observed["last_observed_at"]
+                )
+            except (TypeError, ValueError):
+                bounds_match = False
+            if (mapped.get("editor_id") != attested["editor_id"]
+                    or (mapped.get("canonical_editor_name") or mapped.get("display_name")) != attested["display_name"]
+                    or mapped.get("role") != "editor"
+                    or mapped.get("decision_id") != "D49"
+                    or mapped.get("attestation_source") != ATTESTATION_SOURCE
+                    or not bounds_match):
                 raise RuntimeError(f"contract mapping conflicts with management attestation for {key!r}")
             continue
         identities.append(
@@ -158,19 +172,41 @@ def contract_with_attestations(contract: Mapping[str, Any], tuple_ranges: Mappin
                 "label_names": [attested["logged_name"]],
                 "first_observed_at": observed["first_observed_at"].isoformat(),
                 "last_observed_at": observed["last_observed_at"].isoformat(),
-                "attestation_source": "management attestation supplied for Round 4; bounds asserted against immutable copied production history",
-                "decision_id": "round4-analysis-attestation",
+                "attestation_source": ATTESTATION_SOURCE,
+                "decision_id": "D49",
             }
         )
         overlaid_count += 1
     attested_keys = {(row["source_label_id"], row["logged_name"]) for row in ATTESTED_TUPLES}
     editor_identity["named_unresolved_identities"] = [
         row for row in editor_identity.get("named_unresolved_identities", [])
-        if (str(row.get("source_label_id")), str(row.get("observed_name"))) not in attested_keys
+        if (str(row.get("source_label_id")), str(row.get("logged_name"))) not in attested_keys
     ]
     if overlaid_count:
         editor_identity["mapping_version"] = f'{editor_identity["mapping_version"]}-round4-analysis'
     return overlaid
+
+
+def contract_before_attestations(contract: Mapping[str, Any]) -> dict[str, Any]:
+    """Recreate the prior identity-only baseline for an apples-to-apples replay.
+
+    The authoritative contract now contains D49.  Removing only those ten entries lets
+    this analysis measure their effect on the same immutable extraction without relying
+    on a stale checkout or changing any source file.
+    """
+    baseline = copy.deepcopy(contract)
+    attribution = baseline["editor_attribution"]
+    attested_keys = {(row["source_label_id"], row["logged_name"]) for row in ATTESTED_TUPLES}
+    attribution["entries"] = [
+        row for row in attribution["entries"]
+        if (str(row.get("source_label_id")), str(row.get("logged_name"))) not in attested_keys
+    ]
+    attribution["named_unresolved_identities"] = [
+        {"source_label_id": source_label_id, "logged_name": logged_name, "reason": "UNMAPPED_EDITOR"}
+        for source_label_id, logged_name in sorted(attested_keys)
+    ]
+    attribution["mapping_version"] = "monday-editor-v1.2-analysis-baseline"
+    return baseline
 
 
 def _completed(cycles: Iterable[CycleRecord]) -> list[CycleRecord]:
@@ -443,7 +479,9 @@ def _speed_sensitivity(cycles: Sequence[CycleRecord], policy: MetricPolicy) -> l
         assert cycle.cohort_key is not None
         by_type[cycle.cohort_key].append(cycle)
     grids: list[dict[str, Any]] = []
-    for editor_min, comparator_min, band in product((3, 5, 8, 10), (5, 10, 15), (10.0, 15.0, 20.0, 25.0, 30.0)):
+    for editor_min, comparator_min, comparator_editors_min, band in product(
+        (3, 5, 8, 10), (5, 10, 15), (1, 2), (10.0, 15.0, 20.0, 25.0, 30.0)
+    ):
         pairs = 0
         stable_pairs = 0
         agreements = 0
@@ -452,7 +490,8 @@ def _speed_sensitivity(cycles: Sequence[CycleRecord], policy: MetricPolicy) -> l
             for editor_id in sorted({str(cycle.editor_id) for cycle in cohort}):
                 mine = [int(cycle.duration_seconds) for cycle in cohort if cycle.editor_id == editor_id and cycle.duration_seconds is not None]
                 peers = [int(cycle.duration_seconds) for cycle in cohort if cycle.editor_id != editor_id and cycle.duration_seconds is not None]
-                if len(mine) < editor_min or len(peers) < comparator_min:
+                peer_editor_count = len({cycle.editor_id for cycle in cohort if cycle.editor_id != editor_id})
+                if len(mine) < editor_min or len(peers) < comparator_min or peer_editor_count < comparator_editors_min:
                     continue
                 base_pct = 100 * (statistics.median(mine) - statistics.median(peers)) / statistics.median(peers)
                 base = _symmetric_class(base_pct, band, "faster", "similar", "slower")
@@ -479,7 +518,8 @@ def _speed_sensitivity(cycles: Sequence[CycleRecord], policy: MetricPolicy) -> l
             {
                 "minimum_editor_projects": editor_min,
                 "minimum_comparator_projects": comparator_min,
-                "symmetric_band_percentage_points": band,
+                "minimum_comparator_editors": comparator_editors_min,
+                "symmetric_band_percent": band,
                 "classifiable_editor_type_pairs": pairs,
                 "fully_stable_pairs": stable_pairs,
                 "fully_stable_pair_rate": _round(stable_pairs / pairs) if pairs else None,
@@ -569,39 +609,66 @@ def _threshold_assessment(
     current: Mapping[str, Any],
     comparison: Mapping[str, Any],
     trend: Mapping[str, Any],
-    speed_sensitivity: Sequence[Mapping[str, Any]],
-    deadline_sensitivity: Sequence[Mapping[str, Any]],
+    current_speed_sensitivity: Sequence[Mapping[str, Any]],
+    comparison_speed_sensitivity: Sequence[Mapping[str, Any]],
+    current_deadline_sensitivity: Sequence[Mapping[str, Any]],
+    comparison_deadline_sensitivity: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     quality = current["quality_by_editor"]
+    comparison_quality = comparison["quality_by_editor"]
     speed = current["speed_by_editor_and_video_type"]
+    comparison_speed = comparison["speed_by_editor_and_video_type"]
     deadline = current["deadline_by_editor"]
+
+    def speed_eligible_editors(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+        return sorted({
+            str(row["editor_id"])
+            for row in rows
+            if row["editor_projects"] >= 5 and row["other_editors_projects"] >= 10 and row["other_editors_count"] >= 2
+        })
+
+    current_speed_editors = speed_eligible_editors(speed)
+    comparison_speed_editors = speed_eligible_editors(comparison_speed)
+    current_deadline_editors = sorted(editor_id for editor_id, row in deadline.items()
+                                      if row["n"] >= 10 and row["other_editors_n"] >= 60)
+    comparison_deadline_editors = sorted(editor_id for editor_id, row in comparison["deadline_by_editor"].items()
+                                         if row["n"] >= 10 and row["other_editors_n"] >= 60)
     return {
         "quality": {
             "status": "leave_open",
+            "sample_floor_candidate": 10,
             "observations": {
                 "editors": len(quality),
                 "editors_with_scored_positive_occurrence": sum(row["scored_positive_occurrences"] > 0 for row in quality.values()),
                 "editors_with_scored_negative_occurrence": sum(row["scored_negative_occurrences"] > 0 for row in quality.values()),
+                "editors_meeting_sample_candidate_current": sum(row["eligible_projects"] >= 10 for row in quality.values()),
+                "editors_meeting_sample_candidate_comparison": sum(row["eligible_projects"] >= 10 for row in comparison_quality.values()),
             },
-            "reason": "The copied run measures label sparsity and rate granularity but contains no independent ground-truth outcome that identifies acceptable negative/positive rate cutoffs or an acceptable confidence width; those are management policy choices.",
+            "reason": "A ten-project floor is a reviewable sampling candidate (one occurrence changes a rate by at most ten percentage points, and seven Editors meet it in each window), but N and P remain open. Only two current Editors have any scored positive occurrence and two have any scored negative occurrence, label completeness is unproven, and no independent outcome identifies acceptable rate cutoffs. Without N and P the Quality component remains Not classifiable.",
         },
         "speed": {
             "status": "proposed_for_management_approval",
             "proposed_values": {
                 "minimum_editor_sample_size": 5,
                 "minimum_comparator_sample_size": 10,
+                "minimum_comparator_editor_count": 2,
                 "faster_band": -25.0,
                 "similar_band": 0.0,
                 "slower_band": 25.0,
             },
-            "stability_evidence": _matching_grid(speed_sensitivity, minimum_editor_projects=5, minimum_comparator_projects=10, symmetric_band_percentage_points=25.0),
+            "stability_evidence": {
+                "current": _matching_grid(current_speed_sensitivity, minimum_editor_projects=5, minimum_comparator_projects=10, minimum_comparator_editors=2, symmetric_band_percent=25.0),
+                "comparison": _matching_grid(comparison_speed_sensitivity, minimum_editor_projects=5, minimum_comparator_projects=10, minimum_comparator_editors=2, symmetric_band_percent=25.0),
+            },
             "observations": {
                 "editor_video_type_pairs": len(speed),
                 "pairs_with_editor_n_at_least_5": sum(row["editor_projects"] >= 5 for row in speed),
                 "pairs_with_other_projects_at_least_5": sum(row["other_editors_projects"] >= 5 for row in speed),
                 "pairs_with_other_editors_at_least_2": sum(row["other_editors_count"] >= 2 for row in speed),
+                "eligible_editors_current": current_speed_editors,
+                "eligible_editors_comparison": comparison_speed_editors,
             },
-            "reason": "This candidate is a calibration proposal, not an approved truth boundary: it requires at least five subject and ten peer projects, and treats differences inside ±25 percentage points as Similar. In this run it retains nine Editor/Video-Type pairs and 91.7% of one-project perturbations keep the same verdict; management must still approve the materiality meaning.",
+            "reason": "This candidate is a calibration proposal, not an approved truth boundary: it requires at least five subject projects and ten peer projects from at least two other Editors, preventing a nominal team comparison from being one person's history. It treats relative differences inside ±25% as Similar. It retains nine current pairs with 91.7% perturbation agreement and ten comparison pairs with 100% agreement; management must still approve the materiality meaning.",
         },
         "deadline": {
             "status": "proposed_for_management_approval",
@@ -612,22 +679,29 @@ def _threshold_assessment(
                 "similar_band": 0.0,
                 "worse_band": 0.15,
             },
-            "stability_evidence": _matching_grid(deadline_sensitivity, minimum_editor_projects=10, minimum_comparator_projects=60, symmetric_band_rate_points=0.15),
+            "stability_evidence": {
+                "current": _matching_grid(current_deadline_sensitivity, minimum_editor_projects=10, minimum_comparator_projects=60, symmetric_band_rate_points=0.15),
+                "comparison": _matching_grid(comparison_deadline_sensitivity, minimum_editor_projects=10, minimum_comparator_projects=60, symmetric_band_rate_points=0.15),
+            },
             "observations": {
                 "editors": len(deadline),
                 "editors_with_n_at_least_5": sum(row["n"] >= 5 for row in deadline.values()),
                 "editors_with_n_at_least_10": sum(row["n"] >= 10 for row in deadline.values()),
+                "eligible_editors_current": current_deadline_editors,
+                "eligible_editors_comparison": comparison_deadline_editors,
             },
             "reason": "This candidate requires ten subject and sixty peer deadline-classifiable projects and treats a ±15 percentage-point leave-one-out late-rate difference as Similar. It is supported as a stability calibration by the cited perturbation row, but the business meaning still requires approval.",
         },
         "trend": {
             "status": "leave_open",
+            "sample_floor_candidate": {"current_window": 10, "comparison_window": 10},
+            "combination_candidate": "Once component-specific material thresholds exist and at least two components are classifiable: more Improving than Declining => Improving; more Declining than Improving => Declining; a tie => Stable. Counts are symmetric and no magnitudes are averaged.",
             "observations": {
                 "quality_editors_with_both_windows": len(trend["quality"]),
                 "deadline_editors_with_both_windows": len(trend["deadline"]),
                 "speed_pairs_with_both_windows": len(trend["speed"]),
             },
-            "reason": "Only one adjacent pair of 30-day windows is available, with no labelled durable-change outcome. More importantly, the current contract has one material_change_threshold applied to both rates (unitless proportions) and speed (seconds), so one defensible scalar cannot represent all measurements. Leave it open until the rule is separated by measurement and calibrated on multiple window pairs.",
+            "reason": "Ten projects in each window is a sampling candidate and seven Editors have paired factual inputs, but all material-change thresholds remain open. Only one adjacent pair of windows is available, with no labelled durable-change outcome. More importantly, the current contract has one material_change_threshold applied to both rates (unitless proportions) and speed (seconds), so one defensible scalar cannot represent all measurements. Zero Trend labels are currently eligible because no materiality rule is approved.",
         },
         "overall": {
             "status": "proposed_for_management_approval",
@@ -635,6 +709,10 @@ def _threshold_assessment(
                 "minimum_classifiable_components": 2,
                 "rule": "two or more Negative => Below Expectations; exactly one Negative => Mixed; otherwise two or more Positive => Strong; otherwise => Good",
                 "lookup_table": _proposed_overall_lookup(),
+            },
+            "candidate_eligible_editors": {
+                "current": sorted(set(current_speed_editors) & set(current_deadline_editors)),
+                "comparison": sorted(set(comparison_speed_editors) & set(comparison_deadline_editors)),
             },
             "reason": "The lookup is an explicit, auditable semantic proposal rather than a fitted numeric score. It preserves D41's two-component minimum and gives any single Negative a visible Mixed result. It remains rule_not_approved until management accepts it and the component rules.",
         },
@@ -649,7 +727,7 @@ def analyze(run_dir: Path, contract_path: Path) -> dict[str, Any]:
     extract = json.loads((run_dir / "extract.json").read_text(encoding="utf-8"))
     baseline = reconstruct_cycles(
         extract["activity"],
-        contract,
+        contract_before_attestations(contract),
         items_payload=extract.get("items"),
         ingestion=extract.get("ingestion"),
     )
@@ -679,8 +757,11 @@ def analyze(run_dir: Path, contract_path: Path) -> dict[str, Any]:
     comparison_analysis = _window_analysis(comparison, quality.occurrences, policy, overlaid_contract, calculated_at)
     trend = _trend(current_analysis, comparison_analysis)
     current_deadline_rows = _deadline_rows(current, policy, calculated_at)
-    speed_sensitivity = _speed_sensitivity(current, policy)
-    deadline_sensitivity = _deadline_sensitivity(current_deadline_rows)
+    comparison_deadline_rows = _deadline_rows(comparison, policy, calculated_at)
+    current_speed_sensitivity = _speed_sensitivity(current, policy)
+    comparison_speed_sensitivity = _speed_sensitivity(comparison, policy)
+    current_deadline_sensitivity = _deadline_sensitivity(current_deadline_rows)
+    comparison_deadline_sensitivity = _deadline_sensitivity(comparison_deadline_rows)
     baseline_completed = _completed(baseline.cycles)
     completed = _completed(reconstructed.cycles)
     all_time_cohort = _common_metric_cohort(completed)
@@ -705,11 +786,11 @@ def analyze(run_dir: Path, contract_path: Path) -> dict[str, Any]:
     report: dict[str, Any] = {
         "analysis_version": "round4-distribution-v1",
         "sources": {
-            "production_run": str(run_dir),
+            "production_run": verification["run_id"],
             "run_id": verification["run_id"],
             "retrieved_at": verification["retrieved_at"],
             "manifest_sha256": _sha256(run_dir / "manifest.json"),
-            "contract": str(contract_path),
+            "contract": contract_path.name,
             "contract_sha256": _sha256(contract_path),
             "contract_version": contract["contract_version"],
         },
@@ -765,12 +846,20 @@ def analyze(run_dir: Path, contract_path: Path) -> dict[str, Any]:
         "quality_labels": label_counts,
         "trend": trend,
         "sensitivity": {
-            "method": "Deterministic leave-one-project-out perturbation of each otherwise classifiable current-window Editor/Video-Type or Editor deadline comparison; dropping below a candidate sample floor counts as a classification disagreement.",
-            "speed": speed_sensitivity,
-            "deadline": deadline_sensitivity,
+            "method": "Deterministic leave-one-project-out perturbation of each otherwise classifiable Editor/Video-Type or Editor deadline comparison in both windows; dropping below a candidate sample floor counts as a classification disagreement.",
+            "current": {"speed": current_speed_sensitivity, "deadline": current_deadline_sensitivity},
+            "comparison": {"speed": comparison_speed_sensitivity, "deadline": comparison_deadline_sensitivity},
         },
     }
-    report["threshold_assessment"] = _threshold_assessment(current_analysis, comparison_analysis, trend, speed_sensitivity, deadline_sensitivity)
+    report["threshold_assessment"] = _threshold_assessment(
+        current_analysis,
+        comparison_analysis,
+        trend,
+        current_speed_sensitivity,
+        comparison_speed_sensitivity,
+        current_deadline_sensitivity,
+        comparison_deadline_sensitivity,
+    )
     report["prior_comparison"] = {
         "prior": PRIOR_ANALYSIS,
         "current_completed_cycles_delta": len(completed) - PRIOR_ANALYSIS["completed_cycles"],

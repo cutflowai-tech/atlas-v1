@@ -706,7 +706,7 @@
     "governing_decision": "D44",
     "blocking_identity_keys": [],
     "required_order": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"],
-    "completed_steps": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"],
+    "completed_steps": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"],
     "threshold_approval_status": "rule_not_approved",
     "pre_resolution_calibration_approved": false,
     "unresolved_projects_enter_calibration": false

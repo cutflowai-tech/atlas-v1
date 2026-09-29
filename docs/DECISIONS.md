@@ -2,7 +2,7 @@
 
 These product decisions drive runtime behavior. Each one is encoded in a versioned executable contract (`config/monday-contract-v*.json`), so historical results stay reproducible. Changing a decision requires a new contract version; an approved contract is never edited in place.
 
-> **Implementation status, 2026-09-29:** D20–D50 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0, all D44-blocked thresholds remain `null`/`rule_not_approved`, and the seven unattested identities remain unresolved. No deployment or production activation is authorized by this log update.
+> **Implementation status, 2026-09-29:** D20–D50 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
 
 ## Confirmed by Waset management, 2026-09-28 (contract 1.2.0)
 
@@ -106,7 +106,7 @@ Context: distributions measured on production run `20260929T130736Z-e6d03314e704
 
 | # | Decision | Runtime encoding |
 |---|---|---|
-| D44 | **Identities before thresholds.** No threshold (Overall Status lookup, Trend, Speed bands, Quality N/P, Deadline bands, minimum samples) is calibrated or approved until the seven unmapped Editor labels (Ibrahim, Refaat, Martin, Anas, Amir, Mario, Samra) are resolved. Mappings are **date-aware**: `source label id, effective_from, effective_to, editor_id, editor name, evidence or attestation source`. Where Monday reused a label ID, a current display name never applies to earlier activity. A management or Production Manager attestation is acceptable authoritative evidence (refines D16) when Monday data cannot resolve reuse. Order: approve mappings → update the identity mapping → record the decision → re-run production distributions → only then propose round-4 values. Thresholds calibrated before this are never approved for production. | Identity gate fulfilled by `monday-editor-v1.3` in the contract 1.5.0 candidate; distribution rerun and threshold steps remain pending. |
+| D44 | **Identities before thresholds.** No threshold (Overall Status lookup, Trend, Speed bands, Quality N/P, Deadline bands, minimum samples) is calibrated or approved until the seven unmapped Editor labels (Ibrahim, Refaat, Martin, Anas, Amir, Mario, Samra) are resolved. Mappings are **date-aware**: `source label id, effective_from, effective_to, editor_id, editor name, evidence or attestation source`. Where Monday reused a label ID, a current display name never applies to earlier activity. A management or Production Manager attestation is acceptable authoritative evidence (refines D16) when Monday data cannot resolve reuse. Order: approve mappings → update the identity mapping → record the decision → re-run production distributions → only then propose round-4 values. Thresholds calibrated before this are never approved for production. | Identity gate fulfilled by `monday-editor-v1.3`; distributions rerun and shadow proposals documented in `ROUND4-DISTRIBUTION-ANALYSIS.md`. Threshold approval remains pending. |
 | D45 | **Deadline facts stay absolute; the Deadline component is relative.** The factual layer (D5, D19: delta, early, on time, late, no tolerance) is unchanged, and no tolerance is added to improve the numbers. The Deadline Component State compares the Editor's late rate with the late rate of the **other** eligible Editors' deadline-classifiable projects in the same window (leave-one-out, as D36). Bands and minimum samples are round-4 values. With an insufficient comparator the component is `Not classifiable`; there is never a silent fallback to an absolute threshold. The UI shows both, e.g. "Deadline: better than team comparison · Absolute late rate: 56.5%", without implying that the absolute rate is good. Refines D40. | Pending contract 1.5.0. |
 | D46 | **Team-wide lateness is a process question, not a scoring input.** In production data the team was 61–96% late in every 30-day window (90 days: 71 of 90 late, median 15.2 h), while only 11 of the 71 carried `Late Delivery`. This may reflect how Requested ETA is set or used. Atlas never compensates by changing facts; investigating ETA-setting is a management matter outside editor scoring unless a later decision changes the deadline definition. | Documentation only. |
 | D47 | **Insufficient evidence is a data state, not a performance state.** Editors below minimum samples keep their Overview card, Editor Profile, every available fact, data coverage and evidence. Status and components show `Not enough evidence to classify` / `Not classifiable` with the reason (e.g. "5 completed projects · 3 deadline-classifiable · no valid Speed benchmark yet"). Never hidden, never given a provisional status, never defaulted to Neutral, never penalized for missing history. | Pending contract 1.5.0. |
@@ -114,8 +114,8 @@ Context: distributions measured on production run `20260929T130736Z-e6d03314e704
 ## Confirmed by Waset management, 2026-09-29 (handoff v2 grilling, round 4b)
 
 The attestations in [`docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`](evidence/IDENTITY-ATTESTATION-REQUEST.md) are now answered
-and fulfill D44's identity gate. Distribution reruns and threshold proposals remain pending; calibrating on the previously mapped
-Editors alone was not an acceptable substitute.
+and fulfill D44's identity gate. The exact-run distribution replay and shadow proposals are recorded in
+[`docs/evidence/ROUND4-DISTRIBUTION-ANALYSIS.md`](evidence/ROUND4-DISTRIBUTION-ANALYSIS.md); none is approved or activated.
 
 | # | Decision | Runtime encoding |
 |---|---|---|
@@ -133,8 +133,8 @@ identity and Editor role for the three reused-label histories: `(5, "Ahmed")` is
 `(13, "Michael")`.
 
 This fulfills the identity gate in D44 and refines D49 from pending to attested. It does not approve a mapping outside the recorded
-range, does not change the `(source_label_id, logged_name)` key in D48, and does not change any D50 quarantine. Re-running
-production distributions and proposing threshold values remain subsequent governance steps; every threshold remains unapproved
+range, does not change the `(source_label_id, logged_name)` key in D48, and does not change any D50 quarantine. Production
+distributions were rerun and shadow values proposed in the Round 4 evidence report. Every threshold remains unapproved
 and `null` until the Atlas business owner records a matching approval decision. Runtime encoding: `monday-editor-v1.3` in contract
 1.5.0.
 
@@ -166,8 +166,8 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 
 1. **Resolved by the D49 management attestation (contract 1.5.0 candidate).** Mario (4), Ibrahim (9), Samra (8), Amir (10),
    Anas (5), Martin (7) and Refaat (11) are attested as Editors for their documented ranges; the three historical merges are also
-   attested. The exact record is in `docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`. The identity gate is satisfied, but distribution
-   reruns, threshold proposals and business-owner threshold approval remain separate subsequent steps.
+   attested. The exact record is in `docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`. The identity gate, distribution rerun and
+   proposal steps are complete; business-owner threshold approval remains a separate subsequent step.
 2. **Unclassified Video Type labels** that appear in real cohorts: `Unbranded` (26) and `Reels Boost Pack` (22). Other unclassified labels do not yet appear in eligible cycles.
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
 4. **Resolved by D34.** Conceptual status aliases: is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.

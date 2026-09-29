@@ -29,7 +29,7 @@ class Round4DistributionAnalysisTests(unittest.TestCase):
 
     def test_attestation_overlay_is_non_mutating_and_idempotent(self):
         unresolved = [
-            {"source_label_id": row["source_label_id"], "observed_name": row["logged_name"]}
+            {"source_label_id": row["source_label_id"], "logged_name": row["logged_name"]}
             for row in analysis.ATTESTED_TUPLES
         ]
         contract = {
@@ -48,6 +48,40 @@ class Round4DistributionAnalysisTests(unittest.TestCase):
         self.assertEqual(10, len(twice["editor_attribution"]["entries"]))
         self.assertEqual("test-v1-round4-analysis", twice["editor_attribution"]["mapping_version"])
         self.assertEqual([], twice["editor_attribution"]["named_unresolved_identities"])
+
+    def test_attestation_overlay_rejects_inexact_contract_bounds(self):
+        row = analysis.ATTESTED_TUPLES[0]
+        ranges = self.tuple_ranges()
+        observed = ranges[(row["source_label_id"], row["logged_name"])]
+        contract = {
+            "editor_attribution": {
+                "mapping_version": "test-v1",
+                "entries": [{
+                    "source_label_id": row["source_label_id"],
+                    "logged_name": row["logged_name"],
+                    "editor_id": row["editor_id"],
+                    "canonical_editor_name": row["display_name"],
+                    "role": "editor",
+                    "decision_id": "D49",
+                    "attestation_source": analysis.ATTESTATION_SOURCE,
+                    "first_observed_at": observed["first_observed_at"].isoformat(),
+                    "last_observed_at": "2026-09-27T12:00:00+00:00",
+                }],
+                "named_unresolved_identities": [],
+            }
+        }
+        with self.assertRaisesRegex(RuntimeError, "conflicts with management attestation"):
+            analysis.contract_with_attestations(contract, ranges)
+
+    def test_prior_baseline_removes_only_attested_entries(self):
+        attested = analysis.ATTESTED_TUPLES[0]
+        contract = {"editor_attribution": {"mapping_version": "v1.3", "entries": [
+            {"source_label_id": attested["source_label_id"], "logged_name": attested["logged_name"]},
+            {"source_label_id": "6", "logged_name": "Will"},
+        ], "named_unresolved_identities": []}}
+        baseline = analysis.contract_before_attestations(contract)
+        self.assertEqual([{"source_label_id": "6", "logged_name": "Will"}], baseline["editor_attribution"]["entries"])
+        self.assertEqual(10, len(baseline["editor_attribution"]["named_unresolved_identities"]))
 
     def test_attestation_overlay_rejects_a_conflicting_contract_mapping(self):
         row = analysis.ATTESTED_TUPLES[0]

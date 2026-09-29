@@ -92,7 +92,8 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual(self.contract["threshold_governance"]["governing_decision"], "D44")
         self.assertEqual(self.contract["threshold_governance"]["blocking_identity_keys"], [])
         self.assertEqual(self.contract["threshold_governance"]["completed_steps"],
-                         ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"])
+                         ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision",
+                          "rerun_production_distributions", "propose_threshold_values"])
         self.assertEqual(self.contract["threshold_governance"]["threshold_approval_status"], "rule_not_approved")
         self.assertFalse(self.contract["threshold_governance"]["pre_resolution_calibration_approved"])
         self.assertEqual(self.contract["deadline"]["team_wide_lateness"], "process-diagnostic-only-never-an-editor-scoring-input")

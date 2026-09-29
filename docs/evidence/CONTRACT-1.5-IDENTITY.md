@@ -56,9 +56,9 @@ and observed timestamp. The raw Monday record remains the source evidence outsid
 - The v1.5 identity mapping advances to `monday-editor-v1.3`. Its mapping-record schema retains timezone-aware date-time bounds;
   the attested entries use the exact first and last log occurrences from the verified production ingest. No older mapping or config
   is modified.
-- Threshold governance now records D44 as the governing (not blocking) decision, with no blocking identity keys. Only the identity
-  approval, mapping update and decision record steps are complete; production distribution reruns and threshold proposals remain
-  pending, and every threshold remains `null` / `rule_not_approved`.
+- Threshold governance now records D44 as the governing (not blocking) decision, with no blocking identity keys. The identity,
+  production-distribution replay and threshold-proposal steps are complete. Every threshold remains `null` /
+  `rule_not_approved` pending a separate D25 business-owner decision.
 - Added `contracts/editor-profile-v1.5.schema.json`. The 1.5 evidence API adds publication identity, exact Active Work and
   Awaiting Approval groups, separate Client/Internal Revision evidence, metric coverage, Cairo window metadata, factual Recent
   Change, component states, and the explicit unapproved Overall Status result.

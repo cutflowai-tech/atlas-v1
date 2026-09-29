@@ -203,7 +203,7 @@
         "status": {"const": "identity_gate_satisfied_thresholds_unapproved"},
         "governing_decision": {"const": "D44"},
         "blocking_identity_keys": {"type": "array", "maxItems": 0},
-        "completed_steps": {"const": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"]},
+        "completed_steps": {"const": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"]},
         "threshold_approval_status": {"const": "rule_not_approved"},
         "pre_resolution_calibration_approved": {"const": false},
         "unresolved_projects_enter_calibration": {"const": false}
