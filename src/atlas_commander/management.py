@@ -9,6 +9,7 @@ metric engine and the presentation layer.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 RULE_NOT_APPROVED = "rule_not_approved"
@@ -21,15 +22,15 @@ PENDING_RULES: dict[str, dict[str, str]] = {
     "needs_attention": {"label": "Needs attention",
                         "reason": "No rule defines when an Editor needs management attention."},
     "positive_signals": {"label": "Positive signals",
-                         "reason": "No approved positive quality signal exists in V1; For Bonus is context only (D10)."},
+                         "reason": "Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved."},
     "trend_direction": {"label": "Improving / declining",
                         "reason": "No trend rule is approved; monthly figures are shown with their sample sizes only."},
     "workload_capacity": {"label": "Workload / capacity judgement",
-                          "reason": "Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5)."},
+                          "reason": "Active Work statuses are approved; no capacity threshold or capacity judgement is approved."},
     "management_recommendation": {"label": "Management recommendation",
                                   "reason": "Recommendations are outside Atlas V1 scope; AI may explain but is never the source of truth."},
     "reward_recommendation": {"label": "Reward recommendation",
-                              "reason": "No reward rule is approved; For Bonus labels are context only (D10)."},
+                              "reason": "No reward rule is approved; positive labels are evidence and never an automatic reward recommendation."},
     "team_patterns": {"label": "Team / process patterns",
                       "reason": "No rule defines a team or process pattern; label counts per Editor are shown as facts only."},
 }
@@ -44,7 +45,9 @@ def pending(slot: str) -> dict[str, Any]:
     return {"slot": slot, "label": rule["label"], "value": None, "state": RULE_NOT_APPROVED, "reason": rule["reason"]}
 
 
-def editor_intelligence() -> dict[str, dict[str, Any]]:
+def editor_intelligence(profile: Mapping[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    # The optional profile keeps this presentation-layer API ready for approved rules
+    # without deriving classifications here. Until then every judgement remains empty.
     return {slot: pending(slot) for slot in EDITOR_SLOTS}
 
 

@@ -514,7 +514,10 @@ def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
     if kind != "deadline":
         lines.append(("clock", loc.t("common.deadlines"), _deadline_line(s, loc)))
     lines.append(("alert", loc.t("common.issue_signals"), _issue_line(s, loc)))
-    lines.append(("spark", loc.t("card.positive"), f'<span class="quiet">— {loc.t("common.no_signal")}</span>'))
+    positive_count = (s["quality"].get("positive") or {}).get("total_occurrences", 0)
+    positive = (f'<span class="small">{loc.num(positive_count)} · {loc.t("quality.positive_title")}</span>' if positive_count
+                else f'<span class="quiet">— {loc.t("common.no_signal")}</span>')
+    lines.append(("spark", loc.t("card.positive"), positive))
     lines.append(("stack", loc.t("common.current_work"), workload_chips(s["current_workload"], 3, loc)))
     body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{k}</span><div>{v}</div></div>' for ic, k, v in lines)
     return (f'<article class="card ed" aria-label="{_attr(s["display_name"])}">'
@@ -541,6 +544,10 @@ def _marker_class(event: dict[str, Any], loc: Loc = EN) -> tuple[str, str]:
     """Marker style and its plain-text label (for aria-label/title)."""
     if event["kind"] == "issue_label":
         return "issue", loc.text("timeline.issue_marker", label=event["label"])
+    if event["kind"] == "positive_label":
+        return "early", str(event["label"])
+    if event["kind"] == "context_label":
+        return "unclassified", str(event["label"])
     result = event["deadline_result"]
     if result:
         return result, loc.text(f"timeline.delivery.{result}")
@@ -552,15 +559,16 @@ def _event_tid(editor_id: str, index: int) -> str:
 
 
 def _event_templates(s: dict[str, Any], loc: Loc) -> str:
-    """Drawer content for issue-label events (deliveries open their project's evidence)."""
+    """Drawer content for quality-label events (deliveries open their project's evidence)."""
     out = []
     for index, event in enumerate(s["events"]):
-        if event["kind"] != "issue_label":
+        if not event["kind"].endswith("_label"):
             continue
         ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], _dl([
             (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
-            (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])), (loc.t("field.source"), loc.t("quality.source_column"))])
+            (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])),
+            (loc.t("field.source"), loc.tech(event.get("column_id") or "Monday"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
             + f'<p><button type="button" class="ghost" data-drawer="{escape(_project_tid(s["editor_id"], event["monday_item_id"]))}">{loc.t("evidence.open_project")}</button></p>'))
     return "".join(out)
@@ -900,10 +908,26 @@ def _quality_panel(s: dict[str, Any], loc: Loc = EN) -> str:
                 f'{loc.t("quality.affected", affected=loc.num(q["projects_with_issues"]), total=loc.num(q["completed_projects_attributed"]))}</p></div>')
     else:
         body = f'<div class="card">{empty_state(loc.t("quality.none_recorded_sentence"), " " + loc.t("quality.empty_detail"))}</div>'
+    positive = q.get("positive") or {"total_occurrences": 0, "by_label": []}
+    context = q.get("context") or {"total_occurrences": 0, "by_label": []}
+
+    def label_rows(block: dict[str, Any]) -> str:
+        return "".join(
+            f'<div><span>{loc.src(row["label"])}</span><b>{loc.num(row["occurrences"])}</b></div>'
+            for row in block["by_label"]
+        )
+
+    positive_rows = label_rows(positive)
+    context_rows = label_rows(context)
+    positive_body = (f'<div class="rowlist">{positive_rows}</div>' if positive_rows
+                     else empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail")))
+    context_body = (f'<div class="rowlist">{context_rows}</div>' if context_rows
+                    else f'<p class="tiny quiet">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p>')
+    taxonomy = (f'<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
+                f'{positive_body}<h3 style="margin:16px 0 6px;font-weight:500;font-size:16px">{loc.t("report.tile.for_bonus")}</h3>'
+                f'{context_body}</div>')
     return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
-            f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
-            f'{empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail"))}'
-            f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p></div></div>')
+            f'<div class="two">{body}{taxonomy}</div>')
 
 
 def _quality_label_drawers(s: dict[str, Any], loc: Loc = EN) -> str:

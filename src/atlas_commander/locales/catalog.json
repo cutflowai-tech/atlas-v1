@@ -1106,8 +1106,8 @@
    "notes": "English is the profile's note verbatim; confirm the Arabic summary is equivalent."
   },
   "note.positive": {
-   "en": "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality.",
-   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط ولا تؤثر على الجودة.",
+    "en": "Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made.",
+    "ar": "تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة.",
    "context": "Profile note (positive signals)",
    "status": "Implemented conservatively"
   },
@@ -1391,8 +1391,8 @@
    "status": "Implemented conservatively"
   },
   "pending.positive_signals.reason": {
-   "en": "No approved positive quality signal exists in V1; For Bonus is context only (D10).",
-   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط (D10).",
+    "en": "Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved.",
+    "ar": "تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير.",
    "context": "Why the rule is not evaluated",
    "status": "Implemented conservatively"
   },
@@ -1403,8 +1403,8 @@
    "status": "Implemented conservatively"
   },
   "pending.reward_recommendation.reason": {
-   "en": "No reward rule is approved; For Bonus labels are context only (D10).",
-   "ar": "لا توجد قاعدة مكافآت معتمدة؛ وعلامات For Bonus للسياق فقط (D10).",
+    "en": "No reward rule is approved; positive labels are evidence and never an automatic reward recommendation.",
+    "ar": "لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة.",
    "context": "Why the rule is not evaluated",
    "status": "Implemented conservatively"
   },
@@ -1439,8 +1439,8 @@
    "status": "Implemented conservatively"
   },
   "pending.workload_capacity.reason": {
-   "en": "Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5).",
-   "ar": "لم يتم بعد تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي (DECISIONS.md، القرار المفتوح 5).",
+    "en": "Active Work statuses are approved; no capacity threshold or capacity judgement is approved.",
+    "ar": "حالات العمل النشط معتمدة؛ ولا توجد عتبة سعة أو حكم سعة معتمد.",
    "context": "Why the rule is not evaluated",
    "status": "Implemented conservatively"
   },

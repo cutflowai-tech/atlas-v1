@@ -134,6 +134,47 @@ class IntelligenceV15Tests(unittest.TestCase):
                                                     {"editor_id": "e2", "cycle_id": "b", "result": "late"}], deadline_rule)
         self.assertEqual((deadline["state"], deadline["facts"]["absolute_late_rate"], deadline["facts"]["comparator_late_rate"]), (POSITIVE, 0.0, 1.0))
 
+    def test_approved_rules_accept_the_canonical_contract_v15_vocabulary(self):
+        quality_rule = {
+            "approved": True, "decision_id": "D39", "rule_version": "quality-component-v1.0",
+            "minimum_project_sample_size": 2, "negative_rate_threshold": 0.5, "positive_rate_threshold": 0.25,
+        }
+        quality = quality_component(
+            {"eligible_completed_projects": 4, "negative_rate": 0.0, "positive_rate": 0.5, "evidence": {}}, quality_rule,
+        )
+        self.assertEqual(quality["state"], POSITIVE)
+
+        result = self.reconstruct(*project("301", AHMED, 2), *project("302", MICHAEL, 10))
+        speed_rule = {
+            "approved": True, "decision_id": "D38", "rule_version": "speed-component-v1.0",
+            "minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1,
+            "faster_band": -10, "similar_band": 0, "slower_band": 10,
+        }
+        speed = speed_benchmarks_v15("editor-label-12", result.cycles, self.mapping, speed_rule, NOW)["cohorts"][0]
+        self.assertEqual(speed["verdict"], FASTER)
+
+        deadline_rule = {
+            "approved": True, "decision_id": "D45", "rule_version": "deadline-component-v1.0",
+            "minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1,
+            "better_band": -0.05, "similar_band": 0.0, "worse_band": 0.05,
+        }
+        deadline = deadline_component(
+            "e1", [{"editor_id": "e1", "cycle_id": "a", "result": "early"},
+                   {"editor_id": "e2", "cycle_id": "b", "result": "late"}], deadline_rule,
+        )
+        self.assertEqual(deadline["state"], POSITIVE)
+
+        components = {"quality": {"state": POSITIVE, "evidence": {}}, "speed": {"state": NEUTRAL, "evidence": {}},
+                      "deadline": {"state": NOT_CLASSIFIABLE, "evidence": {}}}
+        overall_rule = {"approved": True, "decision_id": "D37", "rule_version": "overall-status-v1.0",
+                        "lookup_table": {"Positive|Neutral|Not classifiable": "Good"}}
+        self.assertEqual(overall_status(components, overall_rule)["status"], "Good")
+
+        trend_rule = {"approved": True, "decision_id": "D23", "rule_version": "trend-v1.0",
+                      "minimum_sample_size": 2, "material_change_threshold": 0.1, "lower_is_better": True}
+        change = recent_change(0.2, 0.4, "late_rate", trend_rule, current_sample=3, comparison_sample=3)
+        self.assertEqual((change["difference"], change["trend"]), (-0.2, "Improving"))
+
     def test_overall_lookup_needs_two_components_and_revision_context_never_scores(self):
         lookup = {"approved": True, "decision_id": "D37", "rule_version": "overall-v1.5",
                   "lookup": {"Positive|Neutral|Not classifiable": "Good"}}

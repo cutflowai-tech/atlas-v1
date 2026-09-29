@@ -65,12 +65,35 @@ def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
-    negative = profile["quality"]["negative"]
-    return {"source": "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
+    quality = profile["quality"]
+    negative = quality["negative"]
+    result = {"source": "quality", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
             "completed_projects_attributed": negative["completed_projects_attributed"],
             "by_label": [{"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
                          for row in negative["by_label"]],
-            "for_bonus_context_projects": len(profile["quality"]["for_bonus_context"]["projects"])}
+            "for_bonus_context_projects": len(quality["for_bonus_context"]["projects"])}
+    if "context" in quality:
+        def block(name: str) -> dict[str, Any]:
+            value = quality[name]
+            return {
+                "total_occurrences": value["total_occurrences"],
+                "projects_with_labels": value["projects_with_issues"],
+                "completed_projects_attributed": value["completed_projects_attributed"],
+                "by_label": [
+                    {"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
+                    for row in value["by_label"]
+                ],
+            }
+
+        result.update({
+            "taxonomy_enabled": True,
+            "negative": block("negative"),
+            "positive": block("positive"),
+            "context": block("context"),
+            "rates": quality.get("rates"),
+            "component": quality.get("component"),
+        })
+    return result
 
 
 PROJECT_FIELDS = ("monday_item_id", "state", "in_progress_at", "ready_for_approval_at", "duration_seconds", "cohort_key", "cohort_labels",
@@ -95,8 +118,12 @@ def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
               for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]]
     for occurrence in profile["quality"]["occurrences"]:
         timestamps = occurrence["evidence"].get("source_timestamps") or []
-        events.append({"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
-                       "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
+        label_class = str((occurrence["evidence"].get("source_values") or {}).get("label_class") or "Negative").title()
+        kind = {"Positive": "positive_label", "Negative": "issue_label", "Context": "context_label"}.get(label_class, "context_label")
+        events.append({"kind": kind, "label_class": label_class, "at": timestamps[0] if timestamps else None,
+                       "monday_item_id": occurrence["evidence"]["monday_item_id"], "label": occurrence["performance_label"],
+                       "column_id": occurrence.get("label_column_id"),
+                       "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
     return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
 
 
@@ -208,7 +235,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
     coverage = profile["coverage"]
     speed, deadline, quality = _speed(profile), _deadline(profile), _quality(profile)
     workload, monthly = _workload(profile), _monthly(profile)
-    intelligence = editor_intelligence()
+    intelligence = editor_intelligence(profile)
     return {
         "editor_id": editor["editor_id"], "display_name": editor["display_name"], "monday_label": editor["monday_person_id"],
         "mapping_version": editor.get("mapping_version"), "profile_ref": profile_ref,
@@ -224,14 +251,26 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
 
 def _team(summaries: list[dict[str, Any]]) -> dict[str, Any]:
     labels: dict[str, dict[str, int]] = {}
+    labels_by_class: dict[str, dict[str, dict[str, int]]] = {name: {} for name in ("negative", "positive", "context")}
     for summary in summaries:
         for row in summary["quality"]["by_label"]:
             labels.setdefault(row["label"], {})[summary["editor_id"]] = row["occurrences"]
+        for class_name, class_labels in labels_by_class.items():
+            block = summary["quality"].get(class_name)
+            if not isinstance(block, Mapping):
+                continue
+            for row in block.get("by_label") or []:
+                class_labels.setdefault(row["label"], {})[summary["editor_id"]] = row["occurrences"]
     statuses = sorted({status for s in summaries for status in s["current_workload"]["by_current_status"]})
     months = sorted({m["month"] for s in summaries for m in s["monthly"] if m["deadline"]}, reverse=True)
     return {
         "issue_labels_by_editor": [{"label": label, "editors": counts, "editor_count": len(counts)}
                                    for label, counts in sorted(labels.items(), key=lambda p: (-len(p[1]), p[0]))],
+        "quality_labels_by_class": {
+            class_name: [{"label": label, "editors": counts, "editor_count": len(counts)}
+                         for label, counts in sorted(class_labels.items(), key=lambda pair: (-len(pair[1]), pair[0]))]
+            for class_name, class_labels in labels_by_class.items()
+        },
         "workload_by_editor": {"statuses": statuses,
                                "rows": {s["editor_id"]: s["current_workload"]["by_current_status"] for s in summaries}},
         "deadline_by_editor_month": {"months": [{"month": month, "month_name": month_name(month)} for month in months],

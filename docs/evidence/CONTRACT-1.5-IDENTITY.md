@@ -14,6 +14,9 @@ Contracts 1.0–1.4 keep their historical code paths and outputs.
 
 `monday-editor-v1.2` uses the exact tuple `(source_label_id, logged_name)`. The implementation has no ID-only fallback in this
 mapping mode. A new name under a known label ID returns `UNMAPPED_EDITOR`; it cannot inherit the known name's Editor mapping.
+Cycle reassignment detection uses that same tuple: two observations with the same source label ID but different logged names
+inside one work cycle add `EDITOR_CHANGED_WITHIN_CYCLE` and prevent attribution. The legacy ID-only comparison remains limited to
+older contracts whose identity mapping does not enable the strict tuple key.
 
 The seven named unresolved identities and the three earlier reused-name identities in D49 remain unmapped. No person is newly
 attested. D50 is represented exactly:
@@ -51,6 +54,14 @@ and observed timestamp. The raw Monday record remains the source evidence outsid
 - Added `contracts/editor-profile-v1.5.schema.json`. The 1.5 evidence API adds publication identity, exact Active Work and
   Awaiting Approval groups, separate Client/Internal Revision evidence, metric coverage, Cairo window metadata, factual Recent
   Change, component states, and the explicit unapproved Overall Status result.
+- Quality coverage now treats every eligible completed project as part of the denominator, including zero-label projects, while
+  reporting quarantined label occurrences separately. Speed coverage requires both a valid first-pass duration and a confirmed
+  benchmark-eligible Video Type.
+- Recent Change includes Speed as separate per-Video-Type median changes; durations are never pooled or averaged across types.
+- The dashboard and both profile renderers preserve Positive, Negative and Context groups separately. Timeline evidence labels
+  each occurrence by class instead of describing every quality label as an issue.
+- The 1.5 interpreter consumes the canonical config vocabulary (`*_sample_size`, named bands, `lookup_table`, and trend threshold
+  names); approved-rule tests prove those paths without adding any production threshold value.
 - The shared 1.5 profile is rendered into Arabic and English without recalculating business logic. Each route embeds the same
   release and snapshot identifiers; build and publish validation reject disagreement.
 

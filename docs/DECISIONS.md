@@ -2,6 +2,8 @@
 
 These product decisions drive runtime behavior. Each one is encoded in a versioned executable contract (`config/monday-contract-v*.json`), so historical results stay reproducible. Changing a decision requires a new contract version; an approved contract is never edited in place.
 
+> **Implementation status, 2026-09-29:** D20–D50 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0, all D44-blocked thresholds remain `null`/`rule_not_approved`, and the seven unattested identities remain unresolved. No deployment or production activation is authorized by this log update.
+
 ## Confirmed by Waset management, 2026-09-28 (contract 1.2.0)
 
 | # | Decision | Runtime encoding |

@@ -10,6 +10,8 @@ from pathlib import Path
 import monday_factory as mf
 
 from atlas_commander.contracts import schema_errors
+from atlas_commander.cycles import EDITOR_CHANGED_WITHIN_CYCLE
+from atlas_commander.dashboard import editor_summary
 from atlas_commander.identity import (
     EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE,
     INVALID_IDENTITY_VALUE,
@@ -194,6 +196,18 @@ class ContractV15IdentityTests(unittest.TestCase):
         self.assertEqual(cycle.editor_exception["logged_names"], ["New"])
         self.assertEqual(cycle.editor_exception["event_id"], "editor")
 
+    def test_same_label_id_with_a_different_logged_name_inside_cycle_is_reassignment(self):
+        logs = [
+            mf.editor("editor-old", "1", "2026-09-01T09:00:00Z", [6], ["Another Will"]),
+            mf.video_type("video", "1", "2026-09-01T09:00:01Z", [4]),
+            mf.status("start", "1", "2026-09-01T10:00:00Z", "Create File", "In Progress"),
+            mf.editor("editor-new", "1", "2026-09-01T11:00:00Z", [6], ["Will"]),
+            mf.status("end", "1", "2026-09-01T12:00:00Z", "In Progress", "Ready For Approval"),
+        ]
+        cycle = reconstruct_cycles(mf.payload(*logs), self.contract).cycles[0]
+        self.assertIsNone(cycle.editor_id)
+        self.assertIn(EDITOR_CHANGED_WITHIN_CYCLE, cycle.exclusions)
+
     def test_no_unresolved_or_d50_identity_was_attested(self):
         mapped = {(entry["source_label_id"], entry["logged_name"]) for entry in self.contract["editor_attribution"]["entries"]}
         unresolved = {(entry["source_label_id"], entry["logged_name"])
@@ -227,6 +241,14 @@ class ContractV15IntegratedRuntimeTests(unittest.TestCase):
         facts = quality_rates("editor-label-6", quality.occurrences, reconstruction.cycles)
         self.assertEqual((facts["positive_count"], facts["negative_count"]), (1, 0))
         self.assertEqual({row["label"] for row in facts["scoring_exclusions"]}, {"On Time Delivery", "High Workload"})
+
+        profile = build_editor_profile(reconstruction, self.contract, "editor-label-6", "2026-09-29T12:00:00Z")
+        summary = editor_summary(profile)
+        self.assertEqual(summary["quality"]["positive"]["total_occurrences"], 2)
+        self.assertEqual(summary["quality"]["context"]["total_occurrences"], 1)
+        self.assertEqual({event["kind"] for event in summary["events"] if event["kind"].endswith("_label")},
+                         {"positive_label", "context_label"})
+        self.assertNotIn("D10", summary["intelligence"]["positive_signals"]["reason"])
 
     def test_actual_v15_contract_builds_one_shared_bilingual_publication(self):
         from test_profile import NOW, dataset

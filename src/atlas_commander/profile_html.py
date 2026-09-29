@@ -121,17 +121,35 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  + tile(loc.num(summary.get("not_classifiable_missing_eta", 0)), t("report.tile.no_eta"))
                  + f"</div><p class=\"note\">{_deadline_note(deadline, loc)}</p></section>")
 
-    labels = "".join(f"<tr><td>{loc.src(row['label'])}</td><td>{loc.num(row['occurrences'])}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in row['monday_item_ids'])}</td></tr>"
-                     for row in quality["negative"]["by_label"])
+    def quality_rows(name: str) -> str:
+        return "".join(
+            f"<tr><td>{loc.src(row['label'])}</td><td>{loc.num(row['occurrences'])}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in row['monday_item_ids'])}</td></tr>"
+            for row in quality[name]["by_label"]
+        )
+
+    labels = quality_rows("negative")
     bonus = quality["for_bonus_context"]
     no_labels = f"<tr><td colspan=3>{t('report.no_issue_labels')}</td></tr>"
+    taxonomy_tables = ""
+    if "context" in quality:
+        positive_rows = quality_rows("positive")
+        context_rows = quality_rows("context")
+        taxonomy_tables = (
+            f"<h3>{t('quality.positive_title')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
+            f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
+            f"<tbody>{positive_rows or no_labels}</tbody></table></div>"
+            f"<h3>{t('report.tile.for_bonus')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
+            f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
+            f"<tbody>{context_rows or no_labels}</tbody></table></div>"
+        )
     parts.append(f"<section class=\"card\"><h2>{t('common.quality')}</h2><div class=\"tiles\">"
                  + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
                  + tile(loc.num(quality["negative"]["projects_with_issues"]), t("report.tile.projects_with_issues", total=loc.num(quality["negative"]["completed_projects_attributed"])))
                  + tile(loc.num(quality["positive"]["count"]), t("report.tile.positive"))
-                 + tile(loc.num(len(bonus["projects"])), t("report.tile.for_bonus"))
+                 + tile(loc.num(quality.get("context", {}).get("total_occurrences", len(bonus["projects"]))), t("report.tile.for_bonus"))
                  + f"</div><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th><th scope=col>{t('report.head.occurrences')}</th>"
                  f"<th scope=col>{t('common.projects')}</th></tr></thead><tbody>{labels or no_labels}</tbody></table></div>"
+                 f"{taxonomy_tables}"
                  f"<p class=\"note\">{t('report.quality_note')} {t('note.positive')}</p></section>")
 
     revision_tiles = tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))

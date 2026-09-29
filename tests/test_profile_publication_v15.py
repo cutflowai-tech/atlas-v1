@@ -75,13 +75,24 @@ class ProfilePublicationV15Tests(unittest.TestCase):
     def test_profile_has_metric_coverage_and_explicit_unavailable_states(self):
         self.assertEqual(validate(self.profile, "editor-profile-v1.5.schema.json"), [])
         coverage = self.profile["coverage"]["metrics"]
-        for metric in ("speed", "deadline"):
+        for metric in ("speed", "deadline", "quality"):
             row = coverage[metric]
             self.assertEqual(row["eligible_records"], row["included_records"] + row["excluded_records"])
             self.assertIn("coverage_ratio", row)
             self.assertIn("exclusion_reasons", row)
-        self.assertEqual(coverage["quality"]["availability"], "unavailable")
+        self.assertEqual(coverage["quality"]["availability"], "available")
+        self.assertEqual(coverage["quality"]["included_records"], coverage["quality"]["eligible_records"])
+        self.assertIn("quarantined_label_occurrences", coverage["quality"])
         self.assertEqual(coverage["classification"]["overall_status"]["availability"], "rule_not_approved")
+
+    def test_recent_change_includes_speed_without_pooling_video_types(self):
+        speed = self.profile["trend"]["recent_change"]["speed_by_video_type"]
+        self.assertIsInstance(speed, list)
+        self.assertEqual(len({row["cohort_key"] for row in speed}), len(speed))
+        for row in speed:
+            self.assertIn("current_median_seconds", row)
+            self.assertIn("comparison_median_seconds", row)
+            self.assertEqual(row["change"]["measurement"], "median_speed_seconds")
 
     def test_locales_share_metrics_classifications_and_one_publication(self):
         with tempfile.TemporaryDirectory() as tmp:

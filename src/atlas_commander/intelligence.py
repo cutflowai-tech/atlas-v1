@@ -315,25 +315,39 @@ def quality_component(facts: Mapping[str, Any], rule: Mapping[str, Any] | None) 
     if not rule_is_approved(rule, "D39"):
         return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
     configured = rule or {}
-    required = ("minimum_project_sample", "negative_rate_at_least", "positive_rate_at_least")
-    if any(configured.get(key) is None for key in required):
+    minimum = configured.get("minimum_project_sample_size", configured.get("minimum_project_sample"))
+    negative_threshold = configured.get("negative_rate_threshold", configured.get("negative_rate_at_least"))
+    positive_threshold = configured.get("positive_rate_threshold", configured.get("positive_rate_at_least"))
+    if any(value is None for value in (minimum, negative_threshold, positive_threshold)):
         return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
     sample = int(facts.get("eligible_completed_projects") or 0)
-    if sample < int(configured["minimum_project_sample"]):
+    if sample < int(minimum):
         return _component(NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE, facts, rule, evidence)
     negative_rate = float(facts.get("negative_rate") or 0)
     positive_rate = float(facts.get("positive_rate") or 0)
-    state = NEGATIVE if negative_rate >= float(configured["negative_rate_at_least"]) else POSITIVE if positive_rate >= float(configured["positive_rate_at_least"]) else NEUTRAL
+    state = NEGATIVE if negative_rate >= float(negative_threshold) else POSITIVE if positive_rate >= float(positive_threshold) else NEUTRAL
     return _component(state, None, facts, rule, evidence)
 
 
-def _benchmark_rule_values(rule: Mapping[str, Any]) -> tuple[int, int, float] | None:
-    editor_min = rule.get("minimum_editor_sample") or rule.get("minimum_editor_sample_size")
-    comparator_min = rule.get("minimum_comparator_sample") or rule.get("minimum_team_sample_size")
-    band = rule.get("similar_band_pct")
-    if editor_min is None or comparator_min is None or band is None:
+def _benchmark_rule_values(rule: Mapping[str, Any]) -> tuple[int, int, float, float] | None:
+    editor_min = rule.get("minimum_editor_sample_size", rule.get("minimum_editor_sample"))
+    comparator_min = rule.get("minimum_comparator_sample_size", rule.get("minimum_comparator_sample", rule.get("minimum_team_sample_size")))
+    legacy_band = rule.get("similar_band_pct")
+    if legacy_band is not None:
+        faster, slower = -float(legacy_band), float(legacy_band)
+    else:
+        faster_value = rule.get("faster_band")
+        similar_value = rule.get("similar_band")
+        slower_value = rule.get("slower_band")
+        if any(value is None for value in (faster_value, similar_value, slower_value)):
+            return None
+        assert faster_value is not None and similar_value is not None and slower_value is not None
+        faster, similar, slower = float(faster_value), float(similar_value), float(slower_value)
+        if not faster <= similar <= slower:
+            raise ValueError("speed component bands must be ordered faster <= similar <= slower")
+    if editor_min is None or comparator_min is None:
         return None
-    return int(editor_min), int(comparator_min), float(band)
+    return int(editor_min), int(comparator_min), float(faster), float(slower)
 
 
 def speed_benchmarks_v15(editor_id: str, cycles: Iterable[CycleRecord], mapping: VideoTypeMapping | None, rule: Mapping[str, Any] | None, calculated_at: str) -> dict[str, Any]:
@@ -375,11 +389,11 @@ def speed_benchmarks_v15(editor_id: str, cycles: Iterable[CycleRecord], mapping:
         elif values is None:
             reason = RULE_NOT_APPROVED
         else:
-            editor_min, comparator_min, band = values
+            editor_min, comparator_min, faster, slower = values
             if len(mine) < editor_min or len(peers) < comparator_min:
                 reason = INSUFFICIENT_SAMPLE
             elif pct is not None:
-                verdict = FASTER if pct < -band else SLOWER if pct > band else SIMILAR
+                verdict = FASTER if pct < faster else SLOWER if pct > slower else SIMILAR
         rows.append({
             "cohort_key": cohort_key,
             "editor_sample_size": len(mine),
@@ -446,16 +460,27 @@ def deadline_component(editor_id: str, results: Iterable[Mapping[str, Any]], rul
     if not rule_is_approved(rule, "D45"):
         return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
     configured = rule or {}
-    editor_min = configured.get("minimum_editor_sample")
-    comparator_min = configured.get("minimum_comparator_sample")
-    band = configured.get("similar_band")
-    if editor_min is None or comparator_min is None or band is None:
+    editor_min = configured.get("minimum_editor_sample_size", configured.get("minimum_editor_sample"))
+    comparator_min = configured.get("minimum_comparator_sample_size", configured.get("minimum_comparator_sample"))
+    legacy_band = configured.get("similar_band") if "better_band" not in configured and "worse_band" not in configured else None
+    if legacy_band is not None:
+        better, worse = -float(legacy_band), float(legacy_band)
+    else:
+        better_value = configured.get("better_band")
+        similar_value = configured.get("similar_band")
+        worse_value = configured.get("worse_band")
+        if any(value is None for value in (better_value, similar_value, worse_value)):
+            return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
+        assert better_value is not None and similar_value is not None and worse_value is not None
+        better, similar, worse = float(better_value), float(similar_value), float(worse_value)
+        if not better <= similar <= worse:
+            raise ValueError("deadline component bands must be ordered better <= similar <= worse")
+    if editor_min is None or comparator_min is None:
         return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
     if len(mine) < int(editor_min) or len(peers) < int(comparator_min):
         return _component(NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE, facts, rule, evidence)
     assert difference is not None
-    threshold = float(band)
-    state = POSITIVE if difference < -threshold else NEGATIVE if difference > threshold else NEUTRAL
+    state = POSITIVE if difference < float(better) else NEGATIVE if difference > float(worse) else NEUTRAL
     return _component(state, None, facts, rule, evidence)
 
 
@@ -469,7 +494,7 @@ def overall_status(components: Mapping[str, Mapping[str, Any]], rule: Mapping[st
         return {**base, "status": NOT_ENOUGH_EVIDENCE, "reason": NOT_ENOUGH_COMPONENTS}
     if not rule_is_approved(rule, "D37"):
         return {**base, "status": NOT_ENOUGH_EVIDENCE, "reason": RULE_NOT_APPROVED}
-    lookup = (rule or {}).get("lookup")
+    lookup = (rule or {}).get("lookup_table", (rule or {}).get("lookup"))
     if not isinstance(lookup, Mapping):
         return {**base, "status": NOT_ENOUGH_EVIDENCE, "reason": RULE_NOT_APPROVED}
     key = "|".join(states.get(name, NOT_CLASSIFIABLE) for name in ("quality", "speed", "deadline"))
@@ -479,7 +504,8 @@ def overall_status(components: Mapping[str, Mapping[str, Any]], rule: Mapping[st
     return {**base, "status": status, "reason": None, "lookup_key": key}
 
 
-def recent_change(current: float | None, comparison: float | None, measurement: str, rule: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def recent_change(current: float | None, comparison: float | None, measurement: str, rule: Mapping[str, Any] | None = None,
+                  *, current_sample: int | None = None, comparison_sample: int | None = None) -> dict[str, Any]:
     """Factual current-minus-comparison change, separate from optional Trend."""
     difference = current - comparison if current is not None and comparison is not None else None
     result: dict[str, Any] = {"measurement": measurement, "current": current, "comparison": comparison, "difference": difference, "trend": None, "trend_reason": None, "rule_version": _rule_version(rule)}
@@ -490,17 +516,17 @@ def recent_change(current: float | None, comparison: float | None, measurement: 
         result["trend_reason"] = RULE_NOT_APPROVED
         return result
     configured = rule or {}
-    minimum = configured.get("minimum_sample")
-    material = configured.get("material_change")
-    current_sample = configured.get("current_sample")
-    comparison_sample = configured.get("comparison_sample")
-    if None in (minimum, material, current_sample, comparison_sample):
+    minimum = configured.get("minimum_sample_size", configured.get("minimum_sample"))
+    material = configured.get("material_change_threshold", configured.get("material_change"))
+    observed_current_sample = current_sample if current_sample is not None else configured.get("current_sample")
+    observed_comparison_sample = comparison_sample if comparison_sample is not None else configured.get("comparison_sample")
+    if None in (minimum, material, observed_current_sample, observed_comparison_sample):
         result["trend_reason"] = RULE_NOT_APPROVED
     else:
-        assert minimum is not None and material is not None and current_sample is not None and comparison_sample is not None
+        assert minimum is not None and material is not None and observed_current_sample is not None and observed_comparison_sample is not None
         required_sample = int(minimum)
-        current_size = int(current_sample)
-        comparison_size = int(comparison_sample)
+        current_size = int(observed_current_sample)
+        comparison_size = int(observed_comparison_sample)
         material_change = float(material)
         if current_size < required_sample or comparison_size < required_sample:
             result["trend_reason"] = INSUFFICIENT_SAMPLE
