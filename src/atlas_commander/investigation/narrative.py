@@ -69,7 +69,7 @@ AGAINST = {"comparison": "the previous 30 completed days", "history": "their own
 AGAINST_TEAM = {"comparison": "the previous 30 completed days", "history": "the team's earlier history"}
 SIGNALS = {"past_eta": "already past their Requested ETA", "short_remaining_runway": "have less time left than typical execution for their Video Type still needs",
            "elapsed_beyond_typical": "have been in execution longer than most comparable historical projects",
-           "editor_workload_above_own_median": "belong to Editors currently holding more active projects than their own usual concurrency",
+           "editor_workload_above_own_high_percentile": "belong to Editors currently holding more other active projects than the 75th percentile of their own historical workload",
            "review_wait_beyond_typical": "have waited for approval longer than most historical reviews"}
 DATA = {
     "unattributed_projects": lambda p: f"{p['projects']} of {p['completed']} completed projects have no verified Editor and are excluded from every Editor finding ({_reasons(p)}).",
@@ -155,13 +155,20 @@ T: dict[str, Callable[[Params], str]] = {
     "change_improving": lambda p: f"This is an improvement of at least the material difference ({_material(p)}).",
     "change_deteriorating": lambda p: f"This is a deterioration of at least the material difference ({_material(p)}).",
     "change_differs_from_team": lambda p: "The change differs from the rest of the team's change over the same periods by at least the material difference, so it is more likely specific to this Editor.",
-    "change_is_group_wide": lambda p: (f"{p['editors_same_direction']} of {p['editors_with_both_periods']} Editors with projects in both periods moved the same way."
-                                        if p.get("editors_with_both_periods") else "The change is measured across every Editor's projects."),
+    "change_is_group_wide": lambda p: (f"{p['editors_same_direction']} of {p['editors_with_both_periods']} Editors with at least {p['minimum_projects_per_editor']} "
+                                        "projects in both periods moved the same way. This pattern appears across multiple Editors and is more consistent with a "
+                                        "shared workflow pattern than an isolated Editor pattern."),
+    "change_breadth_not_established": lambda p: (f"Only {p['editors_same_direction']} of {p['editors_with_both_periods']} Editors with at least "
+                                                  f"{p['minimum_projects_per_editor']} projects in both periods moved the same way, so Atlas does not call "
+                                                  "this change shared across Editors."),
     "workload_higher_in_same_period": lambda p: (f"Concurrent workload was also higher in the same period (median {p['workload_median_current']} against "
                                                  f"{p['workload_median_baseline']}); the two are associated here, which is not proof of cause."),
     "team_moved_the_same_way": lambda p: ("The rest of the team changed by a similar amount over the same periods"
                                           + (f" ({p['team_pct_change']:+.1f}%)" if p.get("team_pct_change") is not None else "")
                                           + ", so this change mirrors the team and is unlikely to be specific to this Editor."),
+    "team_comparison_unavailable": lambda p: (f"The other Editors' change over the same periods cannot be measured at the approved sample minimums "
+                                              f"({p.get('team_current_sample')} and {p.get('team_baseline_sample')} projects), so Atlas cannot tell whether this "
+                                              "change is specific to this Editor."),
     "change_needs_context_before_conclusion": lambda p: "A change against a baseline may reflect project mix, workload or scheduling; this may warrant checking before any conclusion.",
     "significance_change": lambda p: "A material change from the usual pattern is an early point for a conversation, not a verdict.",
     "investigate_change": lambda p: (f"Compare the {p['current_sample']} recent projects with the {p['baseline_sample']} baseline projects for Video Type, runway and workload."),
@@ -184,7 +191,8 @@ T: dict[str, Callable[[Params], str]] = {
                                                         "Editors with enough projects in both."),
     "short_runway_elevated_across_editors": lambda p: (f"Projects in {types(p)} start with short runway more often than the same Editor's other projects for "
                                                        f"{p['elevated_editors']} of {p['qualifying_editors']} qualifying Editors."),
-    "pattern_appears_process_wide": lambda p: "The pattern appears process-wide: it is unlikely to be explained by one Editor's execution alone.",
+    "pattern_appears_process_wide": lambda p: ("This pattern appears across multiple Editors and is more consistent with a shared workflow pattern than an "
+                                               "isolated Editor pattern."),
     "shared_workflow_or_type_factor": lambda p: f"A shared workflow or {types(p)}-specific factor may warrant checking.",
     "late_delivery_elevated_for_one_editor_only": lambda p: (f"Among {p['qualifying_editors']} qualifying Editors, only {p.get('confined_editor_name')} is late more often "
                                                              f"inside {types(p)} than outside it."),
@@ -202,7 +210,8 @@ T: dict[str, Callable[[Params], str]] = {
     "review_confined_late_delivery": lambda p: f"Review {p.get('confined_editor_name')}'s {types(p)} projects with the evidence before concluding.",
     "review_confined_short_runway": lambda p: f"Review how {types(p)} work is scheduled for {p.get('confined_editor_name')}.",
     "repeated_delay_combination": lambda p: (f"{types(p)} projects with {p['dimension']} = {p['value']} were late {pct(p['late_rate'])} of the time ({p['late']} of {p['projects']}) "
-                                             f"against {pct(p['overall_late_rate'])} overall; {p['cells_tested']} combinations were tested."),
+                                             f"against {pct(p['overall_late_rate'])} for all {types(p)} projects ({p['video_type_projects']}); {p['cells_tested']} combinations "
+                                             "were tested."),
     "combination_repeats_over_time": lambda p: "The combination was elevated in both the earlier and the later half of the history, so it is not a one-off.",
     "combination_may_mark_process_risk": lambda p: "This combination may mark a process risk that warrants checking.",
     "significance_repeated_delay": lambda p: "A repeated combination is more actionable than an average: it names the situation to avoid.",
@@ -214,7 +223,7 @@ T: dict[str, Callable[[Params], str]] = {
     "significance_repeated_quality": lambda p: "A label that repeats across Editors points to a shared cause worth finding.",
     "review_label_in_type": lambda p: f"Review the {p['occurrences']} '{p['label']}' occurrences on {types(p)} projects together.",
     "time_bucket_elevated": lambda p: (f"Projects with {p['dimension'].replace('_', ' ')} = {p['value'].replace('_', ' ')} were late {pct(p['late_rate'])} of the time "
-                                       f"against {pct(p['overall_late_rate'])} overall, elevated in {p['months_elevated']} of {p['months_tested']} months."),
+                                       f"against {pct(p['overall_late_rate'])} that their Video Types predict, elevated in {p['months_elevated']} of {p['months_tested']} months."),
     "timing_pattern_repeats": lambda p: "The timing effect repeats across months rather than appearing once.",
     "timing_may_reflect_scheduling": lambda p: "Scheduling around this period may warrant checking.",
     "significance_time_pattern": lambda p: "A repeating timing pattern can be planned around.",
@@ -273,7 +282,7 @@ T: dict[str, Callable[[Params], str]] = {
     "risk_past_eta": lambda p: _risk(p),
     "risk_short_remaining_runway": lambda p: _risk(p),
     "risk_elapsed_beyond_typical": lambda p: _risk(p),
-    "risk_editor_workload_above_own_median": lambda p: _risk(p),
+    "risk_editor_workload_above_own_high_percentile": lambda p: _risk(p),
     "risk_review_wait_beyond_typical": lambda p: _risk(p),
     "risk_signal_deserves_attention": lambda p: "This is a risk signal that deserves attention now, while the work is still open.",
     "risk_signal_not_prediction": lambda p: "It is a signal historically associated with late outcomes, not a prediction that these projects will be late.",
@@ -281,7 +290,7 @@ T: dict[str, Callable[[Params], str]] = {
     "check_open_past_eta": lambda p: "Check the listed projects now and agree a realistic delivery time.",
     "check_open_short_remaining_runway": lambda p: "Check whether the listed projects can realistically meet their Requested ETA.",
     "check_open_elapsed_beyond_typical": lambda p: "Check what is holding the listed projects.",
-    "check_open_editor_workload_above_own_median": lambda p: "Check whether new assignments to these Editors can wait.",
+    "check_open_editor_workload_above_own_high_percentile": lambda p: "Check whether new assignments to these Editors can wait.",
     "check_open_review_wait_beyond_typical": lambda p: "Check the approval queue for the listed projects.",
     "open_project_runway": lambda p: (f"Open {types(p)} project {p['monday_item_id']} ({p.get('editor_name') or 'Editor unresolved'}) started with {hrs(p['runway_hours'])} "
                                       f"of runway against a typical execution time of {hrs(p['typical_hours'])}."),
@@ -325,8 +334,6 @@ def _change_rate(p: Params) -> str:
             f"in {against} ({p['baseline_sample']} projects), a change of {pp(p['difference'])}.")
     if p.get("editor_id") and p.get("team_current") is not None:
         text += f" Over the same periods the other Editors went from {pct(p['team_baseline'])} to {pct(p['team_current'])}."
-    if not p.get("editor_id") and p.get("editors_with_both_periods"):
-        text += f" {p['editors_same_direction']} of {p['editors_with_both_periods']} Editors moved the same way."
     return text
 
 
@@ -342,29 +349,49 @@ def _speed(p: Params, verdict: str) -> str:
     return f"{who(p)} is {verdict} than the comparable team in the current window under the approved Speed rule: {rows}."
 
 
+def _p(finding: Finding) -> Params:
+    return finding.statements[0].params
+
+
+def _first_upper(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _measure_title(p: Params) -> str:
+    return {"late_rate": "late rate", "negative_label_rate": "Negative label rate"}.get(p.get("measure", ""), f"execution time in {types(p)}")
+
+
+# Every title names its subject (the Editor, the Video Type or the project) so a card is understandable on its own.
 TITLES: dict[str, Callable[[Finding], str]] = {
-    "concentration.negative": lambda f: "Outcomes concentrate in one Video Type" if not f.scope.editor_id else "Where this Editor's adverse outcomes sit",
-    "concentration.positive": lambda f: "Favourable outcomes concentrate in one Video Type" if not f.scope.editor_id else "Where this Editor's favourable outcomes sit",
+    "concentration.negative": lambda f: (f"{_first_upper(OUTCOME_NAMES[_p(f)['outcome']])} concentrate in {types(_p(f))}" if not f.scope.editor_id
+                                         else f"{who(_p(f))}: {OUTCOME_NAMES[_p(f)['outcome']]} concentrate in {types(_p(f))}"),
+    "concentration.positive": lambda f: (f"{_first_upper(OUTCOME_NAMES[_p(f)['outcome']])} concentrate in {types(_p(f))}" if not f.scope.editor_id
+                                         else f"{who(_p(f))}: {OUTCOME_NAMES[_p(f)['outcome']]} concentrate in {types(_p(f))}"),
     "workflow.time_map": lambda f: "Where project time goes",
     "bottleneck.pre_editor_runway": lambda f: "Late projects often start with too little runway",
     "bottleneck.post_editor": lambda f: "Delay after on-time submission",
-    "change.editor": lambda f: f"{'Improvement' if f.direction == 'favourable' else 'Deterioration'} against the Editor's own baseline",
-    "change.team": lambda f: f"Team {'improvement' if f.direction == 'favourable' else 'deterioration'}",
-    "change.video_type": lambda f: f"Video Type execution time {'improved' if f.direction == 'favourable' else 'worsened'} across Editors",
+    "change.editor": lambda f: f"{who(_p(f))}: {_measure_title(_p(f))} {'improved' if f.direction == 'favourable' else 'worsened'} against own history",
+    "change.team": lambda f: f"Team {MEASURE_NAMES[_p(f)['measure']]} {'improved' if f.direction == 'favourable' else 'worsened'}",
+    "change.video_type": lambda f: (f"{types(_p(f))}: execution time {'improved' if f.direction == 'favourable' else 'worsened'}"
+                                    + (" across Editors" if _p(f).get("shared_across_editors") else "")),
     "workload.association": lambda f: "Workload moves with outcomes across the team",
-    "workload.overload_pattern": lambda f: "Higher workload coincides with worse outcomes for this Editor",
-    "pattern.shared_across_editors": lambda f: "Pattern shared across Editors" if f.category == "system_pattern" else "Pattern confined to one Editor",
-    "pattern.repeated_delay": lambda f: "Repeated delay combination",
-    "pattern.repeated_quality": lambda f: "Same issue label across Editors",
+    "workload.overload_pattern": lambda f: f"{who(_p(f))}: higher workload coincides with {'worse' if f.direction == 'adverse' else 'better'} outcomes",
+    "pattern.shared_across_editors": lambda f: (f"{types(_p(f))}: {'short runway' if _p(f)['measure'] == 'short_runway' else 'late delivery'} is more common "
+                                                "across Editors" if f.category == "system_pattern" else
+                                                f"{types(_p(f))}: {'short runway' if _p(f)['measure'] == 'short_runway' else 'late delivery'} pattern confined "
+                                                f"to {_p(f).get('confined_editor_name')}"),
+    "pattern.repeated_delay": lambda f: f"{types(_p(f))}: repeated delay when {_p(f)['dimension']} is {_p(f)['value']}",
+    "pattern.repeated_quality": lambda f: f"{types(_p(f))}: '{_p(f)['label']}' recurs across Editors",
     "pattern.time": lambda f: "Repeating timing pattern",
-    "person.mix_adjusted_deadline": lambda f: {"editor_specific_pattern": "Late rate differs from peers on the same work", "hidden_context": "Work mix and the late-rate headline"}[f.category],
-    "contradiction.metric_conflict": lambda f: "Speed and deadline point different ways",
-    "contradiction.bad_headline": lambda f: "The late-rate headline needs context",
-    "contradiction.hidden_risk": lambda f: "A good headline hides a signal",
-    "risk.open_work": lambda f: "Open work risk signal",
-    "risk.historical_similarity": lambda f: "Open project resembles historically late work",
-    "editor.speed_pattern": lambda f: "Faster than comparable team" if f.direction == "favourable" else "Slower than comparable team",
-    "editor.label_pattern": lambda f: "Where Negative labels sit" if f.direction == "adverse" else "Where Positive labels sit",
+    "person.mix_adjusted_deadline": lambda f: {"editor_specific_pattern": f"{who(_p(f))}: late rate differs from peers on the same work",
+                                               "hidden_context": f"{who(_p(f))}: work mix and the late-rate headline"}[f.category],
+    "contradiction.metric_conflict": lambda f: f"{who(_p(f))}: speed and deadline point different ways",
+    "contradiction.bad_headline": lambda f: f"{who(_p(f))}: the late-rate headline needs context",
+    "contradiction.hidden_risk": lambda f: f"{who(_p(f))}: a good headline hides a signal",
+    "risk.open_work": lambda f: f"Open work: {plural(_p(f)['projects'], 'project')} {SIGNALS[_p(f)['signal']]}",
+    "risk.historical_similarity": lambda f: f"Open project {_p(f)['monday_item_id']} resembles historically late work",
+    "editor.speed_pattern": lambda f: f"{who(_p(f))}: {'faster' if f.direction == 'favourable' else 'slower'} than the comparable team",
+    "editor.label_pattern": lambda f: f"{who(_p(f))}: where {'Negative' if f.direction == 'adverse' else 'Positive'} labels sit",
 }
 
 DATA_TITLES = {"data.unattributed_projects": "Projects without a verified Editor", "data.deadline_not_classifiable": "Projects without a usable Requested ETA",
@@ -427,10 +454,10 @@ LIMITATIONS = {
 UNCERTAINTY = {
     ("strong", "association"): "Strong evidence of an association; it is still not proof of cause.",
     ("moderate", "association"): "Moderate evidence of an association in this sample.",
-    ("low", "association"): "Early indication of an association; the evidence is limited.",
+    ("weak", "association"): "Early indication of an association; the evidence is limited.",
     ("strong", "other"): "Strong evidence: the pattern holds across several independent slices.",
     ("moderate", "other"): "Moderate evidence.",
-    ("low", "other"): "Limited evidence: treat this as an early indication.",
+    ("weak", "other"): "Limited evidence: treat this as an early indication.",
 }
 
 LANGUAGE_RULES: dict[str, Any] = {
@@ -474,7 +501,7 @@ def finding_text(finding: Finding) -> dict[str, Any]:
         if not finding.finding_type.startswith("data.") else "What would it take to capture this evidence in Monday?",
         "confidence_explanation": f"{str(confidence.get('label', '')).capitalize()}. " + "; ".join(factors) + ".",
         "limitations": limitations,
-        "uncertainty": UNCERTAINTY[(confidence.get("level", "low"), kind)],
+        "uncertainty": UNCERTAINTY[(confidence.get("level", "weak"), kind)],
     }
 
 

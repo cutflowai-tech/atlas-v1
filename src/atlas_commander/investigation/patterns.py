@@ -2,17 +2,18 @@
 
 - ``pattern.shared_across_editors`` (Tasks 18, 29, 32): for each exact Video Type, the Editors with at least
   ``evidence.minimum_projects_per_editor_for_breadth`` projects both inside and outside it. The pattern is **shared** (process-wide)
-  when at least ``evidence.minimum_editors_for_breadth`` of them qualify and at least ``evidence.breadth_share`` of them are late
-  more often inside the Video Type than outside it. With the same qualifying Editors it is **confined** when exactly one does.
+  when at least ``evidence.minimum_editors_for_breadth`` of them are late more often inside the Video Type than outside it (the
+  same direction) **and** those Editors are at least ``evidence.breadth_share`` (two thirds, exactly) of the qualifying Editors (D53.4). With the same qualifying Editors it is **confined** when exactly one does.
   Comparing each Editor with *themselves* controls for who they are. The measurements are late delivery and, under
   ``runway.short_rule``, short runway (a stage delay across Editors, Task 18).
 - ``pattern.repeated_delay`` (Task 27): late rate in cells of Video Type x runway band and Video Type x workload band. At most
   ``patterns.maximum_combinations`` cells are tested, largest first, and the number tested is always published. A cell is
-  reported only when its late rate exceeds the overall rate by the material difference **and** it is elevated in both halves
+  reported only when its late rate exceeds the late rate of its own Video Type by the material difference **and** it is elevated in both halves
   of the history (split at the median first Ready For Approval), so a one-off burst is not a pattern.
 - ``pattern.repeated_quality`` (Task 28): the same scored Negative label repeated in one Video Type across several Editors.
 - ``pattern.time`` (Task 30): late rate by Cairo weekday of first In Progress and by period of the month (days 1-10, 11-20, 21+).
-  A bucket is reported only when it is elevated by the material difference overall and in at least two different months.
+  A bucket is reported only when it is late more often than its own Video Type mix predicts (indirect standardisation) by the
+  material difference, and is elevated in at least two different months.
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ def run_shared(ctx: RunContext) -> DetectorResult:
             if len(rows) < min_editors:
                 result.skip("pattern.shared_across_editors", scope, [INSUFFICIENT_EDITORS], facts, names)
                 continue
-            shared = Fraction(len(elevated), len(rows)) >= share
+            shared = cm.shared_across_editors(len(elevated), len(rows), min_editors, share)
             confined = len(elevated) == 1
             if not shared and not confined:
                 result.skip("pattern.shared_across_editors", scope, [NO_EFFECT], facts, names)
@@ -87,7 +88,7 @@ def run_shared(ctx: RunContext) -> DetectorResult:
             records = [p.record("deadline_result", "cohort_key", "runway_seconds", extra={"outcome": outcome(p)}) for p in projects]
             evidence = ctx.evidence("supporting", f"{measure}_inside_vs_outside_by_editor",
                                     (f"for each Editor with >= {per_editor} projects inside and outside the Video Type: {measure} rate inside vs outside it; shared "
-                                     f"when >= {shown(share)} of >= {min_editors} qualifying Editors are elevated inside; confined when exactly one is"),
+                                     f"when >= {min_editors} Editors, and >= {share} of the qualifying Editors, are elevated inside; confined when exactly one is"),
                                     {"qualifying_editors": len(rows), "projects": len(projects)}, records,
                                     columns=("status", "requested_eta", "video_type", "editor"), comparison={"editors": params["editors"]}, time_window=ctx.history_window)
             if shared:
@@ -139,7 +140,10 @@ def run_repeated_delay(ctx: RunContext) -> DetectorResult:
     floor, minimum_outcomes = values["evidence.minimum_group_projects"], values["evidence.minimum_outcome_events"]
     material, cap = exact(values["evidence.material_rate_difference"]), int(values["patterns.maximum_combinations"])
     classifiable = [p for p in ctx.facts.attributed if p.deadline_classifiable]
-    overall = _late_rate(classifiable)
+    by_type: dict[str, list[ProjectFact]] = defaultdict(list)
+    for project in classifiable:
+        if project.cohort_key:
+            by_type[project.cohort_key].append(project)
     medians = editor_medians(ctx.facts.attributed)
     runway = {p.monday_item_id: cm.short_runway(p, ctx.baselines) for p in classifiable}
     dimensions: dict[str, Callable[[ProjectFact], Any]] = {
@@ -155,11 +159,14 @@ def run_repeated_delay(ctx: RunContext) -> DetectorResult:
     tested = sorted(cells.items(), key=lambda pair: (-len(pair[1]), str(pair[0])))[:cap]
     early, late_half = _halves(classifiable)
     for (dimension, key, value), members in tested:
+        # The reference is the same exact Video Type (every project of that type), never the pooled rate of all types: a cell must be
+        # late materially more often than its own Video Type, overall and in both halves of the history.
+        overall = _late_rate(by_type[key])
         rate = _late_rate(members)
         late_count = sum(bool(p.late) for p in members)
         scope = Scope("video_type", cohort_key=key)
         facts = {"dimension": dimension, "cohort_key": key, "value": value, "projects": len(members), "late": late_count, "late_rate": shown(rate),
-                 "overall_late_rate": shown(overall), "cells_tested": len(tested)}
+                 "overall_late_rate": shown(overall), "video_type_projects": len(by_type[key]), "cells_tested": len(tested)}
         if len(members) < floor or late_count < minimum_outcomes:
             result.skip("pattern.repeated_delay", scope, [INSUFFICIENT_SAMPLE if len(members) < floor else INSUFFICIENT_OUTCOMES], facts, names)
             continue
@@ -168,7 +175,7 @@ def run_repeated_delay(ctx: RunContext) -> DetectorResult:
         for half_name, half in (("earlier_half", early), ("later_half", late_half)):
             ids = {p.monday_item_id for p in half}
             in_cell = [p for p in members if p.monday_item_id in ids]
-            half_rate, cell_rate = _late_rate(half), _late_rate(in_cell)
+            half_rate, cell_rate = _late_rate([p for p in by_type[key] if p.monday_item_id in ids]), _late_rate(in_cell)
             halves.append({"slice": half_name, "holds": bool(in_cell and half_rate is not None and cell_rate is not None and cell_rate > half_rate),
                            "projects": len(in_cell)})
         if rate - overall < material or not all(row["holds"] for row in halves):
@@ -176,9 +183,9 @@ def run_repeated_delay(ctx: RunContext) -> DetectorResult:
             continue
         params = {**facts, "cohort_label": cm.cohort_name(members, key), "difference": shown(rate - overall), "editors": len({p.editor_id for p in members})}
         records = [p.record("deadline_result", "runway_seconds", "concurrency_at_start", extra={dimension: value}) for p in members]
-        evidence = ctx.evidence("supporting", f"late_rate_{dimension}_cell", f"late rate of projects in Video Type {key} with {dimension} = {value}, against the overall late rate; "
-                                "elevated in both halves of the history", {"projects": len(members), "late": late_count}, records,
-                                columns=("status", "requested_eta", "video_type", "editor"), comparison={"cell": shown(rate), "overall": shown(overall), "halves": halves},
+        evidence = ctx.evidence("supporting", f"late_rate_{dimension}_cell", f"late rate of projects in Video Type {key} with {dimension} = {value}, against the late rate of every project of "
+                                "the same Video Type; elevated in both halves of the history", {"projects": len(members), "late": late_count}, records,
+                                columns=("status", "requested_eta", "video_type", "editor"), comparison={"cell": shown(rate), "video_type": shown(overall), "halves": halves},
                                 time_window=ctx.history_window)
         finding = Finding("pattern.repeated_delay", VERSION, SYSTEM_PATTERN, ADVERSE, scope,
                           [Statement(PATTERN, "repeated_delay_combination", params), Statement(INTERPRETATION, "combination_repeats_over_time", params),
@@ -243,14 +250,24 @@ def run_time(ctx: RunContext) -> DetectorResult:
     values, used = uses(ctx, *names)
     result = DetectorResult()
     floor, minimum_outcomes, material = values[names[0]], values[names[1]], exact(values[names[2]])
-    classifiable = [p for p in ctx.facts.attributed if p.deadline_classifiable]
-    overall = _late_rate(classifiable)
+    classifiable = [p for p in ctx.facts.attributed if p.deadline_classifiable and p.cohort_key]
+    # Mix-fair reference (indirect standardisation): a bucket's expected late rate is the mean of its projects' own Video Type late
+    # rates, so a weekday that simply receives more of a slow Video Type is not reported as a timing pattern.
+    type_rate: dict[str, Fraction] = {}
+    for key in {p.cohort_key for p in classifiable if p.cohort_key}:
+        rows = [p for p in classifiable if p.cohort_key == key]
+        type_rate[key] = Fraction(sum(bool(p.late) for p in rows), len(rows))
+
+    def expected(rows: Sequence[ProjectFact]) -> Fraction | None:
+        return sum((type_rate[p.cohort_key or ""] for p in rows), Fraction(0)) / len(rows) if rows else None
+
     for dimension, fn in (("start_weekday", _start_weekday), ("period_of_month", _period_of_month)):
         buckets: dict[str, list[ProjectFact]] = defaultdict(list)
         for project in classifiable:
             buckets[fn(project)].append(project)
         for value, members in sorted(buckets.items()):
             rate = _late_rate(members)
+            overall = expected(members)
             late = sum(bool(p.late) for p in members)
             facts = {"dimension": dimension, "value": value, "projects": len(members), "late": late, "late_rate": shown(rate), "overall_late_rate": shown(overall)}
             if len(members) < floor or late < minimum_outcomes:
@@ -259,19 +276,18 @@ def run_time(ctx: RunContext) -> DetectorResult:
             assert rate is not None and overall is not None
             months = []
             for month in sorted({p.cairo_month for p in members}):
-                in_month = [p for p in classifiable if p.cairo_month == month]
                 bucket = [p for p in members if p.cairo_month == month]
-                month_rate, bucket_rate = _late_rate(in_month), _late_rate(bucket)
+                month_rate, bucket_rate = expected(bucket), _late_rate(bucket)
                 if len(bucket) >= 2 and month_rate is not None and bucket_rate is not None:
                     months.append({"slice": f"month:{month}", "holds": bucket_rate > month_rate, "projects": len(bucket)})
             if rate - overall < material or sum(bool(row["holds"]) for row in months) < 2:
                 result.skip("pattern.time", Scope("team"), [NO_EFFECT], {**facts, "months_elevated": sum(bool(row["holds"]) for row in months)}, names)
                 continue
             params = {**facts, "difference": shown(rate - overall), "months_elevated": sum(bool(row["holds"]) for row in months), "months_tested": len(months)}
-            evidence = ctx.evidence("supporting", f"late_rate_by_{dimension}", f"late rate of projects with {dimension} = {value} against the overall late rate, "
-                                    "and in each Cairo month against that month's rate", {"projects": len(members), "late": late},
+            evidence = ctx.evidence("supporting", f"late_rate_by_{dimension}", f"late rate of projects with {dimension} = {value} against the rate their own Video Types "
+                                    "predict (mix-adjusted), overall and in each Cairo month", {"projects": len(members), "late": late},
                                     [p.record("deadline_result", extra={dimension: value}) for p in members], columns=("status", "requested_eta"),
-                                    comparison={"bucket": shown(rate), "overall": shown(overall), "months": months}, time_window=ctx.history_window)
+                                    comparison={"bucket": shown(rate), "expected_from_video_type_mix": shown(overall), "months": months}, time_window=ctx.history_window)
             finding = Finding("pattern.time", VERSION, SYSTEM_PATTERN, ADVERSE, Scope("team"),
                               [Statement(PATTERN, "time_bucket_elevated", params), Statement(INTERPRETATION, "timing_pattern_repeats", params),
                                Statement(HYPOTHESIS, "timing_may_reflect_scheduling", params)], [evidence], used, ctx.history_window,

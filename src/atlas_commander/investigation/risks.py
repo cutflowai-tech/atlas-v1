@@ -11,8 +11,9 @@ Signals on Active Work (D33: In Progress, Revisions, Internal Revisions) and Awa
   Editors' typical execution time minus what has already elapsed;
 - ``elapsed_beyond_typical`` (``risk.elapsed_percentile``): an In Progress project has been in execution longer than that
   percentile of historical same-Video-Type execution;
-- ``editor_workload_above_own_median`` (``workload.band_rule``): the current Editor has more other active projects than their
-  own historical median concurrency;
+- ``editor_workload_above_own_high_percentile`` (``workload.high_percentile``, D53.8): the current Editor has more other active
+  projects than that percentile (75th) of their own historical concurrency. The association split (``workload.band_rule``) stays
+  the Editor's own median; a *high-workload* signal needs the stricter percentile;
 - ``review_wait_beyond_typical`` (``risk.elapsed_percentile``): an Awaiting Approval project has waited longer than that
   percentile of historical review waits. This is a production review stage signal, never an Editor signal.
 
@@ -47,8 +48,8 @@ from atlas_commander.investigation.models import (
     Statement,
 )
 from atlas_commander.investigation.policy import INSUFFICIENT_SAMPLE, ParameterUse
-from atlas_commander.investigation.stats import quantile, shown
-from atlas_commander.investigation.workload import editor_medians
+from atlas_commander.investigation.stats import exact, quantile, shown
+from atlas_commander.investigation.workload import editor_high_workload
 
 VERSION = "risks-v1.0"
 IN_PROGRESS = "In Progress"
@@ -75,7 +76,8 @@ def _signal_finding(ctx: RunContext, signal: str, items: Sequence[tuple[OpenWork
                       {"window": "snapshot", "retrieved_at": ctx.facts.retrieved_at}, [cm.CURRENT_SNAPSHOT, cm.NO_CAUSE_EVIDENCE] +
                       ([cm.TYPICAL_WHOLE_HISTORY] if signal != "past_eta" else []), Statement(INTERPRETATION, "significance_open_risk", params),
                       [Statement(HYPOTHESIS, f"check_open_{signal}", params)], key={"signal": signal}, magnitude=float(len(items)), worsening=True)
-    finding.confidence = assess(ctx.policy, groups={"projects": (len(items), None)}, projects=len(items), editors=len(finding.affected_editors))
+    finding.confidence = assess(ctx.policy, groups={"projects": (len(items), None)}, projects=len(items), editors=len(finding.affected_editors),
+                                direct_fact=signal == "past_eta")
     return finding
 
 
@@ -96,7 +98,7 @@ def run_open_work(ctx: RunContext) -> DetectorResult:
 
     runway = ctx.policy.use("runway.short_rule")
     percentile = ctx.policy.use("risk.elapsed_percentile")
-    band_rule = ctx.policy.use("workload.band_rule")
+    high = ctx.policy.use("workload.high_percentile")
     in_progress = [item for item in active if item.current_status == IN_PROGRESS and item.first_in_progress_at and item.cohort_key and item.benchmark_eligible]
     if runway is None:
         result.skip("risk.open_work", Scope("team"), ["rule_not_approved"], {"signal": "short_remaining_runway"}, ("runway.short_rule",))
@@ -133,27 +135,28 @@ def run_open_work(ctx: RunContext) -> DetectorResult:
                 for item in awaiting if item.status_entered_at and threshold is not None and _seconds(item.status_entered_at, now) > threshold]
         if rows:
             result.add(_signal_finding(ctx, "review_wait_beyond_typical", rows, [percentile], stage="review"))
-    if band_rule is None:
-        result.skip("risk.open_work", Scope("team"), ["rule_not_approved"], {"signal": "editor_workload_above_own_median"}, ("workload.band_rule",))
+    if high is None:
+        result.skip("risk.open_work", Scope("team"), ["rule_not_approved"], {"signal": "editor_workload_above_own_high_percentile"}, ("workload.high_percentile",))
     else:
-        medians = editor_medians(ctx.facts.attributed)
+        thresholds = editor_high_workload(ctx.facts.attributed, float(high.value))
         by_editor: dict[str, list[OpenWork]] = defaultdict(list)
         for item in active:
             if item.current_editor_id:
                 by_editor[item.current_editor_id].append(item)
         rows = []
         for editor, items in sorted(by_editor.items()):
-            if editor in medians and len(items) - 1 > medians[editor]:
-                rows += [(item, {"editor_active_projects": len(items), "editor_median_concurrency": medians[editor]}) for item in items]
+            if editor in thresholds and len(items) - 1 > thresholds[editor]:
+                rows += [(item, {"editor_active_projects": len(items), "editor_other_active_projects": len(items) - 1,
+                                 "editor_high_percentile_concurrency": thresholds[editor], "percentile": high.value}) for item in items]
         if rows:
-            result.add(_signal_finding(ctx, "editor_workload_above_own_median", rows, [band_rule]))
+            result.add(_signal_finding(ctx, "editor_workload_above_own_high_percentile", rows, [high]))
     return result
 
 
 def run_similarity(ctx: RunContext) -> DetectorResult:
-    values, used = uses(ctx, "runway.short_rule", "evidence.minimum_group_projects")
+    values, used = uses(ctx, "runway.short_rule", "evidence.minimum_group_projects", "evidence.material_rate_difference")
     result = DetectorResult()
-    floor = values["evidence.minimum_group_projects"]
+    floor, material = values["evidence.minimum_group_projects"], exact(values["evidence.material_rate_difference"])
     now = ctx.facts.retrieved_at or ""
     for item in ctx.facts.open_work:
         if item.current_status != IN_PROGRESS or not item.first_in_progress_at or not item.requested_eta or not item.cohort_key or not item.benchmark_eligible:
@@ -174,9 +177,10 @@ def run_similarity(ctx: RunContext) -> DetectorResult:
         if len(similar) < floor:
             result.skip("risk.historical_similarity", scope, [INSUFFICIENT_SAMPLE], facts, ("evidence.minimum_group_projects",))
             continue
-        # A resemblance is a risk signal only when the similar projects were late more often than the Video Type as a whole.
-        if type_rate is None or Fraction(late, len(similar)) <= type_rate:
-            result.skip("risk.historical_similarity", scope, ["no_effect_at_approved_threshold"], facts, ("runway.short_rule",))
+        # A resemblance is a risk signal only when the similar projects were late materially more often (D53.6: by at least the material
+        # rate difference) than the Video Type as a whole; a one-point difference is not a signal.
+        if type_rate is None or Fraction(late, len(similar)) - type_rate < material:
+            result.skip("risk.historical_similarity", scope, ["no_effect_at_approved_threshold"], facts, ("runway.short_rule", "evidence.material_rate_difference"))
             continue
         params = {**facts, "monday_item_id": item.monday_item_id, "cohort_label": cm.cohort_name(similar, item.cohort_key),
                   "similar_late_rate": shown(Fraction(late, len(similar))), "editor_name": ctx.name(item.current_editor_id), "retrieved_at": now}
@@ -199,13 +203,14 @@ def run_similarity(ctx: RunContext) -> DetectorResult:
 
 DETECTORS = [
     Detector("risk.open_work", VERSION, "38", "Deterministic risk signals on current open work: past ETA (fact), short remaining runway, execution beyond the typical "
-             "percentile, Editor workload above their own median, review wait beyond the typical percentile",
+             "percentile, Editor workload above their own 75th percentile, review wait beyond the typical percentile",
              ("current_open_work", "current_editor_of_open_work", "requested_eta", "video_type", "status_history", "concurrent_workload_history"),
-             ("runway.short_rule", "risk.elapsed_percentile", "workload.band_rule"), "no minimum for the past-ETA fact; typical times valid at the D52 comparator minimums",
+             ("runway.short_rule", "risk.elapsed_percentile", "workload.high_percentile"), "no minimum for the past-ETA fact; typical times valid at the D52 comparator minimums",
              "one emerging-risk finding per signal listing the projects", "facts about the snapshot; not graded beyond the sample shown",
              (cm.CURRENT_SNAPSHOT, cm.TYPICAL_WHOLE_HISTORY), run_open_work),
     Detector("risk.historical_similarity", VERSION, "39", "An In Progress project compared with historical same-Video-Type projects in the same runway band: their late "
              "share is a base rate, not a prediction", ("current_open_work", "execution_runway", "video_type", "deadline_result"),
-             ("runway.short_rule", "evidence.minimum_group_projects"), "similar historical projects >= evidence.minimum_group_projects",
+             ("runway.short_rule", "evidence.minimum_group_projects", "evidence.material_rate_difference"),
+             "similar historical projects >= evidence.minimum_group_projects; their late rate >= the Video Type's + evidence.material_rate_difference",
              "one emerging-risk finding per open project", "similar group vs minimum", (cm.CURRENT_SNAPSHOT, cm.ASSOCIATION_NOT_CAUSE), run_similarity),
 ]

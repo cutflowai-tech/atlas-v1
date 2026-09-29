@@ -79,13 +79,13 @@ class ConcentrationTests(unittest.TestCase):
         self.assertTrue([x for x in run("concentration.positive", f.base(rows)).findings if x.direction == "favourable"])
 
     def test_approved_only_is_rule_not_approved_and_deterministic(self):
-        result = run("concentration.negative", self.fixture(), mode="approved_only")
+        result = run("concentration.negative", self.fixture(), mode="approved_only", data=f.pre_d53())
         self.assertEqual((result.findings, reasons(result)), ([], ["rule_not_approved"]))
         first = [x.to_dict() for x in run("concentration.negative", self.fixture()).findings]
         self.assertEqual(first, [x.to_dict() for x in run("concentration.negative", self.fixture()).findings])
 
     def test_approving_the_parameters_allows_the_finding(self):
-        data = f.config(approve=concentration.PARAMS)
+        data = f.config(unapprove=f.UNAPPROVED_D53, approve=concentration.PARAMS)
         result = run("concentration.negative", self.fixture(), mode="approved_only", data=data)
         self.assertTrue(result.findings)
         self.assertTrue(all(use.status == "approved" for use in result.findings[0].parameters))
@@ -198,13 +198,28 @@ class ChangeTests(unittest.TestCase):
         self.assertEqual(run("change.video_type", f.base(rows)).findings, [])
 
     def test_team_change_with_breadth(self):
-        rows = [proj(f"c{i}", [A, B, C][i % 3], late=i < 11, days=3 + i) for i in range(12)]
+        rows = [proj(f"c{i}", [A, B, C][i % 3], late=i < 14, days=3 + i) for i in range(15)]
+        rows += [proj(f"p{i}", [A, B, C][i % 3], late=i < 2, days=33 + i % 25) for i in range(15)]
+        found = [x for x in run("change.team", f.base(rows)).findings if x.key["against"] == "comparison" and x.key["measure"] == "late_rate"]
+        params = found[0].statements[0].params
+        self.assertEqual((params["editors_same_direction"], params["editors_with_both_periods"], params["shared_across_editors"]), (3, 3, True))
+        self.assertEqual(found[0].statements[2].code, "change_is_group_wide")
+
+    def test_team_change_with_editors_below_the_breadth_minimum_is_not_called_shared(self):
+        rows = [proj(f"c{i}", [A, B, C][i % 3], late=i < 11, days=3 + i) for i in range(12)]      # 4 projects per Editor < 5
         rows += [proj(f"p{i}", [A, B, C][i % 3], late=i < 2, days=33 + i) for i in range(12)]
         found = [x for x in run("change.team", f.base(rows)).findings if x.key["against"] == "comparison" and x.key["measure"] == "late_rate"]
-        self.assertEqual(found[0].statements[0].params["editors_same_direction"], 3)
+        params = found[0].statements[0].params
+        self.assertEqual((params["editors_with_both_periods"], params["shared_across_editors"]), (0, False))
+        self.assertEqual(found[0].statements[2].code, "change_breadth_not_established")
 
-    def test_approved_only_never_classifies_change(self):
-        self.assertEqual(reasons(run("change.editor", f.base(self.editor_rows()), mode="approved_only")), ["rule_not_approved"])
+    def test_approved_only_without_d53_never_classifies_change(self):
+        self.assertEqual(reasons(run("change.editor", f.base(self.editor_rows()), mode="approved_only", data=f.pre_d53())), ["rule_not_approved"])
+
+    def test_approved_only_with_d53_classifies_change_on_approved_parameters(self):
+        result = run("change.editor", f.base(self.editor_rows()), mode="approved_only")
+        self.assertTrue(result.findings)
+        self.assertTrue(all(use.status == "approved" and use.decision_id in ("D52", "D53") for x in result.findings for use in x.parameters))
 
 
 def workload_rows(editor_id=A, high_hours=30.0, low_hours=10.0, blocks=12, cohort="4", late_high=False):

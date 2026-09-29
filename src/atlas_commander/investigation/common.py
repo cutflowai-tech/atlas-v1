@@ -9,7 +9,7 @@ from typing import Any
 from atlas_commander.investigation.baselines import Baselines
 from atlas_commander.investigation.facts import ProjectFact
 from atlas_commander.investigation.models import EvidenceRecord
-from atlas_commander.investigation.stats import shown
+from atlas_commander.investigation.stats import exact, shown
 
 # Limitation codes (Task 59); wording in ``narrative.LIMITATIONS``.
 ELAPSED_TIME = "elapsed_clock_time_not_effort"
@@ -77,6 +77,13 @@ def typical_seconds(project: ProjectFact, baselines: Baselines) -> int | None:
         return None
     typical = baselines.typical(project.cohort_key, project.editor_id)
     return typical.median_seconds if typical.valid else None
+
+
+def shared_across_editors(affected: int, eligible: int, minimum_editors: int, share: Any) -> bool:
+    """D53.4: a pattern is shared (cross-Editor, process-level) only when at least ``minimum_editors`` Editors are affected AND
+    they are at least ``share`` of the eligible comparable Editors (exact fraction, so two thirds is exactly 2/3). Eligible and
+    affected Editors must each already have the minimum comparable projects; the caller counts only those."""
+    return affected >= int(minimum_editors) and eligible > 0 and Fraction(affected, eligible) >= exact(share)
 
 
 def hours(seconds: float | None) -> float | None:

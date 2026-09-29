@@ -43,7 +43,7 @@ from atlas_commander.investigation.models import (
     Statement,
 )
 from atlas_commander.investigation.policy import INSUFFICIENT_OUTCOMES, INSUFFICIENT_SAMPLE, NO_EFFECT
-from atlas_commander.investigation.stats import distribution, exact, median, shown
+from atlas_commander.investigation.stats import distribution, exact, median, quantile, shown
 
 VERSION = "workload-v1.0"
 HIGH, LOW = "higher", "lower"
@@ -55,6 +55,15 @@ def editor_medians(projects: Sequence[ProjectFact]) -> dict[str, int]:
         if project.editor_id and project.concurrency_at_start is not None:
             by_editor[project.editor_id].append(project.concurrency_at_start)
     return {editor: int(median(values) or 0) for editor, values in by_editor.items()}
+
+
+def editor_high_workload(projects: Sequence[ProjectFact], percentile: float) -> dict[str, float]:
+    """Each Editor's own historical concurrency at that percentile (D53.8: high workload is relative to the Editor's own history)."""
+    by_editor: dict[str, list[int]] = defaultdict(list)
+    for project in projects:
+        if project.editor_id and project.concurrency_at_start is not None:
+            by_editor[project.editor_id].append(project.concurrency_at_start)
+    return {editor: value for editor, values in by_editor.items() if (value := quantile(values, percentile)) is not None}
 
 
 def band(project: ProjectFact, medians: dict[str, int]) -> str | None:
