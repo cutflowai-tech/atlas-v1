@@ -166,6 +166,45 @@ Source: final management approvals relayed on 2026-09-29 in the Contract 1.5 clo
 production, so the values are recorded in the 1.5.0 configuration itself rather than a new contract version.
 
 
+## Proposed, not approved: D53 — Intelligence V2 investigation layer (2026-09-30)
+
+**Status: OPEN.** Nothing below is approved. `feat/atlas-intelligence-v2` implements the investigation layer described in
+[`INTELLIGENCE-V2.md`](INTELLIGENCE-V2.md) with every new value `null` / `rule_not_approved` in `config/intelligence-v2.json`.
+In the default `approved_only` mode, only findings built entirely on approved rules appear:
+
+- the D52 Speed verdicts;
+- facts about open work;
+- data warnings.
+
+The proposals below are used only in the explicit, never-published `review` mode, so management can see what each proposal
+would surface ([`INTELLIGENCE-V2-VALIDATION.md`](INTELLIGENCE-V2-VALIDATION.md)). Approving any of them needs both this log
+entry, changed to approved, and the matching config entry, marked `approved` with `decision_id` D53 (D25).
+
+| # | Question for management | Proposal (review mode only) | Why it needs a decision |
+|---|---|---|---|
+| D53.1 | **Scope.** May Atlas publish process-level findings that name stages and Video Types (never people other than the evaluated Editor), and Editor-level counter-evidence beside the component states it qualifies? | Yes, as a separate, optional `intelligence-v2.json`; no KPI for any non-Editor role | HANDOFF §1 and §27 limit scope to Editor intelligence |
+| D53.2 | Minimum projects in any compared group | 10 (`evidence.minimum_group_projects`) | Mirrors the D52 Quality and Trend floors, but for a new purpose |
+| D53.3 | Minimum outcome events behind a pattern | 5 (`evidence.minimum_outcome_events`) | New |
+| D53.4 | Breadth: qualifying Editors, projects per Editor, and the share that makes a pattern "shared" | 3 Editors; 5 projects each; two thirds | New |
+| D53.5 | Concentration: outcome share / population share, and absolute difference | ≥ 1.25 and ≥ 10 percentage points | New |
+| D53.6 | Material difference between two rates / two median execution times | 15 percentage points / 25% | The same question as the OPEN Trend materiality (D52); decide both together |
+| D53.7 | Short runway definition | Requested ETA (D19) − first In Progress < the other Editors' median first-pass time in the same exact Video Type (D36, D52 minimums) | A new definition, although it reuses only approved statistics |
+| D53.8 | Workload bands | Higher band = concurrency at start above the Editor's own median; no universal overload threshold | No capacity rule is approved (D33, HANDOFF §21) |
+| D53.9 | Risk percentile for open work (execution and review wait) | 75th percentile of historical same-Video-Type values | New |
+| D53.10 | Search-space cap for repeated-pattern detection | 40 combinations, with the number tested always published | New |
+| D53.11 | Confidence method | Strong needs ≥ 2× every minimum, ≥ 2 replications, no contradicting evidence and ≥ 90% field completeness | Method choice |
+| D53.12 | Management presentation | Top 5 findings; findings about the same projects (Jaccard ≥ 0.8), Video Types and direction clustered as duplicates | Until approved, every finding is listed and nothing is clustered |
+| D53.13 | Publication | `publication.include_in_site_build`: an optional artifact beside `dashboard.json`, approved-only content | Enabling it is a reviewed configuration change, like contract activation |
+
+Engineering choices made without a business threshold, documented for review:
+
+- Every change against a baseline is compared with the other Editors' change over the same periods (difference-in-differences).
+- "Mix explains the gap" is said only when the mix accounts for more than half of the raw gap.
+- Runway patterns are always context, never an Editor weakness.
+- A historical-similarity signal needs the similar projects to have been late more often than their Video Type.
+- A timing pattern must repeat in at least 2 months.
+- A repeated-delay cell must be elevated in both halves of the history.
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -212,3 +251,6 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
      - use the latest ETA set at or before Ready For Approval (deadline-v1.2, a new contract version);
      - keep D1 but ignore only the changes made when a project enters Revisions.
    - Recommendation: the latest ETA set at or before Ready For Approval. It still honours ETA changes made before the Editor submits, and it cannot be moved by later client revisions.
+7. **Intelligence V2 parameters and scope (D53, OPEN).** Every new Intelligence V2 threshold and the publication scope await the
+   decisions listed under D53. Until then Intelligence V2 publishes only approved-rule findings, open-work facts and data
+   warnings; the D53.6 materiality question is the same as the open Trend materiality in item 0.

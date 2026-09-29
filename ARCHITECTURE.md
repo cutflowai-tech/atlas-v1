@@ -8,6 +8,11 @@
 4. **Cycle builder** pairs `In Progress` with the next valid `Ready For Approval` event for the same item and Editor. Missing endpoints and negative intervals are invalid cycles.
 5. **Metric engine** derives speed, deadline, and quality independently and emits evidence with each result.
 5a. **Interpretation layer (contract 1.5.0 only)** — `interpretation_policy.py` reads the contract's rules and their approval state (D25); `intelligence.py` builds Cairo windows, component states, Overall Status (lookup), Recent Change and Trend, each with a reconstructable evidence block. What a contract version enables is decided in one place, `capabilities.py`; contracts up to 1.4.0 produce their original output byte for byte (`fixtures/golden`).
+5b. **Investigation layer (Intelligence V2, optional)** — `atlas_commander/investigation/` reads the cycle reconstruction and the
+finished 1.5 profiles and builds a separately versioned `intelligence-v2` document of findings (patterns, contradictions,
+context, investigations), each with Monday evidence, confidence and limitations. It never feeds back into any metric, state,
+status, profile or dashboard; new thresholds stay `rule_not_approved` until decided (D53). It is published only as an optional,
+feature-gated artifact (`docs/INTELLIGENCE-V2.md`).
 6. **Evidence API** returns contract-versioned Editor Profile data. The UI does not recalculate metrics. Under 1.5.0 the Overview and Profile render one language-neutral interpretation view model (`dashboard.interpretation_view`, `interpretation_html.py`) in English and Arabic.
 7. **Optional AI explanation** reads deterministic outputs and evidence; it cannot mutate or supply them.
 

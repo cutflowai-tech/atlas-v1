@@ -148,3 +148,26 @@ _Avoid_: Recent Change, direction
 **Approved Threshold**:
 A business cut-off the Atlas business owner has approved and recorded; nothing is classified without one.
 _Avoid_: Default, heuristic, calibration value
+
+## Investigation (Intelligence V2)
+
+**Finding**:
+A structured result of the investigation layer: what the data shows, what it may mean and what to check next, with its Monday evidence.
+_Avoid_: Insight, alert, verdict
+
+**Evidence Level**:
+What a statement in a Finding is: fact, metric, pattern, association, interpretation or hypothesis.
+_Avoid_: Certainty, score
+
+**Execution Runway**:
+The time between a project entering In Progress and its Requested ETA.
+_Avoid_: Buffer, slack, deadline pressure
+
+**Concurrent Workload**:
+How many of the same Editor's other projects were already in execution when a project started; a lower bound, not effort.
+_Avoid_: Capacity, load, overload
+
+**Risk Signal**:
+A fact about open work, or a historical base rate for work in the same position, that deserves attention; never a prediction.
+_Avoid_: Forecast, prediction, likely late
+
