@@ -97,7 +97,7 @@ class BilingualSiteTests(unittest.TestCase):
     # 1, 2, 3, 24 — both trees exist, every English page has an Arabic counterpart
     def test_1_2_3_both_locale_trees_are_generated(self):
         files = sorted(p.relative_to(self.out).as_posix() for p in self.out.rglob("*") if p.is_file())
-        self.assertEqual(files, sorted(site_layout.required_files(EDITORS)))
+        self.assertEqual(files, sorted(site_layout.required_files(EDITORS, self.contract["contract_version"])))
         english = {p.name for p in (self.out / "en" / "profiles").iterdir()}
         self.assertEqual(english, {p.name for p in (self.out / "ar" / "profiles").iterdir()})
         self.assertEqual(english, {f"{e}.html" for e in EDITORS})
@@ -304,6 +304,21 @@ class BilingualSiteTests(unittest.TestCase):
         self.assertEqual(entries["note.workload"]["en"], profile["current_workload"]["note"])
         self.assertEqual(entries["note.trend"]["en"], profile["trend"]["note"])
         self.assertEqual(entries["note.not_attributed"]["en"], profile["coverage"]["not_attributed_note"])
+
+    def test_catalog_has_no_duplicate_keys(self):
+        # json.loads keeps the last duplicate silently, so a re-added key would override the reviewed translation.
+        duplicates = []
+
+        def pairs(items):
+            seen = {}
+            for key, value in items:
+                if key in seen:
+                    duplicates.append(key)
+                seen[key] = value
+            return seen
+
+        json.loads((ROOT / "src" / "atlas_commander" / "locales" / "catalog.json").read_text(encoding="utf-8"), object_pairs_hook=pairs)
+        self.assertEqual(duplicates, [])
 
     def test_translation_review_artifact_is_current(self):
         self.assertEqual((ROOT / "docs" / "i18n" / "ARABIC-TRANSLATION-REVIEW.md").read_text(encoding="utf-8"), i18n.review_markdown())

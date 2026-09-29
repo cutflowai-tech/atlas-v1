@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/monday-contract-v1.5.schema.json",
+  "title": "MondayContractV1_5",
+  "type": "object",
+  "required": [
+    "$schema",
+    "$id",
+    "contract_version",
+    "authority",
+    "rule_versions",
+    "editor_attribution",
+    "quality_labels",
+    "deadline",
+    "speed_benchmark",
+    "time_windows",
+    "interpretation",
+    "threshold_governance",
+    "revision_context",
+    "active_work",
+    "evidence_requirements",
+    "coverage_requirements"
+  ],
+  "properties": {
+    "$schema": {"const": "https://atlas.local/contracts/monday-contract-v1.5.schema.json"},
+    "$id": {"const": "https://atlas.local/config/monday-contract-v1.5.json"},
+    "contract_version": {"const": "1.5.0"},
+    "authority": {
+      "type": "object",
+      "required": ["product_specification", "decision_log", "settled_decisions", "threshold_approver", "threshold_approval_rule"],
+      "properties": {
+        "product_specification": {"const": "docs/HANDOFF-V2.md"},
+        "decision_log": {"const": "docs/DECISIONS.md"},
+        "settled_decisions": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 33,
+          "items": {"type": "string", "pattern": "^D([2-4][0-9]|5[0-2])$"}
+        },
+        "threshold_approver": {"type": "string", "minLength": 1},
+        "threshold_approval_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "rule_versions": {
+      "type": "object",
+      "required": ["windowing", "identity", "quality_labels", "quality_component", "speed_benchmark", "speed_component", "deadline_fact", "deadline_component", "overall_status", "recent_change", "trend", "revision_context", "active_work", "evidence", "coverage"],
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "editor_attribution": {
+      "type": "object",
+      "required": ["mapping_version", "identity_key", "new_name_policy", "entries", "named_unresolved_identities", "quarantine_reasons"],
+      "properties": {
+        "mapping_version": {"const": "monday-editor-v1.3"},
+        "identity_key": {"const": ["source_label_id", "logged_name"]},
+        "new_name_policy": {"const": "unresolved-never-inherit-a-mapping-from-the-source-label-id"},
+        "entries": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity_mapping_record"}
+        },
+        "named_unresolved_identities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_label_id", "logged_name", "reason"],
+            "properties": {
+              "source_label_id": {"type": "string", "minLength": 1},
+              "logged_name": {"type": "string", "minLength": 1},
+              "reason": {"const": "UNMAPPED_EDITOR"}
+            }
+          }
+        },
+        "quarantine_reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_label_id", "logged_name", "code", "decision_id"],
+            "properties": {
+              "source_label_id": {"type": "string", "minLength": 1},
+              "logged_name": {"type": "string", "minLength": 1},
+              "code": {"enum": ["invalid_identity_value", "unresolved_historical_identity"]},
+              "decision_id": {"const": "D50"}
+            }
+          }
+        }
+      }
+    },
+    "quality_labels": {
+      "type": "object",
+      "required": ["mapping_version", "rule_version", "registries", "deadline_deduplication", "for_bonus"],
+      "properties": {
+        "mapping_version": {"const": "monday-quality-labels-v1.0"},
+        "registries": {
+          "type": "object",
+          "required": ["positive", "negative", "context"],
+          "properties": {
+            "positive": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}},
+            "negative": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}},
+            "context": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}}
+          }
+        },
+        "for_bonus": {
+          "type": "object",
+          "required": ["column_id", "classification"],
+          "properties": {
+            "column_id": {"const": "dropdown_mm3tyvvc"},
+            "classification": {"const": "per-label-registry"}
+          }
+        }
+      }
+    },
+    "deadline": {
+      "type": "object",
+      "required": ["rule_version", "on_time_tolerance_seconds", "component"],
+      "properties": {
+        "on_time_tolerance_seconds": {"const": 0},
+        "component": {
+          "type": "object",
+          "required": ["team_population", "fallback_to_absolute_threshold", "better_band", "worse_band", "band_semantics", "minimum_editor_sample_size", "minimum_comparator_sample_size", "threshold_status"],
+          "propertyNames": {"enum": ["band_semantics", "better_band", "comparison_metric", "decision_id", "fact_metric", "fallback_to_absolute_threshold", "insufficient_comparator_state", "minimum_comparator_sample_size", "minimum_editor_sample_size", "rule_version", "team_population", "threshold_status", "worse_band"]},
+          "not": {"required": ["similar_band"]},
+          "properties": {
+            "team_population": {"const": "other-eligible-editors-only-same-window"},
+            "fallback_to_absolute_threshold": {"const": false},
+            "better_band": {"const": -0.15},
+            "worse_band": {"const": 0.15},
+            "band_semantics": {"type": "string", "minLength": 1},
+            "minimum_editor_sample_size": {"const": 10},
+            "minimum_comparator_sample_size": {"const": 60},
+            "threshold_status": {"const": "approved"},
+            "decision_id": {"const": "D45"}
+          }
+        }
+      }
+    },
+    "speed_benchmark": {
+      "type": "object",
+      "required": ["rule_version", "minimum_editor_sample_size", "minimum_editor_sample_size_status", "leave_one_out", "minimum_comparator_sample_size", "minimum_comparator_sample_size_status", "minimum_comparator_editor_count", "minimum_comparator_editor_count_status", "component"],
+      "propertyNames": {"enum": ["below_minimum_or_unset", "benchmark", "benchmark_statistic", "benchmark_statistic_status", "cohort", "component", "decision_source", "leave_one_out", "median_rounding", "minimum_comparator_editor_count", "minimum_comparator_editor_count_status", "minimum_comparator_sample_size", "minimum_comparator_sample_size_status", "minimum_editor_sample_size", "minimum_editor_sample_size_status", "peer_requirement", "percentage_difference", "rule_version", "team_population", "team_population_status", "typical_range"]},
+      "properties": {
+        "leave_one_out": {"const": true},
+        "minimum_editor_sample_size": {"const": 5},
+        "minimum_editor_sample_size_status": {"const": "approved"},
+        "minimum_comparator_sample_size": {"const": 10},
+        "minimum_comparator_sample_size_status": {"const": "approved"},
+        "minimum_comparator_editor_count": {"const": 2},
+        "minimum_comparator_editor_count_status": {"const": "approved"},
+        "component": {
+          "type": "object",
+          "required": ["faster_band", "slower_band", "band_status", "band_semantics"],
+          "propertyNames": {"enum": ["aggregation", "band_semantics", "band_status", "decision_id", "faster_band", "majority", "no_classifiable_type_state", "percentage_differences_are_never_averaged", "rule_version", "slower_band"]},
+          "not": {"required": ["similar_band"]},
+          "properties": {
+            "faster_band": {"const": -25},
+            "slower_band": {"const": 25},
+            "band_status": {"const": "approved"},
+            "decision_id": {"const": "D38"},
+            "band_semantics": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "time_windows": {
+      "type": "object",
+      "required": ["timezone", "current_window", "comparison_window", "monthly_history_timezone", "project_anchor"],
+      "properties": {
+        "timezone": {"const": "Africa/Cairo"},
+        "monthly_history_timezone": {"const": "Africa/Cairo"},
+        "current_window": {
+          "type": "object",
+          "required": ["completed_days", "exclude_current_local_day"],
+          "properties": {"completed_days": {"const": 30}, "exclude_current_local_day": {"const": true}}
+        },
+        "comparison_window": {
+          "type": "object",
+          "required": ["completed_days", "immediately_precedes_current"],
+          "properties": {"completed_days": {"const": 30}, "immediately_precedes_current": {"const": true}}
+        }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "required": ["component_states", "overall_status", "quality_component", "trend", "strengths", "attention_areas", "recognition", "needs_attention_now", "insufficient_evidence"],
+      "properties": {
+        "component_states": {"const": ["positive", "neutral", "negative", "not_classifiable"]},
+        "overall_status": {"$ref": "#/$defs/approved_overall_status"},
+        "quality_component": {
+          "type": "object",
+          "required": ["negative_rate_threshold", "positive_rate_threshold", "minimum_project_sample_size", "minimum_project_sample_size_status", "threshold_status"],
+          "propertyNames": {"enum": ["counts_always_visible", "decision_id", "denominator", "minimum_project_sample_size", "minimum_project_sample_size_status", "negative_rate_threshold", "positive_rate_threshold", "threshold_status"]},
+          "properties": {
+            "negative_rate_threshold": {"type": "null"},
+            "positive_rate_threshold": {"type": "null"},
+            "minimum_project_sample_size": {"const": 10},
+            "minimum_project_sample_size_status": {"const": "approved"},
+            "threshold_status": {"const": "rule_not_approved"},
+            "decision_id": {"const": "D39"}
+          }
+        },
+        "trend": {
+          "type": "object",
+          "required": ["labels", "minimum_sample_size", "minimum_sample_size_status", "material_change_thresholds", "directions", "threshold_status"],
+          "propertyNames": {"enum": ["decision_id", "directions", "fallback", "labels", "material_change_thresholds", "measurements", "minimum_sample_size", "minimum_sample_size_status", "threshold_status"]},
+          "not": {"required": ["material_change_threshold"]},
+          "properties": {
+            "labels": {"const": ["Improving", "Stable", "Declining"]},
+            "minimum_sample_size": {"const": 10},
+            "minimum_sample_size_status": {"const": "approved"},
+            "material_change_thresholds": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["positive_quality_rate", "negative_quality_rate", "late_rate", "median_speed_seconds"],
+              "properties": {
+                "positive_quality_rate": {"type": "null"},
+                "negative_quality_rate": {"type": "null"},
+                "late_rate": {"type": "null"},
+                "median_speed_seconds": {"type": "null"}
+              }
+            },
+            "directions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["positive_quality_rate", "negative_quality_rate", "late_rate", "median_speed_seconds"],
+              "properties": {
+                "positive_quality_rate": {"const": "higher_is_better"},
+                "negative_quality_rate": {"const": "lower_is_better"},
+                "late_rate": {"const": "lower_is_better"},
+                "median_speed_seconds": {"const": "lower_is_better"}
+              }
+            },
+            "threshold_status": {"const": "rule_not_approved"},
+            "decision_id": {"const": "D23"}
+          }
+        },
+        "strengths": {"$ref": "#/$defs/unapproved_threshold_set"},
+        "attention_areas": {"$ref": "#/$defs/unapproved_threshold_set"}
+      }
+    },
+    "threshold_governance": {
+      "type": "object",
+      "required": ["status", "governing_decision", "blocking_identity_keys", "required_order", "completed_steps", "threshold_approval_status", "pre_resolution_calibration_approved", "unresolved_projects_enter_calibration"],
+      "properties": {
+        "status": {"const": "identity_gate_satisfied_thresholds_partially_approved"},
+        "governing_decision": {"const": "D44"},
+        "blocking_identity_keys": {"type": "array", "maxItems": 0},
+        "completed_steps": {"const": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"]},
+        "threshold_approval_status": {"const": "partially_approved_D52"},
+        "pre_resolution_calibration_approved": {"const": false},
+        "unresolved_projects_enter_calibration": {"const": false}
+      }
+    },
+    "revision_context": {
+      "type": "object",
+      "required": ["scored", "affects_overall_status", "automatic_quality_penalty"],
+      "properties": {
+        "scored": {"const": false},
+        "affects_overall_status": {"const": false},
+        "automatic_quality_penalty": {"const": false}
+      }
+    },
+    "active_work": {
+      "type": "object",
+      "required": ["active_statuses", "awaiting_approval_statuses", "excluded_statuses", "capacity_threshold", "capacity_rule_status", "pressure_label"],
+      "properties": {
+        "active_statuses": {"const": ["In Progress", "Revisions", "Internal Revisions"]},
+        "awaiting_approval_statuses": {"const": ["Ready For Approval"]},
+        "capacity_threshold": {"type": "null"},
+        "capacity_rule_status": {"const": "rule_not_approved"},
+        "pressure_label": {"type": "null"}
+      }
+    },
+    "evidence_requirements": {
+      "type": "object",
+      "required": ["required_fields", "non_empty", "conclusions_link_to_supporting_evidence", "raw_identity_evidence_retained_on_quarantine", "ai_source_of_truth"],
+      "properties": {
+        "required_fields": {"type": "array", "minItems": 8, "uniqueItems": true, "items": {"type": "string"}},
+        "non_empty": {"const": true},
+        "conclusions_link_to_supporting_evidence": {"const": true},
+        "raw_identity_evidence_retained_on_quarantine": {"const": true},
+        "ai_source_of_truth": {"const": false}
+      }
+    },
+    "coverage_requirements": {
+      "type": "object",
+      "required": ["show_sample_sizes", "show_included_and_excluded_counts", "show_exclusion_reasons", "show_missing_or_invalid_record_counts", "show_source_history_coverage", "show_component_classifiability_reasons", "unresolved_identities_visible_in_diagnostics", "unresolved_identities_enter_calibration"],
+      "properties": {
+        "unresolved_identities_visible_in_diagnostics": {"const": true},
+        "unresolved_identities_enter_calibration": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "identity_mapping_record": {
+      "type": "object",
+      "required": ["source_label_id", "logged_name", "editor_id", "canonical_editor_name", "role", "validity", "first_observed_at", "last_observed_at", "attestation_source", "decision_id"],
+      "description": "validity 'ongoing': a confirmed current Editor; observed dates are evidence bounds and the mapping stays valid after the last observation (D51). validity 'historical': a reused label tuple valid only between its first and last observation.",
+      "if": {"properties": {"validity": {"const": "historical"}}},
+      "then": {"properties": {"first_observed_at": {"type": "string"}, "last_observed_at": {"type": "string"}}},
+      "properties": {
+        "validity": {"enum": ["ongoing", "historical"]},
+        "source_label_id": {"type": "string", "minLength": 1},
+        "logged_name": {"type": "string", "minLength": 1},
+        "editor_id": {"type": "string", "minLength": 1},
+        "canonical_editor_name": {"type": "string", "minLength": 1},
+        "role": {"const": "editor"},
+        "first_observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "last_observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "attestation_source": {"type": "string", "minLength": 1},
+        "decision_id": {"type": "string", "pattern": "^D[0-9]+$"}
+      }
+    },
+    "quality_label": {
+      "type": "object",
+      "required": ["column_id", "source_label_id", "label", "visible", "scored_quality"],
+      "properties": {
+        "column_id": {"enum": ["dropdown_mm3tyk8g", "dropdown_mm3tyvvc"]},
+        "source_label_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "visible": {"const": true},
+        "scored_quality": {"type": "boolean"}
+      }
+    },
+    "approved_overall_status": {
+      "type": "object",
+      "required": ["lookup_table", "threshold_status", "decision_id", "weighted_composite"],
+      "propertyNames": {"enum": ["decision_id", "excluded_inputs", "fallback", "labels", "lookup_rule", "lookup_table", "minimum_classifiable_components", "scored_components", "threshold_status", "weighted_composite"]},
+      "properties": {
+        "lookup_table": {
+          "type": "object",
+          "minProperties": 64,
+          "maxProperties": 64,
+          "propertyNames": {"pattern": "^(positive|neutral|negative|not_classifiable)\\|(positive|neutral|negative|not_classifiable)\\|(positive|neutral|negative|not_classifiable)$"},
+          "additionalProperties": {"enum": ["Strong", "Good", "Mixed", "Below Expectations", "Not enough evidence to classify"]}
+        },
+        "threshold_status": {"const": "approved"},
+        "decision_id": {"const": "D37"},
+        "weighted_composite": {"const": false}
+      }
+    },
+    "unapproved_threshold_set": {
+      "type": "object",
+      "required": ["thresholds", "threshold_status"],
+      "properties": {
+        "thresholds": {"type": "null"},
+        "threshold_status": {"const": "rule_not_approved"}
+      }
+    }
+  }
+}

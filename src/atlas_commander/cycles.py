@@ -103,7 +103,7 @@ class CyclePolicy:
             raise ValueError("cycle boundaries must be In Progress -> Ready For Approval")
         attributes = contract["cycle_attributes"]
         board = contract["source_board"]
-        identity = IdentityMapping.from_dict({"mapping_version": contract["editor_attribution"]["mapping_version"], "entries": contract["editor_attribution"]["entries"]})
+        identity = IdentityMapping.from_contract(contract)
         selection = (contract.get("deadline") or {}).get("requested_eta_selection", LATEST_ETA)
         if selection not in {LATEST_ETA, ETA_AT_READY_FOR_APPROVAL}:
             raise ValueError(f"unknown Requested ETA selection rule {selection!r}")
@@ -295,6 +295,8 @@ def build_item_cycle(
         "context_only": True,
         "client_revision_events": sum(1 for event in revisions if event["to_status"] == CLIENT_REVISION_STATUS),
         "internal_revision_events": sum(1 for event in revisions if event["to_status"] == INTERNAL_REVISION_STATUS),
+        "client_revision_event_ids": [event["event_id"] for event in revisions if event["to_status"] == CLIENT_REVISION_STATUS],
+        "internal_revision_event_ids": [event["event_id"] for event in revisions if event["to_status"] == INTERNAL_REVISION_STATUS],
         "event_ids": [event["event_id"] for event in revisions],
     }
 
@@ -377,10 +379,20 @@ def _resolve_editor(record: CycleRecord, changes: list[ColumnChange], policy: Cy
         _add(record.exclusions, MISSING_EDITOR_EVENT)
         return
     in_effect = _as_of(changes, start)
-    values = {dropdown_value_ids(change.value) for change in changes if start < parse_time(change.occurred_at) <= end}
+    def identity_key(change: ColumnChange) -> tuple[tuple[str, ...], tuple[str, ...]] | tuple[str, ...]:
+        ids = dropdown_value_ids(change.value)
+        if policy.identity.strict_name_key:
+            return ids, dropdown_value_labels(change.value)
+        return ids
+
+    values = {identity_key(change) for change in changes if start < parse_time(change.occurred_at) <= end}
     if in_effect is not None:
-        values.add(dropdown_value_ids(in_effect.value))
-    if len({value for value in values if value}) > 1:
+        values.add(identity_key(in_effect))
+    if policy.identity.strict_name_key:
+        nonempty = {value for value in values if value[0]}
+    else:
+        nonempty = {value for value in values if value}
+    if len(nonempty) > 1:
         _add(record.exclusions, EDITOR_CHANGED_WITHIN_CYCLE)
     record.editor_event_id = current.log_id
     observation = EditorObservation(current.board_id, current.item_id, current.column_id, dropdown_value_ids(current.value),

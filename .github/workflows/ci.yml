@@ -62,8 +62,20 @@ jobs:
         run: make status-sources
       - name: Quality and revision context tests
         run: make quality
+      - name: Contract 1.5 intelligence framework tests
+        run: make intelligence-v15
+      - name: Round 4 distribution analysis tests
+        run: make round4-analysis
       - name: Contract 1.3.0 tests
         run: make contract-v13
+      - name: Contract 1.5.0 configuration and identity tests
+        run: make contract-v15
+      - name: Contract 1.4 output and operations unchanged by 1.5 code
+        run: make contract-v14-compat
+      - name: Contract 1.5 profile semantics and publication parity tests
+        run: make profile-publication-v15
+      - name: Contract 1.5 evidence, history, bilingual rendering and publication identity tests
+        run: make contract-v15-release
       - name: Deadline v1.2 (ETA frozen at Ready For Approval) tests
         run: make deadline-v12
       - name: Editor Profile tests

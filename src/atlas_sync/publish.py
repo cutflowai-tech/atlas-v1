@@ -47,6 +47,7 @@ from atlas_commander import site_layout
 from atlas_commander.contracts import validate
 from atlas_commander.ingest import MANIFEST_NAME, RUN_ID_PATTERN, Clock, new_run_id, utc_now
 from atlas_commander.ingest_verify import verify
+from atlas_commander.profile import evidence_consistency_errors
 from atlas_monday_probe.client import InvalidMondaySetting, validate_api_version
 from atlas_monday_probe.raw_store import write_immutable_atomic
 
@@ -226,7 +227,7 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
         if name in listed and (record.get("sha256") != _sha256(data) or record.get("size_bytes") != len(data)):
             problems.append(f"artifact changed since the build: {name}")
     editors = [editor.get("editor_id") for editor in metadata.get("editors") or []]
-    required = site_layout.required_files(editors)   # English and Arabic are published together or not at all
+    required = site_layout.required_files(editors, contract_version)   # English and Arabic are published together or not at all
     problems += [f"required artifact missing or empty: {name}" for name in required if name not in files or files[name].stat().st_size == 0]
     if metadata.get("editor_count") != len(editors):
         problems.append("editor count does not match the Editor list")
@@ -235,6 +236,7 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
         problems += [f"artifact contains the Monday token: {name}" for name, path in files.items() if token in path.read_bytes()]
         if token in metadata_bytes:
             problems.append("build.json contains the Monday token")
+    problems += site_layout.publication_problems(files, editors, contract_version, manifest.get("retrieved_at"))
     if problems:
         raise PublishRejected("build_tampered", problems[:MAX_PROBLEMS])
 
@@ -242,7 +244,7 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
         profile = json.loads(files[f"profiles/{editor}.json"].read_bytes())
         schema = PROFILE_SCHEMAS.get(profile.get("contract_version"))
         profile_source = profile.get("source") or {}
-        if schema is None or validate(profile, schema):
+        if schema is None or validate(profile, schema) or evidence_consistency_errors(profile):
             problems.append(f"profiles/{editor}.json does not satisfy the Editor Profile schema")
         if (profile.get("editor") or {}).get("editor_id") != editor or profile.get("executable_contract_version") != contract_version \
                 or profile_source.get("retrieved_at") != manifest.get("retrieved_at") \

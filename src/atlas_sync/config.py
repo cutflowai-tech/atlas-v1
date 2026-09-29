@@ -13,7 +13,7 @@ Variable                                  Required  Meaning
 MONDAY_API_TOKEN / MONDAY_API_TOKEN_FILE  for sync  Read-only Monday API token, or a file holding it
                                                     (e.g. a Docker secret). Set one, never both.
 MONDAY_API_VERSION                        no        Monday API version header (default 2025-04).
-ATLAS_CONTRACT_VERSION                    no        Monday contract; production accepts only 1.4.0 (default).
+ATLAS_CONTRACT_VERSION                    no        Monday contract; production accepts 1.4.0 (default) and 1.5.0 (D52 activation, explicit opt-in).
 ATLAS_MONDAY_BOARD_ID                     no        If set, must equal the contract's board ID.
 ATLAS_DATA_DIR                            *         Base directory; derives the three below.
 ATLAS_RAW_DIR                             *         Immutable raw Monday evidence (default DATA/raw/monday).
@@ -77,9 +77,9 @@ FAILURES_ENV = "ATLAS_MAX_CONSECUTIVE_FAILURES"
 MAX_DURATION_ENV = "ATLAS_SYNC_MAX_DURATION_SECONDS"
 RETENTION_ENV = "ATLAS_RETENTION_SECONDS"
 
-# Production sync runs only the contract validated live (REAL-004). Older contracts stay loadable for
-# reproducing historical results and fixtures, but never for production sync.
-PRODUCTION_CONTRACT_VERSIONS = ("1.4.0",)
+# Production sync runs only contracts validated live: 1.4.0 (REAL-004) and 1.5.0 (activated by D52, opt-in through
+# ATLAS_CONTRACT_VERSION). Older contracts stay loadable for reproducing historical results and fixtures, but never for production sync.
+PRODUCTION_CONTRACT_VERSIONS = ("1.4.0", "1.5.0")   # both allowed, so rolling back to 1.4.0 is a configuration change
 # The history start used by every validated live run (REAL-003, REAL-004).
 DEFAULT_HISTORY_START = "2026-02-01T00:00:00Z"
 DEFAULT_INTERVAL_SECONDS = 3600
@@ -259,7 +259,7 @@ def load_sync_config(environ: Mapping[str, str] | None = None, *, require_token:
         problems.append(f"{CONTRACT_VERSION_ENV} {contract_version!r} is not an approved contract version ({', '.join(sorted(CONTRACT_PATHS))})")
     elif contract_version not in PRODUCTION_CONTRACT_VERSIONS:
         problems.append(f"{CONTRACT_VERSION_ENV} {contract_version!r} is not allowed for production sync; "
-                        f"only {', '.join(PRODUCTION_CONTRACT_VERSIONS)} is (older contracts are kept for reproducing history only)")
+                        f"only {', '.join(PRODUCTION_CONTRACT_VERSIONS)} are (older contracts are kept for reproducing history only)")
     else:
         board_id = str(load_contract_version(contract_version)["source_board"]["board_id"])
         expected = env.get(BOARD_ID_ENV, "").strip()

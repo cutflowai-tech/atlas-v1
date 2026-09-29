@@ -1,16 +1,17 @@
 """Canonical Editor identity resolution.
 
-Editors are resolved only from Monday person IDs through an explicit, versioned
-mapping. Display names are never matched, and a current assignee is never
-treated as the historical Editor unless the observation carries source evidence.
-Anything that cannot be resolved to exactly one canonical Editor is quarantined
-as an ``IdentityException`` instead of being guessed.
+Contract 1.5 resolves a historical Editor only from the exact Monday
+``(source_label_id, logged_name)`` tuple through an explicit, versioned mapping.
+Earlier contracts keep their ID mapping plus label-name guard for reproducibility.
+A current assignee is never treated as historical evidence. Anything that cannot
+be resolved to exactly one canonical Editor is quarantined instead of being guessed.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,42 @@ MISSING_EVIDENCE = "MISSING_EVIDENCE"
 # whose recorded label name is one of them.
 EDITOR_LABEL_NAME_MISMATCH = "EDITOR_LABEL_NAME_MISMATCH"
 EDITOR_LABEL_NAME_UNVERIFIED = "EDITOR_LABEL_NAME_UNVERIFIED"
+EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE = "EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE"
+ONGOING, HISTORICAL = "ongoing", "historical"
+
+
+@dataclass(frozen=True)
+class Attestation:
+    """One management-attested identity tuple (D49) and whether it continues (D51)."""
+
+    source_label_id: str
+    logged_name: str
+    editor_id: str
+    canonical_editor_name: str
+    first_observed_at: str
+    last_observed_at: str
+    validity: str
+
+
+# The D49 management attestation (docs/evidence/IDENTITY-ATTESTATION-REQUEST.md) with D51 continuity. The versioned contract
+# is the runtime source; this is the one code copy of the attested record, used to refuse a contract whose attested
+# identities were altered and by the Round 4 analysis. Seven confirmed current Editors continue after their observed range;
+# three reused label tuples are historical and end at their last observation.
+D49_ATTESTATIONS: tuple[Attestation, ...] = (
+    Attestation("4", "Mario", "editor-label-4", "Mario", "2026-03-14T00:44:34.286658Z", "2026-09-28T23:40:30.586199Z", ONGOING),
+    Attestation("5", "Anas", "editor-label-5", "Anas", "2026-05-18T21:18:49.066589Z", "2026-09-28T23:53:06.778508Z", ONGOING),
+    Attestation("7", "Martin", "editor-label-7", "Martin", "2026-05-12T16:18:07.005690Z", "2026-09-28T23:46:48.811226Z", ONGOING),
+    Attestation("8", "Samra", "editor-label-8", "Samra", "2026-03-14T06:03:43.139996Z", "2026-08-11T21:21:19.738906Z", ONGOING),
+    Attestation("9", "Ibrahim", "editor-label-9", "Ibrahim", "2026-05-03T14:10:25.391996Z", "2026-09-29T11:28:22.791445Z", ONGOING),
+    Attestation("10", "Amir", "editor-label-10", "Amir", "2026-04-22T16:43:52.478289Z", "2026-09-28T23:50:05.196143Z", ONGOING),
+    Attestation("11", "Refaat", "editor-label-11", "Refaat", "2026-06-29T01:31:10.174360Z", "2026-09-28T23:51:39.316328Z", ONGOING),
+    Attestation("5", "Ahmed", "editor-label-12", "Ahmed", "2026-03-14T05:58:12.013277Z", "2026-05-04T10:50:59.999145Z", HISTORICAL),
+    Attestation("7", "Mans", "editor-label-14", "Mansour", "2026-03-14T06:03:36.639229Z", "2026-05-06T08:13:45.547424Z", HISTORICAL),
+    Attestation("9", "Michael", "editor-label-13", "Michael", "2026-03-14T06:03:49.632351Z", "2026-05-02T20:03:48.180209Z", HISTORICAL),
+)
+D50_QUARANTINE = {("11", "New"): "invalid_identity_value", ("2", "Done"): "invalid_identity_value", ("1", "El Baz"): "unresolved_historical_identity"}
+INVALID_IDENTITY_VALUE = "invalid_identity_value"
+UNRESOLVED_HISTORICAL_IDENTITY = "unresolved_historical_identity"
 
 # Sources that describe the Editor at the time of the work. A current assignee
 # snapshot is only acceptable when it is pinned to a source event.
@@ -40,18 +77,46 @@ class MappingError(ValueError):
     """The identity mapping itself is malformed and cannot be used."""
 
 
+def _timestamp(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise MappingError(f"identity timestamp is invalid: {value!r}") from error
+    if parsed.tzinfo is None:
+        raise MappingError(f"identity timestamp must include an offset: {value!r}")
+    return parsed
+
+
 @dataclass(frozen=True)
 class MappingEntry:
     monday_person_id: str
     editor_id: str
     display_name: str
     label_names: tuple[str, ...] = ()
+    logged_name: str | None = None
+    role: str | None = None
+    first_observed_at: str | None = None
+    last_observed_at: str | None = None
+    attestation_source: str | None = None
+    decision_id: str | None = None
+    # D51: "ongoing" (a confirmed current Editor; the last observation is evidence, not an end date) or "historical"
+    # (a reused label tuple valid only within its observed range). None under contracts without the strict identity key.
+    validity: str | None = None
+
+
+@dataclass(frozen=True)
+class QuarantineReason:
+    source_label_id: str
+    logged_name: str
+    code: str
 
 
 @dataclass(frozen=True)
 class IdentityMapping:
     mapping_version: str
     entries: tuple[MappingEntry, ...]
+    strict_name_key: bool = False
+    quarantine_reasons: tuple[QuarantineReason, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Any) -> IdentityMapping:
@@ -60,6 +125,10 @@ class IdentityMapping:
         version = data.get("mapping_version")
         if not isinstance(version, str) or not version:
             raise MappingError("mapping_version is required")
+        raw_key = data.get("identity_key")
+        strict_name_key = raw_key is not None
+        if strict_name_key and raw_key != ["source_label_id", "logged_name"]:
+            raise MappingError("identity_key must be ['source_label_id', 'logged_name']")
         raw_entries = data.get("entries")
         if not isinstance(raw_entries, list):
             raise MappingError("entries must be a list")
@@ -67,29 +136,87 @@ class IdentityMapping:
         for index, raw in enumerate(raw_entries):
             if not isinstance(raw, dict):
                 raise MappingError(f"entry {index} must be an object")
+            source_key = "source_label_id" if strict_name_key else "monday_person_id"
+            display_key = "canonical_editor_name" if strict_name_key else "display_name"
             values = {}
-            for key in ("monday_person_id", "editor_id", "display_name"):
+            for key in (source_key, "editor_id", display_key):
                 value = raw.get(key)
                 if not isinstance(value, str) or not value:
                     raise MappingError(f"entry {index} missing {key}")
                 values[key] = value
-            names = raw.get("label_names", [])
+            logged_name = raw.get("logged_name") if strict_name_key else None
+            if strict_name_key and (not isinstance(logged_name, str) or not logged_name):
+                raise MappingError(f"entry {index} missing logged_name")
+            names = [logged_name] if strict_name_key else raw.get("label_names", [])
             if not isinstance(names, list) or any(not isinstance(name, str) or not name for name in names):
                 raise MappingError(f"entry {index} label_names must be a list of names")
-            entries.append(MappingEntry(values["monday_person_id"], values["editor_id"], values["display_name"], tuple(names)))
-        return cls(version, tuple(entries))
+            metadata = {}
+            if strict_name_key:
+                for key in ("role", "attestation_source", "decision_id"):
+                    value = raw.get(key)
+                    if not isinstance(value, str) or not value:
+                        raise MappingError(f"entry {index} missing {key}")
+                    metadata[key] = value
+                if metadata["role"] != "editor":
+                    raise MappingError(f"entry {index} role must be editor")
+                validity = raw.get("validity")
+                if validity not in {ONGOING, HISTORICAL}:
+                    raise MappingError(f"entry {index} validity must be '{ONGOING}' or '{HISTORICAL}'")
+                metadata["validity"] = validity
+                if validity == HISTORICAL and not (raw.get("first_observed_at") and raw.get("last_observed_at")):
+                    raise MappingError(f"entry {index} is historical and needs both observed bounds")
+                for key in ("first_observed_at", "last_observed_at"):
+                    if key not in raw or (raw[key] is not None and not isinstance(raw[key], str)):
+                        raise MappingError(f"entry {index} {key} must be a timestamp or null")
+                    metadata[key] = raw[key]
+                    if isinstance(raw[key], str):
+                        _timestamp(raw[key])
+                if metadata["first_observed_at"] and metadata["last_observed_at"] and \
+                        _timestamp(metadata["first_observed_at"]) > _timestamp(metadata["last_observed_at"]):
+                    raise MappingError(f"entry {index} first_observed_at is after last_observed_at")
+            entries.append(MappingEntry(values[source_key], values["editor_id"], values[display_key], tuple(names), logged_name,
+                                        metadata.get("role"), metadata.get("first_observed_at"), metadata.get("last_observed_at"),
+                                        metadata.get("attestation_source"), metadata.get("decision_id"), metadata.get("validity")))
+        quarantine_reasons = []
+        for index, raw in enumerate(data.get("quarantine_reasons", [])):
+            if not isinstance(raw, dict):
+                raise MappingError(f"quarantine reason {index} must be an object")
+            reason_values = tuple(raw.get(key) for key in ("source_label_id", "logged_name", "code"))
+            if any(not isinstance(value, str) or not value for value in reason_values):
+                raise MappingError(f"quarantine reason {index} requires source_label_id, logged_name and code")
+            source_label_id, logged_name_value, code = reason_values
+            assert isinstance(source_label_id, str) and isinstance(logged_name_value, str) and isinstance(code, str)
+            quarantine_reasons.append(QuarantineReason(source_label_id, logged_name_value, code))
+        return cls(version, tuple(entries), strict_name_key, tuple(quarantine_reasons))
 
     @classmethod
     def load(cls, path: Path) -> IdentityMapping:
         return cls.from_dict(json.loads(path.read_text()))
 
-    def candidates(self, person_id: str) -> tuple[MappingEntry, ...]:
-        """Distinct canonical records for a person ID; more than one is ambiguous."""
-        seen: dict[tuple[str, str], MappingEntry] = {}
+    @classmethod
+    def from_contract(cls, contract: Any) -> IdentityMapping:
+        attribution = contract["editor_attribution"]
+        return cls.from_dict({
+            "mapping_version": attribution["mapping_version"],
+            "entries": attribution["entries"],
+            **({"identity_key": attribution["identity_key"]} if attribution.get("identity_key") else {}),
+            "quarantine_reasons": attribution.get("quarantine_reasons", []),
+        })
+
+    def candidates(self, person_id: str, logged_name: str | None = None) -> tuple[MappingEntry, ...]:
+        """Distinct records for a source label, optionally restricted to its exact logged name."""
+        seen: dict[tuple[str, str, str | None], MappingEntry] = {}
         for entry in self.entries:
-            if entry.monday_person_id == person_id:
-                seen.setdefault((entry.editor_id, entry.display_name), entry)
+            if entry.monday_person_id == person_id and (not self.strict_name_key or logged_name is None or entry.logged_name == logged_name):
+                seen.setdefault((entry.editor_id, entry.display_name, entry.logged_name), entry)
         return tuple(seen[key] for key in sorted(seen))
+
+    def quarantine_code(self, source_label_id: str, logged_name: str) -> str | None:
+        matches = [reason.code for reason in self.quarantine_reasons
+                   if reason.source_label_id == source_label_id and reason.logged_name == logged_name]
+        if len(set(matches)) > 1:
+            raise MappingError(f"conflicting quarantine reasons for {(source_label_id, logged_name)!r}")
+        return matches[0] if matches else None
 
 
 @dataclass(frozen=True)
@@ -117,6 +244,9 @@ class IdentityException:
     person_ids: tuple[str, ...]
     mapping_version: str
     candidate_editor_ids: tuple[str, ...] = field(default=())
+    logged_names: tuple[str, ...] = field(default=())
+    event_id: str | None = None
+    observed_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -126,8 +256,12 @@ class IdentityException:
             "monday_item_id": self.monday_item_id,
             "column_id": self.column_id,
             "person_ids": list(self.person_ids),
+            "source_label_ids": list(self.person_ids),
             "mapping_version": self.mapping_version,
             "candidate_editor_ids": list(self.candidate_editor_ids),
+            "logged_names": list(self.logged_names),
+            "event_id": self.event_id,
+            "observed_at": self.observed_at,
         }
 
 
@@ -156,8 +290,23 @@ def _normalize_person_ids(values: Any) -> tuple[str, ...]:
     return tuple(ids)
 
 
+def _normalize_logged_names(values: Any) -> tuple[str, ...]:
+    if values is None:
+        return ()
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, (list, tuple)):
+        return ()
+    names = []
+    for value in values:
+        if isinstance(value, str) and value and value not in names:
+            names.append(value)
+    return tuple(names)
+
+
 def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> Resolution:
     person_ids = _normalize_person_ids(observation.person_ids)
+    logged_names = _normalize_logged_names(observation.label_names)
 
     def reject(code: str, reason: str, candidates: tuple[str, ...] = ()) -> Resolution:
         return Resolution(
@@ -171,6 +320,9 @@ def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> 
                 person_ids=person_ids,
                 mapping_version=mapping.mapping_version,
                 candidate_editor_ids=candidates,
+                logged_names=logged_names,
+                event_id=observation.event_id,
+                observed_at=observation.observed_at,
             ),
         )
 
@@ -182,9 +334,20 @@ def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> 
         return reject(MISSING_EDITOR, "Editor column has no Monday person ID")
     if len(person_ids) > 1:
         return reject(AMBIGUOUS_EDITOR, "Editor column holds more than one Monday person ID")
-    candidates = mapping.candidates(person_ids[0])
+    if mapping.strict_name_key:
+        if not logged_names:
+            return reject(EDITOR_LABEL_NAME_UNVERIFIED, "observation carries no recorded logged name for the historical identity key")
+        if len(logged_names) > 1:
+            return reject(AMBIGUOUS_EDITOR, "Editor observation carries more than one logged name")
+        special_code = mapping.quarantine_code(person_ids[0], logged_names[0])
+        if special_code:
+            return reject(special_code, f"identity tuple {(person_ids[0], logged_names[0])!r} is quarantined by {mapping.mapping_version}")
+        candidates = mapping.candidates(person_ids[0], logged_names[0])
+    else:
+        candidates = mapping.candidates(person_ids[0])
     if not candidates:
-        return reject(UNMAPPED_EDITOR, f"Monday person ID not present in mapping {mapping.mapping_version}")
+        key = (person_ids[0], logged_names[0]) if mapping.strict_name_key and logged_names else person_ids[0]
+        return reject(UNMAPPED_EDITOR, f"historical identity key {key!r} not present in mapping {mapping.mapping_version}")
     if len(candidates) > 1:
         return reject(
             AMBIGUOUS_EDITOR,
@@ -192,8 +355,21 @@ def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> 
             tuple(sorted({entry.editor_id for entry in candidates})),
         )
     entry = candidates[0]
-    if entry.label_names:
-        observed_names = tuple(name for name in observation.label_names if name)
+    if mapping.strict_name_key:
+        try:
+            observed = _timestamp(observation.observed_at)
+        except MappingError:
+            return reject(MISSING_EVIDENCE, "Editor observation timestamp is not a timezone-aware ISO timestamp", (entry.editor_id,))
+        # D51: every mapping starts at its first attested observation; only a historical (reused) tuple also ends at its last.
+        # A confirmed ongoing Editor keeps resolving after the evidence range, so new work is never quarantined for being new.
+        if entry.first_observed_at and observed < _timestamp(entry.first_observed_at):
+            return reject(EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "identity observation predates the mapping's first observed bound",
+                          (entry.editor_id,))
+        if entry.validity == HISTORICAL and entry.last_observed_at and observed > _timestamp(entry.last_observed_at):
+            return reject(EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "historical identity tuple observed after its attested range",
+                          (entry.editor_id,))
+    if entry.label_names and not mapping.strict_name_key:
+        observed_names = logged_names
         if not observed_names:
             return reject(EDITOR_LABEL_NAME_UNVERIFIED, "observation carries no recorded label name to verify against the mapping")
         if any(name not in entry.label_names for name in observed_names):

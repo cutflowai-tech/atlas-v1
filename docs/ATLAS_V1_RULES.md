@@ -1,7 +1,9 @@
 # Atlas V1 deterministic rules
 
 These rules are the authoritative baseline until superseded by a later approved
-contract version. The active executable configuration is
+contract version. **Rules 1–11 below are the production rules of the active contract 1.4.0.** Contract 1.5.0 exists in the
+repository as an inactive candidate; where it differs, the section *Contract 1.5.0 (candidate, not active)* at the end states the
+1.5 rule and its decision, and neither rule set silently overrides the other. The active executable configuration is
 `config/monday-contract-v1.4.json` (contract version `1.4.0`), which keeps every
 contract 1.3.0 rule except the deadline Requested ETA selection (D19: the ETA is
 frozen at the first Ready For Approval). Before it,
@@ -29,6 +31,43 @@ the historical baseline for reproducibility; under it label ID `8` is unresolved
 9. **Quality is label-derived.** Quality values come from approved Monday labels and a versioned label mapping.
 10. **Evidence is mandatory.** Every metric stores source record IDs, event IDs, field values, formula/rule version, and calculation time.
 11. **AI is not authoritative.** AI can summarize, investigate, recommend, or flag anomalies. It cannot invent facts or overwrite deterministic source-derived values.
+
+## Contract 1.5.0 (candidate, not active)
+
+`config/monday-contract-v1.5.json` encodes D20–D51 (`docs/DECISIONS.md`; `docs/HANDOFF-V2.md` is the product source). It is loadable
+and fully tested but **not active**: `ACTIVE_CONTRACT_VERSION` and `PRODUCTION_CONTRACT_VERSIONS` stay `1.4.0`, and production sync
+refuses 1.5.0. Activation is a separate, explicitly approved step (`docs/CONTRACT-1.5-ACTIVATION.md`). Under 1.5.0 these rules
+replace the corresponding 1.4.0 rules above; every other rule above applies unchanged.
+
+- **Rule 3 (Editor identity), D48–D51.** An Editor is resolved by the exact `(source_label_id, logged_name)` tuple, never by the
+  label ID alone; a new name under a known label ID is unresolved. Each mapping declares `validity`: `ongoing` (a confirmed current
+  Editor, valid from its first attested observation with no end date) or `historical` (a reused label tuple valid only between its
+  first and last attested observation). `(11, "New")`, `(2, "Done")` and `(1, "El Baz")` stay quarantined with their reasons.
+- **Rule 6 (benchmarks), D35–D36, D38.** The Speed benchmark is **leave-one-out**: the other eligible Editors' first-pass projects in
+  the same exact Video Type, the viewed Editor excluded. With no other Editor the result is "No valid team benchmark available".
+  Classification needs approved minimum Editor, comparator-project and comparator-Editor samples and approved bands; until then
+  only facts and samples are shown.
+- **Rule 9 (quality), D26–D30, D39.** Labels have three classes: Negative (Performance Issues), Positive and Context (For Bonus,
+  parsed per label). Whether a label counts in the Quality component comes only from its `scored_quality` registry flag; `Late
+  Delivery`, `On Time Delivery` and every Context label are visible but never scored (Deadline is authoritative for lateness).
+- **Windows, D24 and D42.** Business days, the 30-completed-day current and comparison windows and monthly history use
+  `Africa/Cairo`; the current Cairo day is excluded. A project belongs to the window of its first valid Ready For Approval.
+  Contracts up to 1.4.0 keep UTC months.
+- **Interpretation, D23, D25, D37, D41, D45, D47.** Quality, Speed and Deadline each have a component state (positive, neutral,
+  negative, not classifiable) with a reason. Overall Status is an explicit lookup of those three states, with no weights or score;
+  Revisions, Current Work and Context labels never affect it. The Deadline component compares the Editor's late rate with the
+  other Editors' (leave-one-out) and the absolute facts stay visible beside it. Recent Change is a fact; Trend needs an approved
+  per-measurement materiality threshold and direction. A rule classifies only when it is marked approved in the contract **and**
+  names its decision (D25); until then results show "Not enough approved logic to classify", which is distinct from the data state
+  "Not enough evidence to classify". D52 approves the Speed and Deadline values, the Overall lookup and the Quality and Trend sample
+  floors; Quality N/P and Trend materiality stay unapproved, so Quality and Trend show facts only, and an Overall Status needs two
+  classifiable components (in practice Speed and Deadline).
+- **Rule 10 (evidence).** Every 1.5 conclusion carries an evidence block from which it can be recomputed: Monday board and columns,
+  Cairo date range, sample, calculation, one record per contributing project (item, cycle, event IDs, timestamps, values used),
+  exclusions and reasons, rule version and calculation time. `contracts/editor-profile-v1.5.schema.json` rejects empty event IDs or
+  timestamps, a conclusion without its evidence, and any classification, verdict, Overall Status or Trend label under an unapproved
+  rule; `profile.evidence_consistency_errors` (run at build, staged validation and publication) rejects evidence whose records do not
+  match the published sample.
 
 ## Contract ownership
 

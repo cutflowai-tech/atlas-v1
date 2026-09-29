@@ -7,7 +7,8 @@
 3. **Identity and attribution** resolve Editor identity and transition actors through versioned canonical-ID maps. Ambiguity enters an exception queue.
 4. **Cycle builder** pairs `In Progress` with the next valid `Ready For Approval` event for the same item and Editor. Missing endpoints and negative intervals are invalid cycles.
 5. **Metric engine** derives speed, deadline, and quality independently and emits evidence with each result.
-6. **Evidence API** returns contract-versioned Editor Profile data. The UI does not recalculate metrics.
+5a. **Interpretation layer (contract 1.5.0 only)** — `interpretation_policy.py` reads the contract's rules and their approval state (D25); `intelligence.py` builds Cairo windows, component states, Overall Status (lookup), Recent Change and Trend, each with a reconstructable evidence block. What a contract version enables is decided in one place, `capabilities.py`; contracts up to 1.4.0 produce their original output byte for byte (`fixtures/golden`).
+6. **Evidence API** returns contract-versioned Editor Profile data. The UI does not recalculate metrics. Under 1.5.0 the Overview and Profile render one language-neutral interpretation view model (`dashboard.interpretation_view`, `interpretation_html.py`) in English and Arabic.
 7. **Optional AI explanation** reads deterministic outputs and evidence; it cannot mutate or supply them.
 
 ## Boundaries
@@ -16,6 +17,7 @@
 - Deadline performance is derived only by comparing `Ready For Approval` with the source `Requested ETA`; missing ETA produces no result and enters data-quality handling.
 - Benchmark cohorts are keyed by canonical Video Type. No global fallback is permitted in V1.
 - Contract changes require compatibility tests and contract-owner approval.
+- Publication identity (contract 1.5.0): `publication.json` and page meta tags give `/`, `/en` and `/ar` one release and source snapshot; `site_layout.publication_problems` enforces it for 1.5 builds only, so builds made under 1.4.0 keep publishing, status-checking and rolling back unchanged.
 - Fixture-backed adapters unblock normalization, metrics, API, and UI before live Monday access.
 
 ## Delivery architecture
