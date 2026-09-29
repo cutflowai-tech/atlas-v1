@@ -57,7 +57,7 @@ The category of video a project is, which defines which projects may be compared
 _Avoid_: Project type, format
 
 **Team Benchmark**:
-The typical Editor Work Time of Editors for one Video Type, valid only when at least one other Editor contributes; descriptive, never a target.
+The typical Editor Work Time of the other Editors for one Video Type, never including the Editor being viewed; descriptive, never a target.
 _Avoid_: SLA, standard time, expected time
 
 **Active Work**:
@@ -105,8 +105,12 @@ _Avoid_: Revision speed, second cycle
 ## Interpretation
 
 **Overall Status**:
-The one-word summary of an Editor's current performance, from approved rules over quality, speed and deadline only: Strong, Good, Mixed or Below Expectations.
+The one-word summary of an Editor's current performance, looked up from the Component States of quality, speed and deadline only: Strong, Good, Mixed or Below Expectations.
 _Avoid_: Score, rating, rank, Needs Attention, Under Pressure
+
+**Component State**:
+The reading of one scored component (Quality, Speed or Deadline): Positive, Neutral, Negative or Not classifiable.
+_Avoid_: Sub-score, grade
 
 **Strength**:
 A supported positive finding inside the Current Window.
