@@ -31,6 +31,39 @@ MISSING_EVIDENCE = "MISSING_EVIDENCE"
 EDITOR_LABEL_NAME_MISMATCH = "EDITOR_LABEL_NAME_MISMATCH"
 EDITOR_LABEL_NAME_UNVERIFIED = "EDITOR_LABEL_NAME_UNVERIFIED"
 EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE = "EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE"
+ONGOING, HISTORICAL = "ongoing", "historical"
+
+
+@dataclass(frozen=True)
+class Attestation:
+    """One management-attested identity tuple (D49) and whether it continues (D51)."""
+
+    source_label_id: str
+    logged_name: str
+    editor_id: str
+    canonical_editor_name: str
+    first_observed_at: str
+    last_observed_at: str
+    validity: str
+
+
+# The D49 management attestation (docs/evidence/IDENTITY-ATTESTATION-REQUEST.md) with D51 continuity. The versioned contract
+# is the runtime source; this is the one code copy of the attested record, used to refuse a contract whose attested
+# identities were altered and by the Round 4 analysis. Seven confirmed current Editors continue after their observed range;
+# three reused label tuples are historical and end at their last observation.
+D49_ATTESTATIONS: tuple[Attestation, ...] = (
+    Attestation("4", "Mario", "editor-label-4", "Mario", "2026-03-14T00:44:34.286658Z", "2026-09-28T23:40:30.586199Z", ONGOING),
+    Attestation("5", "Anas", "editor-label-5", "Anas", "2026-05-18T21:18:49.066589Z", "2026-09-28T23:53:06.778508Z", ONGOING),
+    Attestation("7", "Martin", "editor-label-7", "Martin", "2026-05-12T16:18:07.005690Z", "2026-09-28T23:46:48.811226Z", ONGOING),
+    Attestation("8", "Samra", "editor-label-8", "Samra", "2026-03-14T06:03:43.139996Z", "2026-08-11T21:21:19.738906Z", ONGOING),
+    Attestation("9", "Ibrahim", "editor-label-9", "Ibrahim", "2026-05-03T14:10:25.391996Z", "2026-09-29T11:28:22.791445Z", ONGOING),
+    Attestation("10", "Amir", "editor-label-10", "Amir", "2026-04-22T16:43:52.478289Z", "2026-09-28T23:50:05.196143Z", ONGOING),
+    Attestation("11", "Refaat", "editor-label-11", "Refaat", "2026-06-29T01:31:10.174360Z", "2026-09-28T23:51:39.316328Z", ONGOING),
+    Attestation("5", "Ahmed", "editor-label-12", "Ahmed", "2026-03-14T05:58:12.013277Z", "2026-05-04T10:50:59.999145Z", HISTORICAL),
+    Attestation("7", "Mans", "editor-label-14", "Mansour", "2026-03-14T06:03:36.639229Z", "2026-05-06T08:13:45.547424Z", HISTORICAL),
+    Attestation("9", "Michael", "editor-label-13", "Michael", "2026-03-14T06:03:49.632351Z", "2026-05-02T20:03:48.180209Z", HISTORICAL),
+)
+D50_QUARANTINE = {("11", "New"): "invalid_identity_value", ("2", "Done"): "invalid_identity_value", ("1", "El Baz"): "unresolved_historical_identity"}
 INVALID_IDENTITY_VALUE = "invalid_identity_value"
 UNRESOLVED_HISTORICAL_IDENTITY = "unresolved_historical_identity"
 
@@ -66,6 +99,9 @@ class MappingEntry:
     last_observed_at: str | None = None
     attestation_source: str | None = None
     decision_id: str | None = None
+    # D51: "ongoing" (a confirmed current Editor; the last observation is evidence, not an end date) or "historical"
+    # (a reused label tuple valid only within its observed range). None under contracts without the strict identity key.
+    validity: str | None = None
 
 
 @dataclass(frozen=True)
@@ -123,6 +159,12 @@ class IdentityMapping:
                     metadata[key] = value
                 if metadata["role"] != "editor":
                     raise MappingError(f"entry {index} role must be editor")
+                validity = raw.get("validity")
+                if validity not in {ONGOING, HISTORICAL}:
+                    raise MappingError(f"entry {index} validity must be '{ONGOING}' or '{HISTORICAL}'")
+                metadata["validity"] = validity
+                if validity == HISTORICAL and not (raw.get("first_observed_at") and raw.get("last_observed_at")):
+                    raise MappingError(f"entry {index} is historical and needs both observed bounds")
                 for key in ("first_observed_at", "last_observed_at"):
                     if key not in raw or (raw[key] is not None and not isinstance(raw[key], str)):
                         raise MappingError(f"entry {index} {key} must be a timestamp or null")
@@ -134,7 +176,7 @@ class IdentityMapping:
                     raise MappingError(f"entry {index} first_observed_at is after last_observed_at")
             entries.append(MappingEntry(values[source_key], values["editor_id"], values[display_key], tuple(names), logged_name,
                                         metadata.get("role"), metadata.get("first_observed_at"), metadata.get("last_observed_at"),
-                                        metadata.get("attestation_source"), metadata.get("decision_id")))
+                                        metadata.get("attestation_source"), metadata.get("decision_id"), metadata.get("validity")))
         quarantine_reasons = []
         for index, raw in enumerate(data.get("quarantine_reasons", [])):
             if not isinstance(raw, dict):
@@ -318,11 +360,13 @@ def resolve_editor(observation: EditorObservation, mapping: IdentityMapping) -> 
             observed = _timestamp(observation.observed_at)
         except MappingError:
             return reject(MISSING_EVIDENCE, "Editor observation timestamp is not a timezone-aware ISO timestamp", (entry.editor_id,))
+        # D51: every mapping starts at its first attested observation; only a historical (reused) tuple also ends at its last.
+        # A confirmed ongoing Editor keeps resolving after the evidence range, so new work is never quarantined for being new.
         if entry.first_observed_at and observed < _timestamp(entry.first_observed_at):
             return reject(EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "identity observation predates the mapping's first observed bound",
                           (entry.editor_id,))
-        if entry.last_observed_at and observed > _timestamp(entry.last_observed_at):
-            return reject(EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "identity observation is after the mapping's last observed bound",
+        if entry.validity == HISTORICAL and entry.last_observed_at and observed > _timestamp(entry.last_observed_at):
+            return reject(EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "historical identity tuple observed after its attested range",
                           (entry.editor_id,))
     if entry.label_names and not mapping.strict_name_key:
         observed_names = logged_names

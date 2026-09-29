@@ -2,7 +2,7 @@
 
 These product decisions drive runtime behavior. Each one is encoded in a versioned executable contract (`config/monday-contract-v*.json`), so historical results stay reproducible. Changing a decision requires a new contract version; an approved contract is never edited in place.
 
-> **Implementation status, 2026-09-29:** D20–D50 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
+> **Implementation status, 2026-09-29:** D20–D51 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
 
 ## Confirmed by Waset management, 2026-09-28 (contract 1.2.0)
 
@@ -14,7 +14,7 @@ These product decisions drive runtime behavior. Each one is encoded in a version
 | D4 | **At least 5 completed projects** for the Editor in the same exact eligible cohort before any faster/slower conclusion. Below that, observed values and sample sizes are shown with conclusion `insufficient_sample`. | `speed_benchmark.minimum_editor_sample_size = 5`. |
 | D5 | Deadline is **early** (`delta < 0`), **on_time** (`delta == 0`) or **late** (`delta > 0`). There is **no tolerance**. | `deadline-metric-v1.1.schema.json`; `metrics.classify_deadline`; `deadline_summary`. |
 | D6 | A **date-only Requested ETA** is excluded from early/on-time/late and reported as `not_classifiable_insufficient_eta_precision`. No time is ever invented. | `deadline.date_only_requested_eta`; `metrics.deadline_not_evaluated`. |
-| D7 | The **team benchmark includes the Editor being evaluated**: the whole eligible team in the same exact cohort, not leave-one-out. | `speed_benchmark.team_population`; `team_includes_subject_editor: true`. |
+| D7 | The **team benchmark includes the Editor being evaluated**: the whole eligible team in the same exact cohort, not leave-one-out. | `speed_benchmark.team_population`; `team_includes_subject_editor: true`. Contracts 1.2.0–1.4.0 only; **superseded by D36 (leave-one-out) from contract 1.5.0**. |
 | D8 | A completed cycle's Video Type is the **latest valid Video Type at or before its Ready For Approval**. Later changes never alter that cohort. | `cycle_attributes.video_type`.<br>The item's creation value (`create_pulse`) counts as its first observation.<br>Cleared values are skipped; the chosen event, its source and the skipped events are kept as evidence. |
 | D9 | Mario, Anas, Martin, Ibrahim, Amir and Refaat are **not** added to the Editor mapping just because their labels exist. Their work stays quarantined until each is verified as an Editor with a stable identity. | `monday-editor-v1.0` is unchanged (`UNMAPPED_EDITOR`). Evidence: `docs/evidence/REAL-001-STATUS.md`. |
 | D10 | **For Bonus** is context only. It is neither a positive nor a negative quality signal in V1. | `quality_labels.for_bonus.affects_quality = false`. |
@@ -68,7 +68,7 @@ Also not yet encoded; contract 1.4.0 behavior applies until contract 1.5.0. Refi
 | D32 | **Speed is first-pass work only (D2 reconfirmed).** Rework after a Client or Internal Revision never enters the Speed component. Where timestamps allow, client and internal rework durations may be shown as non-scoring context. | D2 unchanged; rework durations pending contract 1.5.0. |
 | D33 | **Current Work.** *Active Work* is projects currently in `In Progress`, `Revisions` or `Internal Revisions`. *Awaiting Approval* is projects in `Ready For Approval`, counted separately because the next action belongs to production review. Not counted: `Waiting`, `Create File`, every Captions status, `TOPAZ`, `Ready To Send`, `Sent`, `Done`. Counts drill down by status. No `Under Pressure`, `High Load` or similar label comes from these counts without a separately approved capacity rule. Resolves open decision 5. | Pending contract 1.5.0. |
 | D34 | **Handoff status names are concepts, not Monday strings.** See *Live status mapping* below. The aliases document the workflow only: historical events are never rewritten, missing transitions are never invented, and no metric depends on an alias. Editor performance logic uses the exact live statuses `In Progress`, `Ready For Approval`, `Revisions` and `Internal Revisions`. Resolves open decision 4. | Documentation only. |
-| D35 | **A team comparison needs at least one other eligible Editor.** If the Video Type has no eligible Editor other than the one being viewed, Atlas shows "No valid team benchmark available" and never "faster", "slower" or "similar". This promotes the engineering default to a management decision. The minimum comparator sample for a strong conclusion belongs to the threshold round. Whether the viewed Editor is also removed from the benchmark (reversing D7) is **still open**. | Existing `no_other_editors_in_cohort` / `not_comparable` behavior. |
+| D35 | **A team comparison needs at least one other eligible Editor.** If the Video Type has no eligible Editor other than the one being viewed, Atlas shows "No valid team benchmark available" and never "faster", "slower" or "similar". This promotes the engineering default to a management decision. The minimum comparator sample for a strong conclusion belongs to the threshold round. Whether the viewed Editor is also removed from the benchmark (reversing D7) was open when this round was recorded; **D36 settled it (leave-one-out) in round 3**. | Existing `no_other_editors_in_cohort` / `not_comparable` behavior; leave-one-out per D36 from contract 1.5.0. |
 
 ### Live status mapping
 
@@ -133,10 +133,22 @@ identity and Editor role for the three reused-label histories: `(5, "Ahmed")` is
 `(13, "Michael")`.
 
 This fulfills the identity gate in D44 and refines D49 from pending to attested. It does not approve a mapping outside the recorded
-range, does not change the `(source_label_id, logged_name)` key in D48, and does not change any D50 quarantine. Production
+range (for the seven confirmed current Editors, D51 below clarifies that the range is evidence, not an end date), does not change
+the `(source_label_id, logged_name)` key in D48, and does not change any D50 quarantine. Production
 distributions were rerun and shadow values proposed in the Round 4 evidence report. Every threshold remains unapproved
 and `null` until the Atlas business owner records a matching approval decision. Runtime encoding: `monday-editor-v1.3` in contract
 1.5.0.
+
+### D51 ongoing and historical identities — recorded 2026-09-29 for contract 1.5.0
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D51 | **Observed ranges are evidence bounds, not expiry dates, for confirmed current Editors.** Mario `(4)`, Anas `(5)`, Martin `(7)`, Samra `(8)`, Ibrahim `(9)`, Amir `(10)` and Refaat `(11)` are confirmed current Editors: their future legitimate work keeps resolving to the same canonical Editor after the last observation recorded in the D49 attestation, so new work is never quarantined merely because the historical evidence range ended. The historical reused tuples `(5, "Ahmed")`, `(7, "Mans")` and `(9, "Michael")` stay bounded by their first and last attested observations (label 5 is Anas's after Ahmed's range, and so on). Every mapping still starts at its first attested observation, the `(source_label_id, logged_name)` key (D48) is unchanged, and a new logged name under a mapped label ID is still unresolved. The two range models are explicit and never shared. | Each `monday-editor-v1.3` entry carries `validity`: `ongoing` (lower bound only) or `historical` (both bounds); the loader refuses any change to the D49 tuples' IDs, bounds or validity. |
+
+Source: management intent relayed in the PR #25 remediation instruction on 2026-09-29 ("Historical observation ranges are evidence
+bounds, not permanent expiration dates for confirmed current Editors"). It resolves review finding AB-1 (future work quarantined as
+`EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE`). If Monday ever reuses one of these seven label names for a different person, a new
+identity decision is required before that label's work is attributed.
 
 ## Verified from Monday evidence (no business judgement involved)
 

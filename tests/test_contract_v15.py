@@ -59,7 +59,7 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual(load_contract_version("1.4.0")["contract_version"], "1.4.0")
 
     def test_settled_decisions_and_rule_versions_are_complete(self):
-        self.assertEqual(set(self.contract["authority"]["settled_decisions"]), {f"D{number}" for number in range(20, 51)})
+        self.assertEqual(set(self.contract["authority"]["settled_decisions"]), {f"D{number}" for number in range(20, 52)})
         self.assertEqual(
             set(self.contract["rule_versions"]),
             {
@@ -144,6 +144,18 @@ class ContractV15ConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractConfigError, "D49 identity attestations"):
                 load_contract(path)
 
+    def test_loader_rejects_a_historical_tuple_made_ongoing_or_an_editor_made_historical(self):
+        for key, validity in ((("5", "Ahmed"), "ongoing"), (("4", "Mario"), "historical")):
+            with self.subTest(identity=key):
+                invalid = copy.deepcopy(self.contract)
+                entry = next(e for e in invalid["editor_attribution"]["entries"] if (e["source_label_id"], e["logged_name"]) == key)
+                entry["validity"] = validity
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "contract.json"
+                    path.write_text(json.dumps(invalid))
+                    with self.assertRaisesRegex(ContractConfigError, "D51 validity"):
+                        load_contract(path)
+
 
 class ContractV15IdentityTests(unittest.TestCase):
     @classmethod
@@ -202,8 +214,40 @@ class ContractV15IdentityTests(unittest.TestCase):
                     result = resolve_contract_editor(observation(source_label_id, logged_name, observed_at), self.contract)
                     self.assertTrue(result.resolved)
                     self.assertEqual(result.identity["editor_id"], canonical_id)
-        outside = resolve_contract_editor(observation("8", "Samra", "2026-08-11T21:21:19.738907Z"), self.contract)
-        self.assertEqual(outside.exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE)
+        before = resolve_contract_editor(observation("8", "Samra", "2026-03-14T06:03:43.139995Z"), self.contract)
+        self.assertEqual(before.exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE, "no mapping applies before its first attested observation")
+
+    def test_confirmed_current_editors_keep_resolving_after_their_observed_range(self):
+        # D51: the observed range is evidence, not an expiry date, for the seven confirmed current Editors.
+        ongoing = {("4", "Mario"): "editor-label-4", ("5", "Anas"): "editor-label-5", ("7", "Martin"): "editor-label-7",
+                   ("8", "Samra"): "editor-label-8", ("9", "Ibrahim"): "editor-label-9", ("10", "Amir"): "editor-label-10",
+                   ("11", "Refaat"): "editor-label-11"}
+        for (source_label_id, logged_name), canonical_id in ongoing.items():
+            for observed_at in ("2026-09-30T08:00:00Z", "2026-10-05T12:00:00Z", "2027-06-01T00:00:00Z"):
+                with self.subTest(identity=(source_label_id, logged_name), observed_at=observed_at):
+                    result = resolve_contract_editor(observation(source_label_id, logged_name, observed_at), self.contract)
+                    self.assertTrue(result.resolved, result.exception)
+                    self.assertEqual(result.identity["editor_id"], canonical_id)
+
+    def test_historical_reused_identities_stay_bounded(self):
+        # The reused label tuples end at their last attested observation: label 5 is Anas's now, not Ahmed's.
+        bounded = {("5", "Ahmed"): "2026-05-04T10:50:59.999146Z", ("7", "Mans"): "2026-05-06T08:13:45.547425Z",
+                   ("9", "Michael"): "2026-05-02T20:03:48.180210Z"}
+        for (source_label_id, logged_name), just_after in bounded.items():
+            for observed_at in (just_after, "2026-10-05T12:00:00Z"):
+                with self.subTest(identity=(source_label_id, logged_name), observed_at=observed_at):
+                    result = resolve_contract_editor(observation(source_label_id, logged_name, observed_at), self.contract)
+                    self.assertEqual(result.exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE)
+        entries = {(e["source_label_id"], e["logged_name"]): e["validity"] for e in self.contract["editor_attribution"]["entries"]}
+        self.assertEqual({key for key, validity in entries.items() if validity == "historical"}, set(bounded))
+        self.assertEqual(resolve_contract_editor(observation("5", "Anas", "2026-10-05T12:00:00Z"), self.contract).identity["editor_id"], "editor-label-5")
+
+    def test_future_work_by_confirmed_editors_is_attributed_in_a_profile(self):
+        logs = [mf.editor("ed", "900", "2026-10-02T08:00:00Z", [4], ["Mario"]), mf.video_type("vt", "900", "2026-10-02T08:01:00Z", [4]),
+                mf.status("s1", "900", "2026-10-02T09:00:00Z", "Create File", "In Progress"),
+                mf.status("s2", "900", "2026-10-02T15:00:00Z", "In Progress", "Ready For Approval")]
+        result = reconstruct_cycles(mf.payload(*logs), self.contract, ingestion={"retrieved_at": "2026-10-03T12:00:00Z"})
+        self.assertEqual([(cycle.editor_id, cycle.exclusions) for cycle in result.cycles], [("editor-label-4", [])])
 
     def test_observed_timestamps_validate_but_do_not_replace_the_tuple_key(self):
         mapping = IdentityMapping.from_dict({
@@ -211,10 +255,12 @@ class ContractV15IdentityTests(unittest.TestCase):
             "identity_key": ["source_label_id", "logged_name"],
             "entries": [{
                 "source_label_id": "6", "logged_name": "Will", "editor_id": "editor-label-6",
-                "canonical_editor_name": "Will", "role": "editor", "first_observed_at": "2026-03-14T00:00:00Z",
+                "canonical_editor_name": "Will", "role": "editor", "validity": "historical", "first_observed_at": "2026-03-14T00:00:00Z",
                 "last_observed_at": "2026-09-27T23:59:59Z", "attestation_source": "test evidence", "decision_id": "D16",
             }],
         })
+        too_late = replace(observation("6", "Will"), observed_at="2026-09-28T00:00:00Z")
+        self.assertEqual(resolve_editor(too_late, mapping).exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE)
         too_early = replace(observation("6", "Will"), observed_at="2026-03-13T23:59:59Z")
         result = resolve_editor(too_early, mapping)
         self.assertEqual(result.exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE)

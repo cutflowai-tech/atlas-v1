@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from atlas_commander.cycles import COMPLETED, CycleRecord, parse_time
+from atlas_commander.identity import D49_ATTESTATIONS
 from atlas_commander.ingest_verify import verify
 from atlas_commander.intelligence import (
     EvidenceScope,
@@ -35,17 +36,11 @@ from atlas_commander.metrics import MetricPolicy, cohort_benchmark_eligibility, 
 from atlas_commander.monday_source import dropdown_value_ids, dropdown_value_labels
 from atlas_commander.pipeline import reconstruct_cycles, reconstruct_quality
 
-ATTESTED_TUPLES: tuple[dict[str, Any], ...] = (
-    {"source_label_id": "4", "logged_name": "Mario", "editor_id": "editor-label-4", "display_name": "Mario", "first_day": "2026-03-14", "last_day": "2026-09-28"},
-    {"source_label_id": "5", "logged_name": "Anas", "editor_id": "editor-label-5", "display_name": "Anas", "first_day": "2026-05-18", "last_day": "2026-09-28"},
-    {"source_label_id": "7", "logged_name": "Martin", "editor_id": "editor-label-7", "display_name": "Martin", "first_day": "2026-05-12", "last_day": "2026-09-28"},
-    {"source_label_id": "8", "logged_name": "Samra", "editor_id": "editor-label-8", "display_name": "Samra", "first_day": "2026-03-14", "last_day": "2026-08-11"},
-    {"source_label_id": "9", "logged_name": "Ibrahim", "editor_id": "editor-label-9", "display_name": "Ibrahim", "first_day": "2026-05-03", "last_day": "2026-09-29"},
-    {"source_label_id": "10", "logged_name": "Amir", "editor_id": "editor-label-10", "display_name": "Amir", "first_day": "2026-04-22", "last_day": "2026-09-28"},
-    {"source_label_id": "11", "logged_name": "Refaat", "editor_id": "editor-label-11", "display_name": "Refaat", "first_day": "2026-06-29", "last_day": "2026-09-28"},
-    {"source_label_id": "5", "logged_name": "Ahmed", "editor_id": "editor-label-12", "display_name": "Ahmed", "first_day": "2026-03-14", "last_day": "2026-05-04"},
-    {"source_label_id": "7", "logged_name": "Mans", "editor_id": "editor-label-14", "display_name": "Mansour", "first_day": "2026-03-14", "last_day": "2026-05-06"},
-    {"source_label_id": "9", "logged_name": "Michael", "editor_id": "editor-label-13", "display_name": "Michael", "first_day": "2026-03-14", "last_day": "2026-05-02"},
+# The D49 attestation as analysed in Round 4: day bounds are the UTC dates of the attested observations (one source: identity.py).
+ATTESTED_TUPLES: tuple[dict[str, Any], ...] = tuple(
+    {"source_label_id": row.source_label_id, "logged_name": row.logged_name, "editor_id": row.editor_id, "display_name": row.canonical_editor_name,
+     "first_day": row.first_observed_at[:10], "last_day": row.last_observed_at[:10]}
+    for row in D49_ATTESTATIONS
 )
 
 ATTESTATION_SOURCE = "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md"

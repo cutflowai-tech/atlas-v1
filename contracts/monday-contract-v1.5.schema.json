@@ -34,8 +34,8 @@
         "settled_decisions": {
           "type": "array",
           "uniqueItems": true,
-          "minItems": 31,
-          "items": {"type": "string", "pattern": "^D([2-4][0-9]|50)$"}
+          "minItems": 32,
+          "items": {"type": "string", "pattern": "^D([2-4][0-9]|5[01])$"}
         },
         "threshold_approver": {"type": "string", "minLength": 1},
         "threshold_approval_rule": {"type": "string", "minLength": 1}
@@ -280,8 +280,12 @@
   "$defs": {
     "identity_mapping_record": {
       "type": "object",
-      "required": ["source_label_id", "logged_name", "editor_id", "canonical_editor_name", "role", "first_observed_at", "last_observed_at", "attestation_source", "decision_id"],
+      "required": ["source_label_id", "logged_name", "editor_id", "canonical_editor_name", "role", "validity", "first_observed_at", "last_observed_at", "attestation_source", "decision_id"],
+      "description": "validity 'ongoing': a confirmed current Editor; observed dates are evidence bounds and the mapping stays valid after the last observation (D51). validity 'historical': a reused label tuple valid only between its first and last observation.",
+      "if": {"properties": {"validity": {"const": "historical"}}},
+      "then": {"properties": {"first_observed_at": {"type": "string"}, "last_observed_at": {"type": "string"}}},
       "properties": {
+        "validity": {"enum": ["ongoing", "historical"]},
         "source_label_id": {"type": "string", "minLength": 1},
         "logged_name": {"type": "string", "minLength": 1},
         "editor_id": {"type": "string", "minLength": 1},

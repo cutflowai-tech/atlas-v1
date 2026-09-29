@@ -6,7 +6,7 @@ from typing import Any
 
 from atlas_commander.capabilities import capabilities
 from atlas_commander.contracts import schema_errors
-from atlas_commander.identity import IdentityMapping, Resolution, resolve_editor
+from atlas_commander.identity import D49_ATTESTATIONS, D50_QUARANTINE, IdentityMapping, Resolution, resolve_editor
 from atlas_commander.interpretation_policy import policy_errors
 from atlas_commander.normalization import NormalizationResult, normalize_events, status_mapping_config
 from atlas_commander.quality import QualityPolicy
@@ -40,14 +40,14 @@ def contract_config_errors(config: Any) -> list[str]:
         return []
     errors = schema_errors(config, schema)
     if version == "1.5.0":
-        expected = {f"D{number}" for number in range(20, 51)}
+        expected = {f"D{number}" for number in range(20, 52)}
         authority_value = config.get("authority")
         authority: dict[str, Any] = authority_value if isinstance(authority_value, dict) else {}
         raw_decisions_value = authority.get("settled_decisions")
         raw_decisions: list[Any] = raw_decisions_value if isinstance(raw_decisions_value, list) else []
         decisions = {value for value in raw_decisions if isinstance(value, str)}
         if decisions != expected:
-            errors.append("settled_decisions must contain D20 through D50 exactly")
+            errors.append("settled_decisions must contain D20 through D51 exactly")
         attribution_value = config.get("editor_attribution")
         attribution: dict[str, Any] = attribution_value if isinstance(attribution_value, dict) else {}
         raw_entries_value = attribution.get("entries")
@@ -56,22 +56,11 @@ def contract_config_errors(config: Any) -> list[str]:
         if len(mapped) != len(set(mapped)):
             errors.append("editor_attribution entries contain duplicate historical identity keys")
         mapping_by_key = {(entry.get("source_label_id"), entry.get("logged_name")):
-                          (entry.get("editor_id"), entry.get("first_observed_at"), entry.get("last_observed_at"), entry.get("decision_id"))
+                          (entry.get("editor_id"), entry.get("first_observed_at"), entry.get("last_observed_at"), entry.get("decision_id"), entry.get("validity"))
                           for entry in raw_entries if isinstance(entry, dict)}
-        expected_attestations = {
-            ("4", "Mario"): ("editor-label-4", "2026-03-14T00:44:34.286658Z", "2026-09-28T23:40:30.586199Z", "D49"),
-            ("5", "Anas"): ("editor-label-5", "2026-05-18T21:18:49.066589Z", "2026-09-28T23:53:06.778508Z", "D49"),
-            ("7", "Martin"): ("editor-label-7", "2026-05-12T16:18:07.005690Z", "2026-09-28T23:46:48.811226Z", "D49"),
-            ("8", "Samra"): ("editor-label-8", "2026-03-14T06:03:43.139996Z", "2026-08-11T21:21:19.738906Z", "D49"),
-            ("9", "Ibrahim"): ("editor-label-9", "2026-05-03T14:10:25.391996Z", "2026-09-29T11:28:22.791445Z", "D49"),
-            ("10", "Amir"): ("editor-label-10", "2026-04-22T16:43:52.478289Z", "2026-09-28T23:50:05.196143Z", "D49"),
-            ("11", "Refaat"): ("editor-label-11", "2026-06-29T01:31:10.174360Z", "2026-09-28T23:51:39.316328Z", "D49"),
-            ("5", "Ahmed"): ("editor-label-12", "2026-03-14T05:58:12.013277Z", "2026-05-04T10:50:59.999145Z", "D49"),
-            ("7", "Mans"): ("editor-label-14", "2026-03-14T06:03:36.639229Z", "2026-05-06T08:13:45.547424Z", "D49"),
-            ("9", "Michael"): ("editor-label-13", "2026-03-14T06:03:49.632351Z", "2026-05-02T20:03:48.180209Z", "D49"),
-        }
-        if any(mapping_by_key.get(key) != value for key, value in expected_attestations.items()):
-            errors.append("D49 identity attestations must preserve the approved canonical IDs and exact observed timestamp bounds")
+        if any(mapping_by_key.get((row.source_label_id, row.logged_name)) != (row.editor_id, row.first_observed_at, row.last_observed_at, "D49", row.validity)
+               for row in D49_ATTESTATIONS):
+            errors.append("D49 identity attestations must preserve the approved canonical IDs, exact observed timestamp bounds and D51 validity")
         unresolved = attribution.get("named_unresolved_identities")
         if unresolved != []:
             errors.append("D49 named unresolved identities must be empty after management attestation")
@@ -79,9 +68,7 @@ def contract_config_errors(config: Any) -> list[str]:
         raw_reasons: list[Any] = raw_reasons_value if isinstance(raw_reasons_value, list) else []
         quarantined = {(entry.get("source_label_id"), entry.get("logged_name")): entry.get("code")
                        for entry in raw_reasons if isinstance(entry, dict)}
-        expected_quarantine = {("11", "New"): "invalid_identity_value", ("2", "Done"): "invalid_identity_value",
-                               ("1", "El Baz"): "unresolved_historical_identity"}
-        if quarantined != expected_quarantine:
+        if quarantined != D50_QUARANTINE:
             errors.append("D50 quarantine reasons must match the three approved historical identity tuples exactly")
         if set(mapped) & set(quarantined):
             errors.append("a quarantined historical identity cannot also be mapped")
