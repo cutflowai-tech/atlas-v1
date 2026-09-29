@@ -109,6 +109,16 @@ Context: distributions measured on production run `20260929T130736Z-e6d03314e704
 | D46 | **Team-wide lateness is a process question, not a scoring input.** In production data the team was 61–96% late in every 30-day window (90 days: 71 of 90 late, median 15.2 h), while only 11 of the 71 carried `Late Delivery`. This may reflect how Requested ETA is set or used. Atlas never compensates by changing facts; investigating ETA-setting is a management matter outside editor scoring unless a later decision changes the deadline definition. | Documentation only. |
 | D47 | **Insufficient evidence is a data state, not a performance state.** Editors below minimum samples keep their Overview card, Editor Profile, every available fact, data coverage and evidence. Status and components show `Not enough evidence to classify` / `Not classifiable` with the reason (e.g. "5 completed projects · 3 deadline-classifiable · no valid Speed benchmark yet"). Never hidden, never given a provisional status, never defaulted to Neutral, never penalized for missing history. | Pending contract 1.5.0. |
 
+## Confirmed by Waset management, 2026-09-29 (handoff v2 grilling, round 4b) — pending a new editor mapping version
+
+Round-4 threshold calibration stays blocked (D44) until the attestations in [`docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`](evidence/IDENTITY-ATTESTATION-REQUEST.md) are answered. Calibrating on the currently mapped Editors alone is not an acceptable substitute.
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D48 | **Historical identity key = `(source_label_id, logged_name)`**, not the label ID alone: `(9, "Michael")` and `(9, "Ibrahim")` are distinct identities. Monday preserves the name as logged at each change, so observed first/last dates are supporting evidence and validation bounds, not the primary disambiguation. A mapping record holds `source_label_id`, `logged_name`, `editor_id`, `canonical_editor_name`, `role`, `first_observed_at`, `last_observed_at`, `attestation_source`, `decision_id`. A new name appearing under a mapped label ID never inherits the mapping; it is unresolved until explicitly mapped. | Pending a new editor mapping version (extends the `label_names` guard in `monday-editor-v1.1`). |
+| D49 | **Presence in Editor Name is not attestation.** `(4, "Mario")`, `(5, "Anas")`, `(7, "Martin")`, `(8, "Samra")`, `(9, "Ibrahim")`, `(10, "Amir")`, `(11, "Refaat")` stay unresolved, and `(5, "Ahmed")`, `(7, "Mans")`, `(9, "Michael")` are **not** merged into labels 12, 14 and 13, until management attests identity and Editor role for the observed range. Role is never inferred from a name, another Monday column (e.g. Reviewer), current role, label ID or project volume. The 2026-08-30 changes on labels 12–14 filled empty values and are not evidence of sameness. Unresolved projects stay visible in identity diagnostics and never enter calibration. | Existing `UNMAPPED_EDITOR` quarantine. |
+| D50 | **Leftover labels are quarantined with a reason.** `(11, "New")` and `(2, "Done")` → `invalid_identity_value` (no Editor is ever created with those names). `(1, "El Baz")` → `unresolved_historical_identity` (possibly a real person; one project is not enough). Raw evidence is kept. None of the three enters Quality, Speed, Deadline, Trend or Overall Status calibration unless a later identity decision resolves them. | Pending a new editor mapping version. |
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -135,7 +145,7 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 
 ## Open decisions
 
-1. **Editor identities:** Mario (4), Ibrahim (9), Samra (8), Amir (10), Anas (5), Martin (7) and Refaat (11) cannot be verified from Monday. See `docs/evidence/REAL-002-VALIDATION.md` for the identity evidence and the label-reuse history.
+1. **Editor identities (blocks round-4 thresholds, D44/D49):** Mario (4), Ibrahim (9), Samra (8), Amir (10), Anas (5), Martin (7) and Refaat (11) cannot be verified from Monday; attestation requested in `docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`. See `docs/evidence/REAL-002-VALIDATION.md` for the identity evidence and the label-reuse history.
 2. **Unclassified Video Type labels** that appear in real cohorts: `Unbranded` (26) and `Reels Boost Pack` (22). Other unclassified labels do not yet appear in eligible cycles.
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
 4. **Resolved by D34.** Conceptual status aliases: is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.

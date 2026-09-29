@@ -8,6 +8,14 @@ Atlas shows Waset management the current performance picture of each Editor, exp
 The only person Atlas evaluates in V1: whoever carries a project from In Progress to Ready For Approval.
 _Avoid_: Assignee, employee, user
 
+**Editor Identity**:
+A Monday Editor Name label as it was named when logged, attested by management as belonging to one Editor.
+_Avoid_: Label ID (alone), display name, assignee
+
+**Unresolved Identity**:
+An Editor Name label, as logged, that management has not attested; its projects are kept as evidence but never scored.
+_Avoid_: Unknown editor, unassigned
+
 **Shared Account**:
 The Monday account shown as `Waset Co`, used by several people, so its actions never identify a person by themselves.
 _Avoid_: Waset Co user, actor (as a person)
