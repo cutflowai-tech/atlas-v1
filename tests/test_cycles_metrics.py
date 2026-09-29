@@ -98,6 +98,34 @@ class WorkCycleTests(CycleFixture):
         self.assertEqual(cycle.duration_seconds, 10 * 3600)
         self.assertIn(c.REPEATED_IN_PROGRESS, cycle.flags)
 
+    def test_reconstruction_does_not_depend_on_the_order_monday_returns_logs(self):
+        import random
+
+        logs = [*item("1", video=(8,), end="2026-09-01T20:00:00Z", extra=[
+                    mf.status("b-1", "1", "2026-09-01T12:00:00Z", "In Progress", "Revisions"),
+                    mf.status("b-2", "1", "2026-09-01T13:00:00Z", "Revisions", "In Progress"),
+                    mf.status("b-3", "1", "2026-09-02T09:00:00Z", "Ready For Approval", "In Progress"),
+                    mf.status("b-4", "1", "2026-09-03T09:00:00Z", "In Progress", "Ready For Approval"),
+                    mf.editor("b-5", "1", "2026-09-02T10:00:00Z", [MICHAEL])]),
+                *item("2", video=(5, 8), end=None), *item("3", editor=MICHAEL, video=(8,))]
+        expected = [cycle.to_dict() for cycle in reconstruct_cycles(mf.payload(*logs), self.contract).cycles]
+        for seed in range(5):
+            shuffled = list(logs)
+            random.Random(seed).shuffle(shuffled)
+            with self.subTest(seed=seed):
+                self.assertEqual([cycle.to_dict() for cycle in reconstruct_cycles(mf.payload(*shuffled), self.contract).cycles], expected)
+
+    def test_client_revision_inside_the_work_window_is_context_only(self):
+        revision = [mf.status("rv-1", "1", "2026-09-01T12:00:00Z", "In Progress", "Revisions"),
+                    mf.status("rv-2", "1", "2026-09-01T13:00:00Z", "Revisions", "In Progress")]
+        plain = self.cycles(*item("1", video=(8,), end="2026-09-01T20:00:00Z"))["1"]
+        revised = self.cycles(*item("1", video=(8,), end="2026-09-01T20:00:00Z", extra=revision))["1"]
+        self.assertIn(c.CLIENT_REVISION_WITHIN_CYCLE, revised.flags)
+        self.assertEqual(revised.revision_context["client_revision_events"], 1)
+        self.assertEqual((revised.state, revised.duration_seconds, revised.exclusions), (plain.state, plain.duration_seconds, plain.exclusions))
+        speed = speed_benchmarks("editor-label-12", [revised], self.with_minimum(1), NOW)["cohorts"][0]
+        self.assertEqual((speed["editor_sample_size"], speed["editor_median_seconds"]), (1, 10 * 3600))
+
     def test_open_cycle_is_retained_and_excluded(self):
         cycle = self.cycles(*item("1", video=(8,), end=None))["1"]
         self.assertEqual((cycle.state, cycle.exclusions), (c.OPEN, [c.OPEN_CYCLE]))

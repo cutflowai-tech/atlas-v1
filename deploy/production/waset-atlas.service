@@ -1,0 +1,36 @@
+[Unit]
+Description=Waset Atlas scheduled production sync and atomic publish
+Documentation=file:/opt/waset-atlas/current/docs/PRODUCTION-RUNBOOK.md
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/etc/waset-atlas/atlas.env
+ConditionPathExists=/opt/waset-atlas/current/deploy/production/compose.yaml
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/waset-atlas/current
+EnvironmentFile=/etc/waset-atlas/atlas.env
+ExecStart=/usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-directory /opt/waset-atlas/current -f /opt/waset-atlas/current/deploy/production/compose.yaml run --rm --no-deps atlas-runtime scheduled-run --json
+Restart=no
+TimeoutStartSec=2h15min
+TimeoutStopSec=1min
+KillSignal=SIGTERM
+SuccessExitStatus=75
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waset-atlas
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,2796 @@
+{
+ "catalog_version": "atlas-i18n-v1",
+ "locales": [
+  "en",
+  "ar"
+ ],
+ "description": "Atlas presentation strings. English and approved Arabic for every Atlas-owned UI string; raw Monday values are never listed.",
+ "entries": {
+  "activity.empty_detail": {
+   "en": "A missing label is not an assessment of quality.",
+   "ar": "غياب المؤشرات لا يُعد تقييمًا لجودة العمل.",
+   "context": "Empty state detail",
+   "status": "Implemented conservatively"
+  },
+  "activity.empty_title": {
+   "en": "No issue labels added this month",
+   "ar": "لم تتم إضافة أي مؤشرات مشكلات هذا الشهر",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "activity.footer": {
+   "en": "Factual counts, no severity weighting. Which activity needs attention is not evaluated yet.",
+   "ar": "أعداد فعلية بدون أوزان للخطورة. لم يتم بعد تقييم أي نشاط يحتاج للانتباه.",
+   "context": "Card footnote",
+   "status": "Implemented conservatively"
+  },
+  "activity.sub": {
+   "en": "Monday Performance Issues labels added in {period}",
+   "ar": "مؤشرات Performance Issues المضافة على Monday في {period}",
+   "context": "Card subheading",
+   "status": "Implemented conservatively"
+  },
+  "activity.this_period": {
+   "en": "this period",
+   "ar": "هذه الفترة",
+   "context": "Fallback period",
+   "status": "Implemented conservatively"
+  },
+  "activity.title": {
+   "en": "Issue activity",
+   "ar": "نشاط مؤشرات المشكلات",
+   "context": "Card title",
+   "status": "Implemented conservatively"
+  },
+  "card.positive": {
+   "en": "Positive",
+   "ar": "المؤشرات الإيجابية",
+   "context": "Editor card line",
+   "status": "Approved from brief"
+  },
+  "card.view_profile": {
+   "en": "View profile",
+   "ar": "عرض ملف الأداء",
+   "context": "Editor card link",
+   "status": "Implemented conservatively"
+  },
+  "common.by_month": {
+   "en": "By month",
+   "ar": "حسب الشهر",
+   "context": "Section heading",
+   "status": "Implemented conservatively"
+  },
+  "common.close": {
+   "en": "Close",
+   "ar": "إغلاق",
+   "context": "Drawer close button label",
+   "status": "Implemented conservatively"
+  },
+  "common.current_work": {
+   "en": "Current work",
+   "ar": "العمل الحالي",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.deadlines": {
+   "en": "Deadlines",
+   "ar": "مواعيد التسليم",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.editor": {
+   "en": "Editor",
+   "ar": "المونتير",
+   "context": "Label for the Editor",
+   "status": "Approved from brief"
+  },
+  "common.editor_median": {
+   "en": "Editor median",
+   "ar": "وسيط المونتير",
+   "context": "Median work duration of this Editor",
+   "status": "Implemented conservatively"
+  },
+  "common.evidence": {
+   "en": "Evidence",
+   "ar": "الأدلة",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.issue_signals": {
+   "en": "Issue signals",
+   "ar": "مؤشرات المشكلات",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.month_in_progress": {
+   "en": "in progress",
+   "ar": "الشهر جارٍ",
+   "context": "Current, incomplete month",
+   "status": "Approved from brief"
+  },
+  "common.more": {
+   "en": "+{n} more",
+   "ar": "+{n} أخرى",
+   "context": "More items not shown",
+   "status": "Implemented conservatively"
+  },
+  "common.no": {
+   "en": "no",
+   "ar": "لا",
+   "context": "Boolean value",
+   "status": "Implemented conservatively"
+  },
+  "common.no_signal": {
+   "en": "No supported signal yet",
+   "ar": "لا توجد مؤشرات مدعومة بالبيانات حتى الآن",
+   "context": "Missing positive/other signal (never a judgement)",
+   "status": "Approved from brief"
+  },
+  "common.none": {
+   "en": "None",
+   "ar": "لا يوجد",
+   "context": "Empty table/list",
+   "status": "Implemented conservatively"
+  },
+  "common.not_classified": {
+   "en": "Not classified",
+   "ar": "غير مصنّف",
+   "context": "Deadline not classifiable",
+   "status": "Approved from brief"
+  },
+  "common.not_classified_lower": {
+   "en": "not classified",
+   "ar": "غير مصنّف",
+   "context": "Project list deadline cell",
+   "status": "Approved from brief"
+  },
+  "common.not_evaluated": {
+   "en": "Not evaluated yet",
+   "ar": "لم يتم تقييمه بعد",
+   "context": "Empty state for unapproved judgements",
+   "status": "Approved from brief"
+  },
+  "common.projects": {
+   "en": "Projects",
+   "ar": "المشاريع",
+   "context": "Section label / table header",
+   "status": "Approved from brief"
+  },
+  "common.quality": {
+   "en": "Quality",
+   "ar": "الجودة",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.reason": {
+   "en": "Reason",
+   "ar": "السبب",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "common.result": {
+   "en": "Result",
+   "ar": "النتيجة",
+   "context": "Speed comparison result",
+   "status": "Implemented conservatively"
+  },
+  "common.revisions": {
+   "en": "Revisions",
+   "ar": "التعديلات",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.sample_n": {
+   "en": "n={n}",
+   "ar": "العينة: {n}",
+   "context": "Sample size (number of projects)",
+   "status": "Implemented conservatively"
+  },
+  "common.speed": {
+   "en": "Speed",
+   "ar": "السرعة",
+   "context": "Section label",
+   "status": "Approved from brief"
+  },
+  "common.status": {
+   "en": "Status",
+   "ar": "الحالة",
+   "context": "Table header / comparison status",
+   "status": "Implemented conservatively"
+  },
+  "common.team": {
+   "en": "Team",
+   "ar": "الفريق",
+   "context": "Label for the team benchmark column",
+   "status": "Implemented conservatively"
+  },
+  "common.team_median": {
+   "en": "Team median",
+   "ar": "وسيط الفريق",
+   "context": "Historical team median (descriptive, not a target)",
+   "status": "Approved from brief"
+  },
+  "common.times": {
+   "en": "×{n}",
+   "ar": "×{n}",
+   "context": "Occurrence count chip",
+   "status": "Implemented conservatively"
+  },
+  "common.why": {
+   "en": "Why",
+   "ar": "لماذا؟",
+   "context": "Link to an explanation",
+   "status": "Implemented conservatively"
+  },
+  "common.yes": {
+   "en": "yes",
+   "ar": "نعم",
+   "context": "Boolean value",
+   "status": "Implemented conservatively"
+  },
+  "conclusion.equal_to_team_median": {
+   "en": "Equal to team median",
+   "ar": "مماثل لوسيط الفريق",
+   "context": "Speed conclusion (describes the comparison, not the person)",
+   "status": "Implemented conservatively"
+  },
+  "conclusion.faster_than_team_median": {
+   "en": "Faster than team median",
+   "ar": "أسرع من وسيط الفريق",
+   "context": "Speed conclusion (describes the comparison, not the person)",
+   "status": "Implemented conservatively"
+  },
+  "conclusion.insufficient_sample": {
+   "en": "Insufficient sample",
+   "ar": "حجم العينة غير كافٍ",
+   "context": "Speed conclusion (describes the comparison, not the person)",
+   "status": "Implemented conservatively"
+  },
+  "conclusion.not_comparable": {
+   "en": "Not comparable",
+   "ar": "لا تتوفر مقارنة موثوقة",
+   "context": "Speed conclusion (describes the comparison, not the person)",
+   "status": "Approved from brief"
+  },
+  "conclusion.slower_than_team_median": {
+   "en": "Slower than team median",
+   "ar": "أبطأ من وسيط الفريق",
+   "context": "Speed conclusion (describes the comparison, not the person)",
+   "status": "Implemented conservatively"
+  },
+  "coverage.all_projects": {
+   "en": "All projects",
+   "ar": "جميع المشاريع",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "coverage.completed": {
+   "en": "Completed",
+   "ar": "مكتملة",
+   "context": "Field / table header",
+   "status": "Implemented conservatively"
+  },
+  "coverage.drawer_title": {
+   "en": "Projects · {name}",
+   "ar": "المشاريع · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "coverage.excluded": {
+   "en": "Excluded from metrics",
+   "ar": "مستبعدة من المؤشرات",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "coverage.measurable": {
+   "en": "Measurable for speed",
+   "ar": "قابلة لقياس السرعة",
+   "context": "Field",
+   "status": "Implemented conservatively"
+  },
+  "coverage.open": {
+   "en": "Open",
+   "ar": "مفتوحة",
+   "context": "Field",
+   "status": "Implemented conservatively"
+  },
+  "deadline.classified": {
+   "en": "Classified",
+   "ar": "مصنفة",
+   "context": "Drawer field",
+   "status": "Implemented conservatively"
+  },
+  "deadline.counts": {
+   "en": "{early} early · {on_time} on time · {late} late",
+   "ar": "{early} مبكر · {on_time} في الموعد · {late} متأخر",
+   "context": "Deadline counts",
+   "status": "Approved from brief"
+  },
+  "deadline.coverage_button": {
+   "en": "Classification coverage",
+   "ar": "المشاريع القابلة للتصنيف",
+   "context": "Info button",
+   "status": "Approved from brief"
+  },
+  "deadline.data_notes": {
+   "en": "Data notes",
+   "ar": "ملاحظات البيانات",
+   "context": "Drawer heading",
+   "status": "Implemented conservatively"
+  },
+  "deadline.drawer_intro": {
+   "en": "A delivery is classified only when its Requested ETA has a date and a time. Atlas never guesses a missing time. Delivery is compared with the ETA in effect at the first Ready For Approval; exactly at the ETA is on time.",
+   "ar": "يتم تصنيف التسليم فقط عندما يحتوي Requested ETA على تاريخ ووقت، ولا يخمّن Atlas أي وقت غير مسجل. تتم المقارنة مع Requested ETA المسجل عند أول Ready For Approval، والتسليم في نفس الموعد تمامًا يُعد في الموعد.",
+   "context": "Drawer intro",
+   "status": "Implemented conservatively"
+  },
+  "deadline.drawer_title": {
+   "en": "Deadline data · {name}",
+   "ar": "بيانات مواعيد التسليم · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "deadline.eta_without_time": {
+   "en": "ETA without a time",
+   "ar": "Requested ETA بدون وقت",
+   "context": "Drawer field",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group.early": {
+   "en": "Early projects",
+   "ar": "المشاريع المسلّمة مبكرًا",
+   "context": "Button listing deliveries by result",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group.late": {
+   "en": "Late projects",
+   "ar": "المشاريع المسلّمة متأخرًا",
+   "context": "Button listing deliveries by result",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group.on_time": {
+   "en": "On time projects",
+   "ar": "المشاريع المسلّمة في الموعد",
+   "context": "Button listing deliveries by result",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group_title.early": {
+   "en": "Early deliveries · {name}",
+   "ar": "التسليمات المبكرة · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group_title.late": {
+   "en": "Late deliveries · {name}",
+   "ar": "التسليمات المتأخرة · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "deadline.group_title.on_time": {
+   "en": "On time deliveries · {name}",
+   "ar": "التسليمات في الموعد · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "deadline.late_rate": {
+   "en": "late {pct}",
+   "ar": "متأخر {pct}",
+   "context": "Monthly row",
+   "status": "Implemented conservatively"
+  },
+  "deadline.negative_note": {
+   "en": "Negative = delivered before the Requested ETA.",
+   "ar": "القيمة السالبة تعني التسليم قبل Requested ETA.",
+   "context": "Explanation",
+   "status": "Approved from brief"
+  },
+  "deadline.no_eta": {
+   "en": "No Requested ETA",
+   "ar": "لا يوجد Requested ETA",
+   "context": "Drawer field",
+   "status": "Implemented conservatively"
+  },
+  "deadline.of_total": {
+   "en": "of {n}",
+   "ar": "— من أصل {n}",
+   "context": "Deadline counts total",
+   "status": "Approved from brief"
+  },
+  "deadline.other_reasons": {
+   "en": "Not evaluated for other reasons",
+   "ar": "لم يتم تقييمها لأسباب أخرى",
+   "context": "Drawer field",
+   "status": "Implemented conservatively"
+  },
+  "deadline.panel_sub": {
+   "en": "First Ready For Approval against the Requested ETA in effect at that moment.",
+   "ar": "تتم المقارنة بين أول وصول للمشروع إلى Ready For Approval وموعد Requested ETA المسجل في ذلك الوقت.",
+   "context": "Subheading",
+   "status": "Approved from brief"
+  },
+  "deadline.panel_summary": {
+   "en": "{classified} · median margin {margin}{unclassified}",
+   "ar": "{classified} · وسيط الفارق {margin}{unclassified}",
+   "context": "Summary",
+   "status": "Approved from brief"
+  },
+  "deadline.panel_title": {
+   "en": "Deadline performance",
+   "ar": "الالتزام بمواعيد التسليم",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "deadline.strip_label": {
+   "en": "{early} early, {on_time} on time, {late} late of {total} classified",
+   "ar": "{early} مبكر، {on_time} في الموعد، {late} متأخر — من أصل {total} مصنفة",
+   "context": "Accessible label of the deadline bar",
+   "status": "Implemented conservatively"
+  },
+  "deadline.unavailable": {
+   "en": "Deadline data unavailable",
+   "ar": "بيانات مواعيد التسليم غير متاحة",
+   "context": "Empty state (not a judgement)",
+   "status": "Implemented conservatively"
+  },
+  "deadline.unavailable_detail": {
+   "en": "No completed project has a Requested ETA with a time, so none can be classified.",
+   "ar": "لا يوجد مشروع مكتمل له Requested ETA يتضمن وقتًا، لذلك لا يمكن تصنيف أي مشروع.",
+   "context": "Empty state detail",
+   "status": "Implemented conservatively"
+  },
+  "entry.open_dashboard": {
+   "en": "Open the Atlas dashboard (English)",
+   "ar": "فتح لوحة متابعة Atlas (العربية)",
+   "context": "Root and /en/, /ar/ entry pages",
+   "status": "Implemented conservatively"
+  },
+  "eta_issue.MISSING_REQUESTED_ETA": {
+   "en": "No Requested ETA",
+   "ar": "لا يوجد Requested ETA",
+   "context": "Why a deadline is not classified",
+   "status": "Implemented conservatively"
+  },
+  "eta_issue.NO_REQUESTED_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL": {
+   "en": "No Requested ETA was set by the first Ready For Approval",
+   "ar": "لم يتم تحديد Requested ETA حتى أول Ready For Approval",
+   "context": "Why a deadline is not classified",
+   "status": "Implemented conservatively"
+  },
+  "eta_issue.REQUESTED_ETA_DATE_ONLY": {
+   "en": "Requested ETA has a date but no time",
+   "ar": "Requested ETA يحتوي على تاريخ بدون وقت",
+   "context": "Why a deadline is not classified",
+   "status": "Implemented conservatively"
+  },
+  "eta_issue.REQUESTED_ETA_INVALID": {
+   "en": "Requested ETA could not be read",
+   "ar": "تعذّرت قراءة Requested ETA",
+   "context": "Why a deadline is not classified",
+   "status": "Implemented conservatively"
+  },
+  "eta_issue.REQUESTED_ETA_SNAPSHOT_DIFFERS_FROM_LOG": {
+   "en": "Requested ETA differs between the item and its history",
+   "ar": "Requested ETA الحالي يختلف عن المسجل في سجل التغييرات",
+   "context": "Why a deadline is not classified",
+   "status": "Needs Arabic Review",
+   "notes": "Check wording of 'history' (سجل التغييرات)."
+  },
+  "event.editor": {
+   "en": "Editor",
+   "ar": "المونتير",
+   "context": "Monday event ID label",
+   "status": "Approved from brief"
+  },
+  "event.in_progress": {
+   "en": "In progress",
+   "ar": "In Progress",
+   "context": "Monday event ID label",
+   "status": "Approved from brief"
+  },
+  "event.ready_for_approval": {
+   "en": "Ready for approval",
+   "ar": "Ready For Approval",
+   "context": "Monday event ID label",
+   "status": "Approved from brief"
+  },
+  "event.requested_eta": {
+   "en": "Requested ETA",
+   "ar": "Requested ETA",
+   "context": "Monday event ID label",
+   "status": "Approved from brief"
+  },
+  "event.video_type": {
+   "en": "Video type",
+   "ar": "Video Type",
+   "context": "Monday event ID label",
+   "status": "Approved from brief"
+  },
+  "evidence.deadline_result": {
+   "en": "{result} · {delta} against the Requested ETA",
+   "ar": "{result} · {delta} مقارنة بـ Requested ETA",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.deadline_unclassified": {
+   "en": "{reason} — not classified",
+   "ar": "{reason} — غير مصنّف",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.eta_set_at": {
+   "en": "(set {date})",
+   "ar": "(تم تحديده {date})",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.flags": {
+   "en": "Flags: {flags}",
+   "ar": "علامات فنية: {flags}",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.included": {
+   "en": "Included in metrics",
+   "ar": "مشمول في المؤشرات",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.included_lower": {
+   "en": "included",
+   "ar": "مشمول",
+   "context": "Report table cell",
+   "status": "Implemented conservatively"
+  },
+  "evidence.issues_heading": {
+   "en": "Monday Performance Issues",
+   "ar": "Performance Issues على Monday",
+   "context": "Project evidence heading",
+   "status": "Implemented conservatively"
+  },
+  "evidence.metric_status": {
+   "en": "Metric status",
+   "ar": "حالة المؤشرات",
+   "context": "Project evidence heading",
+   "status": "Implemented conservatively"
+  },
+  "evidence.monday_events": {
+   "en": "Monday events",
+   "ar": "أحداث Monday",
+   "context": "Project evidence heading",
+   "status": "Implemented conservatively"
+  },
+  "evidence.no_projects": {
+   "en": "No projects.",
+   "ar": "لا توجد مشاريع.",
+   "context": "Empty list",
+   "status": "Implemented conservatively"
+  },
+  "evidence.none_recorded": {
+   "en": "None recorded",
+   "ar": "لا يوجد",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.not_used_for_speed": {
+   "en": "not used for speed",
+   "ar": "غير مستخدم في قياس السرعة",
+   "context": "Project evidence",
+   "status": "Implemented conservatively"
+  },
+  "evidence.open_project": {
+   "en": "Open project evidence",
+   "ar": "عرض أدلة المشروع",
+   "context": "Button",
+   "status": "Implemented conservatively"
+  },
+  "evidence.project_title": {
+   "en": "Project {item}",
+   "ar": "مشروع {item}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "evidence.revision_context": {
+   "en": "{events} on this project. Context only — not a performance signal.",
+   "ar": "{events} على هذا المشروع. للسياق فقط — وليست مؤشرًا على الأداء.",
+   "context": "Project evidence (revisions never imply fault)",
+   "status": "Implemented conservatively"
+  },
+  "fact.evidence_deadlines": {
+   "en": "{n} deadlines classified: {early} early, {on_time} on time, {late} late.",
+   "ar": "تم تصنيف {n} من مواعيد التسليم: {early} مبكر، {on_time} في الموعد، {late} متأخر.",
+   "context": "Snapshot fact",
+   "status": "Implemented conservatively"
+  },
+  "fact.evidence_projects": {
+   "en": "{n} completed projects, {measurable} measurable for speed.",
+   "ar": "{completed}، منها {measurable} قابلة لقياس السرعة.",
+   "context": "Snapshot fact",
+   "status": "Implemented conservatively"
+  },
+  "fact.issue_label": {
+   "en": "{n} × {label} (Monday Performance Issues).",
+   "ar": "{n} × {label} (من Performance Issues في Monday).",
+   "context": "Snapshot fact",
+   "status": "Implemented conservatively"
+  },
+  "fact.monthly_note": {
+   "en": "Monthly figures are shown below with their sample sizes.",
+   "ar": "تظهر الأرقام الشهرية مع حجم العينة لكل شهر.",
+   "context": "Snapshot fact",
+   "status": "Implemented conservatively"
+  },
+  "fact.speed_faster": {
+   "en": "Faster than the team median in {labels} ({n} projects).",
+   "ar": "أسرع من وسيط الفريق في {labels} — بناءً على {projects}.",
+   "context": "Snapshot fact (about one comparison, not the person)",
+   "status": "Approved from brief"
+  },
+  "fact.speed_slower": {
+   "en": "Slower than the team median in {labels} ({n} projects).",
+   "ar": "أبطأ من وسيط الفريق في {labels} — بناءً على {projects}.",
+   "context": "Snapshot fact (about one comparison, not the person)",
+   "status": "Approved from brief"
+  },
+  "fact.workload": {
+   "en": "{n} item(s) currently {status}.",
+   "ar": "{projects} حاليًا في حالة {status}.",
+   "context": "Snapshot fact",
+   "status": "Implemented conservatively"
+  },
+  "field.deadline": {
+   "en": "Deadline",
+   "ar": "موعد التسليم",
+   "context": "Evidence field",
+   "status": "Approved from brief"
+  },
+  "field.editor": {
+   "en": "Editor",
+   "ar": "المونتير",
+   "context": "Evidence field",
+   "status": "Approved from brief"
+  },
+  "field.label_added": {
+   "en": "Label added",
+   "ar": "تاريخ إضافة المؤشر",
+   "context": "Evidence field",
+   "status": "Implemented conservatively"
+  },
+  "field.monday_item": {
+   "en": "Monday item",
+   "ar": "رقم المشروع على Monday",
+   "context": "Evidence field",
+   "status": "Implemented conservatively"
+  },
+  "field.ready_for_approval": {
+   "en": "Ready For Approval",
+   "ar": "Ready For Approval",
+   "context": "Evidence field (exact Monday status)",
+   "status": "Approved from brief"
+  },
+  "field.requested_eta": {
+   "en": "Requested ETA",
+   "ar": "Requested ETA",
+   "context": "Evidence field (exact Monday field)",
+   "status": "Approved from brief"
+  },
+  "field.source": {
+   "en": "Source",
+   "ar": "المصدر",
+   "context": "Evidence field",
+   "status": "Implemented conservatively"
+  },
+  "field.video_type": {
+   "en": "Video Type",
+   "ar": "Video Type",
+   "context": "Evidence field (kept as the Monday column name)",
+   "status": "Approved from brief"
+  },
+  "field.work_duration": {
+   "en": "Work duration",
+   "ar": "مدة العمل",
+   "context": "Evidence field",
+   "status": "Implemented conservatively"
+  },
+  "field.work_started": {
+   "en": "Work started",
+   "ar": "بداية العمل",
+   "context": "Evidence field",
+   "status": "Implemented conservatively"
+  },
+  "focus.available": {
+   "en": "Available now",
+   "ar": "متاح حاليًا",
+   "context": "Management focus column",
+   "status": "Approved from brief"
+  },
+  "focus.available.current_work": {
+   "en": "Current work",
+   "ar": "العمل الحالي",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.available.deadlines": {
+   "en": "Deadlines",
+   "ar": "مواعيد التسليم",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.available.history": {
+   "en": "Monthly history",
+   "ar": "السجل الشهري",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.available.issues": {
+   "en": "Issue signals",
+   "ar": "مؤشرات المشكلات",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.available.speed": {
+   "en": "Speed vs team",
+   "ar": "السرعة مقارنة بالفريق",
+   "context": "Chip / metric card",
+   "status": "Approved from brief"
+  },
+  "focus.body": {
+   "en": {
+    "one": "Performance evidence for {n} Editor is available below. Attention, recognition and trend insights will appear here once Atlas has approved rules for them — until then, nothing here is a judgement.",
+    "other": "Performance evidence for {n} Editors is available below. Attention, recognition and trend insights will appear here once Atlas has approved rules for them — until then, nothing here is a judgement."
+   },
+   "ar": {
+    "zero": "بيانات الأداء متاحة حاليًا للمونتيرين المعروضين. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء.",
+    "two": "بيانات الأداء متاحة حاليًا للمونتيرين المعروضين. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء.",
+    "few": "بيانات الأداء متاحة حاليًا للمونتيرين المعروضين. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء.",
+    "many": "بيانات الأداء متاحة حاليًا للمونتيرين المعروضين. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء.",
+    "other": "بيانات الأداء متاحة حاليًا للمونتيرين المعروضين. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء.",
+    "one": "بيانات الأداء متاحة حاليًا للمونتير المعروض. ستظهر مؤشرات الانتباه والتقدير والاتجاهات بعد اعتماد قواعدها في Atlas. وحتى ذلك الحين، لا تمثل البيانات المعروضة هنا حكمًا على الأداء."
+   },
+   "context": "Management focus text",
+   "status": "Approved from brief",
+   "notes": "Singular form adapted for one Editor."
+  },
+  "focus.calibrating": {
+   "en": "Calibrating",
+   "ar": "قيد الإعداد",
+   "context": "Management focus column",
+   "status": "Approved from brief"
+  },
+  "focus.calibrating.attention": {
+   "en": "Attention",
+   "ar": "نقاط تحتاج للانتباه",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.calibrating.overall": {
+   "en": "Overall status",
+   "ar": "التقييم العام",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.calibrating.patterns": {
+   "en": "Team patterns",
+   "ar": "أنماط الفريق",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.calibrating.recognition": {
+   "en": "Recognition",
+   "ar": "مؤشرات التقدير",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.calibrating.trends": {
+   "en": "Trends",
+   "ar": "الاتجاهات",
+   "context": "Chip",
+   "status": "Approved from brief"
+  },
+  "focus.eyebrow": {
+   "en": "Management focus",
+   "ar": "نظرة الإدارة",
+   "context": "Management focus eyebrow",
+   "status": "Approved from brief"
+  },
+  "focus.how_atlas_evaluates": {
+   "en": "How Atlas evaluates →",
+   "ar": "كيف يقيّم Atlas الأداء ←",
+   "context": "Link to Data & System (arrow points forward in each reading direction)",
+   "status": "Approved from brief"
+  },
+  "focus.title": {
+   "en": "Management insights are being calibrated.",
+   "ar": "مؤشرات الإدارة ما زالت قيد الإعداد.",
+   "context": "Management focus heading",
+   "status": "Approved from brief"
+  },
+  "hero.completed_small": {
+   "en": {
+    "one": "completed",
+    "other": "completed"
+   },
+   "ar": {
+    "zero": "مشروع مكتمل",
+    "one": "مشروع مكتمل",
+    "two": "مشروعان مكتملان",
+    "two_gen": "مشروعين مكتملين",
+    "few": "مشاريع مكتملة",
+    "many": "مشروعًا مكتملًا",
+    "other": "مشروع مكتمل"
+   },
+   "context": "Words after the big completed-projects number",
+   "status": "Implemented conservatively"
+  },
+  "hero.editor_median": {
+   "en": "Editor median",
+   "ar": "وسيط {name}",
+   "context": "Card headline figure caption",
+   "status": "Approved from brief"
+  },
+  "hero.level": {
+   "en": "Level",
+   "ar": "مماثل",
+   "context": "Card headline when equal to the team median",
+   "status": "Implemented conservatively"
+  },
+  "hero.level_big": {
+   "en": "{big}{small}",
+   "ar": "{big} {small}",
+   "context": "Card headline layout when equal",
+   "status": "Implemented conservatively"
+  },
+  "hero.level_small": {
+   "en": "with team",
+   "ar": "لوسيط الفريق",
+   "context": "Card headline when equal to the team median",
+   "status": "Implemented conservatively"
+  },
+  "hero.sample": {
+   "en": "n = {e} Editor projects · {t} team projects · {editors} · {labels} only",
+   "ar": "حجم العينة: {e_projects} لـ{name} · {t_projects} للفريق · {editors} · {labels} فقط",
+   "context": "Card sample sizes",
+   "status": "Approved from brief"
+  },
+  "hero.speed_big": {
+   "en": "{pct}{word}",
+   "ar": "{word} {pct}",
+   "context": "Card headline: percentage and direction word (order differs by language)",
+   "status": "Implemented conservatively"
+  },
+  "hero.speed_eyebrow": {
+   "en": "Speed · {labels} vs team median",
+   "ar": "السرعة · {labels} مقارنة بوسيط الفريق",
+   "context": "Card headline eyebrow",
+   "status": "Approved from brief"
+  },
+  "hero.word.faster": {
+   "en": "faster",
+   "ar": "أسرع بنسبة",
+   "context": "Card headline word",
+   "status": "Approved from brief"
+  },
+  "hero.word.slower": {
+   "en": "slower",
+   "ar": "أبطأ بنسبة",
+   "context": "Card headline word",
+   "status": "Approved from brief"
+  },
+  "history.empty": {
+   "en": "No monthly history in this snapshot",
+   "ar": "لا يوجد سجل شهري في هذه البيانات",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "history.footer": {
+   "en": "Trend not evaluated yet — months are shown side by side without an improving or declining label. Speed is per exact Video Type, never pooled.",
+   "ar": "لم يتم تقييم الاتجاه بعد — تُعرض الشهور جنبًا إلى جنب دون وصفها بالتحسن أو التراجع. السرعة محسوبة لكل Video Type على حدة ولا يتم دمج الأنواع.",
+   "context": "Footnote",
+   "status": "Implemented conservatively"
+  },
+  "history.late_of": {
+   "en": "· late {late} / {n} classified",
+   "ar": "· متأخر {late} من أصل {n} مصنفة",
+   "context": "Monthly row",
+   "status": "Implemented conservatively"
+  },
+  "history.median_duration": {
+   "en": "Median work duration",
+   "ar": "وسيط مدة العمل",
+   "context": "Monthly row",
+   "status": "Implemented conservatively"
+  },
+  "history.no_data": {
+   "en": "No data",
+   "ar": "لا توجد بيانات",
+   "context": "Disabled month",
+   "status": "Implemented conservatively"
+  },
+  "history.no_deadlines": {
+   "en": "No classified deadlines",
+   "ar": "لا توجد مواعيد تسليم مصنفة",
+   "context": "Empty cell",
+   "status": "Implemented conservatively"
+  },
+  "history.no_figures": {
+   "en": "No figures this month",
+   "ar": "لا توجد أرقام لهذا الشهر",
+   "context": "Empty row",
+   "status": "Implemented conservatively"
+  },
+  "home.context_label": {
+   "en": "Team context",
+   "ar": "سياق الفريق",
+   "context": "Accessible section name",
+   "status": "Implemented conservatively"
+  },
+  "home.greeting.afternoon": {
+   "en": "Good afternoon.",
+   "ar": "مساء الخير.",
+   "context": "Time-of-day greeting replacing the heading",
+   "status": "Implemented conservatively"
+  },
+  "home.greeting.evening": {
+   "en": "Good evening.",
+   "ar": "مساء الخير.",
+   "context": "Time-of-day greeting replacing the heading",
+   "status": "Implemented conservatively"
+  },
+  "home.greeting.morning": {
+   "en": "Good morning.",
+   "ar": "صباح الخير.",
+   "context": "Time-of-day greeting replacing the heading",
+   "status": "Implemented conservatively"
+  },
+  "home.history_sub": {
+   "en": "Month by month, most recent first.",
+   "ar": "شهرًا بشهر، من الأحدث إلى الأقدم.",
+   "context": "Section subheading",
+   "status": "Implemented conservatively"
+  },
+  "home.history_title": {
+   "en": "Performance History",
+   "ar": "سجل الأداء",
+   "context": "Section heading",
+   "status": "Implemented conservatively"
+  },
+  "home.no_editors": {
+   "en": "No Editor has attributable projects in this snapshot",
+   "ar": "لا يوجد مونتير لديه مشاريع قابلة للإسناد في هذه البيانات",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "home.pulse_sub": {
+   "en": "What happened, day by day. Select a marker for its evidence.",
+   "ar": "ما حدث يومًا بيوم. اختر أي علامة لعرض الأدلة الخاصة بها.",
+   "context": "Section subheading",
+   "status": "Implemented conservatively"
+  },
+  "home.pulse_title": {
+   "en": "Team Pulse",
+   "ar": "نبض الفريق",
+   "context": "Section heading",
+   "status": "Implemented conservatively"
+  },
+  "home.sub": {
+   "en": "Here’s your editing team today.",
+   "ar": "ملخص أداء فريق المونتاج اليوم.",
+   "context": "Dashboard subheading",
+   "status": "Approved from brief"
+  },
+  "home.team_sub": {
+   "en": "Current performance evidence across the editing team.",
+   "ar": "أدلة الأداء الحالية لفريق المونتاج.",
+   "context": "Section subheading",
+   "status": "Implemented conservatively"
+  },
+  "home.team_title": {
+   "en": "Editor Team",
+   "ar": "فريق المونتاج",
+   "context": "Section heading",
+   "status": "Approved from brief"
+  },
+  "home.title": {
+   "en": "Editing team overview",
+   "ar": "نظرة عامة على فريق المونتاج",
+   "context": "Dashboard heading",
+   "status": "Approved from brief"
+  },
+  "home.updated": {
+   "en": "Updated {date}",
+   "ar": "آخر تحديث {date}",
+   "context": "Header chip",
+   "status": "Approved from brief"
+  },
+  "issue.summary": {
+   "en": "{signals} on {projects}",
+   "ar": "{signals} في {projects}",
+   "context": "Issue signals summary",
+   "status": "Approved from brief",
+   "notes": "Brief: 3 مؤشرات مشكلات في مشروعين."
+  },
+  "lang.other_name": {
+   "en": "العربية",
+   "ar": "English",
+   "context": "Language switch text (always the other language's own name)",
+   "status": "Approved from brief"
+  },
+  "lang.switch_label": {
+   "en": "View this page in Arabic",
+   "ar": "عرض هذه الصفحة باللغة الإنجليزية",
+   "context": "Accessible label of the language switch",
+   "status": "Implemented conservatively"
+  },
+  "meta.editors": {
+   "en": {
+    "one": "{n} Editor",
+    "other": "{n} Editors"
+   },
+   "ar": {
+    "zero": "{n} مونتير",
+    "one": "مونتير واحد",
+    "two": "{n} مونتير",
+    "two_gen": "{n} مونتير",
+    "few": "{n} مونتيرين",
+    "many": "{n} مونتيرًا",
+    "other": "{n} مونتير"
+   },
+   "context": "Dashboard header chip",
+   "status": "Needs Arabic Review",
+   "notes": "Brief gives '2 مونتير' for the header chip; other counts need confirmation."
+  },
+  "metric.issues_across": {
+   "en": "across {projects} of {total}",
+   "ar": "في {projects} من أصل {total}",
+   "context": "Metric card",
+   "status": "Implemented conservatively"
+  },
+  "metric.projects_detail": {
+   "en": "completed · {measurable} measurable for speed",
+   "ar": "مكتملة · {measurable} قابلة لقياس السرعة",
+   "context": "Metric card",
+   "status": "Implemented conservatively"
+  },
+  "metric.speed_faster": {
+   "en": "{pct} faster than team {team} · n={n}",
+   "ar": "أسرع بنسبة {pct} من وسيط الفريق ({team}) · حجم العينة: {projects}",
+   "context": "Metric card",
+   "status": "Approved from brief"
+  },
+  "metric.speed_level": {
+   "en": "level with team {team} · n={n}",
+   "ar": "مماثل لوسيط الفريق ({team}) · حجم العينة: {projects}",
+   "context": "Metric card",
+   "status": "Implemented conservatively"
+  },
+  "metric.speed_median": {
+   "en": "{labels} median",
+   "ar": "وسيط {labels}",
+   "context": "Metric card",
+   "status": "Implemented conservatively"
+  },
+  "metric.speed_slower": {
+   "en": "{pct} slower than team {team} · n={n}",
+   "ar": "أبطأ بنسبة {pct} من وسيط الفريق ({team}) · حجم العينة: {projects}",
+   "context": "Metric card",
+   "status": "Approved from brief"
+  },
+  "nav.main_label": {
+   "en": "Main navigation",
+   "ar": "القائمة الرئيسية",
+   "context": "Accessible name of the main navigation",
+   "status": "Implemented conservatively"
+  },
+  "nav.system": {
+   "en": "Data & System",
+   "ar": "البيانات والنظام",
+   "context": "Top navigation and page title",
+   "status": "Approved from brief"
+  },
+  "nav.team": {
+   "en": "Editor team",
+   "ar": "فريق المونتاج",
+   "context": "Top navigation and back link",
+   "status": "Approved from brief"
+  },
+  "note.not_attributed": {
+   "en": "Projects whose Editor is unverified, unrecorded at Ready For Approval, or changed during the work are not attributed to any Editor and so do not appear in this profile.",
+   "ar": "المشاريع التي لم يتم التحقق من المونتير الخاص بها، أو لم يُسجل المونتير فيها عند Ready For Approval، أو تغيّر أثناء العمل، لا تُسند إلى أي مونتير ولذلك لا تظهر في هذا الملف.",
+   "context": "Profile note (attribution)",
+   "status": "Implemented conservatively"
+  },
+  "note.overall": {
+   "en": "No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline and quality sections below, each with its own sample size and Monday evidence.",
+   "ar": "لا توجد قاعدة معتمدة للتقييم العام للأداء في Atlas V1. صورة أداء المونتير هي نتائج السرعة والالتزام بمواعيد التسليم والجودة كلٌّ على حدة، مع أدلتها.",
+   "context": "Profile note (overall)",
+   "status": "Needs Arabic Review",
+   "notes": "English is the profile's note verbatim; confirm the Arabic summary is equivalent."
+  },
+  "note.positive": {
+   "en": "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality.",
+   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط ولا تؤثر على الجودة.",
+   "context": "Profile note (positive signals)",
+   "status": "Implemented conservatively"
+  },
+  "note.revisions": {
+   "en": "Revision activity is context only. It does not imply Editor fault and never affects any metric or conclusion.",
+   "ar": "للسياق فقط. وجود تعديلات من العميل لا يعني أن المونتير أخطأ، ولا يؤثر على أي من مؤشرات الأداء.",
+   "context": "Profile note (revisions)",
+   "status": "Approved from brief"
+  },
+  "note.trend": {
+   "en": "Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn.",
+   "ar": "أرقام شهرية (حسب شهر Ready For Approval بتوقيت UTC) مع حجم العينة. تظهر السرعة فقط لكل Video Type مؤهل للمقارنة على حدة، ولا يتم دمج الأنواع. لا يتم استنتاج أي اتجاه أو حكم.",
+   "context": "Profile note (trend)",
+   "status": "Implemented conservatively"
+  },
+  "note.workload": {
+   "en": "Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made.",
+   "ar": "وصفي فقط. لم يتم في V1 تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي للمونتير، لذلك لا يوجد أي حكم على الطاقة الاستيعابية.",
+   "context": "Profile note (workload)",
+   "status": "Implemented conservatively"
+  },
+  "noun.classified_delivery": {
+   "en": {
+    "one": "{n} classified delivery",
+    "other": "{n} classified deliveries"
+   },
+   "ar": {
+    "zero": "{n} عملية تسليم مصنفة",
+    "one": "عملية تسليم واحدة مصنفة",
+    "two": "عمليتا تسليم مصنفتان",
+    "two_gen": "عمليتي تسليم مصنفتين",
+    "few": "{n} عمليات تسليم مصنفة",
+    "many": "{n} عملية تسليم مصنفة",
+    "other": "{n} عملية تسليم مصنفة"
+   },
+   "context": "Editor card headline",
+   "status": "Needs Arabic Review",
+   "notes": "Dual forms (عمليتا/عمليتي) are formal; confirm the preferred register."
+  },
+  "noun.classified_project": {
+   "en": {
+    "one": "{n} classified",
+    "other": "{n} classified"
+   },
+   "ar": {
+    "zero": "{n} مشروع مصنف",
+    "one": "مشروع واحد مصنف",
+    "two": "مشروعان مصنفان",
+    "two_gen": "مشروعين مصنفين",
+    "few": "{n} مشاريع مصنفة",
+    "many": "{n} مشروعًا مصنفًا",
+    "other": "{n} مشروع مصنف"
+   },
+   "context": "Deadline-classified projects",
+   "status": "Approved from brief",
+   "notes": "Brief: 5 مشاريع مصنفة."
+  },
+  "noun.client_revision_event": {
+   "en": {
+    "one": "{n} client revision event",
+    "other": "{n} client revision events"
+   },
+   "ar": {
+    "zero": "{n} تعديل من العميل",
+    "one": "تعديل واحد من العميل",
+    "two": "تعديلان من العميل",
+    "two_gen": "تعديلين من العميل",
+    "few": "{n} تعديلات من العميل",
+    "many": "{n} تعديلًا من العميل",
+    "other": "{n} تعديل من العميل"
+   },
+   "context": "Counted client revisions (context only)",
+   "status": "Implemented conservatively"
+  },
+  "noun.completed_project": {
+   "en": {
+    "one": "{n} completed project",
+    "other": "{n} completed projects"
+   },
+   "ar": {
+    "zero": "{n} مشروع مكتمل",
+    "one": "مشروع واحد مكتمل",
+    "two": "مشروعان مكتملان",
+    "two_gen": "مشروعين مكتملين",
+    "few": "{n} مشاريع مكتملة",
+    "many": "{n} مشروعًا مكتملًا",
+    "other": "{n} مشروع مكتمل"
+   },
+   "context": "Counted completed projects",
+   "status": "Approved from brief",
+   "notes": "Brief: 7 مشاريع مكتملة."
+  },
+  "noun.editor": {
+   "en": {
+    "one": "{n} Editor",
+    "other": "{n} Editors"
+   },
+   "ar": {
+    "zero": "{n} مونتير",
+    "one": "مونتير واحد",
+    "two": "مونتيران",
+    "two_gen": "مونتيرين",
+    "few": "{n} مونتيرين",
+    "many": "{n} مونتيرًا",
+    "other": "{n} مونتير"
+   },
+   "context": "Counted Editors (sample sizes)",
+   "status": "Needs Arabic Review",
+   "notes": "Brief uses مونتيران for 2; confirm few (3–10) = مونتيرين and many (11–99) = مونتيرًا."
+  },
+  "noun.issue_signal": {
+   "en": {
+    "one": "{n} issue signal",
+    "other": "{n} issue signals"
+   },
+   "ar": {
+    "zero": "{n} مؤشر مشكلات",
+    "one": "مؤشر مشكلة واحد",
+    "two": "مؤشرا مشكلات",
+    "two_gen": "مؤشري مشكلات",
+    "few": "{n} مؤشرات مشكلات",
+    "many": "{n} مؤشرًا للمشكلات",
+    "other": "{n} مؤشر مشكلات"
+   },
+   "context": "Counted issue signals",
+   "status": "Needs Arabic Review",
+   "notes": "Brief: 3 مؤشرات مشكلات. Dual and 11+ forms need confirmation."
+  },
+  "noun.later_eta_change": {
+   "en": {
+    "one": "{n} later Requested ETA change after Ready For Approval, ignored by the deadline rule.",
+    "other": "{n} later Requested ETA changes after Ready For Approval, ignored by the deadline rule."
+   },
+   "ar": {
+    "zero": "{n} تغيير لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم.",
+    "one": "تغيير واحد لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم.",
+    "two": "تغييران لاحقان على Requested ETA بعد Ready For Approval، ولا تعتمد عليهما قاعدة مواعيد التسليم.",
+    "few": "{n} تغييرات لاحقة على Requested ETA بعد Ready For Approval، ولا تعتمد عليها قاعدة مواعيد التسليم.",
+    "many": "{n} تغييرًا لاحقًا على Requested ETA بعد Ready For Approval، ولا تعتمد عليها قاعدة مواعيد التسليم.",
+    "other": "{n} تغيير لاحق على Requested ETA بعد Ready For Approval، ولا تعتمد عليه قاعدة مواعيد التسليم."
+   },
+   "context": "Project evidence note",
+   "status": "Implemented conservatively"
+  },
+  "noun.project": {
+   "en": {
+    "one": "{n} project",
+    "other": "{n} projects"
+   },
+   "ar": {
+    "zero": "{n} مشروع",
+    "one": "مشروع واحد",
+    "two": "مشروعان",
+    "two_gen": "مشروعين",
+    "few": "{n} مشاريع",
+    "many": "{n} مشروعًا",
+    "other": "{n} مشروع"
+   },
+   "context": "Counted projects",
+   "status": "Approved from brief",
+   "notes": "Examples from the brief: 5 مشاريع, 10 مشاريع, في مشروعين, مشروعان."
+  },
+  "noun.unclassified_project": {
+   "en": {
+    "one": "{n} unclassified",
+    "other": "{n} unclassified"
+   },
+   "ar": {
+    "zero": "{n} مشروع غير مصنف",
+    "one": "مشروع واحد غير مصنف",
+    "two": "مشروعان غير مصنفين",
+    "two_gen": "مشروعين غير مصنفين",
+    "few": "{n} مشاريع غير مصنفة",
+    "many": "{n} مشروعًا غير مصنف",
+    "other": "{n} مشروع غير مصنف"
+   },
+   "context": "Deadline-unclassified projects",
+   "status": "Approved from brief",
+   "notes": "Brief: مشروعان غير مصنفين."
+  },
+  "overall.aria": {
+   "en": "Overall: Not evaluated yet",
+   "ar": "التقييم العام: لم يتم تقييمه بعد",
+   "context": "Accessible label",
+   "status": "Approved from brief"
+  },
+  "overall.label": {
+   "en": "Overall",
+   "ar": "التقييم العام",
+   "context": "Editor card / profile header",
+   "status": "Approved from brief"
+  },
+  "page.dashboard_title": {
+   "en": "Atlas — Editing team",
+   "ar": "Atlas — فريق المونتاج",
+   "context": "Browser tab title of the dashboard",
+   "status": "Implemented conservatively"
+  },
+  "patterns.empty_detail": {
+   "en": "Atlas currently shows shared evidence without assigning a team-level cause.",
+   "ar": "يعرض Atlas حاليًا الأدلة المشتركة دون تحديد سبب على مستوى الفريق.",
+   "context": "Empty state detail",
+   "status": "Implemented conservatively"
+  },
+  "patterns.empty_title": {
+   "en": "Pattern detection is not active yet.",
+   "ar": "رصد الأنماط غير مفعّل حتى الآن.",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "patterns.sub": {
+   "en": "Across the editing team",
+   "ar": "على مستوى فريق المونتاج",
+   "context": "Card subheading",
+   "status": "Implemented conservatively"
+  },
+  "patterns.title": {
+   "en": "Team & process patterns",
+   "ar": "أنماط الفريق وسير العمل",
+   "context": "Card title",
+   "status": "Implemented conservatively"
+  },
+  "pending.management_recommendation.label": {
+   "en": "Management recommendation",
+   "ar": "توصية للإدارة",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.management_recommendation.reason": {
+   "en": "Recommendations are outside Atlas V1 scope; AI may explain but is never the source of truth.",
+   "ar": "التوصيات خارج نطاق Atlas V1؛ يمكن للذكاء الاصطناعي أن يشرح لكنه لا يكون أبدًا مصدر الحقيقة.",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.needs_attention.label": {
+   "en": "Needs attention",
+   "ar": "يحتاج للانتباه",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.needs_attention.reason": {
+   "en": "No rule defines when an Editor needs management attention.",
+   "ar": "لا توجد قاعدة تحدد متى يحتاج المونتير إلى انتباه الإدارة.",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.overall_score.label": {
+   "en": "Overall score",
+   "ar": "الدرجة العامة",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Needs Arabic Review"
+  },
+  "pending.overall_score.reason": {
+   "en": "Atlas V1 has no approved scoring; speed, deadline and quality stay separate with their own evidence.",
+   "ar": "لا يوجد في Atlas V1 أي نظام درجات معتمد؛ تبقى السرعة والالتزام بمواعيد التسليم والجودة منفصلة ولكل منها أدلتها.",
+   "context": "Why the rule is not evaluated",
+   "status": "Needs Arabic Review"
+  },
+  "pending.overall_status.label": {
+   "en": "Overall status",
+   "ar": "التقييم العام",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Approved from brief"
+  },
+  "pending.overall_status.reason": {
+   "en": "No overall performance status rule is approved for Atlas V1.",
+   "ar": "لا توجد قاعدة معتمدة للتقييم العام للأداء في Atlas V1.",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.positive_signals.label": {
+   "en": "Positive signals",
+   "ar": "المؤشرات الإيجابية",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.positive_signals.reason": {
+   "en": "No approved positive quality signal exists in V1; For Bonus is context only (D10).",
+   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط (D10).",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.reward_recommendation.label": {
+   "en": "Reward recommendation",
+   "ar": "توصية بالمكافأة",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.reward_recommendation.reason": {
+   "en": "No reward rule is approved; For Bonus labels are context only (D10).",
+   "ar": "لا توجد قاعدة مكافآت معتمدة؛ وعلامات For Bonus للسياق فقط (D10).",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.team_patterns.label": {
+   "en": "Team / process patterns",
+   "ar": "أنماط الفريق / سير العمل",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.team_patterns.reason": {
+   "en": "No rule defines a team or process pattern; label counts per Editor are shown as facts only.",
+   "ar": "لا توجد قاعدة تحدد نمطًا على مستوى الفريق أو سير العمل؛ تُعرض أعداد المؤشرات لكل مونتير كحقائق فقط.",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.trend_direction.label": {
+   "en": "Improving / declining",
+   "ar": "التحسن / التراجع",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.trend_direction.reason": {
+   "en": "No trend rule is approved; monthly figures are shown with their sample sizes only.",
+   "ar": "لا توجد قاعدة معتمدة للاتجاه؛ تُعرض الأرقام الشهرية مع حجم العينة فقط.",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending.workload_capacity.label": {
+   "en": "Workload / capacity judgement",
+   "ar": "الحكم على عبء العمل / الطاقة الاستيعابية",
+   "context": "Unapproved management rule (Data & System)",
+   "status": "Implemented conservatively"
+  },
+  "pending.workload_capacity.reason": {
+   "en": "Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5).",
+   "ar": "لم يتم بعد تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي (DECISIONS.md، القرار المفتوح 5).",
+   "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "profile.data_updated": {
+   "en": "Data updated",
+   "ar": "آخر تحديث للبيانات",
+   "context": "Header fact",
+   "status": "Implemented conservatively"
+  },
+  "profile.evidence_select": {
+   "en": "Select one for its Monday events.",
+   "ar": "اختر مشروعًا لعرض أحداثه المسجلة على Monday.",
+   "context": "Subheading",
+   "status": "Approved from brief"
+  },
+  "profile.evidence_sub": {
+   "en": "Every completed and open project attributed to {name}, most recent first.",
+   "ar": "جميع المشاريع المكتملة والمفتوحة المسندة إلى {name}، مرتبة من الأحدث إلى الأقدم.",
+   "context": "Subheading",
+   "status": "Approved from brief"
+  },
+  "profile.period": {
+   "en": "Period",
+   "ar": "الفترة",
+   "context": "Header fact",
+   "status": "Implemented conservatively"
+  },
+  "profile.report_button": {
+   "en": "Complete evidence report",
+   "ar": "تقرير الأدلة الكامل",
+   "context": "Button",
+   "status": "Approved from brief"
+  },
+  "profile.report_intro": {
+   "en": "The full Editor Profile as produced by the Atlas engine, with every project, exclusion and Monday event ID.",
+   "ar": "ملف أداء المونتير الكامل كما أنتجه Atlas، مع كل مشروع وكل استبعاد وكل معرّف حدث على Monday.",
+   "context": "Drawer intro",
+   "status": "Implemented conservatively"
+  },
+  "profile.report_title": {
+   "en": "Complete evidence report · {name}",
+   "ar": "تقرير الأدلة الكامل · {name}",
+   "context": "Drawer title",
+   "status": "Approved from brief"
+  },
+  "profile.snapshot_sub": {
+   "en": "Facts from the Atlas engine. Judgements appear once their rules are approved.",
+   "ar": "حقائق محسوبة بواسطة Atlas. ستظهر التقييمات بعد اعتماد القواعد الخاصة بها.",
+   "context": "Subheading",
+   "status": "Approved from brief"
+  },
+  "profile.snapshot_title": {
+   "en": "Snapshot",
+   "ar": "ملخص الأداء",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "profile.suggested_action": {
+   "en": "Suggested action",
+   "ar": "الإجراء المقترح",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "profile.suggested_action_detail": {
+   "en": "Not available yet. Management actions will appear here once Atlas has approved rules for them.",
+   "ar": "غير متاح حاليًا. ستظهر إجراءات الإدارة هنا بعد اعتماد قواعدها في Atlas.",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "profile.timeline_sub": {
+   "en": "Deliveries and issue labels, in the order they happened.",
+   "ar": "عمليات التسليم ومؤشرات المشكلات مرتبة حسب وقت حدوثها.",
+   "context": "Subheading",
+   "status": "Approved from brief"
+  },
+  "profile.timeline_title": {
+   "en": "Performance timeline",
+   "ar": "الخط الزمني للأداء",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "quality.affected": {
+   "en": "Affected projects: {affected} / {total}",
+   "ar": "المشاريع التي ظهرت بها مؤشرات: {affected} من أصل {total}",
+   "context": "Summary",
+   "status": "Approved from brief"
+  },
+  "quality.drawer_title": {
+   "en": "Issue signals · {name}",
+   "ar": "مؤشرات المشكلات · {name}",
+   "context": "Drawer title",
+   "status": "Approved from brief"
+  },
+  "quality.empty_detail": {
+   "en": "This is not an assessment of quality — only that no Monday label was added.",
+   "ar": "هذا لا يُعد تقييمًا لجودة العمل؛ بل يعني فقط أنه لم تتم إضافة أي Performance Issues لهذا المونتير على Monday.",
+   "context": "Empty state detail",
+   "status": "Approved from brief"
+  },
+  "quality.for_bonus": {
+   "en": "For Bonus labels on {projects} — shown as context, not as a signal.",
+   "ar": "علامات For Bonus على {projects} — تُعرض كسياق فقط وليست مؤشرًا.",
+   "context": "Context note",
+   "status": "Implemented conservatively"
+  },
+  "quality.intro": {
+   "en": "From the Monday Performance Issues column. No severity weights, no inferred causes.",
+   "ar": "هذه المؤشرات مأخوذة من عمود Performance Issues في Monday. جميع مرات الظهور لها الوزن نفسه، ولا يستنتج Atlas أسبابًا غير موجودة في البيانات.",
+   "context": "Quality explanation",
+   "status": "Approved from brief"
+  },
+  "quality.none_recorded": {
+   "en": "No issue labels recorded",
+   "ar": "لم يتم تسجيل أي مؤشرات مشكلات",
+   "context": "Empty state (not an assessment)",
+   "status": "Approved from brief"
+  },
+  "quality.none_recorded_sentence": {
+   "en": "No issue labels recorded.",
+   "ar": "لم يتم تسجيل أي مؤشرات مشكلات.",
+   "context": "Empty state (not an assessment)",
+   "status": "Approved from brief"
+  },
+  "quality.not_an_assessment": {
+   "en": "This is not an assessment of quality.",
+   "ar": "هذا لا يُعد تقييمًا لجودة العمل.",
+   "context": "Empty state detail",
+   "status": "Approved from brief"
+  },
+  "quality.panel_title": {
+   "en": "Quality & performance signals",
+   "ar": "مؤشرات الجودة والأداء",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "quality.positive_detail": {
+   "en": "Recognition signals will appear here once supported by evidence.",
+   "ar": "ستظهر مؤشرات التقدير هنا عندما تدعمها الأدلة.",
+   "context": "Empty state detail (absence is not a negative judgement)",
+   "status": "Implemented conservatively"
+  },
+  "quality.positive_title": {
+   "en": "Positive signals",
+   "ar": "المؤشرات الإيجابية",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "quality.source_column": {
+   "en": "Monday Performance Issues column",
+   "ar": "عمود Performance Issues في Monday",
+   "context": "Evidence source",
+   "status": "Implemented conservatively"
+  },
+  "report.back": {
+   "en": "Back to the dashboard",
+   "ar": "العودة إلى لوحة المتابعة",
+   "context": "Link",
+   "status": "Implemented conservatively"
+  },
+  "report.coverage_title": {
+   "en": "Data coverage",
+   "ar": "تغطية البيانات",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "report.current_title": {
+   "en": "Current items (as of {date})",
+   "ar": "المشاريع الحالية (حتى {date})",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "report.deadline_note_frozen": {
+   "en": "First Ready For Approval compared with the Requested ETA in effect at that moment; later ETA changes (for example a revision round) are listed as evidence and never change the result. No tolerance: exactly at the ETA is on time.",
+   "ar": "تتم المقارنة بين أول Ready For Approval وموعد Requested ETA المسجل في ذلك الوقت؛ وأي تغييرات لاحقة على الموعد (مثل جولة تعديلات) تظهر كأدلة ولا تغيّر النتيجة. بدون هامش سماح: التسليم في نفس الموعد تمامًا يُعد في الموعد.",
+   "context": "Deadline rule (contract 1.4.0)",
+   "status": "Implemented conservatively"
+  },
+  "report.deadline_note_latest": {
+   "en": "Ready For Approval compared with the latest Requested ETA. No tolerance: exactly at the ETA is on time.",
+   "ar": "تتم المقارنة بين Ready For Approval وآخر Requested ETA. بدون هامش سماح: التسليم في نفس الموعد تمامًا يُعد في الموعد.",
+   "context": "Deadline rule (contract 1.3.0)",
+   "status": "Implemented conservatively"
+  },
+  "report.head.client_revisions": {
+   "en": "Client revisions",
+   "ar": "تعديلات العميل",
+   "context": "Table header",
+   "status": "Approved from brief"
+  },
+  "report.head.cohort": {
+   "en": "Video Type cohort",
+   "ar": "مجموعة المقارنة (Video Type)",
+   "context": "Table header",
+   "status": "Implemented conservatively",
+   "notes": "Avoids a literal translation of 'cohort'."
+  },
+  "report.head.cohort_short": {
+   "en": "Cohort",
+   "ar": "مجموعة المقارنة",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.conclusion": {
+   "en": "Conclusion",
+   "ar": "النتيجة",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.current_status": {
+   "en": "Current status",
+   "ar": "الحالة الحالية",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.deadlines_evaluated": {
+   "en": "Deadlines evaluated",
+   "ar": "مواعيد تسليم تم تقييمها",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.difference": {
+   "en": "Difference",
+   "ar": "الفرق",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.duration": {
+   "en": "Duration",
+   "ar": "المدة",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.early_rate": {
+   "en": "Early rate",
+   "ar": "نسبة المبكر",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.events": {
+   "en": "In Progress / RFA events",
+   "ar": "أحداث In Progress / Ready For Approval",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.item": {
+   "en": "Item",
+   "ar": "المشروع",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.items": {
+   "en": "Items",
+   "ar": "العدد",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.label": {
+   "en": "Label",
+   "ar": "المؤشر",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.late_rate": {
+   "en": "Late rate",
+   "ar": "نسبة المتأخر",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.median_duration": {
+   "en": "Median duration",
+   "ar": "وسيط المدة",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.month": {
+   "en": "Month",
+   "ar": "الشهر",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.occurrences": {
+   "en": "Occurrences",
+   "ar": "مرات الظهور",
+   "context": "Table header",
+   "status": "Implemented conservatively"
+  },
+  "report.head.typical_range": {
+   "en": "Team typical range (P25–P75)",
+   "ar": "النطاق المعتاد للفريق (P25–P75)",
+   "context": "Table header (descriptive, not a target)",
+   "status": "Implemented conservatively"
+  },
+  "report.identity": {
+   "en": "Editor {editor_id} · Monday label {label} · mapping {mapping} · contract {contract} · data retrieved {retrieved} · generated {generated}",
+   "ar": "المونتير {editor_id} · علامة Monday {label} · إصدار الربط {mapping} · إصدار العقد {contract} · آخر جلب للبيانات {retrieved} · وقت إنشاء التقرير {generated}",
+   "context": "Identity line (IDs and timestamps shown as recorded)",
+   "status": "Implemented conservatively"
+  },
+  "report.no_issue_labels": {
+   "en": "No performance issue labels.",
+   "ar": "لا توجد مؤشرات مشكلات.",
+   "context": "Empty table",
+   "status": "Implemented conservatively"
+  },
+  "report.overall_title": {
+   "en": "Overall picture",
+   "ar": "الصورة العامة",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "report.page_title": {
+   "en": "Atlas Editor Profile · {name}",
+   "ar": "ملف أداء المونتير · {name} — Atlas",
+   "context": "Browser tab title",
+   "status": "Implemented conservatively"
+  },
+  "report.projects_title": {
+   "en": "Projects and evidence",
+   "ar": "المشاريع والأدلة",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "report.quality_note": {
+   "en": "Each Monday Performance Issues label counts once, with no severity weights.",
+   "ar": "كل علامة Performance Issues في Monday تُحسب مرة واحدة، بدون أوزان للخطورة.",
+   "context": "Quality explanation",
+   "status": "Implemented conservatively"
+  },
+  "report.revisions_title": {
+   "en": "Revisions (context only)",
+   "ar": "التعديلات (للسياق فقط)",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "report.show_monthly": {
+   "en": "Show monthly figures",
+   "ar": "عرض الأرقام الشهرية",
+   "context": "Disclosure",
+   "status": "Implemented conservatively"
+  },
+  "report.show_projects": {
+   "en": "Show all {n} projects with their Monday event IDs",
+   "ar": "عرض جميع المشاريع ({n}) مع معرّفات أحداثها على Monday",
+   "context": "Disclosure",
+   "status": "Implemented conservatively"
+  },
+  "report.speed_note": {
+   "en": "Work duration is elapsed time from the first In Progress to the first Ready For Approval. The team benchmark is the {stat} of every eligible Editor in the same exact Video Type cohort, including this Editor. A faster/slower conclusion needs at least {min} of this Editor's projects in the cohort and at least one other Editor. The typical range is descriptive only.",
+   "ar": "مدة العمل هي الوقت المنقضي من أول In Progress حتى أول Ready For Approval. معيار مقارنة الفريق هو {stat} لكل المونتيرين المؤهلين في نفس Video Type بالضبط، ومن بينهم هذا المونتير. يحتاج استنتاج أسرع/أبطأ إلى {min_projects} على الأقل لهذا المونتير في نفس Video Type ووجود مونتير آخر على الأقل. النطاق المعتاد وصفي فقط وليس هدفًا مطلوبًا.",
+   "context": "Speed explanation",
+   "status": "Implemented conservatively"
+  },
+  "report.speed_title": {
+   "en": "Speed by exact Video Type",
+   "ar": "السرعة حسب Video Type بالضبط",
+   "context": "Heading",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.completed": {
+   "en": "completed projects",
+   "ar": "المشاريع المكتملة",
+   "context": "Tile",
+   "status": "Approved from brief"
+  },
+  "report.tile.early_deliveries": {
+   "en": "early deliveries ({n}/{total})",
+   "ar": "تسليمات مبكرة ({n} من أصل {total})",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.early_rate": {
+   "en": "early · {pct}",
+   "ar": "مبكر · {pct}",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.eta_without_time": {
+   "en": "ETA without a time (not classified)",
+   "ar": "Requested ETA بدون وقت (غير مصنّف)",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.for_bonus": {
+   "en": "projects with For Bonus (context)",
+   "ar": "مشاريع عليها For Bonus (للسياق فقط)",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.issue_labels": {
+   "en": "performance issue labels",
+   "ar": "مؤشرات المشكلات",
+   "context": "Tile",
+   "status": "Approved from brief"
+  },
+  "report.tile.late_deliveries": {
+   "en": "late deliveries ({n}/{total})",
+   "ar": "تسليمات متأخرة ({n} من أصل {total})",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.late_rate": {
+   "en": "late · {pct}",
+   "ar": "متأخر · {pct}",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.measurable": {
+   "en": "measurable for speed",
+   "ar": "قابلة لقياس السرعة",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.median_margin": {
+   "en": "median margin (negative = early)",
+   "ar": "وسيط الفارق (القيمة السالبة = مبكر)",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.no_eta": {
+   "en": "no ETA",
+   "ar": "بدون Requested ETA",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.on_time_rate": {
+   "en": "on time (exactly at ETA) · {pct}",
+   "ar": "في الموعد (في نفس الموعد تمامًا) · {pct}",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.positive": {
+   "en": "positive signals",
+   "ar": "المؤشرات الإيجابية",
+   "context": "Tile",
+   "status": "Approved from brief"
+  },
+  "report.tile.projects_with_issues": {
+   "en": "projects with issues of {total}",
+   "ar": "مشاريع بها مؤشرات من أصل {total}",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.projects_with_revisions": {
+   "en": "projects with revisions of {total}",
+   "ar": "مشاريع بها تعديلات من أصل {total}",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "report.tile.revision_rate": {
+   "en": "revision rate",
+   "ar": "نسبة المشاريع التي بها تعديلات",
+   "context": "Tile",
+   "status": "Implemented conservatively"
+  },
+  "result.early": {
+   "en": "Early",
+   "ar": "مبكر",
+   "context": "Deadline result",
+   "status": "Approved from brief"
+  },
+  "result.late": {
+   "en": "Late",
+   "ar": "متأخر",
+   "context": "Deadline result (of a delivery vs its Requested ETA, never of a person)",
+   "status": "Approved from brief"
+  },
+  "result.on_time": {
+   "en": "On time",
+   "ar": "في الموعد",
+   "context": "Deadline result",
+   "status": "Approved from brief"
+  },
+  "revisions.client_events": {
+   "en": "Client revision events",
+   "ar": "مرات تعديلات العميل",
+   "context": "Tile",
+   "status": "Approved from brief"
+  },
+  "revisions.context_heading": {
+   "en": "Client revision context",
+   "ar": "تعديلات العميل",
+   "context": "Heading",
+   "status": "Approved from brief"
+  },
+  "revisions.disclaimer": {
+   "en": "Context only. Revisions do not imply Editor fault and never affect any metric.",
+   "ar": "للسياق فقط. وجود تعديلات من العميل لا يعني أن المونتير أخطأ، ولا يؤثر على أي من مؤشرات الأداء.",
+   "context": "Revision disclaimer (core rule)",
+   "status": "Approved from brief"
+  },
+  "revisions.drawer_intro": {
+   "en": "Projects where a client asked for changes. Their cause is not known.",
+   "ar": "مشاريع طلب فيها العميل تعديلات، وسبب التعديلات غير معروف.",
+   "context": "Drawer intro",
+   "status": "Implemented conservatively"
+  },
+  "revisions.drawer_title": {
+   "en": "Client revision context · {name}",
+   "ar": "تعديلات العميل · {name}",
+   "context": "Drawer title",
+   "status": "Approved from brief"
+  },
+  "revisions.internal_events": {
+   "en": "Internal revision events",
+   "ar": "مرات التعديل الداخلي",
+   "context": "Tile",
+   "status": "Approved from brief"
+  },
+  "revisions.of_completed": {
+   "en": "of {completed}",
+   "ar": "من أصل {completed}",
+   "context": "Tile detail",
+   "status": "Implemented conservatively"
+  },
+  "revisions.projects_with": {
+   "en": "Projects with client revisions",
+   "ar": "مشاريع بها تعديلات من العميل",
+   "context": "Tile / button",
+   "status": "Approved from brief"
+  },
+  "snapshot.head.attention": {
+   "en": "May need a look",
+   "ar": "نقاط تستحق المراجعة",
+   "context": "Snapshot card heading",
+   "status": "Approved from brief"
+  },
+  "snapshot.head.doing_well": {
+   "en": "Doing well",
+   "ar": "مؤشرات إيجابية",
+   "context": "Snapshot card heading",
+   "status": "Approved from brief"
+  },
+  "snapshot.head.evidence": {
+   "en": "Evidence",
+   "ar": "الأدلة",
+   "context": "Snapshot card heading",
+   "status": "Approved from brief"
+  },
+  "snapshot.head.over_time": {
+   "en": "Over time",
+   "ar": "على مدار الوقت",
+   "context": "Snapshot card heading",
+   "status": "Implemented conservatively"
+  },
+  "snapshot.head.workload": {
+   "en": "Current work",
+   "ar": "العمل الحالي",
+   "context": "Snapshot card heading",
+   "status": "Approved from brief"
+  },
+  "speed.benchmark_is_descriptive": {
+   "en": "Team figures are historical and descriptive — not a target or an SLA.",
+   "ar": "أرقام الفريق تاريخية ووصفية فقط — وليست هدفًا أو مستوى خدمة مطلوبًا.",
+   "context": "Benchmark disclaimer in each Video Type drawer",
+   "status": "Implemented conservatively"
+  },
+  "speed.drawer_intro": {
+   "en": "Work duration runs from the first In Progress to the first Ready For Approval. Each Video Type is compared only with the {stat} of every eligible Editor in the same exact Video Type (this Editor included). A comparison needs at least {min} of this Editor's projects and at least one other Editor. The team figure is a historical benchmark, not a target.",
+   "ar": "تُحسب مدة العمل من أول In Progress حتى أول Ready For Approval. تتم مقارنة كل Video Type فقط مع {stat} لكل المونتيرين المؤهلين في نفس Video Type بالضبط (ومن بينهم هذا المونتير). تحتاج المقارنة إلى {min_projects} على الأقل لهذا المونتير، ووجود مونتير آخر على الأقل. رقم الفريق معيار مقارنة تاريخي وليس هدفًا مطلوبًا.",
+   "context": "Speed explanation drawer",
+   "status": "Implemented conservatively"
+  },
+  "speed.drawer_title": {
+   "en": "Speed · {name}",
+   "ar": "السرعة · {name}",
+   "context": "Drawer title",
+   "status": "Implemented conservatively"
+  },
+  "speed.editor_value": {
+   "en": "{median} · n={n}",
+   "ar": "{median} · العينة: {n}",
+   "context": "Editor median with sample size",
+   "status": "Implemented conservatively"
+  },
+  "speed.how_compared": {
+   "en": "How speed is compared",
+   "ar": "كيف تتم مقارنة السرعة",
+   "context": "Info button",
+   "status": "Implemented conservatively"
+  },
+  "speed.line": {
+   "en": "{labels}: {editor} vs {team}",
+   "ar": "{labels}: {editor} مقابل {team}",
+   "context": "Editor median vs team median in one Video Type",
+   "status": "Implemented conservatively"
+  },
+  "speed.more_comparable": {
+   "en": "+{n} comparable",
+   "ar": "+{n} قابلة للمقارنة",
+   "context": "More Video Types",
+   "status": "Implemented conservatively"
+  },
+  "speed.more_not_comparable": {
+   "en": "+{n} not comparable",
+   "ar": "+{n} غير قابلة للمقارنة",
+   "context": "More Video Types",
+   "status": "Implemented conservatively"
+  },
+  "speed.no_measurable": {
+   "en": "No measurable projects.",
+   "ar": "لا توجد مشاريع قابلة للقياس.",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "speed.no_measurable_title": {
+   "en": "No measurable projects",
+   "ar": "لا توجد مشاريع قابلة للقياس",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "speed.none_comparable": {
+   "en": "No comparable Video Type yet",
+   "ar": "لا يوجد Video Type قابل للمقارنة حتى الآن",
+   "context": "Empty state (not a judgement)",
+   "status": "Implemented conservatively"
+  },
+  "speed.panel.faster": {
+   "en": "{pct} faster",
+   "ar": "أسرع بنسبة {pct}",
+   "context": "Bold part of the verdict",
+   "status": "Approved from brief"
+  },
+  "speed.panel.level": {
+   "en": "{strong} with team median",
+   "ar": "{strong} لوسيط الفريق",
+   "context": "Verdict sentence",
+   "status": "Implemented conservatively"
+  },
+  "speed.panel.sample": {
+   "en": "n = {e} Editor · {t} team projects",
+   "ar": "حجم العينة: {e_projects} للمونتير · {t_projects} للفريق",
+   "context": "Sample sizes",
+   "status": "Approved from brief"
+  },
+  "speed.panel.slower": {
+   "en": "{pct} slower",
+   "ar": "أبطأ بنسبة {pct}",
+   "context": "Bold part of the verdict",
+   "status": "Approved from brief"
+  },
+  "speed.panel.sub": {
+   "en": "Each Video Type is compared only within itself — never pooled.",
+   "ar": "تتم مقارنة كل Video Type بشكل مستقل، ولا يتم دمج أنواع مختلفة في مقارنة واحدة.",
+   "context": "Profile tab subheading",
+   "status": "Approved from brief"
+  },
+  "speed.panel.than": {
+   "en": "{strong} than team median",
+   "ar": "{strong} من وسيط الفريق",
+   "context": "Verdict sentence",
+   "status": "Approved from brief"
+  },
+  "speed.panel.title": {
+   "en": "Speed by Video Type",
+   "ar": "السرعة حسب Video Type",
+   "context": "Profile tab heading",
+   "status": "Approved from brief"
+  },
+  "speed.team_value": {
+   "en": "{median} · n={n}",
+   "ar": "{median} · العينة: {n}",
+   "context": "Team median with sample size",
+   "status": "Implemented conservatively"
+  },
+  "speed.typical_range": {
+   "en": "Team typical range (P25–P75)",
+   "ar": "النطاق المعتاد للفريق (P25–P75)",
+   "context": "Descriptive range, not a target",
+   "status": "Implemented conservatively"
+  },
+  "speed.verdict.faster": {
+   "en": "{pct} faster than the team median",
+   "ar": "أسرع بنسبة {pct} من وسيط الفريق",
+   "context": "Comparison in one Video Type",
+   "status": "Approved from brief"
+  },
+  "speed.verdict.level": {
+   "en": "Level with the team median",
+   "ar": "مماثل لوسيط الفريق",
+   "context": "Comparison in one Video Type",
+   "status": "Implemented conservatively"
+  },
+  "speed.verdict.slower": {
+   "en": "{pct} slower than the team median",
+   "ar": "أبطأ بنسبة {pct} من وسيط الفريق",
+   "context": "Comparison in one Video Type",
+   "status": "Approved from brief"
+  },
+  "stat.median": {
+   "en": "median",
+   "ar": "الوسيط",
+   "context": "Benchmark statistic name",
+   "status": "Implemented conservatively"
+  },
+  "status.cohort_not_benchmark_eligible": {
+   "en": "Video Type combination not approved for benchmarking",
+   "ar": "تركيبة Video Type غير معتمدة للمقارنة",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.comparable": {
+   "en": "Comparable",
+   "ar": "قابلة للمقارنة",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.insufficient_editor_sample": {
+   "en": "Fewer than the minimum Editor projects",
+   "ar": "عدد مشاريع المونتير أقل من الحد الأدنى",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.minimum_sample_size_not_configured": {
+   "en": "Minimum sample not configured",
+   "ar": "لم يتم تحديد الحد الأدنى لحجم العينة",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.no_other_editors_in_cohort": {
+   "en": "No other Editor in this cohort",
+   "ar": "لا يوجد مونتير آخر ضمن مجموعة المقارنة.",
+   "context": "Speed comparison status",
+   "status": "Approved from brief"
+  },
+  "ops.age_seconds": {
+   "en": "Data age (seconds)",
+   "ar": "عمر البيانات (بالثواني)",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_id": {
+   "en": "Attempt ID",
+   "ar": "معرّف محاولة المزامنة",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_state.failed": {
+   "en": "Failed",
+   "ar": "فشلت",
+   "context": "Sync attempt state",
+   "status": "Approved from brief"
+  },
+  "ops.attempt_state.running": {
+   "en": "In progress",
+   "ar": "قيد التنفيذ",
+   "context": "Sync attempt state",
+   "status": "Implemented conservatively"
+  },
+  "ops.attempt_state.success": {
+   "en": "Successful",
+   "ar": "ناجحة",
+   "context": "Sync attempt state",
+   "status": "Approved from brief"
+  },
+  "ops.board_id": {
+   "en": "Monday board ID",
+   "ar": "معرّف لوحة Monday",
+   "context": "Build-time operational status field",
+   "status": "Implemented conservatively"
+  },
+  "ops.completed_at": {
+   "en": "Completed / failed at",
+   "ar": "وقت الاكتمال أو الفشل",
+   "context": "Sync attempt field",
+   "status": "Implemented conservatively"
+  },
+  "ops.current_publication": {
+   "en": "Current publication",
+   "ar": "الإصدار المنشور حاليًا",
+   "context": "Build-time operational status section",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm terminology for the live atomic publication."
+  },
+  "ops.data_freshness": {
+   "en": "Data freshness",
+   "ar": "حداثة البيانات",
+   "context": "Operational status dimension",
+   "status": "Approved from brief"
+  },
+  "ops.evidence_coverage": {
+   "en": "Evidence coverage",
+   "ar": "نطاق البيانات",
+   "context": "Current publication field",
+   "status": "Approved from brief"
+  },
+  "ops.expected_interval": {
+   "en": "Expected sync interval (seconds)",
+   "ar": "الفاصل المتوقع للمزامنة (بالثواني)",
+   "context": "Freshness configuration field",
+   "status": "Implemented conservatively"
+  },
+  "ops.failure_category": {
+   "en": "Safe failure category",
+   "ar": "فئة الفشل الآمنة",
+   "context": "Sync attempt field; never raw exception text",
+   "status": "Needs Arabic Review",
+   "notes": "Technical operator wording; category value remains untranslated."
+  },
+  "ops.freshness_details": {
+   "en": "Freshness thresholds",
+   "ar": "حدود حداثة البيانات",
+   "context": "Build-time operational status section",
+   "status": "Implemented conservatively"
+  },
+  "ops.freshness_state.delayed": {
+   "en": "Delayed",
+   "ar": "متأخرة",
+   "context": "Data freshness state",
+   "status": "Approved from brief"
+  },
+  "ops.freshness_state.fresh": {
+   "en": "Fresh",
+   "ar": "حديثة",
+   "context": "Data freshness state",
+   "status": "Approved from brief"
+  },
+  "ops.freshness_state.stale": {
+   "en": "Stale",
+   "ar": "قديمة وغير محدثة",
+   "context": "Data freshness state",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm preferred operational term for stale data."
+  },
+  "ops.freshness_state.unknown": {
+   "en": "Unknown",
+   "ar": "غير معروفة",
+   "context": "Data freshness state",
+   "status": "Implemented conservatively"
+  },
+  "ops.last_attempt": {
+   "en": "Last sync attempt",
+   "ar": "آخر محاولة مزامنة",
+   "context": "Build-time operational status section",
+   "status": "Approved from brief"
+  },
+  "ops.last_success": {
+   "en": "Last successful sync",
+   "ar": "آخر مزامنة ناجحة",
+   "context": "Build-time operational status section",
+   "status": "Approved from brief"
+  },
+  "ops.monday_retrieved": {
+   "en": "Monday data retrieved",
+   "ar": "وقت جلب بيانات Monday",
+   "context": "Current publication field; freshness clock",
+   "status": "Approved from brief"
+  },
+  "ops.publication_id": {
+   "en": "Publication ID",
+   "ar": "معرّف الإصدار المنشور",
+   "context": "Current publication field",
+   "status": "Implemented conservatively"
+  },
+  "ops.published_at": {
+   "en": "Published at",
+   "ar": "وقت النشر",
+   "context": "Current publication field",
+   "status": "Approved from brief"
+  },
+  "ops.source_run": {
+   "en": "Source run",
+   "ar": "تشغيل المصدر",
+   "context": "Current publication and sync attempt field",
+   "status": "Needs Arabic Review",
+   "notes": "Technical operator term; source run ID remains untranslated."
+  },
+  "ops.scope_note.build_time": {
+   "en": "This status was captured when this dashboard build was generated. The Atlas status CLI is authoritative for current runtime status.",
+   "ar": "تم تسجيل هذه الحالة وقت إنشاء هذا الإصدار من لوحة المتابعة. أمر حالة Atlas هو المرجع المعتمد للحالة التشغيلية الحالية.",
+   "context": "Static dashboard operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Makes the distinction between static build context and authoritative current CLI status explicit."
+  },
+  "ops.scope_note.runtime": {
+   "en": "This is current runtime context from the injected snapshot.",
+   "ar": "هذه هي الحالة التشغيلية الحالية وفقًا للّقطة المضمّنة.",
+   "context": "Runtime operational-status scope explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Reserved for consumers that render an authoritative runtime snapshot."
+  },
+  "ops.scope_note.unknown": {
+   "en": "The snapshot scope is unknown; do not treat this as current runtime status.",
+   "ar": "نطاق هذه اللقطة غير معروف؛ لا تتعامل معها باعتبارها الحالة التشغيلية الحالية.",
+   "context": "Operational-status scope safety explanation",
+   "status": "Needs Arabic Review",
+   "notes": "Fails safe when an older producer omits snapshot_scope."
+  },
+  "ops.snapshot_context": {
+   "en": "Snapshot scope: {scope}. Generated {date}.",
+   "ar": "نطاق اللقطة: {scope}. وقت الإنشاء: {date}.",
+   "context": "Operational-status snapshot provenance",
+   "status": "Needs Arabic Review",
+   "notes": "The language-neutral scope code remains available in data-status-value."
+  },
+  "ops.snapshot_scope.build_time": {
+   "en": "Build-time snapshot",
+   "ar": "لقطة وقت الإنشاء",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Static context embedded while the dashboard build is generated."
+  },
+  "ops.snapshot_scope.runtime": {
+   "en": "Runtime snapshot",
+   "ar": "لقطة وقت التشغيل",
+   "context": "Operational-status snapshot scope",
+   "status": "Needs Arabic Review",
+   "notes": "Current context supplied by an authoritative runtime consumer."
+  },
+  "ops.snapshot_scope.unknown": {
+   "en": "Unknown scope",
+   "ar": "نطاق غير معروف",
+   "context": "Operational-status snapshot scope",
+   "status": "Implemented conservatively"
+  },
+  "ops.stale_after": {
+   "en": "Stale after (seconds)",
+   "ar": "تُعد قديمة بعد (بالثواني)",
+   "context": "Freshness configuration field",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm concise threshold wording."
+  },
+  "ops.started_at": {
+   "en": "Started at",
+   "ar": "وقت البدء",
+   "context": "Sync attempt field",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.degraded": {
+   "en": "Degraded",
+   "ar": "متأثرة",
+   "context": "System integrity state",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm terminology for usable but operationally degraded."
+  },
+  "ops.system_state.failed": {
+   "en": "Failed",
+   "ar": "متعطلة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.healthy": {
+   "en": "Healthy",
+   "ar": "سليمة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_state.unknown": {
+   "en": "Unknown",
+   "ar": "غير معروفة",
+   "context": "System integrity state",
+   "status": "Implemented conservatively"
+  },
+  "ops.system_status": {
+   "en": "System status",
+   "ar": "حالة النظام",
+   "context": "Operational status dimension",
+   "status": "Approved from brief"
+  },
+  "ops.title": {
+   "en": "Data & System status",
+   "ar": "حالة البيانات والنظام",
+   "context": "Build-time operational status card heading",
+   "status": "Approved from brief"
+  },
+  "ops.unavailable": {
+   "en": "No operational status snapshot was injected for this build. This page does not infer system health from whether the HTML loaded.",
+   "ar": "لم يتم تضمين ملخص للحالة التشغيلية في هذا الإصدار. ولا تستنتج هذه الصفحة سلامة النظام من مجرد نجاح تحميلها.",
+   "context": "Shown when the optional build-time status snapshot is absent",
+   "status": "Needs Arabic Review",
+   "notes": "Safety wording: absence must never appear healthy."
+  },
+  "system.approved_rules": {
+   "en": "Approved rules in use",
+   "ar": "القواعد المعتمدة حاليًا",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.attribution_text": {
+   "en": "{attributed} of {completed} in this snapshot have a verified Editor. The others are not shown on any Editor; unverified labels stay quarantined until confirmed.",
+   "ar": "{attributed} من أصل {completed} في هذه البيانات لها مونتير تم التحقق منه. لا تظهر المشاريع الأخرى ضمن أي مونتير، وتبقى العلامات غير المؤكدة معزولة حتى يتم تأكيدها.",
+   "context": "Coverage explanation",
+   "status": "Implemented conservatively"
+  },
+  "system.attribution_title": {
+   "en": "Editor attribution coverage",
+   "ar": "تغطية إسناد المشاريع للمونتيرين",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.contract": {
+   "en": "Executable contract",
+   "ar": "إصدار العقد التنفيذي",
+   "context": "Field",
+   "status": "Needs Arabic Review",
+   "notes": "Technical term for the versioned Monday contract; confirm wording."
+  },
+  "system.dashboard_document": {
+   "en": "Dashboard document",
+   "ar": "إصدار مستند لوحة المتابعة",
+   "context": "Field",
+   "status": "Needs Arabic Review",
+   "notes": "Confirm 'لوحة المتابعة' for Dashboard."
+  },
+  "system.data_quality_notes": {
+   "en": "Data-quality notes",
+   "ar": "ملاحظات جودة البيانات",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.editors_identity": {
+   "en": "Editors and identity",
+   "ar": "المونتيرون والهوية",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.excluded": {
+   "en": "Projects excluded from metrics",
+   "ar": "مشاريع مستبعدة من المؤشرات",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.generated": {
+   "en": "Generated",
+   "ar": "وقت إنشاء التقرير",
+   "context": "Field",
+   "status": "Approved from brief"
+  },
+  "system.head.atlas_id": {
+   "en": "Atlas ID",
+   "ar": "معرّف Atlas",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.editor_n": {
+   "en": "Editor n",
+   "ar": "عينة المونتير",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.eligible": {
+   "en": "Eligible",
+   "ar": "مؤهل",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.field": {
+   "en": "Field",
+   "ar": "البند",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.mapping": {
+   "en": "Mapping",
+   "ar": "إصدار الربط",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.monday_label": {
+   "en": "Monday label",
+   "ar": "علامة Monday",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.note": {
+   "en": "Note",
+   "ar": "الملاحظة",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.profile": {
+   "en": "Profile",
+   "ar": "إصدار الملف",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.profile_field": {
+   "en": "Profile field",
+   "ar": "حقل الملف",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.reason_not_attributed": {
+   "en": "Reason not attributed",
+   "ar": "سبب عدم الإسناد",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.head.team_n": {
+   "en": "Team n",
+   "ar": "عينة الفريق",
+   "context": "Data & System table header",
+   "status": "Implemented conservatively"
+  },
+  "system.mapped_without": {
+   "en": "Mapped Editors without attributable projects",
+   "ar": "مونتيرون مسجلون بدون مشاريع قابلة للإسناد",
+   "context": "Card heading",
+   "status": "Implemented conservatively"
+  },
+  "system.presentation.headline": {
+   "en": "Editor card headline: the first comparable Video Type speed result; otherwise deadlines if any are classified; otherwise the project count. A fixed display order, not a judgement.",
+   "ar": "العنوان الرئيسي لبطاقة المونتير: أول نتيجة سرعة قابلة للمقارنة في Video Type؛ وإلا فمواعيد التسليم إن وُجدت مصنفة؛ وإلا فعدد المشاريع. ترتيب عرض ثابت وليس حكمًا.",
+   "context": "Presentation note",
+   "status": "Implemented conservatively"
+  },
+  "system.presentation.languages": {
+   "en": "English and Arabic pages are rendered from the same data. Monday values (names, Video Types, statuses, labels, IDs) are shown exactly as recorded. Time always runs left (earlier) to right (later).",
+   "ar": "الصفحات العربية والإنجليزية مبنية على نفس البيانات. تظهر قيم Monday (الأسماء وVideo Type والحالات والعلامات والمعرّفات) كما هي مسجلة تمامًا. ويسير الخط الزمني دائمًا من اليسار (الأقدم) إلى اليمين (الأحدث).",
+   "context": "Presentation note",
+   "status": "Implemented conservatively"
+  },
+  "system.presentation.months": {
+   "en": "Month pills group dated facts by UTC calendar month.",
+   "ar": "تُجمّع أزرار الشهور الأحداث المؤرخة حسب الشهر الميلادي بتوقيت UTC.",
+   "context": "Presentation note",
+   "status": "Implemented conservatively"
+  },
+  "system.presentation.timeline": {
+   "en": "Timelines place each project at its first Ready For Approval and each issue label at the time it was added. Revision events are not dated in the Editor Profile, so they appear only as context on each project.",
+   "ar": "تضع الخطوط الزمنية كل مشروع عند أول Ready For Approval، وكل مؤشر مشكلة عند وقت إضافته. أحداث التعديل غير مؤرخة في ملف المونتير، لذلك تظهر فقط كسياق داخل كل مشروع.",
+   "context": "Presentation note",
+   "status": "Implemented conservatively"
+  },
+  "system.presentation_notes": {
+   "en": "Presentation notes",
+   "ar": "ملاحظات العرض",
+   "context": "Card heading",
+   "status": "Implemented conservatively"
+  },
+  "system.retrieved": {
+   "en": "Monday data retrieved",
+   "ar": "آخر جلب للبيانات من Monday",
+   "context": "Field",
+   "status": "Approved from brief"
+  },
+  "system.rule.deadlines": {
+   "en": "rule {rule}: first Ready For Approval against the Requested ETA in effect at that moment; no tolerance; a date-only or missing ETA is never classified.",
+   "ar": "القاعدة {rule}: أول Ready For Approval مقارنة بموعد Requested ETA المسجل في ذلك الوقت؛ بدون هامش سماح؛ ولا يتم تصنيف Requested ETA الذي يحتوي على تاريخ فقط أو غير المسجل.",
+   "context": "Rule summary",
+   "status": "Implemented conservatively"
+  },
+  "system.rule.quality": {
+   "en": "Monday Performance Issues labels; 1 occurrence = 1 label; no severity weights.",
+   "ar": "علامات Performance Issues في Monday؛ كل ظهور يُحسب مرة واحدة؛ بدون أوزان للخطورة.",
+   "context": "Rule summary",
+   "status": "Implemented conservatively"
+  },
+  "system.rule.revisions": {
+   "en": "context only; never a performance signal.",
+   "ar": "للسياق فقط؛ ولا تُعد أبدًا مؤشرًا على الأداء.",
+   "context": "Rule summary",
+   "status": "Implemented conservatively"
+  },
+  "system.rule.speed": {
+   "en": "elapsed time from first In Progress to first Ready For Approval; compared with the {stat} of every eligible Editor in the same exact Video Type; a conclusion needs {min}+ Editor projects and another Editor. The team figure is a historical benchmark, not a target.",
+   "ar": "الوقت المنقضي من أول In Progress حتى أول Ready For Approval؛ تتم المقارنة مع {stat} لكل المونتيرين المؤهلين في نفس Video Type بالضبط؛ ويحتاج الاستنتاج إلى {min_projects} على الأقل للمونتير ووجود مونتير آخر. رقم الفريق معيار مقارنة تاريخي وليس هدفًا مطلوبًا.",
+   "context": "Rule summary",
+   "status": "Implemented conservatively"
+  },
+  "system.snapshot": {
+   "en": "Snapshot",
+   "ar": "ملخص البيانات",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.speed_eligibility": {
+   "en": "Speed benchmark eligibility",
+   "ar": "أهلية المقارنة في السرعة",
+   "context": "Card heading",
+   "status": "Approved from brief"
+  },
+  "system.sub": {
+   "en": "Where every figure comes from, which rules apply, and what Atlas does not evaluate yet.",
+   "ar": "اعرف مصدر كل رقم، والقواعد المستخدمة في حسابه، وما لا يقوم Atlas بتقييمه حتى الآن.",
+   "context": "Page subheading",
+   "status": "Approved from brief"
+  },
+  "system.window": {
+   "en": "Activity window",
+   "ar": "فترة النشاط",
+   "context": "Field",
+   "status": "Approved from brief"
+  },
+  "tab.deadlines": {
+   "en": "Deadlines",
+   "ar": "مواعيد التسليم",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "tab.evidence": {
+   "en": "Evidence",
+   "ar": "الأدلة",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "tab.overview": {
+   "en": "Overview",
+   "ar": "نظرة عامة",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "tab.quality": {
+   "en": "Quality",
+   "ar": "الجودة",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "tab.revisions": {
+   "en": "Revisions",
+   "ar": "التعديلات",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "tab.speed": {
+   "en": "Speed",
+   "ar": "السرعة",
+   "context": "Profile tab",
+   "status": "Approved from brief"
+  },
+  "timeline.delivery.early": {
+   "en": "Early delivery",
+   "ar": "تسليم مبكر",
+   "context": "Timeline marker label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.delivery.late": {
+   "en": "Late delivery",
+   "ar": "تسليم متأخر",
+   "context": "Timeline marker label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.delivery.on_time": {
+   "en": "On time delivery",
+   "ar": "تسليم في الموعد",
+   "context": "Timeline marker label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.delivery.unclassified": {
+   "en": "Delivery, deadline not classified",
+   "ar": "تسليم غير مصنّف من حيث الموعد",
+   "context": "Timeline marker label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.direction_note": {
+   "en": "Time runs left (earlier) to right (later).",
+   "ar": "يسير الخط الزمني من اليسار (الأقدم) إلى اليمين (الأحدث).",
+   "context": "Explains that time is not mirrored on RTL pages",
+   "status": "Implemented conservatively"
+  },
+  "timeline.events": {
+   "en": "Events",
+   "ar": "الأحداث",
+   "context": "Timeline lane label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.issue_marker": {
+   "en": "Issue label: {label}",
+   "ar": "مؤشر مشكلة: {label}",
+   "context": "Timeline marker label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.legend_issue": {
+   "en": "Issue label added",
+   "ar": "إضافة مؤشر مشكلة",
+   "context": "Legend",
+   "status": "Implemented conservatively"
+  },
+  "timeline.legend_note": {
+   "en": "Each delivery is placed at its first Ready For Approval. Client revisions are shown as context inside each project.",
+   "ar": "يظهر كل تسليم عند أول وصول للمشروع إلى Ready For Approval. تظهر تعديلات العميل كسياق فقط داخل كل مشروع.",
+   "context": "Legend note",
+   "status": "Implemented conservatively"
+  },
+  "timeline.marker_aria": {
+   "en": "{name}: {label}, {date}, project {item}",
+   "ar": "{name}: {label}، {date}، مشروع {item}",
+   "context": "Timeline marker accessible label",
+   "status": "Implemented conservatively"
+  },
+  "timeline.no_events": {
+   "en": "No dated events in this snapshot",
+   "ar": "لا توجد أحداث مؤرخة في هذه البيانات",
+   "context": "Empty timeline",
+   "status": "Implemented conservatively"
+  },
+  "timeline.no_events_month": {
+   "en": "No dated events this month",
+   "ar": "لا توجد أحداث مؤرخة في هذا الشهر",
+   "context": "Empty lane",
+   "status": "Implemented conservatively"
+  },
+  "timeline.tick": {
+   "en": "{month} {day}",
+   "ar": "{day} {month}",
+   "context": "Axis tick (day of month)",
+   "status": "Implemented conservatively"
+  },
+  "timeline.updated": {
+   "en": "Updated",
+   "ar": "آخر تحديث",
+   "context": "Axis marker for the data retrieval time",
+   "status": "Implemented conservatively"
+  },
+  "unit.hours": {
+   "en": "{value}h",
+   "ar": "{value} ساعة",
+   "context": "Duration in hours (one decimal; same number in both languages)",
+   "status": "Approved from brief"
+  },
+  "warning.deadline_not_classifiable": {
+   "en": "{n} completed projects have no Requested ETA with a time and are not classified for deadline.",
+   "ar": "لم يتم تصنيف {completed} من حيث موعد التسليم لعدم وجود Requested ETA يتضمن وقتًا.",
+   "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "warning.no_speed_comparison": {
+   "en": "No Video Type cohort allows a speed comparison with other Editors.",
+   "ar": "لا يوجد Video Type يسمح حاليًا بمقارنة السرعة مع مونتيرين آخرين.",
+   "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "warning.partial_month": {
+   "en": "{month} is still in progress (data retrieved {retrieved}).",
+   "ar": "شهر {month} ما زال جاريًا (آخر جلب للبيانات {retrieved}).",
+   "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "warning.projects_excluded": {
+   "en": "{n} attributed projects are excluded from metrics ({reasons}).",
+   "ar": "تم استبعاد {projects} من المؤشرات ({reasons}).",
+   "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "warning.small_sample": {
+   "en": "Only {n} completed projects; the approved minimum for a speed conclusion is {min} per Video Type.",
+   "ar": "{completed} فقط؛ الحد الأدنى المعتمد لاستنتاج السرعة هو {min} لكل Video Type.",
+   "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "workload.footer": {
+   "en": "Factual context. Capacity is not evaluated.",
+   "ar": "سياق فعلي فقط. لا يتم تقييم الطاقة الاستيعابية.",
+   "context": "Card footnote",
+   "status": "Implemented conservatively"
+  },
+  "workload.none": {
+   "en": "No current items",
+   "ar": "لا توجد مشاريع حالية",
+   "context": "Empty state",
+   "status": "Implemented conservatively"
+  },
+  "workload.sub": {
+   "en": "Items by their current Monday status",
+   "ar": "المشاريع حسب حالتها الحالية على Monday",
+   "context": "Card subheading",
+   "status": "Implemented conservatively"
+  }
+ }
+}

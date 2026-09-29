@@ -67,6 +67,17 @@ class ContractV13Tests(unittest.TestCase):
         self.assertIn(EDITOR_LABEL_NAME_MISMATCH, cycle.exclusions)
         self.assertEqual(self.cycles(*project("1", editor=AHMED, editor_names=["Anas"]), contract=self.v12)[0].editor_id, "editor-label-12")
 
+    def test_attribution_coverage_names_the_label_name_guard_reasons(self):
+        from atlas_commander.profile_cli import attribution_coverage
+
+        mismatch = project("1", editor=AHMED, editor_names=["Anas"])
+        # Editor set only at creation with the label ID and no recorded label name: the name guard cannot verify it.
+        unverified = [log for log in project("2") if log["id"] != "2-ed"] + [mf.create_pulse("2-cp", "2", "2026-09-01T08:00:00Z", {mf.EDITOR: {"ids": [WILL]}})]
+        result = reconstruct_cycles(mf.payload(*mismatch, *unverified, *project("3")), load_contract())
+        coverage = attribution_coverage(result)
+        self.assertEqual((coverage["completed"], coverage["attributed"]), (3, 1))
+        self.assertEqual(coverage["not_attributed_by_reason"], {"EDITOR_LABEL_NAME_MISMATCH": 1, "EDITOR_LABEL_NAME_UNVERIFIED": 1})
+
     def test_unverified_editors_stay_quarantined(self):
         cycle = self.cycles(*project("1", editor=MARIO))[0]
         self.assertIsNone(cycle.editor_id)

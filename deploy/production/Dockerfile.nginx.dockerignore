@@ -1,0 +1,4 @@
+**
+!deploy/
+!deploy/production/
+!deploy/production/nginx.conf

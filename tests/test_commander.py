@@ -81,6 +81,14 @@ class CommanderTests(unittest.TestCase):
         titles = " ".join(task["title"].lower() for task in tasks)
         self.assertNotIn("composite score", titles)
 
+    def test_ci_runs_every_make_test_target(self):
+        """CI lists its stages explicitly; a target added to `make test` but not to CI would never gate a merge."""
+        makefile = (ROOT / "Makefile").read_text()
+        targets = next(line for line in makefile.splitlines() if line.startswith("test:")).split(":", 1)[1].split()
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+        missing = [target for target in targets if f"run: make {target}\n" not in workflow]
+        self.assertEqual(missing, [])
+
 
 if __name__ == "__main__":
     unittest.main()

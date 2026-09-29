@@ -19,8 +19,12 @@ class RawRecord:
     size_bytes: int
 
 
-def _inside_git_worktree(path: Path) -> bool:
+def inside_git_worktree(path: Path) -> bool:
+    """True when ``path`` is, or would be created, inside a Git checkout."""
     return any((parent / ".git").exists() for parent in [path, *path.parents])
+
+
+_inside_git_worktree = inside_git_worktree
 
 
 def sha256_file(path: Path) -> str:
@@ -45,6 +49,41 @@ def write_immutable(root: Path, name: str, data: bytes) -> RawRecord:
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
     path.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    return RawRecord(name=name, path=path, sha256=digest, size_bytes=len(data))
+
+
+STAGING_SUFFIX = ".staging"
+
+
+def write_immutable_atomic(root: Path, name: str, data: bytes) -> RawRecord:
+    """Like :func:`write_immutable`, but the final name appears only once the full content is on disk.
+
+    The bytes are written and flushed to a hidden staging file, then hard-linked to ``name``; a link never
+    replaces an existing file, so a reader sees either no file or the complete one. Used for run artifacts
+    (extract, manifest, failure record) whose presence has meaning."""
+    root = root.expanduser().resolve()
+    if _inside_git_worktree(root):
+        raise RawStoreError(f"raw Monday payloads must be retained outside git: {root}")
+    if Path(name).name != name or name.startswith("."):
+        raise RawStoreError(f"raw payload name must be a plain file name: {name}")
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / name
+    digest = hashlib.sha256(data).hexdigest()
+    staging = root / f".{name}.{os.getpid()}.{digest[:12]}{STAGING_SUFFIX}"
+    fd = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        staging.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        try:
+            os.link(staging, path)
+        except FileExistsError:
+            if sha256_file(path) != digest:
+                raise RawStoreError(f"refusing to overwrite immutable raw payload: {path}") from None
+    finally:
+        staging.unlink(missing_ok=True)
     return RawRecord(name=name, path=path, sha256=digest, size_bytes=len(data))
 
 

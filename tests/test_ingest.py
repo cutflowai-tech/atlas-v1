@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -18,6 +19,7 @@ from atlas_monday_probe.client import ReadOnlyMondayClient, ReadOnlyViolation
 from atlas_monday_probe.raw_store import RawStoreError
 
 COLUMNS = [mf.STATUS, mf.EDITOR, mf.VIDEO_TYPE, mf.ETA, mf.ISSUES, "dropdown_mm3tyvvc"]
+STARTED = datetime(2026, 10, 15, tzinfo=timezone.utc)
 
 
 def outside_git() -> Path:
@@ -86,7 +88,8 @@ class IngestTests(unittest.TestCase):
         self.raw = outside_git()
 
     def run_ingest(self, since="2026-08-15T00:00:00Z", until="2026-09-10T00:00:00Z"):
-        return ing.ingest(self.client, mf.BOARD, COLUMNS, since, until, self.raw)
+        # A fixed attempt start after every boundary these tests use: the boundary may never be after the start.
+        return ing.ingest(self.client, mf.BOARD, COLUMNS, since, until, self.raw, clock=lambda: STARTED)
 
     def test_ingestion_is_read_only_and_retains_every_raw_response(self):
         manifest = self.run_ingest()

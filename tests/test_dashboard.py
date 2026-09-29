@@ -2,14 +2,16 @@
 
 import copy
 import json
+import re
 import tempfile
 import unittest
+from html import escape
 from pathlib import Path
 
 from test_profile import NOW, dataset
 
 from atlas_commander.dashboard import build_dashboard, editor_summary, month_name
-from atlas_commander.dashboard_html import render_dashboard_html
+from atlas_commander.dashboard_html import _hero, editor_card, render_dashboard_html, workload_chips
 from atlas_commander.management import EDITOR_SLOTS, PENDING_RULES, RULE_NOT_APPROVED
 from atlas_commander.pipeline import reconstruct_cycles
 from atlas_commander.profile import build_editor_profile
@@ -17,6 +19,11 @@ from atlas_commander.profile_cli import attribution_coverage
 from atlas_commander.profile_cli import main as profile_cli
 from atlas_commander.profile_html import render_profile_html
 from atlas_commander.runtime import load_contract_version
+
+
+def text(html):
+    """Visible text of an HTML fragment (tags removed)."""
+    return re.sub(r"<[^>]+>", "", html)
 
 
 class DashboardTests(unittest.TestCase):
@@ -101,17 +108,64 @@ class DashboardTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_dashboard([self.profiles["editor-label-6"], other], NOW)
 
-    def test_html_shows_empty_states_and_embeds_profiles_escaped(self):
+    def html(self, doc=None, pages=None):
+        doc = doc or self.doc
+        return render_dashboard_html(doc, pages or {s["editor_id"]: render_profile_html(self.profiles[s["editor_id"]]) for s in doc["editors"]})
+
+    def test_html_uses_calm_empty_states_and_no_implementation_wording(self):
+        html = self.html()
+        for text in ("Not evaluated yet", "No supported signal yet", "Management insights are being calibrated.", "View profile",
+                     "Deadline data unavailable", "No issue labels recorded", "Pattern detection is not active yet.", "Trend not evaluated yet",
+                     "Client revision context", "Suggested action", "Team Pulse", "Performance History", "Data &amp; System"):
+            self.assertIn(text, html)
+        self.assertNotIn("Rule not approved yet", html)
+        for rule in PENDING_RULES.values():  # every unevaluated field keeps its reason, under Data & System
+            self.assertIn(escape(rule["reason"]), html)
+
+    def test_editor_card_headline_follows_the_fixed_display_order(self):
+        will, ahmed = (next(s for s in self.doc["editors"] if s["editor_id"] == e) for e in ("editor-label-6", "editor-label-12"))
+        self.assertEqual(_hero(will)[0], "speed")
+        self.assertIn('<bdi dir="ltr">33.3%</bdi><small>faster</small>', _hero(will)[1])
+        self.assertIn("Class A only", text(_hero(will)[1]))            # the comparison never reads as an overall speed claim
+        self.assertIn("n = 5 Editor projects", text(_hero(will)[1]))   # the sample size stays visible
+        self.assertIn('<bdi dir="ltr">33.3%</bdi><small>slower</small>', _hero(ahmed)[1])
+        bare = copy.deepcopy(ahmed)
+        bare["speed"]["compared_cohorts"] = []
+        self.assertEqual(_hero(bare)[0], "projects")              # no comparison and no classified deadline
+        bare["deadline"].update(evaluated=1, early=1, on_time=0, late=0)
+        self.assertEqual(_hero(bare)[0], "deadline")
+
+    def test_revisions_never_look_like_issues(self):
+        card = editor_card(self.will)
+        issues = card.split("Issue signals", 1)[1].split("Positive", 1)[0]
+        self.assertNotIn("Revision", issues)
+        self.assertIn('class="chip context"><b><data value="1">1</data></b> <bdi>Revisions</bdi>', card)   # neutral dashed chip, not a warning
+        self.assertNotIn("late", workload_chips(self.will["current_workload"]).lower())
+
+    def test_timeline_events_come_from_the_profile(self):
+        profile = self.profiles["editor-label-6"]
+        deliveries = [e for e in self.will["events"] if e["kind"] == "delivery"]
+        labels = [e for e in self.will["events"] if e["kind"] == "issue_label"]
+        self.assertEqual(len(deliveries), sum(1 for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]))
+        self.assertEqual(len(labels), profile["quality"]["negative"]["total_occurrences"])
+        self.assertEqual({e["deadline_result"] for e in deliveries}, {"early", "on_time", "late", None})
+
+    def test_every_evidence_link_opens_an_existing_drawer(self):
+        html = self.html()
+        opened = set(re.findall(r'data-drawer="([^"]+)"', html))
+        defined = re.findall(r'<template id="([^"]+)"', html)
+        self.assertEqual(len(defined), len(set(defined)))
+        self.assertEqual(opened - set(defined), set())
+        self.assertIn('data-drawer="p-editor-label-6-1"', html)   # a project is reachable from the timeline and the evidence list
+
+    def test_html_escapes_names_and_embeds_the_full_report_unchanged(self):
         profile = copy.deepcopy(self.profiles["editor-label-6"])
         profile["editor"]["display_name"] = "<b>Will</b>"
         doc = build_dashboard([profile], NOW)
         html = render_dashboard_html(doc, {"editor-label-6": render_profile_html(profile)})
-        self.assertNotIn("<b>Will</b></h3>", html)
+        self.assertNotIn("<h3><b>Will</b></h3>", html)
         self.assertIn("&lt;b&gt;Will&lt;/b&gt;", html)
-        for text in ("Rule not approved yet", "No signal available", "Open Editor profile", "September 2026", "context only",
-                     *(rule["label"] for rule in PENDING_RULES.values())):
-            self.assertIn(text, html)
-        blob = html.split('id="atlas-profiles">', 1)[1].split("</script>", 1)[0]
+        blob = html.split('id="atlas-reports">', 1)[1].split("</script>", 1)[0]
         self.assertEqual(json.loads(blob)["editor-label-6"], render_profile_html(profile))
 
     def test_cli_builds_every_profile_unchanged_and_the_dashboard(self):
@@ -125,7 +179,8 @@ class DashboardTests(unittest.TestCase):
             doc = json.loads((out / "dashboard.json").read_text())
             self.assertEqual([s["editor_id"] for s in doc["editors"]], ["editor-label-6", "editor-label-12"])
             self.assertEqual(doc["editors"][0]["profile_ref"], "profiles/editor-label-6.json")
-            self.assertIn("Editor team overview", (out / "dashboard.html").read_text())
+            self.assertIn("Management insights are being calibrated.", (out / "en" / "dashboard.html").read_text())
+            self.assertIn("مؤشرات الإدارة ما زالت قيد الإعداد.", (out / "ar" / "dashboard.html").read_text())
 
 
 if __name__ == "__main__":

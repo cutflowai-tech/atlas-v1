@@ -145,7 +145,7 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(profile_cli(["--contract", "1.3.0", "build", str(extract), "editor-label-6", tmp, "--generated-at", NOW]), 0)
             written = json.loads((Path(tmp) / "editor-label-6.json").read_text())
             self.assertEqual(written, self.profile)
-            self.assertIn("<h1>Will</h1>", (Path(tmp) / "editor-label-6.html").read_text())
+            self.assertIn("<h1><bdi>Will</bdi></h1>", (Path(tmp) / "editor-label-6.html").read_text())   # Monday name, direction-isolated
 
 
 if __name__ == "__main__":

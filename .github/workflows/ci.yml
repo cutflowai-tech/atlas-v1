@@ -68,7 +68,37 @@ jobs:
         run: make deadline-v12
       - name: Editor Profile tests
         run: make profile
+      - name: CEO Dashboard tests
+        run: make dashboard
       - name: Read-only ingestion tests
         run: make ingest
+      - name: Sync configuration and secrets tests
+        run: make sync-config
+      - name: Hardened Monday client tests
+        run: make monday-client
+      - name: Production ingestion run tests
+        run: make ingest-runs
+      - name: One-shot sync orchestration tests
+        run: make sync-run
+      - name: Atomic publish and rollback tests
+        run: make publish
+      - name: Production lock tests
+        run: make lock
+      - name: Arabic and English presentation tests
+        run: make i18n
+      - name: Status dashboard UI tests
+        run: make status-ui
+      - name: Sync status and data health tests
+        run: make sync-status
+      - name: Scheduled cycle tests
+        run: make scheduled-run
+      - name: Alert state tests
+        run: make alerts
+      - name: Bounded retention tests
+        run: make retention
+      - name: Production container asset tests
+        run: make production-container
+      - name: Production deployment unit tests
+        run: make production-deploy
       - name: JSON syntax
         run: make json

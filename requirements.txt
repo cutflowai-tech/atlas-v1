@@ -1,0 +1,3 @@
+# Runtime dependencies for running Atlas (ingestion, metric engine, profiles, dashboard).
+# Development and test tooling lives in requirements-dev.txt.
+jsonschema[format]>=4.23,<5

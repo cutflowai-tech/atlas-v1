@@ -16,6 +16,14 @@ make test
 
 Read [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRACTS.md](CONTRACTS.md), and [TASK_GRAPH.md](TASK_GRAPH.md) before execution. The operational runbook is [docs/SWARM.md](docs/SWARM.md), and [docs/ATLAS_V1_RULES.md](docs/ATLAS_V1_RULES.md) contains non-negotiable product rules.
 
+## Run the dashboard locally (synthetic data)
+
+```bash
+make demo
+```
+
+This builds every Editor Profile and the bilingual CEO Dashboard from synthetic, Monday-shaped data with the same builders production uses, then serves `out/demo` at <http://127.0.0.1:8000> (`/en/` and `/ar/`; `make demo DEMO_PORT=8765` if 8000 is taken). It needs no Monday token and makes no network request. `python3 -m atlas_commander.demo build --out <dir>` only writes the files. The production path (read-only sync, staged build, atomic publish, status) is `python3 -m atlas_sync`; see `docs/PRODUCTION-RUNBOOK.md`.
+
 ## Launch the first real Atlas vertical slice
 
 From this repository, dispatch exactly one mission to the existing Commander:
@@ -89,7 +97,12 @@ PYTHONPATH=src python3 -m atlas_commander.profile_cli dashboard <extract.json> o
 This writes three things:
 - `out/profiles/<editor_id>.json|.html`: the same `build_editor_profile` output as `build`, for every Editor with attributed projects;
 - `out/dashboard.json`: the dashboard document (`ceo-dashboard-v0.1`);
-- `out/dashboard.html`: a self-contained page with the team overview, a snapshot and monthly history per Editor, and each full profile embedded.
+- `out/dashboard.html`: a self-contained page with three areas:
+  - **Editor team:** management focus, Editor cards, Team Pulse timeline, context cards, performance history.
+  - **Editor profile** for each Editor: header, four metric cards, pill sections, performance timeline, evidence drawers.
+  - **Data & System:** snapshot, rules, identities, data-quality notes, attribution coverage.
+
+  Each full Editor Profile report is kept, unchanged, as the audit view.
 
 The dashboard is organised in three layers:
 - **Metric engine** (`cycles`, `metrics`, `quality`, `pipeline`): unchanged.

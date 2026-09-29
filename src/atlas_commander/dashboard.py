@@ -25,6 +25,10 @@ def month_name(month: str) -> str:
     return f"{calendar.month_name[int(number)]} {year}"
 
 
+def _item_id(cycle_id: str) -> str:
+    return cycle_id.rsplit(":", 1)[-1]
+
+
 def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
     speed = profile["speed"]
     cohorts = []
@@ -37,6 +41,9 @@ def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
             "team_median_seconds": None if alone else cohort["team_median_seconds"],
             "editor_vs_team_median_pct": None if alone else cohort["editor_vs_team_median_pct"],
             "conclusion": cohort["conclusion"], "comparison_status": cohort["comparison_status"],
+            "benchmark_eligible": cohort.get("benchmark_eligible"),
+            "team_typical_range_seconds": None if alone else cohort.get("team_typical_range_seconds"),
+            "editor_project_ids": [_item_id(cycle_id) for cycle_id in cohort.get("editor_cycle_ids") or []],
         })
     status_counts: dict[str, int] = {}
     for cohort in cohorts:
@@ -63,9 +70,37 @@ def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
             "for_bonus_context_projects": len(profile["quality"]["for_bonus_context"]["projects"])}
 
 
+PROJECT_FIELDS = ("monday_item_id", "state", "in_progress_at", "ready_for_approval_at", "duration_seconds", "cohort_key", "cohort_labels",
+                  "speed_eligible", "requested_eta", "requested_eta_issue", "requested_eta_observed_at", "deadline_result", "deadline_delta_seconds",
+                  "quality_labels", "client_revision_events", "exclusions", "flags", "evidence_event_ids",
+                  "requested_eta_changes_ignored_after_ready_for_approval")
+
+
+def _projects(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The profile's project rows (the evidence behind every figure), most recent Ready For Approval first."""
+    rows = [{key: row.get(key) for key in PROJECT_FIELDS} for row in profile["projects"]]
+    return sorted(rows, key=lambda row: (row["ready_for_approval_at"] or "", row["monday_item_id"]), reverse=True)
+
+
+def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Dated facts already in the profile: each completed project's first Ready For Approval (with its deadline result, if
+    classified) and each Monday Performance Issues label, at the time it was added. Revision events are not dated in the
+    profile, so they appear only as context on their project."""
+    events = [{"kind": "delivery", "at": row["ready_for_approval_at"], "monday_item_id": row["monday_item_id"],
+               "deadline_result": row["deadline_result"], "deadline_delta_seconds": row["deadline_delta_seconds"],
+               "cohort_labels": list(row["cohort_labels"]), "client_revision_events": row["client_revision_events"]}
+              for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]]
+    for occurrence in profile["quality"]["occurrences"]:
+        timestamps = occurrence["evidence"].get("source_timestamps") or []
+        events.append({"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
+                       "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
+    return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
+
+
 def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
     revisions = profile["revisions"]
     return {"source": "revisions", "context_only": True, "completed_projects": revisions["completed_projects"],
+            "monday_item_ids_with_client_revisions": list(revisions.get("monday_item_ids_with_client_revisions") or []),
             "projects_with_client_revisions": revisions["projects_with_client_revisions"],
             "client_revision_events": revisions["client_revision_events"], "internal_revision_events": revisions.get("internal_revision_events"),
             "note": revisions["note"]}
@@ -92,52 +127,68 @@ def _monthly(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
              "speed_by_cohort": data["speed_by_cohort"]} for month, data in sorted(months.items(), reverse=True)]  # most recent first
 
 
-def _warnings(profile: Mapping[str, Any], speed: Mapping[str, Any], deadline: Mapping[str, Any], monthly: list[dict[str, Any]]) -> list[dict[str, str]]:
-    """Data-confidence notes, each a restatement of a profile fact; none is a judgement."""
+def _warnings(profile: Mapping[str, Any], speed: Mapping[str, Any], deadline: Mapping[str, Any], monthly: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Data-confidence notes, each a restatement of a profile fact; none is a judgement.
+
+    ``params`` holds the same facts in structured form so a localized page can state them without reusing the English ``text``."""
     coverage = profile["coverage"]
     minimum = speed["minimum_editor_sample_size"]
-    warnings = []
+    warnings: list[dict[str, Any]] = []
     if minimum and coverage["completed_projects"] < minimum:
         warnings.append({"code": "SMALL_SAMPLE", "source": "coverage.completed_projects",
-                         "text": f"Only {coverage['completed_projects']} completed projects; the approved minimum for a speed conclusion is {minimum} per Video Type."})
+                         "text": f"Only {coverage['completed_projects']} completed projects; the approved minimum for a speed conclusion is {minimum} per Video Type.",
+                         "params": {"completed_projects": coverage["completed_projects"], "minimum": minimum}})
     if not speed["compared_cohorts"]:
         warnings.append({"code": "NO_SPEED_COMPARISON", "source": "speed.cohorts",
-                         "text": "No Video Type cohort allows a speed comparison with other Editors."})
+                         "text": "No Video Type cohort allows a speed comparison with other Editors.", "params": {}})
     unclassified = (deadline.get("not_classifiable_insufficient_eta_precision") or 0) + (deadline.get("not_classifiable_missing_eta") or 0)
     if unclassified:
         warnings.append({"code": "DEADLINE_NOT_CLASSIFIABLE", "source": "deadline.summary",
-                         "text": f"{unclassified} completed projects have no Requested ETA with a time and are not classified for deadline."})
+                         "text": f"{unclassified} completed projects have no Requested ETA with a time and are not classified for deadline.",
+                         "params": {"unclassified": unclassified}})
     excluded = sum(coverage["exclusions_by_reason"].values())
     if excluded:
         reasons = ", ".join(f"{reason} {count}" for reason, count in coverage["exclusions_by_reason"].items())
         warnings.append({"code": "PROJECTS_EXCLUDED", "source": "coverage.exclusions_by_reason",
-                         "text": f"{excluded} attributed projects are excluded from metrics ({reasons})."})
+                         "text": f"{excluded} attributed projects are excluded from metrics ({reasons}).",
+                         "params": {"excluded": excluded, "reasons": dict(coverage["exclusions_by_reason"])}})
     if monthly and monthly[0]["partial"]:
         warnings.append({"code": "PARTIAL_MONTH", "source": "source.retrieved_at",
-                         "text": f"{monthly[0]['month_name']} is still in progress (data retrieved {profile['source'].get('retrieved_at')})."})
+                         "text": f"{monthly[0]['month_name']} is still in progress (data retrieved {profile['source'].get('retrieved_at')}).",
+                         "params": {"month": monthly[0]["month"], "retrieved_at": profile["source"].get("retrieved_at")}})
     return warnings
 
 
 def _snapshot(speed: Mapping[str, Any], deadline: Mapping[str, Any], quality: Mapping[str, Any], workload: Mapping[str, Any],
               coverage: Mapping[str, Any], intelligence: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """The five management questions. Each answer lists only engine facts; unapproved judgements stay empty."""
+    """The five management questions. Each answer lists only engine facts; unapproved judgements stay empty.
+
+    ``facts`` are the English sentences; ``fact_data`` holds the same facts in structured form for localized pages."""
     faster = [c for c in speed["compared_cohorts"] if c["conclusion"] == "faster_than_team_median"]
     slower = [c for c in speed["compared_cohorts"] if c["conclusion"] == "slower_than_team_median"]
     labels = " + ".join
     evidence = [f"{coverage['completed_projects']} completed projects, {coverage['speed_eligible_projects']} measurable for speed.",
                 f"{deadline['evaluated']} deadlines classified: {deadline['early']} early, {deadline['on_time']} on time, {deadline['late']} late."]
-    return [
-        {"question": "What is this Editor doing well?", "judgement": intelligence["positive_signals"],
-         "facts": [f"Faster than the team median in {labels(c['labels'])} ({c['editor_sample_size']} projects)." for c in faster]},
-        {"question": "Is there anything that may need management attention?", "judgement": intelligence["needs_attention"],
+    blocks = [
+        {"key": "doing_well", "question": "What is this Editor doing well?", "judgement": intelligence["positive_signals"],
+         "facts": [f"Faster than the team median in {labels(c['labels'])} ({c['editor_sample_size']} projects)." for c in faster],
+         "fact_data": [{"code": "speed_faster", "labels": list(c["labels"]), "projects": c["editor_sample_size"]} for c in faster]},
+        {"key": "attention", "question": "Is there anything that may need management attention?", "judgement": intelligence["needs_attention"],
          "facts": [f"Slower than the team median in {labels(c['labels'])} ({c['editor_sample_size']} projects)." for c in slower]
-                  + [f"{row['occurrences']} × {row['label']} (Monday Performance Issues)." for row in quality["by_label"]]},
-        {"question": "What does the available evidence say?", "judgement": None, "facts": evidence},
-        {"question": "Is the Editor improving or declining over time?", "judgement": intelligence["trend_direction"],
-         "facts": ["Monthly figures are shown below with their sample sizes."]},
-        {"question": "Is there relevant workload context?", "judgement": intelligence["workload_capacity"],
-         "facts": [f"{count} item(s) currently {status}." for status, count in workload["by_current_status"].items()]},
+                  + [f"{row['occurrences']} × {row['label']} (Monday Performance Issues)." for row in quality["by_label"]],
+         "fact_data": [{"code": "speed_slower", "labels": list(c["labels"]), "projects": c["editor_sample_size"]} for c in slower]
+                      + [{"code": "issue_label", "label": row["label"], "occurrences": row["occurrences"]} for row in quality["by_label"]]},
+        {"key": "evidence", "question": "What does the available evidence say?", "judgement": None, "facts": evidence,
+         "fact_data": [{"code": "evidence_projects", "completed": coverage["completed_projects"], "measurable": coverage["speed_eligible_projects"]},
+                       {"code": "evidence_deadlines", "evaluated": deadline["evaluated"], "early": deadline["early"], "on_time": deadline["on_time"],
+                        "late": deadline["late"]}]},
+        {"key": "over_time", "question": "Is the Editor improving or declining over time?", "judgement": intelligence["trend_direction"],
+         "facts": ["Monthly figures are shown below with their sample sizes."], "fact_data": [{"code": "monthly_note"}]},
+        {"key": "workload", "question": "Is there relevant workload context?", "judgement": intelligence["workload_capacity"],
+         "facts": [f"{count} item(s) currently {status}." for status, count in workload["by_current_status"].items()],
+         "fact_data": [{"code": "workload", "status": status, "count": count} for status, count in workload["by_current_status"].items()]},
     ]
+    return blocks
 
 
 def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -> dict[str, Any]:
@@ -155,6 +206,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
                    "speed_eligible_projects": coverage["speed_eligible_projects"], "exclusions_by_reason": dict(coverage["exclusions_by_reason"])},
         "speed": speed, "deadline": deadline, "quality": quality, "revisions": _revisions(profile), "current_workload": workload,
         "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence,
+        "projects": _projects(profile), "events": _events(profile),
         "snapshot": _snapshot(speed, deadline, quality, workload, coverage, intelligence),
     }
 
