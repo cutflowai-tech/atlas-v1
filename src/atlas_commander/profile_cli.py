@@ -22,10 +22,11 @@ from pathlib import Path
 from typing import Any
 
 from atlas_commander import site_layout
-from atlas_commander.cycles import COMPLETED
+from atlas_commander.cycles import COMPLETED, EDITOR_CHANGED_WITHIN_CYCLE, MISSING_EDITOR_EVENT
 from atlas_commander.dashboard import build_dashboard
 from atlas_commander.dashboard_html import render_dashboard_html
 from atlas_commander.i18n import EN, Loc, locales
+from atlas_commander.identity import AMBIGUOUS_EDITOR, EDITOR_LABEL_NAME_MISMATCH, EDITOR_LABEL_NAME_UNVERIFIED, MISSING_EDITOR, UNMAPPED_EDITOR
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
@@ -38,7 +39,9 @@ def reconstruct_extract(extract: dict[str, Any], contract: dict[str, Any]) -> Cy
     return reconstruct_cycles(extract["activity"], contract, items_payload=extract.get("items"), ingestion=ingestion)
 
 
-EDITOR_EXCLUSIONS = ("UNMAPPED_EDITOR", "MISSING_EDITOR_EVENT", "MISSING_EDITOR", "AMBIGUOUS_EDITOR", "EDITOR_CHANGED_WITHIN_CYCLE")
+# Every reason a completed cycle can lack a verified Editor (identity exceptions plus the cycle-level ones).
+EDITOR_EXCLUSIONS = (UNMAPPED_EDITOR, MISSING_EDITOR_EVENT, MISSING_EDITOR, AMBIGUOUS_EDITOR, EDITOR_CHANGED_WITHIN_CYCLE,
+                     EDITOR_LABEL_NAME_MISMATCH, EDITOR_LABEL_NAME_UNVERIFIED)
 
 
 def attribution_coverage(result: CycleReconstruction) -> dict[str, Any]:
