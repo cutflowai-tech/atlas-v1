@@ -12,14 +12,16 @@ Contracts 1.0–1.4 keep their historical code paths and outputs.
 
 ## Deterministic identity result
 
-`monday-editor-v1.2` uses the exact tuple `(source_label_id, logged_name)`. The implementation has no ID-only fallback in this
+`monday-editor-v1.3` uses the exact tuple `(source_label_id, logged_name)`. The implementation has no ID-only fallback in this
 mapping mode. A new name under a known label ID returns `UNMAPPED_EDITOR`; it cannot inherit the known name's Editor mapping.
 Cycle reassignment detection uses that same tuple: two observations with the same source label ID but different logged names
 inside one work cycle add `EDITOR_CHANGED_WITHIN_CYCLE` and prevent attribution. The legacy ID-only comparison remains limited to
 older contracts whose identity mapping does not enable the strict tuple key.
 
-The seven named unresolved identities and the three earlier reused-name identities in D49 remain unmapped. No person is newly
-attested. D50 is represented exactly:
+The D49 management attestation maps Mario, Anas, Martin, Samra, Ibrahim, Amir and Refaat only over their documented UTC timestamp ranges.
+It also maps the three historical tuples to existing canonical Editors: `(5, "Ahmed") → editor-label-12`,
+`(7, "Mans") → editor-label-14`, and `(9, "Michael") → editor-label-13`. Timestamp bounds validate supporting evidence; the tuple key
+remains the primary identity key. D50 is unchanged and represented exactly:
 
 | Historical identity | Quarantine code |
 |---|---|
@@ -51,6 +53,12 @@ and observed timestamp. The raw Monday record remains the source evidence outsid
 - Extended the internal identity exception diagnostic with `logged_names`, `event_id`, and `observed_at`. This diagnostic still has
   no public persistence schema. The existing `editor-identity.schema.json` output stays unchanged for compatibility.
 - Prior `monday-contract-v1.0.json` through `v1.4.json` are unchanged and remain reproducible through the legacy identity path.
+- The v1.5 identity mapping advances to `monday-editor-v1.3`. Its mapping-record schema retains timezone-aware date-time bounds;
+  the attested entries use the exact first and last log occurrences from the verified production ingest. No older mapping or config
+  is modified.
+- Threshold governance now records D44 as the governing (not blocking) decision, with no blocking identity keys. Only the identity
+  approval, mapping update and decision record steps are complete; production distribution reruns and threshold proposals remain
+  pending, and every threshold remains `null` / `rule_not_approved`.
 - Added `contracts/editor-profile-v1.5.schema.json`. The 1.5 evidence API adds publication identity, exact Active Work and
   Awaiting Approval groups, separate Client/Internal Revision evidence, metric coverage, Cairo window metadata, factual Recent
   Change, component states, and the explicit unapproved Overall Status result.
