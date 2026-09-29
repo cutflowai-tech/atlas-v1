@@ -57,8 +57,16 @@ The category of video a project is, which defines which projects may be compared
 _Avoid_: Project type, format
 
 **Team Benchmark**:
-The typical Editor Work Time of all Editors, including the one being viewed, for one Video Type; descriptive, never a target.
+The typical Editor Work Time of Editors for one Video Type, valid only when at least one other Editor contributes; descriptive, never a target.
 _Avoid_: SLA, standard time, expected time
+
+**Active Work**:
+Projects currently needing the Editor's action: In Progress, Client Revision or Internal Revision.
+_Avoid_: Workload, load, capacity, current projects
+
+**Awaiting Approval**:
+Projects the Editor has submitted that wait on production review.
+_Avoid_: Active Work, pending, in review
 
 **Sample Size**:
 The number of projects behind a figure.
@@ -72,7 +80,7 @@ _Avoid_: Performance issue, tag, flag
 
 **Positive Label**:
 A Quality Label that records good performance.
-_Avoid_: Praise flag, bonus label
+_Avoid_: Bonus label, For Bonus (a Monday column, not a category)
 
 **Negative Label**:
 A Quality Label that records a performance problem.
@@ -82,9 +90,17 @@ _Avoid_: Issue, penalty, strike
 A Quality Label that describes circumstances and is neither good nor bad for the Editor.
 _Avoid_: Neutral issue, info label
 
-**Revision**:
-A client-requested change, recorded when a project enters Revisions; context only, never blamed on the Editor.
-_Avoid_: Rework (as fault), correction, editor mistake
+**Client Revision**:
+A change requested by the client, recorded when a project enters Revisions; context only, never blamed on the Editor.
+_Avoid_: Revision (unqualified), correction, editor mistake
+
+**Internal Revision**:
+A change requested inside Waset, recorded when a project enters Internal Revisions; context only, with no cause inferred.
+_Avoid_: Reviewer rejection, QA fail, editor mistake
+
+**Rework Time**:
+Time spent on a project after a Client or Internal Revision; context only, never part of Editor Work Time.
+_Avoid_: Revision speed, second cycle
 
 ## Interpretation
 

@@ -53,6 +53,36 @@ These decisions are confirmed but **not yet encoded**. Until contract 1.5.0 enco
 | D26 | **Three quality label classes: Positive, Negative, Context.** Negative is the seven labels of `monday-performance-issues-v1.0`. For Bonus stays Context (D10). Handoff examples (Exceptional Quality, Client Praise, On Time Delivery as Positive; Additional Revisions, High Workload as Context) join a class **only after they are verified in live Monday data**; they are never added to a contract just because the handoff names them. Context labels are shown but never scored and never count as Strengths. | Pending live schema verification and contract 1.5.0. |
 | D27 | **Lateness is scored once.** The computed Deadline component is the authoritative measure of early, on-time and late. The `Late Delivery` and `On Time Delivery` labels stay visible in the label breakdown and evidence, but are excluded from the Quality component that feeds Overall Status. | Pending contract 1.5.0. |
 
+## Confirmed by Waset management, 2026-09-29 (handoff v2 grilling, round 2) — pending contract 1.5.0
+
+Also not yet encoded; contract 1.4.0 behavior applies until contract 1.5.0. Refines D26.
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D28 | **For Bonus is a storage location, not a category. This replaces D10 from contract 1.5.0** (contracts 1.2.0–1.4.0 keep D10). Each label of the live `For Bonus` column (`dropdown_mm3tyvvc`) is classified on its own. **Positive:** `1- Exceptional Quality`, `Client Praise`, `On Time Delivery`, `Saved Rush Project` (D29). **Context:** `High Workload`, `Additional Revisions`. The Performance Issues column keeps its seven Negative labels. | Pending contract 1.5.0: per-label classes for both columns. |
+| D29 | **`Saved Rush Project` is Positive.** It is management-recorded evidence of delivery under exceptional time pressure and may feed Strengths, Recognition and positive-signal counts and rates. It never adds a separate speed or deadline bonus: one delivery is not rewarded twice across components. | Pending contract 1.5.0. |
+| D30 | **Scored vs visible quality.** The visible quality and evidence layer shows every supported Positive and Negative label, with Context labels shown separately. The scored Quality component excludes `On Time Delivery`, `Late Delivery` (D27) and every Context label. | Pending contract 1.5.0. |
+| D31 | **Revision taxonomy: Client Revision and Internal Revision.** A transition into `Revisions` is a Client Revision; a transition into `Internal Revisions` is an Internal Revision. Both are context only: neither reduces Quality or Overall Status, counts as Editor fault, or triggers a negative signal by itself having happened. No cause beyond "client" or "internal" is inferred without explicit Monday evidence. Where revision detail is shown, client and internal projects and events are shown separately; a combined "total revision activity" may be added only alongside them. | Pending contract 1.5.0. |
+| D32 | **Speed is first-pass work only (D2 reconfirmed).** Rework after a Client or Internal Revision never enters the Speed component. Where timestamps allow, client and internal rework durations may be shown as non-scoring context. | D2 unchanged; rework durations pending contract 1.5.0. |
+| D33 | **Current Work.** *Active Work* is projects currently in `In Progress`, `Revisions` or `Internal Revisions`. *Awaiting Approval* is projects in `Ready For Approval`, counted separately because the next action belongs to production review. Not counted: `Waiting`, `Create File`, every Captions status, `TOPAZ`, `Ready To Send`, `Sent`, `Done`. Counts drill down by status. No `Under Pressure`, `High Load` or similar label comes from these counts without a separately approved capacity rule. Resolves open decision 5. | Pending contract 1.5.0. |
+| D34 | **Handoff status names are concepts, not Monday strings.** See *Live status mapping* below. The aliases document the workflow only: historical events are never rewritten, missing transitions are never invented, and no metric depends on an alias. Editor performance logic uses the exact live statuses `In Progress`, `Ready For Approval`, `Revisions` and `Internal Revisions`. Resolves open decision 4. | Documentation only. |
+| D35 | **A team comparison needs at least one other eligible Editor.** If the Video Type has no eligible Editor other than the one being viewed, Atlas shows "No valid team benchmark available" and never "faster", "slower" or "similar". This promotes the engineering default to a management decision. The minimum comparator sample for a strong conclusion belongs to the threshold round. Whether the viewed Editor is also removed from the benchmark (reversing D7) is **still open**. | Existing `no_other_editors_in_cohort` / `not_comparable` behavior. |
+
+### Live status mapping
+
+Monday board `5091110326`, `Status` column (`project_status`), verified 2026-09-29.
+
+| Handoff concept | Live Monday status(es) | Used by metrics? |
+|---|---|---|
+| Ready to Edit | `Create File` and the pre-In Progress workflow (`Waiting`) | No |
+| In Progress | `In Progress` | Yes (work start) |
+| Ready For Approval | `Ready For Approval` | Yes (work end, deadline) |
+| Revisions (client revision) | `Revisions` | Context only |
+| (not in handoff) internal revision | `Internal Revisions` | Context only |
+| Approved / Sent / Delivered | `Ready To Send`, `Sent`, `Done` | No |
+| (not in handoff) captions workflow | `Captions In Progress`, `Captions Revisions`, `Waiting For Captions`, `Captions Done` | No |
+| (not in handoff) | `TOPAZ` | No |
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -62,6 +92,7 @@ These decisions are confirmed but **not yet encoded**. Until contract 1.5.0 enco
   - Aliases bind to Monday's status label index.
   - Indexes that Monday reused for a different label (8, 10, 12, 14) are not aliased.
 - **Quality registry `monday-performance-issues-v1.0`:** the seven live Performance Issues labels, resolved by ID. Former names of IDs 3, 4, 5 and 7 (without the numeric prefix) are accepted only together with the same ID. The rule is 1 occurrence = 1 point, with no severity weights.
+- **For Bonus column (verified 2026-09-29):** `dropdown_mm3tyvvc` holds `1- Exceptional Quality` (1), `Saved Rush Project` (3), `Client Praise` (4), `On Time Delivery` (5), `High Workload` (6) and `Additional Revisions` (7), all active. Every Positive and Context label named in `docs/HANDOFF-V2.md` §9 exists here; none is in Performance Issues.
 - **Creation values:** `create_pulse.column_values_json` records the value an item was created with, with a real Monday timestamp.
 
 ## Engineering defaults (still open; not management decisions)
@@ -81,8 +112,8 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 1. **Editor identities:** Mario (4), Ibrahim (9), Samra (8), Amir (10), Anas (5), Martin (7) and Refaat (11) cannot be verified from Monday. See `docs/evidence/REAL-002-VALIDATION.md` for the identity evidence and the label-reuse history.
 2. **Unclassified Video Type labels** that appear in real cohorts: `Unbranded` (26) and `Reels Boost Pack` (22). Other unclassified labels do not yet appear in eligible cycles.
 3. **Retired statuses:** what did `Uploading`, `Editing Now`, `Ready For Review`, `Coloring`, `Downloaded`, `Downloading`, `For Social Media`, `Captions` and `Not Started` mean? The answer needs authoritative evidence, such as a documented workflow or a management attestation. They exclude 120 completed cycles.
-4. **Conceptual status aliases:** is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.
-5. **Active workload statuses:** which current statuses count as an Editor's active work. Until this is decided, the profile lists current items by status without totals or judgement.
+4. **Resolved by D34.** Conceptual status aliases: is `Create File` the "Ready to Edit" status, and is `Ready To Send` / `Done` "Approved / Delivered"? These are context only; no metric depends on them.
+5. **Resolved by D33.** Active workload statuses: which current statuses count as an Editor's active work. Until this is decided, the profile lists current items by status without totals or judgement.
 6. **Resolved by D19 (contract 1.4.0).** Requested ETA reset at Revisions (formerly blocked the deadline section). Evidence is in `docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md` section 5.
    - When a project enters `Revisions`, the shared account sets Requested ETA to the change time + 24 h. This affected 82 of 142 classified projects.
    - D1 (latest ETA, even after RFA) therefore shows 98 early / 44 late, against 24 early / 118 late using the ETA in effect at Ready For Approval.
