@@ -1,4 +1,4 @@
-"""Local Docker demo for the deterministic Atlas dashboard pipeline.
+"""Local demo of the deterministic Atlas dashboard pipeline (no Docker, no Monday access).
 
 The generated source data is synthetic and deliberately shaped like Monday activity logs.
 It exercises identity resolution, work-cycle reconstruction, Video Type benchmarking,
