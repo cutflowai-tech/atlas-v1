@@ -86,5 +86,17 @@ jobs:
         run: make lock
       - name: Arabic and English presentation tests
         run: make i18n
+      - name: Status dashboard UI tests
+        run: make status-ui
+      - name: Sync status and data health tests
+        run: make sync-status
+      - name: Scheduled cycle tests
+        run: make scheduled-run
+      - name: Alert state tests
+        run: make alerts
+      - name: Production container asset tests
+        run: make production-container
+      - name: Production deployment unit tests
+        run: make production-deploy
       - name: JSON syntax
         run: make json
