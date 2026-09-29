@@ -112,6 +112,40 @@ def _source(section: Mapping[str, Any], fallback: QualityLabelSource, default_cl
 
 def _configured_sources(section: Mapping[str, Any], primary: QualityLabelSource) -> list[QualityLabelSource]:
     """Read common v1.5 config shapes while requiring explicit IDs and classes."""
+    registries = section.get("registries")
+    if isinstance(registries, Mapping):
+        grouped: dict[str, dict[str, Any]] = {}
+        for class_name in ("positive", "negative", "context"):
+            entries = registries.get(class_name)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, Mapping):
+                    continue
+                column_id = str(entry.get("column_id") or "")
+                label_id = str(entry.get("source_label_id") or "")
+                label = entry.get("label")
+                if not column_id or not label_id or not isinstance(label, str) or not label:
+                    raise ValueError("quality registry entries require column_id, source_label_id and label")
+                group = grouped.setdefault(column_id, {"labels": {}, "classes": {}})
+                if label_id in group["labels"]:
+                    raise ValueError(f"duplicate quality label key {(column_id, label_id)!r}")
+                group["labels"][label_id] = label
+                group["classes"][label_id] = class_name.title()
+        if grouped:
+            registry_sources = []
+            for column_id, values in sorted(grouped.items()):
+                is_primary = column_id == primary.column_id
+                registry_sources.append(QualityLabelSource(
+                    column_id,
+                    primary.mapping_version if is_primary else str(section.get("mapping_version")),
+                    values["labels"],
+                    primary.historical_names if is_primary else {},
+                    values["classes"],
+                ))
+            if not any(source.column_id == primary.column_id for source in registry_sources):
+                registry_sources.insert(0, primary)
+            return registry_sources
     configured = section.get("columns") or section.get("label_sources")
     sources: list[QualityLabelSource] = []
     if isinstance(configured, Mapping):

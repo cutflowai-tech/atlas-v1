@@ -50,7 +50,10 @@ def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
         status_counts[cohort["comparison_status"]] = status_counts.get(cohort["comparison_status"], 0) + 1
     return {"source": "speed.cohorts", "benchmark_statistic": speed["benchmark_statistic"],
             "minimum_editor_sample_size": speed["minimum_editor_sample_size"], "cohorts": cohorts,
-            "compared_cohorts": [c for c in cohorts if c["conclusion"] in COMPARED], "comparison_status_counts": status_counts}
+            "compared_cohorts": [c for c in cohorts if c["conclusion"] in COMPARED], "comparison_status_counts": status_counts,
+            **({"leave_one_out": speed.get("leave_one_out"),
+                "minimum_comparator_sample_size": speed.get("minimum_comparator_sample_size"),
+                "component": speed.get("component")} if "leave_one_out" in speed else {})}
 
 
 def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:

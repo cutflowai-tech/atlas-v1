@@ -102,11 +102,15 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                     f"<td class=\"{escape(conclusion)}\">{t('conclusion.' + conclusion)}<br>"
                     f"<span class=\"sub\">{t('status.' + cohort['comparison_status'])}</span></td></tr>")
     empty = f"<tr><td colspan=6>{t('speed.no_measurable')}</td></tr>"
+    speed_note = (t("common.not_evaluated") if speed.get("minimum_editor_sample_size") is None
+                  else t("report.speed_note", stat=t("stat." + speed["benchmark_statistic"]),
+                         min=loc.num(speed["minimum_editor_sample_size"]),
+                         min_projects=loc.count("noun.project", speed["minimum_editor_sample_size"])))
     parts.append(f"<section class=\"card\"><h2>{t('report.speed_title')}</h2><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.cohort')}</th>"
                  f"<th scope=col>{t('common.editor_median')}</th><th scope=col>{t('common.team_median')}</th><th scope=col>{t('report.head.difference')}</th>"
                  f"<th scope=col>{t('report.head.typical_range')}</th><th scope=col>{t('report.head.conclusion')}</th></tr></thead>"
                  f"<tbody>{''.join(rows) or empty}</tbody></table></div>"
-                 f"<p class=\"note\">{t('report.speed_note', stat=t('stat.' + speed['benchmark_statistic']), min=loc.num(speed['minimum_editor_sample_size']), min_projects=loc.count('noun.project', speed['minimum_editor_sample_size']))}</p></section>")
+                 f"<p class=\"note\">{speed_note}</p></section>")
 
     parts.append(f"<section class=\"card\"><h2>{t('deadline.panel_title')}</h2><div class=\"tiles\">"
                  f"<div class=\"tile\"><b class=\"early\">{loc.num(summary['early'])}</b><span>{t('report.tile.early_rate', pct=loc.pct(summary.get('early_rate')))}</span></div>"

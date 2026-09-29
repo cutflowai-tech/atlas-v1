@@ -19,7 +19,10 @@ from atlas_commander.identity import (
     IdentityMapping,
     resolve_editor,
 )
-from atlas_commander.pipeline import reconstruct_cycles
+from atlas_commander.intelligence import quality_rates
+from atlas_commander.pipeline import reconstruct_cycles, reconstruct_quality
+from atlas_commander.profile import build_editor_profile
+from atlas_commander.profile_cli import build_all
 from atlas_commander.runtime import (
     ACTIVE_CONTRACT_VERSION,
     ContractConfigError,
@@ -199,6 +202,49 @@ class ContractV15IdentityTests(unittest.TestCase):
                        for entry in self.contract["editor_attribution"]["quarantine_reasons"]}
         self.assertFalse(mapped & unresolved)
         self.assertFalse(mapped & quarantined)
+
+
+class ContractV15IntegratedRuntimeTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.contract = load_contract_version("1.5.0")
+
+    def test_real_contract_parses_for_bonus_registry_and_scores_only_quality_labels(self):
+        logs = [
+            mf.editor("editor", "1", "2026-09-28T08:00:00Z", [6], ["Will"]),
+            mf.video_type("video", "1", "2026-09-28T08:01:00Z", [4]),
+            mf.status("start", "1", "2026-09-28T09:00:00Z", "Create File", "In Progress"),
+            mf.status("end", "1", "2026-09-28T11:00:00Z", "In Progress", "Ready For Approval"),
+            mf.dropdown("bonus", "1", "dropdown_mm3tyvvc", "2026-09-28T11:01:00Z", [1, 5, 6],
+                        ["1- Exceptional Quality", "On Time Delivery", "High Workload"]),
+        ]
+        reconstruction = reconstruct_cycles(mf.payload(*logs), self.contract, ingestion={"retrieved_at": "2026-09-29T12:00:00Z"})
+        quality = reconstruct_quality(reconstruction, self.contract, "2026-09-29T12:00:00Z")
+        observed = {(row["performance_label"], row["evidence"]["source_values"]["label_class"])
+                    for row in quality.occurrences}
+        self.assertEqual(observed, {("1- Exceptional Quality", "Positive"), ("On Time Delivery", "Positive"),
+                                    ("High Workload", "Context")})
+        facts = quality_rates("editor-label-6", quality.occurrences, reconstruction.cycles)
+        self.assertEqual((facts["positive_count"], facts["negative_count"]), (1, 0))
+        self.assertEqual({row["label"] for row in facts["scoring_exclusions"]}, {"On Time Delivery", "High Workload"})
+
+    def test_actual_v15_contract_builds_one_shared_bilingual_publication(self):
+        from test_profile import NOW, dataset
+
+        activity, items = dataset()
+        reconstruction = reconstruct_cycles(activity, self.contract, items_payload=items, ingestion={"retrieved_at": NOW})
+        profile = build_editor_profile(reconstruction, self.contract, "editor-label-6", NOW)
+        self.assertEqual(profile["overall"]["status"], "Not enough approved logic to classify")
+        self.assertTrue(profile["speed"]["leave_one_out"])
+        self.assertEqual(profile["trend"]["window"]["timezone"], "Africa/Cairo")
+        self.assertEqual(profile["quality"]["component"]["state"], "Not classifiable")
+        with tempfile.TemporaryDirectory() as directory:
+            dashboard = build_all(reconstruction, self.contract, Path(directory), NOW)
+            publication = dashboard["publication"]
+            self.assertEqual({(row["release_id"], row["snapshot_id"]) for row in publication["routes"].values()},
+                             {(publication["release_id"], publication["snapshot_id"])})
+            self.assertTrue((Path(directory) / "en" / "dashboard.html").is_file())
+            self.assertTrue((Path(directory) / "ar" / "dashboard.html").is_file())
 
 
 if __name__ == "__main__":

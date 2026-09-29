@@ -734,7 +734,11 @@ def _speed_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
             (loc.t("common.editor_median"), loc.t("speed.editor_value", median=loc.hours(c["editor_median_seconds"]), n=loc.num(c["editor_sample_size"]))),
             (loc.t("common.team_median"), team),
             (loc.t("common.result"), _verdict(c, loc)), (loc.t("common.why"), _status(c["comparison_status"], loc))]))
-    intro = f'<p>{loc.t("speed.drawer_intro", stat=loc.t("stat." + speed["benchmark_statistic"]), min=loc.num(speed["minimum_editor_sample_size"]), min_projects=loc.count("noun.project", speed["minimum_editor_sample_size"]))}</p>'
+    minimum = speed.get("minimum_editor_sample_size")
+    intro_text = (loc.t("common.not_evaluated") if minimum is None
+                  else loc.t("speed.drawer_intro", stat=loc.t("stat." + speed["benchmark_statistic"]),
+                             min=loc.num(minimum), min_projects=loc.count("noun.project", minimum)))
+    intro = f"<p>{intro_text}</p>"
     return template(f"speed-{s['editor_id']}", loc.text("speed.drawer_title", name=s["display_name"]),
                     intro + ("".join(rows) or f'<p class="quiet">{loc.t("speed.no_measurable")}</p>'))
 
@@ -1096,9 +1100,11 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
     first = doc["editors"][0] if doc["editors"] else None
     approved = ""
     if first:
-        rules = [("common.speed", loc.t("system.rule.speed", stat=loc.t("stat." + first["speed"]["benchmark_statistic"]),
-                                         min=loc.num(first["speed"]["minimum_editor_sample_size"]),
-                                         min_projects=loc.count("noun.project", first["speed"]["minimum_editor_sample_size"]))),
+        speed_minimum = first["speed"].get("minimum_editor_sample_size")
+        speed_rule = (loc.t("common.not_evaluated") if speed_minimum is None
+                      else loc.t("system.rule.speed", stat=loc.t("stat." + first["speed"]["benchmark_statistic"]),
+                                 min=loc.num(speed_minimum), min_projects=loc.count("noun.project", speed_minimum)))
+        rules = [("common.speed", speed_rule),
                  ("common.deadlines", loc.t("system.rule.deadlines", rule=loc.tech(first["deadline"]["rule_version"]))),
                  ("common.quality", loc.t("system.rule.quality")), ("common.revisions", loc.t("system.rule.revisions"))]
         approved = "<ul>" + "".join(f"<li><b>{loc.t(name)}</b> — {text}</li>" for name, text in rules) + "</ul>"

@@ -6,9 +6,9 @@ This change adds the immutable `config/monday-contract-v1.5.json` candidate and 
 without activating 1.5 for production or changing prior contract files. `ACTIVE_CONTRACT_VERSION` remains `1.4.0`; activation is
 an integration decision after the separate metric/profile/UI seams are composed and tested.
 
-No metric output is recalculated by this atomic change. Contract assertions instead verify the configuration inputs that later
-metric engines must consume: Cairo windows, label classes, leave-one-out populations, non-scoring revision/current-work semantics,
-evidence/coverage requirements, and explicit unapproved-threshold states.
+The integrated 1.5 runtime consumes this contract for Cairo-windowed component facts, per-label quality parsing, leave-one-out
+comparators, non-scoring revision/current-work semantics, evidence/coverage output, and explicit unapproved-threshold states.
+Contracts 1.0–1.4 keep their historical code paths and outputs.
 
 ## Deterministic identity result
 
@@ -48,11 +48,18 @@ and observed timestamp. The raw Monday record remains the source evidence outsid
 - Extended the internal identity exception diagnostic with `logged_names`, `event_id`, and `observed_at`. This diagnostic still has
   no public persistence schema. The existing `editor-identity.schema.json` output stays unchanged for compatibility.
 - Prior `monday-contract-v1.0.json` through `v1.4.json` are unchanged and remain reproducible through the legacy identity path.
+- Added `contracts/editor-profile-v1.5.schema.json`. The 1.5 evidence API adds publication identity, exact Active Work and
+  Awaiting Approval groups, separate Client/Internal Revision evidence, metric coverage, Cairo window metadata, factual Recent
+  Change, component states, and the explicit unapproved Overall Status result.
+- The shared 1.5 profile is rendered into Arabic and English without recalculating business logic. Each route embeds the same
+  release and snapshot identifiers; build and publish validation reject disagreement.
 
 ## Verification
 
-Focused deterministic tests are in `tests/test_contract_v15.py`; legacy identity and runtime contract tests are also run to prove
-backward compatibility.
+Focused deterministic tests are in `tests/test_contract_v15.py`, `tests/test_intelligence_v15.py`, and
+`tests/test_profile_publication_v15.py`; legacy identity, runtime, profile, dashboard, publication, and localization tests are also
+run to prove backward compatibility.
 
-- `make contract-v15 identity runtime profile lint typecheck json`: passed.
+- The actual `monday-contract-v1.5.json` is exercised end to end through cycle reconstruction, For Bonus parsing, Editor Profile,
+  bilingual site generation, and publication parity—not only through synthetic configuration copies.
 - `make test`: passed (exit 0); three Docker-daemon-gated runtime tests were skipped by the repository's existing opt-in guard.

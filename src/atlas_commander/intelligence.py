@@ -83,6 +83,51 @@ class IntelligencePolicy:
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> IntelligencePolicy:
+        # Contract 1.5's canonical executable shape keeps factual rules beside their
+        # source metric and interpretation thresholds under ``interpretation``.
+        # Translate that shape explicitly; no missing value receives a default
+        # classification threshold.
+        if str(contract.get("contract_version")) == "1.5.0" and isinstance(contract.get("time_windows"), Mapping):
+            windows_value = contract.get("time_windows")
+            assert isinstance(windows_value, Mapping)
+            windows: Mapping[str, Any] = windows_value
+            current_window_value = windows.get("current_window")
+            current_window: Mapping[str, Any] = current_window_value if isinstance(current_window_value, Mapping) else {}
+            days = current_window.get("completed_days")
+            if isinstance(days, bool) or not isinstance(days, int) or days < 1:
+                raise ValueError("contract 1.5 current-window completed_days must be a positive integer")
+            if windows.get("timezone") != "Africa/Cairo":
+                raise ValueError("contract 1.5 evaluation windows must use Africa/Cairo")
+            interpretation_value = contract.get("interpretation")
+            interpretation: Mapping[str, Any] = interpretation_value if isinstance(interpretation_value, Mapping) else {}
+            quality = interpretation.get("quality_component") if isinstance(interpretation.get("quality_component"), Mapping) else None
+            speed_root_value = contract.get("speed_benchmark")
+            speed_root: Mapping[str, Any] = speed_root_value if isinstance(speed_root_value, Mapping) else {}
+            speed_component_value = speed_root.get("component")
+            speed_component_rule: Mapping[str, Any] = speed_component_value if isinstance(speed_component_value, Mapping) else {}
+            speed = {**speed_root, **speed_component_rule}
+            deadline_root_value = contract.get("deadline")
+            deadline_root: Mapping[str, Any] = deadline_root_value if isinstance(deadline_root_value, Mapping) else {}
+            deadline = deadline_root.get("component") if isinstance(deadline_root.get("component"), Mapping) else None
+            overall = interpretation.get("overall_status") if isinstance(interpretation.get("overall_status"), Mapping) else None
+            trend = interpretation.get("trend") if isinstance(interpretation.get("trend"), Mapping) else None
+            versions_value = contract.get("rule_versions")
+            versions: Mapping[str, Any] = versions_value if isinstance(versions_value, Mapping) else {}
+
+            def versioned(rule: Mapping[str, Any] | None, key: str) -> Mapping[str, Any] | None:
+                if rule is None:
+                    return None
+                return {"rule_version": versions.get(key), **rule}
+
+            return cls(
+                days,
+                str(windows.get("rule_version") or versions.get("windowing") or "cairo-completed-days-v1.0"),
+                versioned(quality, "quality_component"),
+                versioned(speed, "speed_component"),
+                versioned(deadline, "deadline_component"),
+                versioned(overall, "overall_status"),
+                versioned(trend, "trend"),
+            )
         intelligence = contract.get("editor_intelligence")
         root: Mapping[str, Any] = intelligence if isinstance(intelligence, Mapping) else contract
         components = root.get("components") or root.get("component_rules")
@@ -147,7 +192,10 @@ def evaluation_cohort(cycles: Iterable[CycleRecord], as_of: str | datetime, days
             reasons.append("cycle_not_completed")
         if cycle.editor_id is None:
             reasons.append("editor_unresolved")
-        metric_only = {reason for reason in cycle.exclusions if "VIDEO_TYPE" in reason}
+        metric_only = {
+            reason for reason in cycle.exclusions
+            if "VIDEO_TYPE" in reason or "REQUESTED_ETA" in reason or reason.startswith("MISSING_ETA")
+        }
         reasons.extend(reason for reason in cycle.exclusions if reason not in metric_only)
         if metric_only:
             data_quality_flags.append({"cycle_id": cycle.cycle_id, "monday_item_id": cycle.monday_item_id,
