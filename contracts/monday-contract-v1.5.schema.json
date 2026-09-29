@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/monday-contract-v1.5.schema.json",
+  "title": "MondayContractV1_5",
+  "type": "object",
+  "required": [
+    "$schema",
+    "$id",
+    "contract_version",
+    "authority",
+    "rule_versions",
+    "editor_attribution",
+    "quality_labels",
+    "deadline",
+    "speed_benchmark",
+    "time_windows",
+    "interpretation",
+    "threshold_governance",
+    "revision_context",
+    "active_work",
+    "evidence_requirements",
+    "coverage_requirements"
+  ],
+  "properties": {
+    "$schema": {"const": "https://atlas.local/contracts/monday-contract-v1.5.schema.json"},
+    "$id": {"const": "https://atlas.local/config/monday-contract-v1.5.json"},
+    "contract_version": {"const": "1.5.0"},
+    "authority": {
+      "type": "object",
+      "required": ["product_specification", "decision_log", "settled_decisions", "threshold_approver", "threshold_approval_rule"],
+      "properties": {
+        "product_specification": {"const": "docs/HANDOFF-V2.md"},
+        "decision_log": {"const": "docs/DECISIONS.md"},
+        "settled_decisions": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 31,
+          "items": {"type": "string", "pattern": "^D([2-4][0-9]|50)$"}
+        },
+        "threshold_approver": {"type": "string", "minLength": 1},
+        "threshold_approval_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "rule_versions": {
+      "type": "object",
+      "required": ["windowing", "identity", "quality_labels", "quality_component", "speed_benchmark", "speed_component", "deadline_fact", "deadline_component", "overall_status", "recent_change", "trend", "revision_context", "active_work", "evidence", "coverage"],
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "editor_attribution": {
+      "type": "object",
+      "required": ["mapping_version", "identity_key", "new_name_policy", "entries", "named_unresolved_identities", "quarantine_reasons"],
+      "properties": {
+        "mapping_version": {"const": "monday-editor-v1.2"},
+        "identity_key": {"const": ["source_label_id", "logged_name"]},
+        "new_name_policy": {"const": "unresolved-never-inherit-a-mapping-from-the-source-label-id"},
+        "entries": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity_mapping_record"}
+        },
+        "named_unresolved_identities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_label_id", "logged_name", "reason"],
+            "properties": {
+              "source_label_id": {"type": "string", "minLength": 1},
+              "logged_name": {"type": "string", "minLength": 1},
+              "reason": {"const": "UNMAPPED_EDITOR"}
+            }
+          }
+        },
+        "quarantine_reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source_label_id", "logged_name", "code", "decision_id"],
+            "properties": {
+              "source_label_id": {"type": "string", "minLength": 1},
+              "logged_name": {"type": "string", "minLength": 1},
+              "code": {"enum": ["invalid_identity_value", "unresolved_historical_identity"]},
+              "decision_id": {"const": "D50"}
+            }
+          }
+        }
+      }
+    },
+    "quality_labels": {
+      "type": "object",
+      "required": ["mapping_version", "rule_version", "registries", "deadline_deduplication", "for_bonus"],
+      "properties": {
+        "mapping_version": {"const": "monday-quality-labels-v1.0"},
+        "registries": {
+          "type": "object",
+          "required": ["positive", "negative", "context"],
+          "properties": {
+            "positive": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}},
+            "negative": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}},
+            "context": {"type": "array", "items": {"$ref": "#/$defs/quality_label"}}
+          }
+        },
+        "for_bonus": {
+          "type": "object",
+          "required": ["column_id", "classification"],
+          "properties": {
+            "column_id": {"const": "dropdown_mm3tyvvc"},
+            "classification": {"const": "per-label-registry"}
+          }
+        }
+      }
+    },
+    "deadline": {
+      "type": "object",
+      "required": ["rule_version", "on_time_tolerance_seconds", "component"],
+      "properties": {
+        "on_time_tolerance_seconds": {"const": 0},
+        "component": {
+          "type": "object",
+          "required": ["team_population", "fallback_to_absolute_threshold", "better_band", "similar_band", "worse_band", "minimum_editor_sample_size", "minimum_comparator_sample_size", "threshold_status"],
+          "properties": {
+            "team_population": {"const": "other-eligible-editors-only-same-window"},
+            "fallback_to_absolute_threshold": {"const": false},
+            "better_band": {"type": "null"},
+            "similar_band": {"type": "null"},
+            "worse_band": {"type": "null"},
+            "minimum_editor_sample_size": {"type": "null"},
+            "minimum_comparator_sample_size": {"type": "null"},
+            "threshold_status": {"const": "rule_not_approved"}
+          }
+        }
+      }
+    },
+    "speed_benchmark": {
+      "type": "object",
+      "required": ["rule_version", "minimum_editor_sample_size", "minimum_editor_sample_size_status", "leave_one_out", "minimum_comparator_sample_size", "minimum_comparator_sample_size_status", "component"],
+      "properties": {
+        "leave_one_out": {"const": true},
+        "minimum_editor_sample_size": {"type": "null"},
+        "minimum_editor_sample_size_status": {"const": "rule_not_approved"},
+        "minimum_comparator_sample_size": {"type": "null"},
+        "minimum_comparator_sample_size_status": {"const": "rule_not_approved"},
+        "component": {
+          "type": "object",
+          "required": ["faster_band", "similar_band", "slower_band", "band_status"],
+          "properties": {
+            "faster_band": {"type": "null"},
+            "similar_band": {"type": "null"},
+            "slower_band": {"type": "null"},
+            "band_status": {"const": "rule_not_approved"}
+          }
+        }
+      }
+    },
+    "time_windows": {
+      "type": "object",
+      "required": ["timezone", "current_window", "comparison_window", "monthly_history_timezone", "project_anchor"],
+      "properties": {
+        "timezone": {"const": "Africa/Cairo"},
+        "monthly_history_timezone": {"const": "Africa/Cairo"},
+        "current_window": {
+          "type": "object",
+          "required": ["completed_days", "exclude_current_local_day"],
+          "properties": {"completed_days": {"const": 30}, "exclude_current_local_day": {"const": true}}
+        },
+        "comparison_window": {
+          "type": "object",
+          "required": ["completed_days", "immediately_precedes_current"],
+          "properties": {"completed_days": {"const": 30}, "immediately_precedes_current": {"const": true}}
+        }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "required": ["overall_status", "quality_component", "trend", "strengths", "attention_areas", "recognition", "needs_attention_now", "insufficient_evidence"],
+      "properties": {
+        "overall_status": {"$ref": "#/$defs/unapproved_overall_status"},
+        "quality_component": {
+          "type": "object",
+          "required": ["negative_rate_threshold", "positive_rate_threshold", "minimum_project_sample_size", "threshold_status"],
+          "properties": {
+            "negative_rate_threshold": {"type": "null"},
+            "positive_rate_threshold": {"type": "null"},
+            "minimum_project_sample_size": {"type": "null"},
+            "threshold_status": {"const": "rule_not_approved"}
+          }
+        },
+        "trend": {
+          "type": "object",
+          "required": ["minimum_sample_size", "material_change_threshold", "threshold_status"],
+          "properties": {
+            "minimum_sample_size": {"type": "null"},
+            "material_change_threshold": {"type": "null"},
+            "threshold_status": {"const": "rule_not_approved"}
+          }
+        },
+        "strengths": {"$ref": "#/$defs/unapproved_threshold_set"},
+        "attention_areas": {"$ref": "#/$defs/unapproved_threshold_set"}
+      }
+    },
+    "threshold_governance": {
+      "type": "object",
+      "required": ["status", "blocking_decision", "blocking_identity_keys", "required_order", "pre_resolution_calibration_approved", "unresolved_projects_enter_calibration"],
+      "properties": {
+        "status": {"const": "blocked_unresolved_identities"},
+        "blocking_decision": {"const": "D44"},
+        "blocking_identity_keys": {"type": "array", "minItems": 7, "maxItems": 7, "uniqueItems": true},
+        "pre_resolution_calibration_approved": {"const": false},
+        "unresolved_projects_enter_calibration": {"const": false}
+      }
+    },
+    "revision_context": {
+      "type": "object",
+      "required": ["scored", "affects_overall_status", "automatic_quality_penalty"],
+      "properties": {
+        "scored": {"const": false},
+        "affects_overall_status": {"const": false},
+        "automatic_quality_penalty": {"const": false}
+      }
+    },
+    "active_work": {
+      "type": "object",
+      "required": ["active_statuses", "awaiting_approval_statuses", "excluded_statuses", "capacity_threshold", "capacity_rule_status", "pressure_label"],
+      "properties": {
+        "active_statuses": {"const": ["In Progress", "Revisions", "Internal Revisions"]},
+        "awaiting_approval_statuses": {"const": ["Ready For Approval"]},
+        "capacity_threshold": {"type": "null"},
+        "capacity_rule_status": {"const": "rule_not_approved"},
+        "pressure_label": {"type": "null"}
+      }
+    },
+    "evidence_requirements": {
+      "type": "object",
+      "required": ["required_fields", "non_empty", "conclusions_link_to_supporting_evidence", "raw_identity_evidence_retained_on_quarantine", "ai_source_of_truth"],
+      "properties": {
+        "required_fields": {"type": "array", "minItems": 8, "uniqueItems": true, "items": {"type": "string"}},
+        "non_empty": {"const": true},
+        "conclusions_link_to_supporting_evidence": {"const": true},
+        "raw_identity_evidence_retained_on_quarantine": {"const": true},
+        "ai_source_of_truth": {"const": false}
+      }
+    },
+    "coverage_requirements": {
+      "type": "object",
+      "required": ["show_sample_sizes", "show_included_and_excluded_counts", "show_exclusion_reasons", "show_missing_or_invalid_record_counts", "show_source_history_coverage", "show_component_classifiability_reasons", "unresolved_identities_visible_in_diagnostics", "unresolved_identities_enter_calibration"],
+      "properties": {
+        "unresolved_identities_visible_in_diagnostics": {"const": true},
+        "unresolved_identities_enter_calibration": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "identity_mapping_record": {
+      "type": "object",
+      "required": ["source_label_id", "logged_name", "editor_id", "canonical_editor_name", "role", "first_observed_at", "last_observed_at", "attestation_source", "decision_id"],
+      "properties": {
+        "source_label_id": {"type": "string", "minLength": 1},
+        "logged_name": {"type": "string", "minLength": 1},
+        "editor_id": {"type": "string", "minLength": 1},
+        "canonical_editor_name": {"type": "string", "minLength": 1},
+        "role": {"const": "editor"},
+        "first_observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "last_observed_at": {"type": ["string", "null"], "format": "date-time"},
+        "attestation_source": {"type": "string", "minLength": 1},
+        "decision_id": {"type": "string", "pattern": "^D[0-9]+$"}
+      }
+    },
+    "quality_label": {
+      "type": "object",
+      "required": ["column_id", "source_label_id", "label", "visible", "scored_quality"],
+      "properties": {
+        "column_id": {"enum": ["dropdown_mm3tyk8g", "dropdown_mm3tyvvc"]},
+        "source_label_id": {"type": "string", "minLength": 1},
+        "label": {"type": "string", "minLength": 1},
+        "visible": {"const": true},
+        "scored_quality": {"type": "boolean"}
+      }
+    },
+    "unapproved_overall_status": {
+      "type": "object",
+      "required": ["lookup_table", "threshold_status", "weighted_composite"],
+      "properties": {
+        "lookup_table": {"type": "null"},
+        "threshold_status": {"const": "rule_not_approved"},
+        "weighted_composite": {"const": false}
+      }
+    },
+    "unapproved_threshold_set": {
+      "type": "object",
+      "required": ["thresholds", "threshold_status"],
+      "properties": {
+        "thresholds": {"type": "null"},
+        "threshold_status": {"const": "rule_not_approved"}
+      }
+    }
+  }
+}

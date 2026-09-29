@@ -70,11 +70,13 @@ def _current_editor(snapshot: Mapping[str, Any] | None, policy: CyclePolicy) -> 
     ids = dropdown_value_ids((snapshot or {}).get("value"))
     if len(ids) != 1:
         return None
-    candidates = policy.identity.candidates(ids[0])
+    names = [name.strip() for name in str((snapshot or {}).get("text") or "").split(",") if name.strip()]
+    if policy.identity.strict_name_key and len(names) != 1:
+        return None
+    candidates = policy.identity.candidates(ids[0], names[0] if policy.identity.strict_name_key else None)
     if len(candidates) != 1:
         return None
     entry = candidates[0]
-    names = [name.strip() for name in str((snapshot or {}).get("text") or "").split(",") if name.strip()]
     if entry.label_names and (len(names) != 1 or names[0] not in entry.label_names):
         return None
     return entry.editor_id

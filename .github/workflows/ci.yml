@@ -66,6 +66,8 @@ jobs:
         run: make intelligence-v15
       - name: Contract 1.3.0 tests
         run: make contract-v13
+      - name: Contract 1.5.0 configuration and identity tests
+        run: make contract-v15
       - name: Deadline v1.2 (ETA frozen at Ready For Approval) tests
         run: make deadline-v12
       - name: Editor Profile tests

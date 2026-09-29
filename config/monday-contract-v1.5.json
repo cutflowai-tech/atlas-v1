@@ -1,0 +1,627 @@
+{
+  "$schema": "https://atlas.local/contracts/monday-contract-v1.5.schema.json",
+  "$id": "https://atlas.local/config/monday-contract-v1.5.json",
+  "contract_version": "1.5.0",
+  "authority": {
+    "product_specification": "docs/HANDOFF-V2.md",
+    "decision_log": "docs/DECISIONS.md",
+    "settled_decisions": [
+      "D20", "D21", "D22", "D23", "D24", "D25", "D26", "D27", "D28", "D29", "D30",
+      "D31", "D32", "D33", "D34", "D35", "D36", "D37", "D38", "D39", "D40", "D41",
+      "D42", "D43", "D44", "D45", "D46", "D47", "D48", "D49", "D50"
+    ],
+    "threshold_approver": "Atlas business owner",
+    "threshold_approval_rule": "a threshold is approved only when this versioned configuration and docs/DECISIONS.md contain matching approved entries"
+  },
+  "rule_versions": {
+    "windowing": "cairo-completed-days-v1.0",
+    "identity": "monday-editor-v1.2",
+    "quality_labels": "monday-quality-labels-v1.0",
+    "quality_component": "quality-component-v1.0",
+    "speed_benchmark": "speed-benchmark-v1.3",
+    "speed_component": "speed-component-v1.0",
+    "deadline_fact": "deadline-v1.2",
+    "deadline_component": "deadline-component-v1.0",
+    "overall_status": "overall-status-v1.0",
+    "recent_change": "recent-change-v1.0",
+    "trend": "trend-v1.0",
+    "revision_context": "revision-context-v1.0",
+    "active_work": "active-work-v1.0",
+    "evidence": "metric-evidence-v1.0",
+    "coverage": "coverage-v1.0"
+  },
+  "status_mapping_version": "monday-status-v1.1",
+  "status_mapping": {
+    "Create File": "pre-cycle",
+    "In Progress": "active-production",
+    "Internal Revisions": "internal-rework",
+    "Revisions": "external-client-rework",
+    "TOPAZ": "delivery-preparation",
+    "Ready To Send": "delivery-preparation",
+    "Sent": "delivered",
+    "Ready For Approval": "approval-terminal",
+    "Done": "delivered",
+    "Waiting": "pre-cycle",
+    "Captions Revisions": "pre-cycle",
+    "Captions In Progress": "pre-cycle",
+    "Waiting For Captions": "pre-cycle",
+    "Captions Done": "pre-cycle"
+  },
+  "status_label_aliases": {
+    "Ready To Sent": {
+      "canonical": "Ready To Send",
+      "label_index": 4
+    },
+    "ready to sent": {
+      "canonical": "Ready To Send",
+      "label_index": 4
+    },
+    "Creat File": {
+      "canonical": "Create File",
+      "label_index": 13
+    }
+  },
+  "status_alias_evidence": "Monday status label index 4 carried 'Ready To Sent' (2026-02-02..2026-05-12), 'ready to sent' (2026-05-12..2026-06-07) and 'Ready To Send' (2026-06-07..) in consecutive, non-overlapping periods; index 13 carried 'Creat File' once (2026-02-18) then 'Create File'. Aliases apply only when the label index matches. Reused indexes (8 Uploading -> Captions Revisions, 10 Coloring -> Captions In Progress, 12 Downloaded -> Ready For Review, 14 Editing Now -> Waiting For Captions) are NOT aliased. See docs/evidence/REAL-001-STATUS.md.",
+  "unmapped_previous_status": "accept-with-unresolved-previous",
+  "unmapped_status_policy": "an entry into a mapped status is kept with the unmapped or cleared previous label preserved raw and from_status null; transitions into unmapped labels are quarantined (UNKNOWN_STATUS) and a cycle whose window (item's first status event through Ready For Approval) contains one is excluded from speed and deadline metrics; transitions into a cleared status are quarantined as STATUS_CLEARED and flagged only",
+  "caption_states": {
+    "phase": "pre-cycle",
+    "labels": [
+      "Captions Revisions",
+      "Captions In Progress",
+      "Waiting For Captions",
+      "Captions Done"
+    ],
+    "resolution": "explicit-label-registry-only"
+  },
+  "cycle_boundaries": {
+    "start_label": "In Progress",
+    "end_label": "Ready For Approval",
+    "start_policy": "first-transition-only",
+    "end_policy": "first-qualifying-transition-only",
+    "repeated_in_progress_create_file": "same-cycle",
+    "post_revision_transitions": "same-cycle",
+    "incomplete_cycles": "retain-open-right-censored-exclude-from-completed-duration-aggregates",
+    "duplicate_or_reversed_transitions": "ignore-for-timing-and-flag-anomaly"
+  },
+  "editor_attribution": {
+    "authoritative_field": "Editor Name",
+    "activity_log_user_id": "audit-metadata-only",
+    "mapping_version": "monday-editor-v1.2",
+    "identity_key": ["source_label_id", "logged_name"],
+    "new_name_policy": "unresolved-never-inherit-a-mapping-from-the-source-label-id",
+    "entries": [
+      {
+        "monday_person_id": "6",
+        "source_label_id": "6",
+        "logged_name": "Will",
+        "editor_id": "editor-label-6",
+        "display_name": "Will",
+        "canonical_editor_name": "Will",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "observed_range_evidence": "2026-03-14 through 2026-09-27; date-only summary in docs/evidence/REAL-002-VALIDATION.md, so timestamp bounds are not invented",
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; D16; docs/evidence/REAL-002-VALIDATION.md",
+        "decision_id": "D16",
+        "label_names": [
+          "Will"
+        ]
+      },
+      {
+        "monday_person_id": "12",
+        "source_label_id": "12",
+        "logged_name": "Ahmed",
+        "editor_id": "editor-label-12",
+        "display_name": "Ahmed",
+        "canonical_editor_name": "Ahmed",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Ahmed"
+        ]
+      },
+      {
+        "monday_person_id": "13",
+        "source_label_id": "13",
+        "logged_name": "Michael",
+        "editor_id": "editor-label-13",
+        "display_name": "Michael",
+        "canonical_editor_name": "Michael",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Michael"
+        ]
+      },
+      {
+        "monday_person_id": "14",
+        "source_label_id": "14",
+        "logged_name": "Mansour",
+        "editor_id": "editor-label-14",
+        "display_name": "Mansour",
+        "canonical_editor_name": "Mansour",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Mansour"
+        ]
+      },
+      {
+        "monday_person_id": "15",
+        "source_label_id": "15",
+        "logged_name": "Sobhy",
+        "editor_id": "editor-label-15",
+        "display_name": "Sobhy",
+        "canonical_editor_name": "Sobhy",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Sobhy"
+        ]
+      },
+      {
+        "monday_person_id": "16",
+        "source_label_id": "16",
+        "logged_name": "Ezz",
+        "editor_id": "editor-label-16",
+        "display_name": "Ezz",
+        "canonical_editor_name": "Ezz",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Ezz"
+        ]
+      },
+      {
+        "monday_person_id": "17",
+        "source_label_id": "17",
+        "logged_name": "Ali",
+        "editor_id": "editor-label-17",
+        "display_name": "Ali",
+        "canonical_editor_name": "Ali",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Ali"
+        ]
+      },
+      {
+        "monday_person_id": "18",
+        "source_label_id": "18",
+        "logged_name": "Mohamed Mansour (Office)",
+        "editor_id": "editor-label-18",
+        "display_name": "Mohamed Mansour (Office)",
+        "canonical_editor_name": "Mohamed Mansour (Office)",
+        "role": "editor",
+        "first_observed_at": null,
+        "last_observed_at": null,
+        "attestation_source": "existing-approved-mapping:monday-editor-v1.1; no new identity attestation in contract 1.5.0",
+        "decision_id": "D16",
+        "label_names": [
+          "Mohamed Mansour (Office)"
+        ]
+      }
+    ],
+    "named_unresolved_identities": [
+      {"source_label_id": "4", "logged_name": "Mario", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "5", "logged_name": "Anas", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "7", "logged_name": "Martin", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "8", "logged_name": "Samra", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "9", "logged_name": "Ibrahim", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "10", "logged_name": "Amir", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "11", "logged_name": "Refaat", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "5", "logged_name": "Ahmed", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "7", "logged_name": "Mans", "reason": "UNMAPPED_EDITOR"},
+      {"source_label_id": "9", "logged_name": "Michael", "reason": "UNMAPPED_EDITOR"}
+    ],
+    "quarantine_reasons": [
+      {"source_label_id": "11", "logged_name": "New", "code": "invalid_identity_value", "decision_id": "D50"},
+      {"source_label_id": "2", "logged_name": "Done", "code": "invalid_identity_value", "decision_id": "D50"},
+      {"source_label_id": "1", "logged_name": "El Baz", "code": "unresolved_historical_identity", "decision_id": "D50"}
+    ],
+    "unresolved_policy": "quarantine-from-per-editor-metrics",
+    "shared_accounts_never_infer_editor": [
+      "99154021"
+    ],
+    "label_name_guard": "resolution uses the exact tuple (source_label_id, logged_name); no ID-only fallback exists",
+    "changes_from_v1_1": "the mapping key is now (source_label_id, logged_name); no person is newly attested or mapped",
+    "unverified_labels": "Named unresolved identities listed above remain unmapped until management attests both identity and Editor role for the observed range",
+    "historical_coverage": "projects without an Editor Name observation at or before Ready For Approval (the column logs from 2026-03-14) stay excluded; the current value is never applied retroactively (approved 2026-09-28)"
+  },
+  "video_type_cohorts": {
+    "mapping_version": "monday-video-type-v1.2",
+    "label_to_id": {
+      "Reel (Less Than 1 min)": "1",
+      "Short Video (Less Than 30 sec)": "2",
+      "Long Video (More Than 1 min)": "3",
+      "Class A": "4",
+      "Class B": "5",
+      "Simple Short": "6",
+      "Video (Less Than 1 min)": "7",
+      "Class A+": "8",
+      "Short Reel (Less Than 30 sec)": "9",
+      "2*": "10",
+      "Reel": "11",
+      "Video": "12",
+      "Premium Capions": "15",
+      "Ai": "16",
+      "SUPER CLASS A": "17",
+      "Teaser": "18",
+      "4*": "19",
+      "3 Short reel - (Less Than 20 sec)": "20",
+      "10 Clips Export": "21",
+      "Reels Boost Pack": "22",
+      "Special Requests": "23",
+      "Walkthrough Reel": "24",
+      "3*": "25",
+      "Unbranded": "26",
+      "Premium Short": "27"
+    },
+    "deactivated_label_ids": [
+      "1",
+      "2",
+      "3",
+      "7",
+      "9",
+      "11",
+      "12",
+      "17",
+      "20",
+      "21"
+    ],
+    "historical_label_names": {
+      "6": [
+        "Short"
+      ],
+      "7": [
+        "Video"
+      ],
+      "17": [
+        "SUPER A CLASS"
+      ]
+    },
+    "historical_label_names_evidence": "Video Type activity logs 2026-02..2026-09 show the same label ID under an earlier name (ID 6 'Short' then 'Simple Short'; ID 7 'Video' then 'Video (Less Than 1 min)'; ID 17 'SUPER A CLASS' then 'SUPER CLASS A'). Former names are accepted only together with the matching ID, never for text-only resolution ('Video' is now label ID 12).",
+    "source_evidence": "Monday column dropdown_mm062ga0 settings_str (labels and deactivated_labels), read-only query 2026-09-28; see docs/evidence/VIDEO-TYPE-AUDIT.md",
+    "label_text_policy": "verbatim Monday label text; one canonical ID per Monday label ID; no merging of similar names",
+    "multi_select_policy": "exact-normalized-full-set",
+    "cohort_key": "sorted-canonical-video-type-ids",
+    "comparison_policy": "same-resolved-cohort-only-no-global-fallback",
+    "unresolved_policy": "quarantine-from-cohort-comparisons",
+    "classification": {
+      "confirmed_base_ids": [
+        "4",
+        "5",
+        "6",
+        "8",
+        "27"
+      ],
+      "confirmed_modifier_ids": [
+        "10",
+        "16"
+      ],
+      "status": "approved by Waset management 2026-09-28 (initial V1 classification): base Class A(4), Class B(5), Simple Short(6), Class A+(8), Premium Short(27); modifiers 2*(10), Ai(16); every other label unclassified",
+      "benchmark_eligibility": "a cohort (exact full set) is benchmark-eligible only when every label ID is a confirmed base or modifier and at least one is a confirmed base; exact combinations stay distinct cohorts"
+    }
+  },
+  "quarantine_policy": {
+    "unmapped_deprecated_or_new_status": true,
+    "missing_ambiguous_or_unresolved_editor": true,
+    "blank_unknown_or_new_video_type": true,
+    "silent_inference": false
+  },
+  "source_board": {
+    "board_id": "5091110326",
+    "status_column_id": "project_status",
+    "editor_column_id": "dropdown_mm1emgt8",
+    "video_type_column_id": "dropdown_mm062ga0",
+    "requested_eta_column_id": "date",
+    "performance_issues_column_id": "dropdown_mm3tyk8g",
+    "evidence": "read-only Monday columns query 2026-09-28; DATA-001 scope",
+    "for_bonus_column_id": "dropdown_mm3tyvvc"
+  },
+  "cycle_attributes": {
+    "policy_version": "cycle-attributes-v1.0",
+    "editor": "value-in-effect-at-ready-for-approval-from-editor-column-events",
+    "video_type": "latest-valid-value-at-or-before-ready-for-approval: the most recent non-empty Video Type observed (creation value or column change) at or before the cycle's Ready For Approval; later changes never alter a completed cycle's cohort; skipped empty values and the chosen event are kept as evidence",
+    "editor_changed_within_cycle": "quarantine-from-per-editor-metrics",
+    "missing_column_event_history": "unresolved-no-snapshot-substitution",
+    "cycle_selection": "first-completed-in-progress-to-ready-for-approval-only; later cycles retained as evidence, never added to or replacing the first",
+    "duration": "elapsed-clock-time; nights, weekends, holidays and non-working hours are not excluded",
+    "decision_source": "Waset management decisions 2026-09-28",
+    "video_type_status": "approved by Waset management 2026-09-28",
+    "creation_values": "create_pulse column_values_json is the item's first observation for each tracked column (source=create_pulse); a status present at creation is flagged INITIAL_STATUS_AT_CREATION and is not a transition"
+  },
+  "transition_roles": {
+    "mapping_version": "monday-transition-role-v1.0",
+    "purpose": "context-and-audit-only; the evaluated Editor always comes from the Editor Name field",
+    "rules": [
+      {
+        "from": "In Progress",
+        "to": "Ready For Approval",
+        "role": "editor"
+      },
+      {
+        "from": "Revisions",
+        "to": "Ready For Approval",
+        "role": "editor"
+      },
+      {
+        "from": "Ready For Approval",
+        "to": "In Progress",
+        "role": "editor"
+      },
+      {
+        "from": "*",
+        "to": "Revisions",
+        "role": "editor",
+        "note": "status change performed by the Editor; the revision itself is a client revision and is context only"
+      },
+      {
+        "from": "Ready For Approval",
+        "to": "Sent",
+        "role": "production_manager"
+      }
+    ],
+    "unlisted_transition_policy": "unresolved",
+    "shared_account_ids": [
+      "99154021"
+    ],
+    "shared_account_policy": "never-identifies-a-person; role comes from the transition rule only"
+  },
+  "quality_labels": {
+    "mapping_version": "monday-quality-labels-v1.0",
+    "rule_version": "quality-labels-v1.0",
+    "column_id": "dropdown_mm3tyk8g",
+    "column_title": "Performance Issues",
+    "id_to_label": {
+      "1": "Late Delivery",
+      "2": "Poor Communication",
+      "3": "2- Quality Issue",
+      "4": "1- Did Not Follow Instructions",
+      "5": "3- Technical Issues",
+      "6": "Excessive Revisions",
+      "7": "4- Recurring Mistakes"
+    },
+    "historical_label_names": {
+      "3": [
+        "Quality Issue"
+      ],
+      "4": [
+        "Did Not Follow Instructions"
+      ],
+      "5": [
+        "Technical Issues"
+      ],
+      "7": [
+        "Recurring Mistakes"
+      ]
+    },
+    "historical_label_names_evidence": "Performance Issues activity logs show the same label IDs under earlier names without the numeric prefix; accepted only together with the same ID. See docs/evidence/REAL-001-STATUS.md.",
+    "weighting": "one-occurrence-per-label-per-item-equal-weight",
+    "occurrence_basis": "a label present in the item's current Monday value (a removed label is a correction and does not count); evidence is the activity log or creation value that added it, else the item snapshot",
+    "unmapped_policy": "quarantine",
+    "registries": {
+      "negative": [
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "1", "label": "Late Delivery", "visible": true, "scored_quality": false},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "2", "label": "Poor Communication", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "3", "label": "2- Quality Issue", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "4", "label": "1- Did Not Follow Instructions", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "5", "label": "3- Technical Issues", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "6", "label": "Excessive Revisions", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyk8g", "source_label_id": "7", "label": "4- Recurring Mistakes", "visible": true, "scored_quality": true}
+      ],
+      "positive": [
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "1", "label": "1- Exceptional Quality", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "3", "label": "Saved Rush Project", "visible": true, "scored_quality": true, "cross_component_bonus": false},
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "4", "label": "Client Praise", "visible": true, "scored_quality": true},
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "5", "label": "On Time Delivery", "visible": true, "scored_quality": false}
+      ],
+      "context": [
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "6", "label": "High Workload", "visible": true, "scored_quality": false},
+        {"column_id": "dropdown_mm3tyvvc", "source_label_id": "7", "label": "Additional Revisions", "visible": true, "scored_quality": false}
+      ]
+    },
+    "visible_labels": "all-supported-positive-and-negative-labels-with-context-separate",
+    "scored_quality": "positive-and-negative-labels-marked-scored_quality=true-only",
+    "deadline_deduplication": "Late Delivery and On Time Delivery remain visible evidence but are excluded from the Quality component; Deadline is authoritative",
+    "for_bonus": {
+      "column_id": "dropdown_mm3tyvvc",
+      "column_title": "For Bonus",
+      "classification": "per-label-registry",
+      "affects_quality": "only labels explicitly marked scored_quality=true",
+      "status": "verified live labels classified by D28-D30; the column itself is a storage location, not a category"
+    },
+    "attribution": "the Editor of the item's first completed work cycle; unresolved Editor, missing cycle or unmapped label -> quarantined"
+  },
+  "deadline": {
+    "rule_version": "deadline-v1.2",
+    "requested_eta_selection": "latest-valid-requested-eta-at-or-before-first-ready-for-approval",
+    "delta": "ready_for_approval_at - selected_requested_eta; negative is early, positive is late",
+    "selection": "the latest valid Requested ETA observed at or before the cycle's first Ready For Approval timestamp (activity-log changes and create_pulse initial values; the current item snapshot only when the item has no logged ETA change and Monday's own changed_at for that value is at or before Ready For Approval). Cleared or invalid values are skipped and recorded. Any Requested ETA change after the first Ready For Approval never changes the cycle's classification and is recorded as ignored evidence.",
+    "no_requested_eta_at_or_before_ready_for_approval": "no-result: reported as not_classifiable_missing_eta with reason NO_REQUESTED_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL; a later ETA is never backfilled",
+    "requested_eta_history": "all Requested ETA values observed in the ingested evidence (activity-log changes plus the current item snapshot); completeness is claimed only when ingestion metadata proves it for the item",
+    "missing_requested_eta": "no-result",
+    "date_only_requested_eta": "excluded from early/on_time/late; reported as not_classifiable_insufficient_eta_precision; no time is ever invented",
+    "decision_source": "Waset management decision 2026-09-28 (replaces deadline-v1.1 latest-ETA selection for contract 1.4.0; evidence docs/evidence/REAL-003-OPERATIONAL-VALIDATION.md section 5)",
+    "metric_contract": "deadline-metric.v1.2 (contract_version 1.2.0)",
+    "classification": "early if delta_seconds < 0; on_time if delta_seconds == 0; late if delta_seconds > 0",
+    "on_time_tolerance_seconds": 0,
+    "on_time_tolerance": "none; exact zero only",
+    "date_only_requested_eta_status": "approved by Waset management 2026-09-28",
+    "on_time_tolerance_status": "approved by Waset management 2026-09-28 (no tolerance in V1)",
+    "requested_eta_selection_status": "approved by Waset management 2026-09-28 (deadline ETA frozen at first Ready For Approval)",
+    "team_wide_lateness": "process-diagnostic-only-never-an-editor-scoring-input",
+    "requested_eta_process_investigation": "management-question-outside-editor-scoring-unless-a-later-decision-changes-the-deadline-definition",
+    "component": {
+      "rule_version": "deadline-component-v1.0",
+      "fact_metric": "absolute_late_rate",
+      "comparison_metric": "subject_late_rate_minus_leave_one_out_peer_late_rate",
+      "team_population": "other-eligible-editors-only-same-window",
+      "fallback_to_absolute_threshold": false,
+      "better_band": null,
+      "similar_band": null,
+      "worse_band": null,
+      "minimum_editor_sample_size": null,
+      "minimum_comparator_sample_size": null,
+      "threshold_status": "rule_not_approved",
+      "insufficient_comparator_state": "not_classifiable"
+    }
+  },
+  "speed_benchmark": {
+    "rule_version": "speed-benchmark-v1.3",
+    "cohort": "exact-video-type-cohort-only",
+    "benchmark": "descriptive historical team median of first completed cycles in the same cohort; not an SLA",
+    "minimum_editor_sample_size": null,
+    "minimum_editor_sample_size_status": "rule_not_approved",
+    "below_minimum_or_unset": "report observed durations and sample sizes; comparison_status insufficient_editor_sample and conclusion insufficient_sample; no faster/slower classification",
+    "decision_source": "Waset management decision 2026-09-28",
+    "team_population": "valid first-pass projects in the same exact Video Type from other eligible Editors only; subject Editor excluded",
+    "team_population_status": "approved by D36; leave-one-out",
+    "leave_one_out": true,
+    "minimum_comparator_sample_size": null,
+    "minimum_comparator_sample_size_status": "rule_not_approved",
+    "benchmark_statistic": "median",
+    "benchmark_statistic_status": "approved by Waset management 2026-09-28 (median; evidence docs/evidence/BENCHMARK-STATISTIC-ANALYSIS.md)",
+    "median_rounding": "median of durations; the mean of the two middle values is floored to whole seconds",
+    "typical_range": "descriptive only: team P25-P75 of durations (linear interpolation, floored seconds); never used for a conclusion",
+    "percentage_difference": "(editor median - team median) / team median x 100, rounded to 0.1; null when not benchmark-eligible",
+    "peer_requirement": "at least one other eligible Editor must contribute; an approved comparator minimum is also required before classification",
+    "component": {
+      "rule_version": "speed-component-v1.0",
+      "aggregation": "project-weighted-majority-over-classifiable-video-types",
+      "majority": "strictly-greater-than-50-percent",
+      "faster_band": null,
+      "similar_band": null,
+      "slower_band": null,
+      "band_status": "rule_not_approved",
+      "no_classifiable_type_state": "not_classifiable",
+      "percentage_differences_are_never_averaged": true
+    }
+  },
+  "time_windows": {
+    "rule_version": "cairo-completed-days-v1.0",
+    "timezone": "Africa/Cairo",
+    "current_window": {"completed_days": 30, "exclude_current_local_day": true},
+    "comparison_window": {"completed_days": 30, "immediately_precedes_current": true},
+    "monthly_history_timezone": "Africa/Cairo",
+    "project_anchor": "first-valid-ready-for-approval-converted-to-Africa/Cairo",
+    "metric_cohort": "the same anchored project cohort feeds Quality, Speed, Deadline, Overall Status, Recent Change and Trend",
+    "later_label_event": "retain its own timestamp as evidence; never move the project to another metric window",
+    "migration": "recompute all historical and monthly aggregates in Cairo time; never mix UTC and Cairo aggregates"
+  },
+  "interpretation": {
+    "component_states": ["positive", "neutral", "negative", "not_classifiable"],
+    "overall_status": {
+      "labels": ["Strong", "Good", "Mixed", "Below Expectations"],
+      "scored_components": ["quality", "speed", "deadline"],
+      "excluded_inputs": ["revisions", "current_workload", "context_labels"],
+      "minimum_classifiable_components": 2,
+      "lookup_table": null,
+      "threshold_status": "rule_not_approved",
+      "fallback": "not_enough_approved_logic_to_classify",
+      "weighted_composite": false
+    },
+    "quality_component": {
+      "negative_rate_threshold": null,
+      "positive_rate_threshold": null,
+      "minimum_project_sample_size": null,
+      "threshold_status": "rule_not_approved",
+      "denominator": "eligible-completed-projects-in-window",
+      "counts_always_visible": true
+    },
+    "recent_change": {
+      "kind": "factual-per-component-difference",
+      "classification": null,
+      "threshold_status": "not_applicable_fact_only"
+    },
+    "trend": {
+      "labels": ["Improving", "Stable", "Declining"],
+      "minimum_sample_size": null,
+      "material_change_threshold": null,
+      "threshold_status": "rule_not_approved",
+      "fallback": "show-factual-recent-change-without-trend-label"
+    },
+    "strengths": {"thresholds": null, "threshold_status": "rule_not_approved", "scope": "current-window"},
+    "attention_areas": {"thresholds": null, "threshold_status": "rule_not_approved", "scope": "current-window"},
+    "recognition": {"change_thresholds": null, "threshold_status": "rule_not_approved", "scope": "current-vs-comparison-window"},
+    "needs_attention_now": {"change_thresholds": null, "threshold_status": "rule_not_approved", "scope": "current-vs-comparison-window"},
+    "insufficient_evidence": {
+      "status_state": "not_enough_evidence_to_classify",
+      "component_state": "not_classifiable",
+      "retain_editor_card_profile_facts_coverage_and_evidence": true,
+      "never_default_to_neutral": true,
+      "never_hide_editor": true
+    }
+  },
+  "threshold_governance": {
+    "status": "blocked_unresolved_identities",
+    "blocking_decision": "D44",
+    "blocking_identity_keys": [
+      ["4", "Mario"], ["5", "Anas"], ["7", "Martin"], ["8", "Samra"], ["9", "Ibrahim"], ["10", "Amir"], ["11", "Refaat"]
+    ],
+    "required_order": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"],
+    "pre_resolution_calibration_approved": false,
+    "unresolved_projects_enter_calibration": false
+  },
+  "revision_context": {
+    "rule_version": "revision-context-v1.0",
+    "client_revision": {"transition_into": "Revisions"},
+    "internal_revision": {"transition_into": "Internal Revisions"},
+    "scored": false,
+    "affects_overall_status": false,
+    "automatic_quality_penalty": false,
+    "cause_inference": "none-beyond-client-or-internal-without-explicit-Monday-evidence",
+    "speed_scope": "first-pass-only; rework never enters Speed",
+    "presentation": "client and internal projects/events separate; combined total allowed only alongside both"
+  },
+  "active_work": {
+    "rule_version": "active-work-v1.0",
+    "active_statuses": ["In Progress", "Revisions", "Internal Revisions"],
+    "awaiting_approval_statuses": ["Ready For Approval"],
+    "excluded_statuses": ["Waiting", "Create File", "Captions In Progress", "Captions Revisions", "Waiting For Captions", "Captions Done", "TOPAZ", "Ready To Send", "Sent", "Done"],
+    "drill_down_by_status": true,
+    "capacity_threshold": null,
+    "capacity_rule_status": "rule_not_approved",
+    "pressure_label": null
+  },
+  "evidence_requirements": {
+    "rule_version": "metric-evidence-v1.0",
+    "source": "monday",
+    "required_fields": ["monday_board_id", "monday_item_id", "column_ids", "event_ids", "source_timestamps", "source_values", "rule_version", "calculated_at"],
+    "non_empty": true,
+    "conclusions_link_to_supporting_evidence": true,
+    "label_event_timestamp_retained": true,
+    "raw_identity_evidence_retained_on_quarantine": true,
+    "ai_source_of_truth": false
+  },
+  "coverage_requirements": {
+    "rule_version": "coverage-v1.0",
+    "show_sample_sizes": true,
+    "show_included_and_excluded_counts": true,
+    "show_exclusion_reasons": true,
+    "show_missing_or_invalid_record_counts": true,
+    "show_source_history_coverage": true,
+    "show_component_classifiability_reasons": true,
+    "unresolved_identities_visible_in_diagnostics": true,
+    "unresolved_identities_enter_calibration": false
+  }
+}

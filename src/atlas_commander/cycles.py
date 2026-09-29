@@ -103,7 +103,7 @@ class CyclePolicy:
             raise ValueError("cycle boundaries must be In Progress -> Ready For Approval")
         attributes = contract["cycle_attributes"]
         board = contract["source_board"]
-        identity = IdentityMapping.from_dict({"mapping_version": contract["editor_attribution"]["mapping_version"], "entries": contract["editor_attribution"]["entries"]})
+        identity = IdentityMapping.from_contract(contract)
         selection = (contract.get("deadline") or {}).get("requested_eta_selection", LATEST_ETA)
         if selection not in {LATEST_ETA, ETA_AT_READY_FOR_APPROVAL}:
             raise ValueError(f"unknown Requested ETA selection rule {selection!r}")
