@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-607 keys: 149 Approved from brief, 362 Implemented conservatively, 96 Needs Arabic Review.
+664 keys: 149 Approved from brief, 362 Implemented conservatively, 153 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -53,6 +53,63 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.filter_label` | Filter by Overall Status | التصفية حسب الحالة العامة | Accessible label of the status filter group | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.history.short` | History | السجل | Profile section bar: history | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.history.title` | History | السجل | Profile history section heading | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.iv2.all` | All published findings ({n}) | كل النتائج المنشورة ({n}) | Disclosure listing every other published finding | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.execution_speed_competitive` | Execution speed is competitive under the approved Speed rule | سرعة التنفيذ منافسة وفق قاعدة السرعة المعتمدة | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.late_delivery_label_on_on_time_submission` | Late Delivery labels on on-time submissions | مؤشرات التأخير في التسليم على تسليمات تمت في الموعد | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.late_despite_typical_execution` | Late projects executed within the other Editors' typical time | مشاريع متأخرة نُفّذت خلال المدة المعتادة لبقية المونتيرين | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.late_projects_with_adequate_runway` | Late projects that had adequate runway | مشاريع متأخرة كانت مهلتها كافية | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.late_with_short_runway` | Late projects that started with short runway | مشاريع متأخرة بدأت بمهلة قصيرة | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.similar_historical_projects` | Similar historical projects | مشاريع تاريخية مماثلة | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.team_execution_moved_same_way` | The rest of the team's execution time moved the same way | مدة تنفيذ بقية الفريق تغيّرت في الاتجاه نفسه | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.team_late_rate_moved_same_way` | The rest of the team's late rate moved the same way | نسبة تأخير بقية الفريق تغيّرت في الاتجاه نفسه | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.team_negative_label_rate_moved_same_way` | The rest of the team's Negative label rate moved the same way | نسبة المؤشرات السلبية لبقية الفريق تغيّرت في الاتجاه نفسه | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.block.workload_by_period` | Workload in each period | عبء العمل في كل فترة | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.data_warning` | Data warning | تنبيه بيانات | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.editor_specific_pattern` | Editor-specific pattern | نمط خاص بالمونتير | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.emerging_risk` | Emerging risk | خطر ناشئ | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.hidden_context` | Hidden context | سياق خفي | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.important_improvement` | Improvement | تحسّن | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.needs_attention` | Needs attention | يحتاج إلى انتباه | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.category.system_pattern` | System pattern | نمط على مستوى النظام | Intelligence finding category | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.cluster` | Closely overlapping findings grouped with this one | نتائج متداخلة مجمّعة مع هذه النتيجة | Finding drawer: duplicate cluster members (D53.14) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.confidence` | Confidence | قوة الأدلة | Finding card: confidence label (never a percentage) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.confidence_basis` | Why this confidence | أساس قوة الأدلة | Finding drawer: confidence factors heading | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.detector` | Detector {detector} · {version} | الكاشف {detector} · {version} | Finding drawer: detector and version (technical) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.editor_none` | No published finding includes this Editor for this snapshot. | لا توجد نتيجة منشورة تشمل هذا المونتير في هذه اللقطة. | Editor Profile: Intelligence empty state | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.editor_sub` | Findings that include this Editor, with their evidence and confidence. Context findings qualify the headline figures; they are not ratings. | النتائج التي تشمل هذا المونتير مع أدلتها وقوة أدلتها. نتائج السياق تقيّد الأرقام الرئيسية ولا تُعد تقييمات. | Editor Profile: Intelligence subtitle | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.editor_title` | Intelligence about this Editor | رؤى تحليلية عن هذا المونتير | Editor Profile: findings about the Editor | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.evidence_line` | {projects} · {editors} | {projects} · {editors} | Finding card: evidence size (projects and Editors) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.investigate` | Suggested investigation | التحقق المقترح | Finding card: the suggested next step | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.level.moderate` | Moderate | متوسطة | Confidence level | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.level.strong` | Strong | قوية | Confidence level | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.level.weak` | Weak | محدودة | Confidence level | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.limitations` | Limitations | حدود التحليل | Finding drawer: limitations heading | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.matters` | Why it matters | لماذا يهم | Finding card: management significance | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.meaning` | What it may mean | ما قد يعنيه ذلك | Finding card: the interpretation, labelled as interpretation | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.method` | Deterministic rules approved by management (D53). Findings describe what happened and what is associated with it, never a cause; every finding shows its Monday evidence. | قواعد حتمية اعتمدتها الإدارة (D53). تصف النتائج ما حدث وما يرتبط به، ولا تحدد سببًا أبدًا؛ وتعرض كل نتيجة أدلتها من Monday. | Intelligence method note | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.mixed` | The evidence is mixed. Evidence that qualifies this finding: | الأدلة متباينة. أدلة تقيّد هذه النتيجة: | Finding card: contradicting evidence shown next to the claim (D53.12) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.none` | No finding meets the approved evidence rules for this snapshot. | لا توجد نتيجة تستوفي قواعد الأدلة المعتمدة في هذه اللقطة. | Intelligence section empty state | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.noticed` | What Atlas noticed | ما لاحظه Atlas | Finding card: the observed facts | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.question` | Question for management | سؤال للإدارة | Finding drawer: investigation question | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.related` | +{n} related | +{n} مرتبطة | Finding card: clustered duplicate findings kept for audit | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.role.context` | Context | السياق | Finding drawer: evidence block role | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.role.contradicting` | Contradicting evidence | الأدلة المعاكسة | Finding drawer: evidence block role | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.role.supporting` | Supporting evidence | الأدلة الداعمة | Finding drawer: evidence block role | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.decision` | Decision | القرار | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.mode` | Mode | الوضع | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.not_evaluated` | Examined without a finding | فُحصت دون نتيجة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.parameter` | Parameter | المعامل | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.published` | Published findings | النتائج المنشورة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.title` | Intelligence rules (D53) | قواعد الرؤى التحليلية (D53) | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.value` | Approved value | القيمة المعتمدة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.version` | Intelligence version | إصدار الرؤى التحليلية | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.withheld` | Weak signals kept for review | إشارات محدودة الأدلة محفوظة للمراجعة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.short` | Intelligence | رؤى تحليلية | Editor Profile section bar label | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.sub` | The most important evidence-backed findings, ranked. Atlas prefers silence over an unsupported conclusion. | أهم النتائج المدعومة بالأدلة، مرتبة حسب الأهمية. يفضّل Atlas الصمت على استنتاج غير مدعوم. | Intelligence section subtitle | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.title` | Intelligence | رؤى تحليلية | Editors overview: Intelligence V2 section heading | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.to_check` | To check | للتحقق | Finding drawer: the hypothesis, stated as something to check | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.top` | Top findings | أهم النتائج | Heading above the (at most five) top findings | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.withheld` | {n} weak exploratory signals are kept for review and are not published. | {n} إشارة استكشافية محدودة الأدلة محفوظة للمراجعة ولا تُنشر. | Count of weak findings withheld from publication (D53.11) | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.kpi.deadline` | late rate · {late} of {n} · other Editors {others} | نسبة التأخير · {late} من أصل {n} · المونتيرون الآخرون {others} | Profile key figure: Deadline, absolute and comparison | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.kpi.quality` | scored issue rate · positive {pos} · n={n} | نسبة المشكلات المحتسبة · الإيجابية {pos} · العدد={n} | Profile key figure: Quality | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.kpi.work` | In progress or in revision · {n} awaiting approval | قيد التنفيذ أو التعديل · {n} بانتظار الاعتماد | Profile key figure: Active Work and Awaiting Approval | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |

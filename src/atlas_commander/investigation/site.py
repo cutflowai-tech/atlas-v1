@@ -6,8 +6,9 @@
   publishes and rolls back. Turning the gate off needs no code change and no history rewrite.
 - **Validated when present.** The file must satisfy ``contracts/intelligence-v2.schema.json``, be ``publishable`` (never review
   output) and come from the same Monday snapshot and contract as the rest of the site.
-- **Not served publicly.** Like ``dashboard.json``, it sits beside the site; nginx serves only ``/``, ``/en`` and ``/ar``. The
-  UI/UX branch decides how to present it.
+- **Not served publicly.** Like ``dashboard.json``, it sits beside the site; nginx serves only ``/``, ``/en`` and ``/ar``. The same
+  document is passed to the page renderer, which shows its Top findings, each Editor's findings and their evidence in both languages
+  (``atlas_commander.web.intel``); without the document the pages are exactly the pages without Intelligence.
 """
 
 from __future__ import annotations
@@ -31,16 +32,26 @@ def enabled(config: Mapping[str, Any] | None = None) -> bool:
     return bool((data.get("publication") or {}).get("include_in_site_build"))
 
 
-def write_site_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], site: Path, generated_at: str,
-                            profiles: Iterable[Mapping[str, Any]], config: Mapping[str, Any] | None = None) -> Path | None:
-    """Write ``intelligence-v2.json`` into a site build when the gate is on and the contract supports it; otherwise nothing."""
+def build_site_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], generated_at: str, profiles: Iterable[Mapping[str, Any]],
+                            config: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
+    """The publishable (``approved_only``) document when the gate is on and the contract supports it; otherwise None."""
     if not enabled(config) or not capabilities(contract).editor_intelligence:
         return None
     by_editor = {profile["editor"]["editor_id"]: profile for profile in profiles}
-    document = build_intelligence(result, contract, generated_at, mode=APPROVED_ONLY, profiles=by_editor, config=config)
+    return build_intelligence(result, contract, generated_at, mode=APPROVED_ONLY, profiles=by_editor, config=config)
+
+
+def write_document(site: Path, document: Mapping[str, Any]) -> Path:
     path = site / INTELLIGENCE_JSON
     path.write_text(json.dumps(document, indent=1) + "\n")
     return path
+
+
+def write_site_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], site: Path, generated_at: str,
+                            profiles: Iterable[Mapping[str, Any]], config: Mapping[str, Any] | None = None) -> Path | None:
+    """Write ``intelligence-v2.json`` into a site build when the gate is on and the contract supports it; otherwise nothing."""
+    document = build_site_intelligence(result, contract, generated_at, profiles, config)
+    return write_document(site, document) if document is not None else None
 
 
 def site_problems(path: Path, contract_version: str, retrieved_at: Any) -> list[str]:

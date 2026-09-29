@@ -16,6 +16,7 @@ from pathlib import Path
 from atlas_commander import profile_cli, site_layout
 from atlas_commander.demo import GENERATED_AT, showcase_extract
 from atlas_commander.i18n import catalog
+from atlas_commander.investigation import site as iv2_site
 from atlas_commander.runtime import load_contract_version
 
 APPROVED_LATIN = ("Ready For Approval", "Requested ETA", "In Progress", "Performance Issues", "For Bonus", "Video Type", "Monday", "Atlas", "UTC",
@@ -93,7 +94,9 @@ class EditorsAppTests(unittest.TestCase):
         html = app_only(self.page("en/dashboard.html"))
         for editor in self.editors:
             ids = re.findall(rf'<section id="s-{re.escape(editor)}-([a-z]+)"', html)
-            self.assertEqual(ids, ["summary", "change", "signals", "quality", "speed", "deadlines", "revisions", "work", "history", "evidence"])
+            # Intelligence V2 follows the signals when the publication gate is on; without a published document the section is absent.
+            intelligence = ["intelligence"] if iv2_site.enabled() else []
+            self.assertEqual(ids, ["summary", "change", "signals", *intelligence, "quality", "speed", "deadlines", "revisions", "work", "history", "evidence"])
 
     # ------------------------------------------------------------ cards: status, scannable, no leaderboard (#1, #7, #36, §24)
     def test_cards_show_the_engine_status_in_alphabetical_order(self):

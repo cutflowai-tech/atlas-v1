@@ -29,6 +29,7 @@ from atlas_commander.i18n import Html, Loc
 from atlas_commander.intelligence import CAIRO
 from atlas_commander.interpretation_html import window_line
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
+from atlas_commander.web import intel
 from atlas_commander.web.kit import (
     CLASSIFIED,
     RESULTS,
@@ -138,7 +139,7 @@ def editor_card(s: Mapping[str, Any], ctx: Ctx) -> str:
             f'<span>{loc.t("card.view_profile")} {icon("arrow", 13)}</span></div></article>')
 
 
-def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None) -> str:
+def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None) -> str:
     loc = ctx.loc
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))   # alphabetical: never a ranking
     counts = Counter(status_key(s["interpretation"]["overall"]) for s in editors)
@@ -157,7 +158,7 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None) -> str:
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
     return (f'<div data-view="team"><div class="ph"><div><h1>{loc.t("ui.nav.editors")}</h1>{window}</div></div>'
             f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
-            f'{tools}{grid}{team_context(doc, ctx, month)}</div>')
+            f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}</div>')
 
 
 # ---------------------------------------------------------------- team context (secondary)
@@ -678,33 +679,42 @@ def view_rule_values(s: Mapping[str, Any]) -> str:
     return "<ul>" + "".join(f"<li>{Html(f'<code dir=ltr>{escape(str(k))}</code>')}: {Html(f'<code dir=ltr>{escape(str(v))}</code>')}</li>" for k, v in values.items()) + "</ul>"
 
 
-def section_bar(eid: str, labels: Mapping[str, Html], ctx: Ctx) -> str:
+def profile_sections(with_intelligence: bool) -> tuple[str, ...]:
+    """The profile order (HANDOFF-V2 §13); Intelligence findings follow the signals when a published document exists."""
+    if not with_intelligence:
+        return PROFILE_SECTIONS
+    at = PROFILE_SECTIONS.index("signals") + 1
+    return (*PROFILE_SECTIONS[:at], "intelligence", *PROFILE_SECTIONS[at:])
+
+
+def section_bar(eid: str, labels: Mapping[str, Html], ctx: Ctx, sections: tuple[str, ...] = PROFILE_SECTIONS) -> str:
     if ctx.interactive:
         return "".join(f'<button type="button" data-jump="{_sid(eid, key)}" aria-current="{"true" if key == "summary" else "false"}">{labels[key]}</button>'
-                       for key in PROFILE_SECTIONS)
-    return "".join(f'<a href="#{_sid(eid, key)}">{labels[key]}</a>' for key in PROFILE_SECTIONS)
+                       for key in sections)
+    return "".join(f'<a href="#{_sid(eid, key)}">{labels[key]}</a>' for key in sections)
 
 
 def profile_labels(loc: Loc) -> dict[str, Html]:
     return {"summary": loc.t("tab.overview"), "change": loc.t("ui.change.short"), "signals": loc.t("ui.signals.short"), "quality": loc.t("tab.quality"),
             "speed": loc.t("tab.speed"), "deadlines": loc.t("tab.deadlines"), "revisions": loc.t("tab.revisions"), "work": loc.t("common.current_work"),
-            "history": loc.t("ui.history.short"), "evidence": loc.t("tab.evidence")}
+            "history": loc.t("ui.history.short"), "evidence": loc.t("tab.evidence"), "intelligence": loc.t("ui.iv2.short")}
 
 
-def editor_profile(s: Mapping[str, Any], retrieved: str | None, ctx: Ctx) -> str:
+def editor_profile(s: Mapping[str, Any], retrieved: str | None, ctx: Ctx, intelligence: Mapping[str, Any] | None = None) -> str:
     loc, eid = ctx.loc, s["editor_id"]
     labels = profile_labels(loc)
-    jump = section_bar(eid, labels, ctx)
+    jump = section_bar(eid, labels, ctx, profile_sections(intel.published(intelligence)))
     body = (profile_summary(s, ctx, retrieved)
             + f'<nav class="jump" aria-label="{attr(loc.text("ui.sections_label"))}">{jump}</nav>'
-            + profile_change(s, ctx) + profile_signals(s, ctx) + profile_quality(s, ctx) + profile_speed(s, ctx) + profile_deadline(s, ctx)
+            + profile_change(s, ctx) + profile_signals(s, ctx) + intel.editor_section(intelligence, eid, _sid(eid, "intelligence"), ctx)
+            + profile_quality(s, ctx) + profile_speed(s, ctx) + profile_deadline(s, ctx)
             + profile_revisions(s, ctx) + profile_work(s, ctx) + profile_history(s, ctx, retrieved) + profile_evidence(s, ctx))
     return (f'<div data-view="editor:{escape(eid)}" hidden><a class="back" href="#/">{icon("back", 15)} {loc.t("ui.back")}</a>{body}{_drawers(s, ctx)}</div>')
 
 
 # ---------------------------------------------------------------- Data & rules
 
-def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None) -> str:
+def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None) -> str:
     loc = ctx.loc
     source = doc["source"]
     window = source.get("activity_log_window") or {}
@@ -770,7 +780,7 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
             + table([loc.t("common.editor"), loc.t("common.reason"), loc.t("common.projects")], excluded, none_row)
             + f'</div>{cov}<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.mapped_without")}</h3>'
             + table([loc.t("common.editor"), loc.t("system.head.atlas_id"), loc.t("system.head.monday_label")], missing, none_row)
-            + f'</div><div class="card"><h3 style="margin-bottom:12px">{loc.t("system.presentation_notes")}</h3><ul class="facts">{presentation}</ul></div></div>')
+            + f'</div>{intel.rules_card(intelligence, ctx)}<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.presentation_notes")}</h3><ul class="facts">{presentation}</ul></div></div>')
 
 
 # ---------------------------------------------------------------- page
@@ -793,15 +803,17 @@ def page(loc: Loc, title: str, body: str, publication: Mapping[str, Any] | None,
 
 
 def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_item_url: str | None = None, loc: Loc | None = None,
-               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None) -> str:
-    """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app."""
+               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None) -> str:
+    """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app. ``intelligence`` is the
+    optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence."""
     assert loc is not None
     ctx = Ctx(loc, monday_item_url)
     source = doc["source"]
     retrieved = source.get("retrieved_at")
     month = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).strftime("%Y-%m") if retrieved else None
     editors = doc["editors"]
-    views = overview(doc, ctx, month) + "".join(editor_profile(s, retrieved, ctx) for s in editors)
+    views = (overview(doc, ctx, month, intelligence) + "".join(editor_profile(s, retrieved, ctx, intelligence) for s in editors)
+             + intel.drawers(intelligence, ctx, intel.project_template_ids(editors)))
     body = _dedupe_templates(views)
     blob = json.dumps(dict(profile_pages)).replace("</", "<\\/")
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
@@ -812,7 +824,7 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
            f'<a href="#/system" data-nav="system">{loc.t("ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
     drawer = ('<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
               f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>')
-    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot)}</main>{drawer}'
+    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence)}</main>{drawer}'
                f'<script type="application/json" id="atlas-reports">{blob}</script>')
     return page(loc, loc.text("page.dashboard_title"), content, doc.get("publication"))
 

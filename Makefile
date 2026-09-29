@@ -51,7 +51,7 @@ intelligence-v15:
 intelligence-v2:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_investigation_*.py' -v
 
-# Intelligence V2 review page on the synthetic showcase data (review mode: proposed, unapproved parameters; never published).
+# Intelligence V2 review page on the synthetic showcase data (review mode: every finding including weak ones; never published).
 intelligence-v2-review:
 	mkdir -p out/intelligence-v2-showcase
 	PYTHONPATH=src python3 -c 'import json; from atlas_commander.demo import showcase_extract; print(json.dumps(showcase_extract()))' > out/intelligence-v2-showcase/extract.json
@@ -109,7 +109,7 @@ i18n:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_i18n.py' -v
 
 ui-v15:
-	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ui_v15.py' -v
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ui_*.py' -v
 
 sync-status:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_sync_status.py' -v

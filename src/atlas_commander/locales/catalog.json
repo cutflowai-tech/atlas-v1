@@ -3878,6 +3878,405 @@
    "context": "Presentation note: card order",
    "status": "Needs Arabic Review",
    "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.iv2.title": {
+   "en": "Intelligence",
+   "ar": "رؤى تحليلية",
+   "context": "Editors overview: Intelligence V2 section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.sub": {
+   "en": "The most important evidence-backed findings, ranked. Atlas prefers silence over an unsupported conclusion.",
+   "ar": "أهم النتائج المدعومة بالأدلة، مرتبة حسب الأهمية. يفضّل Atlas الصمت على استنتاج غير مدعوم.",
+   "context": "Intelligence section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.top": {
+   "en": "Top findings",
+   "ar": "أهم النتائج",
+   "context": "Heading above the (at most five) top findings",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.noticed": {
+   "en": "What Atlas noticed",
+   "ar": "ما لاحظه Atlas",
+   "context": "Finding card: the observed facts",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.meaning": {
+   "en": "What it may mean",
+   "ar": "ما قد يعنيه ذلك",
+   "context": "Finding card: the interpretation, labelled as interpretation",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.matters": {
+   "en": "Why it matters",
+   "ar": "لماذا يهم",
+   "context": "Finding card: management significance",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.investigate": {
+   "en": "Suggested investigation",
+   "ar": "التحقق المقترح",
+   "context": "Finding card: the suggested next step",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.to_check": {
+   "en": "To check",
+   "ar": "للتحقق",
+   "context": "Finding drawer: the hypothesis, stated as something to check",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.question": {
+   "en": "Question for management",
+   "ar": "سؤال للإدارة",
+   "context": "Finding drawer: investigation question",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.confidence": {
+   "en": "Confidence",
+   "ar": "قوة الأدلة",
+   "context": "Finding card: confidence label (never a percentage)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.weak": {
+   "en": "Weak",
+   "ar": "محدودة",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.moderate": {
+   "en": "Moderate",
+   "ar": "متوسطة",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.strong": {
+   "en": "Strong",
+   "ar": "قوية",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.confidence_basis": {
+   "en": "Why this confidence",
+   "ar": "أساس قوة الأدلة",
+   "context": "Finding drawer: confidence factors heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.evidence_line": {
+   "en": "{projects} · {editors}",
+   "ar": "{projects} · {editors}",
+   "context": "Finding card: evidence size (projects and Editors)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.mixed": {
+   "en": "The evidence is mixed. Evidence that qualifies this finding:",
+   "ar": "الأدلة متباينة. أدلة تقيّد هذه النتيجة:",
+   "context": "Finding card: contradicting evidence shown next to the claim (D53.12)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.related": {
+   "en": "+{n} related",
+   "ar": "+{n} مرتبطة",
+   "context": "Finding card: clustered duplicate findings kept for audit",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.cluster": {
+   "en": "Closely overlapping findings grouped with this one",
+   "ar": "نتائج متداخلة مجمّعة مع هذه النتيجة",
+   "context": "Finding drawer: duplicate cluster members (D53.14)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.limitations": {
+   "en": "Limitations",
+   "ar": "حدود التحليل",
+   "context": "Finding drawer: limitations heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.detector": {
+   "en": "Detector {detector} · {version}",
+   "ar": "الكاشف {detector} · {version}",
+   "context": "Finding drawer: detector and version (technical)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.none": {
+   "en": "No finding meets the approved evidence rules for this snapshot.",
+   "ar": "لا توجد نتيجة تستوفي قواعد الأدلة المعتمدة في هذه اللقطة.",
+   "context": "Intelligence section empty state",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.all": {
+   "en": "All published findings ({n})",
+   "ar": "كل النتائج المنشورة ({n})",
+   "context": "Disclosure listing every other published finding",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.method": {
+   "en": "Deterministic rules approved by management (D53). Findings describe what happened and what is associated with it, never a cause; every finding shows its Monday evidence.",
+   "ar": "قواعد حتمية اعتمدتها الإدارة (D53). تصف النتائج ما حدث وما يرتبط به، ولا تحدد سببًا أبدًا؛ وتعرض كل نتيجة أدلتها من Monday.",
+   "context": "Intelligence method note",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.withheld": {
+   "en": "{n} weak exploratory signals are kept for review and are not published.",
+   "ar": "{n} إشارة استكشافية محدودة الأدلة محفوظة للمراجعة ولا تُنشر.",
+   "context": "Count of weak findings withheld from publication (D53.11)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.short": {
+   "en": "Intelligence",
+   "ar": "رؤى تحليلية",
+   "context": "Editor Profile section bar label",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_title": {
+   "en": "Intelligence about this Editor",
+   "ar": "رؤى تحليلية عن هذا المونتير",
+   "context": "Editor Profile: findings about the Editor",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_sub": {
+   "en": "Findings that include this Editor, with their evidence and confidence. Context findings qualify the headline figures; they are not ratings.",
+   "ar": "النتائج التي تشمل هذا المونتير مع أدلتها وقوة أدلتها. نتائج السياق تقيّد الأرقام الرئيسية ولا تُعد تقييمات.",
+   "context": "Editor Profile: Intelligence subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_none": {
+   "en": "No published finding includes this Editor for this snapshot.",
+   "ar": "لا توجد نتيجة منشورة تشمل هذا المونتير في هذه اللقطة.",
+   "context": "Editor Profile: Intelligence empty state",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.needs_attention": {
+   "en": "Needs attention",
+   "ar": "يحتاج إلى انتباه",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.emerging_risk": {
+   "en": "Emerging risk",
+   "ar": "خطر ناشئ",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.system_pattern": {
+   "en": "System pattern",
+   "ar": "نمط على مستوى النظام",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.hidden_context": {
+   "en": "Hidden context",
+   "ar": "سياق خفي",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.editor_specific_pattern": {
+   "en": "Editor-specific pattern",
+   "ar": "نمط خاص بالمونتير",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.important_improvement": {
+   "en": "Improvement",
+   "ar": "تحسّن",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.data_warning": {
+   "en": "Data warning",
+   "ar": "تنبيه بيانات",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.supporting": {
+   "en": "Supporting evidence",
+   "ar": "الأدلة الداعمة",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.contradicting": {
+   "en": "Contradicting evidence",
+   "ar": "الأدلة المعاكسة",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.context": {
+   "en": "Context",
+   "ar": "السياق",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.execution_speed_competitive": {
+   "en": "Execution speed is competitive under the approved Speed rule",
+   "ar": "سرعة التنفيذ منافسة وفق قاعدة السرعة المعتمدة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_despite_typical_execution": {
+   "en": "Late projects executed within the other Editors' typical time",
+   "ar": "مشاريع متأخرة نُفّذت خلال المدة المعتادة لبقية المونتيرين",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_projects_with_adequate_runway": {
+   "en": "Late projects that had adequate runway",
+   "ar": "مشاريع متأخرة كانت مهلتها كافية",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_with_short_runway": {
+   "en": "Late projects that started with short runway",
+   "ar": "مشاريع متأخرة بدأت بمهلة قصيرة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_execution_moved_same_way": {
+   "en": "The rest of the team's execution time moved the same way",
+   "ar": "مدة تنفيذ بقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_late_rate_moved_same_way": {
+   "en": "The rest of the team's late rate moved the same way",
+   "ar": "نسبة تأخير بقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_negative_label_rate_moved_same_way": {
+   "en": "The rest of the team's Negative label rate moved the same way",
+   "ar": "نسبة المؤشرات السلبية لبقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_delivery_label_on_on_time_submission": {
+   "en": "Late Delivery labels on on-time submissions",
+   "ar": "مؤشرات التأخير في التسليم على تسليمات تمت في الموعد",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.similar_historical_projects": {
+   "en": "Similar historical projects",
+   "ar": "مشاريع تاريخية مماثلة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.workload_by_period": {
+   "en": "Workload in each period",
+   "ar": "عبء العمل في كل فترة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.title": {
+   "en": "Intelligence rules (D53)",
+   "ar": "قواعد الرؤى التحليلية (D53)",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.published": {
+   "en": "Published findings",
+   "ar": "النتائج المنشورة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.withheld": {
+   "en": "Weak signals kept for review",
+   "ar": "إشارات محدودة الأدلة محفوظة للمراجعة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.not_evaluated": {
+   "en": "Examined without a finding",
+   "ar": "فُحصت دون نتيجة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.version": {
+   "en": "Intelligence version",
+   "ar": "إصدار الرؤى التحليلية",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.mode": {
+   "en": "Mode",
+   "ar": "الوضع",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.parameter": {
+   "en": "Parameter",
+   "ar": "المعامل",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.value": {
+   "en": "Approved value",
+   "ar": "القيمة المعتمدة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.decision": {
+   "en": "Decision",
+   "ar": "القرار",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   }
  }
 }
