@@ -11,7 +11,7 @@ import investigation_factory as f
 from atlas_commander.investigation import narrative
 from atlas_commander.investigation.ai_guard import accept_rewrite, rewrite_problems
 from atlas_commander.investigation.catalog import DETECTORS
-from atlas_commander.investigation.confidence import LOW, MODERATE, STRONG, assess
+from atlas_commander.investigation.confidence import MODERATE, STRONG, WEAK, assess
 from atlas_commander.investigation.models import (
     ADVERSE,
     FACT,
@@ -109,7 +109,7 @@ class PolicyTests(unittest.TestCase):
         self.assertIsNone(IntelligencePolicy.load(contract).use("speed.minimum_editor_projects"))
 
     def test_unapproved_values_are_unavailable_in_approved_only(self):
-        policy = IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY)
+        policy = IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY, f.pre_d53())
         self.assertIsNone(policy.use("runway.short_rule"))
         with self.assertRaises(RuleNotApproved) as caught:
             policy.require("runway.short_rule", "speed.minimum_editor_projects", "evidence.material_rate_difference")
@@ -117,19 +117,22 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(policy.publishable)
 
     def test_review_mode_uses_proposals_marked_not_approved(self):
-        policy = IntelligencePolicy.load(f.CONTRACT, REVIEW)
+        policy = IntelligencePolicy.load(f.CONTRACT, REVIEW, f.pre_d53())
         use = policy.use("evidence.minimum_group_projects")
         self.assertEqual((use.value, use.status, use.decision_id), (10, PROPOSED_NOT_APPROVED, None))
         self.assertFalse(policy.publishable)
 
     def test_config_errors_enforce_d25(self):
         data = json.loads(CONFIG_PATH.read_text())
-        bad = copy.deepcopy(data)
+        bad = f.pre_d53()
         bad["parameters"]["runway.short_rule"]["value"] = "x"
         self.assertTrue(any("not approved (D25)" in error for error in config_errors(bad)))
         bad = copy.deepcopy(data)
-        bad["parameters"]["evidence.minimum_group_projects"].update({"status": "approved", "value": 10})
+        bad["parameters"]["evidence.minimum_group_projects"]["decision_id"] = None
         self.assertTrue(any("without a decision_id" in error for error in config_errors(bad)))
+        bad = copy.deepcopy(data)
+        bad["parameters"]["evidence.minimum_group_projects"]["decision_id"] = "D99"
+        self.assertTrue(any("not an approved Intelligence V2 decision" in error for error in config_errors(bad)))
         bad = copy.deepcopy(data)
         bad["parameters"]["speed.minimum_editor_projects"]["value"] = 3
         self.assertTrue(any("must come from the contract" in error for error in config_errors(bad)))
@@ -161,6 +164,46 @@ class PolicyTests(unittest.TestCase):
             self.assertTrue(entry["limitations"], detector.detector_id)
 
 
+class D53ApprovalTests(unittest.TestCase):
+    """D53 (2026-09-30): the management decision, the configuration and the policy agree on every approved value (D25)."""
+
+    APPROVED: ClassVar[dict] = {"evidence.minimum_group_projects": 10, "evidence.minimum_outcome_events": 5, "evidence.minimum_editors_for_breadth": 3,
+                "evidence.minimum_projects_per_editor_for_breadth": 5, "evidence.breadth_share": "2/3", "concentration.minimum_share_ratio": 1.25,
+                "concentration.minimum_share_difference": 0.10, "evidence.material_rate_difference": 0.15, "evidence.material_duration_pct": 25,
+                "runway.short_rule": "runway_below_typical_execution", "workload.band_rule": "above_editor_own_median", "workload.high_percentile": 0.75,
+                "risk.elapsed_percentile": 0.75, "patterns.maximum_combinations": 40, "confidence.sample_multiple": 2,
+                "confidence.minimum_completeness": 0.9, "prioritization.top_findings": 5, "prioritization.duplicate_overlap": 0.8}
+
+    def test_every_d53_value_is_approved_in_approved_only_mode(self):
+        policy = IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY)
+        for name, value in self.APPROVED.items():
+            use = policy.use(name)
+            self.assertIsNotNone(use, name)
+            self.assertEqual((use.value, use.status, use.decision_id), (value, "approved", "D53"), name)
+
+    def test_no_parameter_is_left_unapproved(self):
+        policy = IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY)
+        self.assertEqual([name for name, parameter in policy.parameters.items() if not parameter.approved], [])
+
+    def test_decision_log_records_d53_as_approved(self):
+        log = (CONFIG_PATH.parents[1] / "docs" / "DECISIONS.md").read_text()
+        heading = next(line for line in log.splitlines() if line.startswith("##") and "D53" in line)
+        self.assertIn("approved by Waset management", heading)
+        self.assertNotIn("Proposed, not approved: D53", log)
+        section = log[log.index(heading):]
+        section = section[: section.index("\n## ", 1)]
+        self.assertNotIn("Status: OPEN", section)
+        for value in ("10 projects", "5 relevant outcome events", "3 affected Editors", "two thirds", "1.25", "10 percentage points", "15 percentage points",
+                      "25%", "75th percentile", "40", "Top 5"):
+            self.assertIn(value, section, value)
+
+    def test_a_decision_the_log_does_not_approve_cannot_approve_a_parameter(self):
+        data = f.config()
+        data["parameters"]["runway.short_rule"]["decision_id"] = "D54"
+        with self.assertRaises(ValueError):
+            IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY, data)
+
+
 class ConfidenceTests(unittest.TestCase):
     def setUp(self):
         self.review = IntelligencePolicy.load(f.CONTRACT, REVIEW)
@@ -172,7 +215,7 @@ class ConfidenceTests(unittest.TestCase):
         moderate = assess(self.review, groups={"a": (40, 10)}, replication=[{"slice": "x", "holds": True}], completeness=(95, 100))
         self.assertEqual(moderate["level"], MODERATE)
         low = assess(self.review, groups={"a": (12, 10)}, replication=[{"slice": "x", "holds": False}])
-        self.assertEqual(low["level"], LOW)
+        self.assertEqual(low["level"], WEAK)
 
     def test_contradicting_evidence_prevents_strong(self):
         result = assess(self.review, groups={"a": (40, 10)}, replication=[{"slice": "x", "holds": True}] * 2, contradictions=1, completeness=(100, 100))
@@ -184,7 +227,7 @@ class ConfidenceTests(unittest.TestCase):
         self.assertEqual(result["level"], MODERATE)
 
     def test_unapproved_method_parameters_are_not_assessed_and_cap_below_strong(self):
-        result = assess(IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY), groups={"a": (400, 10)}, replication=[{"slice": "x", "holds": True}] * 3,
+        result = assess(IntelligencePolicy.load(f.CONTRACT, APPROVED_ONLY, f.pre_d53()), groups={"a": (400, 10)}, replication=[{"slice": "x", "holds": True}] * 3,
                         completeness=(100, 100))
         self.assertNotEqual(result["level"], STRONG)
         self.assertEqual(result["factors"][0]["assessment"], "not_assessed")

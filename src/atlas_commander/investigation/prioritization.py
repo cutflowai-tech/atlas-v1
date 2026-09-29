@@ -13,7 +13,7 @@ another:
    5. favourable finding (improvement, strength);
    6. neutral system description;
    7. data warning;
-2. evidence level: strong, then moderate, then low;
+2. evidence level: strong, then moderate, then weak;
 3. worsening (the adverse side grew) before not known;
 4. affected projects (more first);
 5. affected Editors (more first);
@@ -83,7 +83,7 @@ def _recency(finding: Finding) -> int:
 
 
 def _key(finding: Finding) -> tuple[Any, ...]:
-    level = LEVELS.index((finding.confidence or {}).get("level", "low"))
+    level = LEVELS.index((finding.confidence or {}).get("level", "weak"))
     persistent = {True: 2, None: 1, False: 0}[finding.persistent]
     return (tier(finding), -level, 0 if finding.worsening else 1, -len(finding.affected_projects), -len(finding.affected_editors),
             -(finding.magnitude or 0.0), -_recency(finding), -persistent, finding.finding_id)

@@ -77,15 +77,32 @@ def base(projects, open_items=()):
                      "performance_issues": "dropdown_mm3tyk8g", "for_bonus": "dropdown_mm3tyvvc"}, dict(NAMES), {})
 
 
-def config(approve=(), **proposed):
-    """The shipped V2 configuration with proposed values overridden; ``approve`` marks named proposals approved (test decision D99)."""
+def config(approve=(), unapprove=(), **values):
+    """The shipped V2 configuration (D53 approved) with values overridden.
+
+    A keyword (``evidence__minimum_group_projects=12``) sets the value a mode uses: the approved value of an approved parameter,
+    and the proposal of an unapproved one. ``unapprove`` returns named parameters to ``rule_not_approved`` (a governance test
+    of what happens without a decision); ``approve`` marks named proposals approved under D53."""
     data = json.loads(CONFIG_PATH.read_text())
-    for name, value in proposed.items():
-        data["parameters"][name.replace("__", ".")]["proposed_value"] = value
+    for name, value in values.items():
+        entry = data["parameters"][name.replace("__", ".")]
+        entry["proposed_value"] = value
+        if entry["status"] == "approved" and not entry.get("from_contract"):
+            entry["value"] = value
+    for name in unapprove:
+        data["parameters"][name].update({"status": "rule_not_approved", "decision_id": None, "value": None})
     for name in approve:
         entry = data["parameters"][name]
-        entry.update({"status": "approved", "decision_id": "D99", "value": entry["proposed_value"]})
+        entry.update({"status": "approved", "decision_id": "D53", "value": entry["proposed_value"]})
     return data
+
+
+UNAPPROVED_D53 = [name for name, entry in json.loads(CONFIG_PATH.read_text())["parameters"].items() if entry.get("decision_id") == "D53"]
+
+
+def pre_d53():
+    """The configuration as it stood before D53 was approved: every D53 parameter rule_not_approved."""
+    return config(unapprove=UNAPPROVED_D53)
 
 
 def context(facts, mode="review", data=None, profiles=None):

@@ -18,11 +18,12 @@ from atlas_commander.interpretation_policy import InterpretationPolicy
 from atlas_commander.investigation import INTELLIGENCE_V2_VERSION, graph, narrative, prioritization
 from atlas_commander.investigation.baselines import Baselines, baselines_document
 from atlas_commander.investigation.catalog import DETECTORS
+from atlas_commander.investigation.confidence import WEAK
 from atlas_commander.investigation.context import RunContext, run_guarded
 from atlas_commander.investigation.editor import fairness_context
 from atlas_commander.investigation.facts import build_facts
-from atlas_commander.investigation.models import Finding, finding_errors, plain
-from atlas_commander.investigation.policy import APPROVED_ONLY, IntelligencePolicy
+from atlas_commander.investigation.models import DATA_WARNING, FACT, Finding, Scope, finding_errors, not_evaluated, plain
+from atlas_commander.investigation.policy import APPROVED_ONLY, WEAK_NOT_PUBLISHED, IntelligencePolicy
 from atlas_commander.investigation.workload import workload_model
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_quality
 from atlas_commander.profile import build_editor_profile, profiled_editors
@@ -63,6 +64,8 @@ def build_intelligence(result: CycleReconstruction, contract: Mapping[str, Any],
         runs.append({**detector.catalog_entry(), "analyses_run": outcome.analyses_run, "findings": len(outcome.findings),
                      "examined_without_finding": len(outcome.not_evaluated),
                      "rule_not_approved": any("rule_not_approved" in row["reasons"] for row in outcome.not_evaluated)})
+    findings, withheld = publication_filter(findings, policy)
+    examined.extend(withheld)
     ranked = prioritization.rank(findings)
     prioritization.cluster(ranked, policy)
     relations = graph.build(ranked)
@@ -102,6 +105,29 @@ def build_intelligence(result: CycleReconstruction, contract: Mapping[str, Any],
     if errors:
         raise IntelligenceError(f"intelligence-v2 document violates {SCHEMA}: {errors[:10]}")
     return document
+
+
+def publishable_finding(finding: Finding) -> bool:
+    """D53.11: a publishable document shows strong and moderate findings; a weak one only when it is a direct fact or a data warning."""
+    return (finding.confidence or {}).get("level") != WEAK or finding.evidence_level == FACT or finding.category == DATA_WARNING
+
+
+def publication_filter(findings: list[Finding], policy: IntelligencePolicy) -> tuple[list[Finding], list[dict[str, Any]]]:
+    """In a publishable run, weak findings leave the document's findings and are listed under examined_without_finding with
+    their facts (never silently dropped). Review mode keeps every finding."""
+    if not policy.publishable:
+        return findings, []
+    kept, withheld = [], []
+    for finding in findings:
+        if publishable_finding(finding):
+            kept.append(finding)
+            continue
+        scope = finding.scope if isinstance(finding.scope, Scope) else Scope("team")
+        withheld.append(not_evaluated(finding.finding_type, scope, [WEAK_NOT_PUBLISHED],
+                                      {"finding_id": finding.finding_id, "confidence": (finding.confidence or {}).get("level"),
+                                       "confidence_why": (finding.confidence or {}).get("why"), "sample_size": finding.sample_size,
+                                       "category": finding.category, "direction": finding.direction}))
+    return kept, withheld
 
 
 def _editor_block(ctx: RunContext, editor: str, findings: list[Finding]) -> dict[str, Any]:

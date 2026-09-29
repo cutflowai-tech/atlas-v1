@@ -39,8 +39,13 @@ INSUFFICIENT_EDITORS = "insufficient_qualifying_editors"
 MISSING_DATA = "missing_data"
 INCOMPLETE_TIMESTAMPS = "incomplete_timestamp_coverage"
 NO_EFFECT = "no_effect_at_approved_threshold"
+WEAK_NOT_PUBLISHED = "weak_evidence_review_only"
 GATE_REASONS = frozenset({RULE_NOT_APPROVED, INSUFFICIENT_SAMPLE, INSUFFICIENT_COMPARISON_GROUP, INSUFFICIENT_RECENT_WINDOW,
-                          INSUFFICIENT_OUTCOMES, INSUFFICIENT_EDITORS, MISSING_DATA, INCOMPLETE_TIMESTAMPS, NO_EFFECT})
+                          INSUFFICIENT_OUTCOMES, INSUFFICIENT_EDITORS, MISSING_DATA, INCOMPLETE_TIMESTAMPS, NO_EFFECT, WEAK_NOT_PUBLISHED})
+
+# Management decisions that may approve an Intelligence V2 parameter. A parameter is approved only when this file's config marks it
+# approved AND names one of these decisions, and the decision is recorded as approved in docs/DECISIONS.md (checked by the tests).
+APPROVING_DECISIONS = frozenset({"D52", "D53"})
 
 
 class RuleNotApproved(Exception):
@@ -196,10 +201,14 @@ def config_errors(config: Mapping[str, Any], contract: Mapping[str, Any] | None 
                 errors.append(f"{name} reuses {source}; its value must come from the contract, not this file")
             if status == APPROVED and not entry.get("decision_id"):
                 errors.append(f"{name} is approved without a decision_id (D25)")
+            if status == APPROVED and entry.get("decision_id") and entry["decision_id"] not in APPROVING_DECISIONS:
+                errors.append(f"{name} names {entry['decision_id']}, which is not an approved Intelligence V2 decision (D25)")
             continue
         if status == APPROVED:
             if not entry.get("decision_id"):
                 errors.append(f"{name} is approved without a decision_id (D25)")
+            elif entry["decision_id"] not in APPROVING_DECISIONS:
+                errors.append(f"{name} names {entry['decision_id']}, which is not an approved Intelligence V2 decision (D25)")
             if entry.get("value") is None:
                 errors.append(f"{name} is approved without a value")
         elif entry.get("value") is not None:

@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import investigation_factory as f
 from test_ingest import FakeMonday, items
 from test_sync_run import T0, TOKEN, Clock, Monotonic, logs
 
@@ -40,6 +41,8 @@ class DocumentTests(unittest.TestCase):
         cls.profiles = {row["editor_id"]: build_editor_profile(cls.result, CONTRACT, row["editor_id"], GENERATED_AT) for row in profiled_editors(cls.result)}
         cls.review = build_intelligence(cls.result, CONTRACT, GENERATED_AT, mode="review", profiles=cls.profiles)
         cls.approved = build_intelligence(cls.result, CONTRACT, GENERATED_AT, profiles=cls.profiles)
+        cls.pre_d53 = build_intelligence(cls.result, CONTRACT, GENERATED_AT, profiles=cls.profiles, config=f.pre_d53())
+        cls.pre_d53_review = build_intelligence(cls.result, CONTRACT, GENERATED_AT, mode="review", profiles=cls.profiles, config=f.pre_d53())
         ids = set()
         for log in cls.extract["activity"]["boards"][0]["activity_logs"]:
             ids.add(str(log["id"]))
@@ -52,19 +55,40 @@ class DocumentTests(unittest.TestCase):
 
     def test_review_is_never_publishable_and_approved_only_uses_approved_parameters_only(self):
         self.assertFalse(self.review["publishable"])
-        self.assertTrue(any(finding["parameter_status"] == "proposed_not_approved" for finding in self.review["findings"]))
+        self.assertFalse(self.pre_d53_review["publishable"])
+        self.assertTrue(any(finding["parameter_status"] == "proposed_not_approved" for finding in self.pre_d53_review["findings"]))
         self.assertTrue(self.approved["publishable"])
         self.assertTrue(self.approved["findings"])
         self.assertTrue(all(finding["parameter_status"] == "approved" for finding in self.approved["findings"]))
         for finding in self.approved["findings"]:
             self.assertTrue(all(use["status"] == "approved" for use in finding["parameters"]), finding["finding_type"])
 
-    def test_approved_only_records_every_unapproved_detector(self):
-        blocked = {row["detector"] for row in self.approved["examined_without_finding"] if "rule_not_approved" in row["reasons"]}
+    def test_without_d53_approved_only_records_every_unapproved_detector(self):
+        blocked = {row["detector"] for row in self.pre_d53["examined_without_finding"] if "rule_not_approved" in row["reasons"]}
         self.assertIn("bottleneck.pre_editor_runway", blocked)
         self.assertIn("change.editor", blocked)
-        runs = {row["detector"]: row for row in self.approved["detectors"]}
+        runs = {row["detector"]: row for row in self.pre_d53["detectors"]}
         self.assertTrue(runs["change.editor"]["rule_not_approved"])
+
+    def test_with_d53_no_detector_is_blocked_by_governance(self):
+        self.assertEqual([row["detector"] for row in self.approved["detectors"] if row["rule_not_approved"]], [])
+        self.assertFalse([row for row in self.approved["examined_without_finding"] if "rule_not_approved" in row["reasons"]])
+
+    def test_weak_findings_are_review_only_unless_fact_or_data_warning(self):
+        published = {finding["finding_id"]: finding for finding in self.approved["findings"]}
+        withheld = {row["facts"]["finding_id"] for row in self.approved["examined_without_finding"] if "weak_evidence_review_only" in row["reasons"]}
+        for finding in published.values():
+            if finding["confidence"]["level"] == "weak":
+                self.assertTrue(finding["evidence_level"] == "fact" or finding["category"] == "data_warning", finding["finding_id"])
+        review_weak = {finding["finding_id"] for finding in self.review["findings"] if finding["confidence"]["level"] == "weak"
+                       and finding["evidence_level"] != "fact" and finding["category"] != "data_warning"}
+        self.assertTrue(review_weak, "the showcase must exercise the weak-evidence gate")
+        self.assertEqual(review_weak, withheld)
+        self.assertFalse(withheld & set(published))
+        for row in self.approved["examined_without_finding"]:
+            if "weak_evidence_review_only" in row["reasons"]:
+                self.assertEqual(row["facts"]["confidence"], "weak")
+                self.assertTrue(row["facts"]["confidence_why"])
 
     def test_build_is_deterministic_including_shuffled_monday_logs(self):
         again = build_intelligence(self.result, CONTRACT, GENERATED_AT, mode="review", profiles=self.profiles)
@@ -116,10 +140,17 @@ class DocumentTests(unittest.TestCase):
             self.assertIn(edge["from"], ids)
             self.assertIn(edge["to"], ids)
 
-    def test_top_findings_limit_is_unapproved_so_approved_only_lists_every_finding(self):
-        top = self.approved["sections"]["top_findings"]
+    def test_without_d53_the_top_findings_limit_is_unapproved_so_every_finding_is_listed(self):
+        top = self.pre_d53["sections"]["top_findings"]
         self.assertIsNone(top["limit"])
-        self.assertEqual(len(top["finding_ids"]), len([f for f in self.approved["findings"] if not (f["cluster"] or {}).get("suppressed_in_sections")]))
+        self.assertEqual(len(top["finding_ids"]), len([x for x in self.pre_d53["findings"] if not (x["cluster"] or {}).get("suppressed_in_sections")]))
+
+    def test_d53_top_findings_are_at_most_five_ranked_primaries(self):
+        for document in (self.approved, self.review):
+            top = document["sections"]["top_findings"]
+            self.assertEqual((top["limit"]["value"], top["limit"]["decision_id"]), (5, "D53"))
+            primaries = [x["finding_id"] for x in document["findings"] if not (x["cluster"] or {}).get("suppressed_in_sections")]
+            self.assertEqual(top["finding_ids"], primaries[:5])
 
     def test_ranks_are_a_permutation_and_importance_is_separate_from_confidence(self):
         ranks = [finding["importance"]["rank"] for finding in self.review["findings"]]

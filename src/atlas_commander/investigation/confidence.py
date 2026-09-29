@@ -1,7 +1,7 @@
 """Explainable evidence strength (Task 6), kept separate from importance (Task 40).
 
-Confidence answers *how well the data supports this finding*, not *how much it matters*. It is a level (``low``,
-``moderate`` or ``strong`` evidence), never a fake-precise percentage. Every level lists the factors that produced it:
+Confidence answers *how well the data supports this finding*, not *how much it matters*. It is a level (``weak``,
+``moderate`` or ``strong``, D53.11), never a fake-precise percentage. Every level lists the factors that produced it:
 
 | Factor | Supports when | Limits when |
 |---|---|---|
@@ -17,7 +17,7 @@ Level rule (deterministic, shown in every result):
   complete;
 - **moderate**: the sample is well supported or the effect replicates at least once, unless contradicting evidence exists with
   no replication;
-- **low**: everything else that passed the detector's minimum-evidence gate.
+- **weak**: everything else that passed the detector's minimum-evidence gate.
 
 A factor whose parameter is not approved in the current mode is ``not_assessed`` and can never support ``strong``. Findings
 below a detector's gate never reach this function: they are ``not_evaluated`` with their reason.
@@ -31,20 +31,29 @@ from typing import Any
 
 from atlas_commander.investigation.policy import IntelligencePolicy
 
-LOW, MODERATE, STRONG = "low", "moderate", "strong"
-LEVELS = (LOW, MODERATE, STRONG)
-LABELS = {LOW: "low evidence", MODERATE: "moderate evidence", STRONG: "strong evidence"}
+WEAK, MODERATE, STRONG = "weak", "moderate", "strong"
+LEVELS = (WEAK, MODERATE, STRONG)
+LABELS = {WEAK: "Weak", MODERATE: "Moderate", STRONG: "Strong"}
 SUPPORTS, LIMITS, NOT_ASSESSED, INFO = "supports", "limits", "not_assessed", "information"
 
-RULE = ("strong = sample well supported AND replicated in >= 2 independent slices AND no contradicting evidence AND data complete; "
+RULE = ("direct fact from the Monday snapshot = strong (nothing inferred); strong = sample well supported AND replicated in >= 2 independent slices AND no contradicting evidence AND data complete; "
         "moderate = sample well supported OR replicated >= 1, unless contradicted without replication; low = passed the detector's "
-        "minimum-evidence gate only")
+        "minimum-evidence gate only (D53: weak findings are review-only unless they are a direct fact or a data warning)")
 
 
 def assess(policy: IntelligencePolicy, *, groups: Mapping[str, tuple[int, int | None]], replication: Sequence[Mapping[str, Any]] = (),
-           contradictions: int = 0, completeness: tuple[int, int] | None = None, editors: int | None = None, projects: int | None = None) -> dict[str, Any]:
+           contradictions: int = 0, completeness: tuple[int, int] | None = None, editors: int | None = None, projects: int | None = None,
+           direct_fact: bool = False) -> dict[str, Any]:
     """``groups`` maps each compared group to (sample, its minimum). ``replication`` lists independent slices tested, each
-    ``{"slice": ..., "holds": bool}``. ``completeness`` is (projects with every needed field, eligible projects)."""
+    ``{"slice": ..., "holds": bool}``. ``completeness`` is (projects with every needed field, eligible projects).
+
+    ``direct_fact``: the finding states only what the current Monday snapshot records (for example an open project already past its
+    Requested ETA). Nothing is inferred, so there is no sample to grade: the level is strong with the single factor
+    ``direct_observation``."""
+    if direct_fact:
+        observed: list[dict[str, Any]] = [{"factor": "direct_observation", "assessment": SUPPORTS, "value": {"projects": projects},
+                                           "detail": "a fact read directly from the current Monday snapshot; nothing is inferred"}]
+        return {"level": STRONG, "label": LABELS[STRONG], "factors": observed, "rule": RULE, "method_status": "approved", "why": _why(STRONG, observed)}
     factors: list[dict[str, Any]] = []
     multiple = policy.value("confidence.sample_multiple")
     if multiple is None:
@@ -80,7 +89,7 @@ def assess(policy: IntelligencePolicy, *, groups: Mapping[str, tuple[int, int | 
     elif (well_supported or holds) and not (contradictions and not holds):
         level = MODERATE
     else:
-        level = LOW
+        level = WEAK
     return {"level": level, "label": LABELS[level], "factors": factors, "rule": RULE,
             "method_status": "approved" if multiple is not None and threshold is not None and policy.parameters["confidence.sample_multiple"].approved else "proposed_not_approved",
             "why": _why(level, factors)}
