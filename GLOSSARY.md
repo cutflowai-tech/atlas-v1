@@ -110,6 +110,7 @@ _Avoid_: Score, rating, rank, Needs Attention, Under Pressure
 
 **Component State**:
 The reading of one scored component (Quality, Speed or Deadline): Positive, Neutral, Negative or Not classifiable.
+Speed and Deadline states compare the Editor with the other Editors; they are never an absolute judgment.
 _Avoid_: Sub-score, grade
 
 **Strength**:
