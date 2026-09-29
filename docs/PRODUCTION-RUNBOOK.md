@@ -290,6 +290,30 @@ missed interval produces at most one activation, not one activation per missed h
 Production runs contract 1.4.0. Activating the contract 1.5.0 candidate, its fresh ingest, smoke test and rollback to 1.4.0 follow
 [`CONTRACT-1.5-ACTIVATION.md`](CONTRACT-1.5-ACTIVATION.md) and require the recorded approval described there.
 
+## 10b. Intelligence V2 publication (D53) and its rollback
+
+Since D53 (`docs/DECISIONS.md`) every scheduled cycle also computes Intelligence V2 in `approved_only` mode, after the profiles and
+before the pages, writes `intelligence-v2.json` beside `dashboard.json` and shows its Top findings, each Editor's findings and
+their evidence on `/en/` and `/ar/`. The file is optional: builds with and without it validate, publish and roll back. It is
+validated whenever present (schema, consistency, `publishable`, same snapshot and contract); a review-mode document is refused.
+No Monday write, no new secret and no new service is involved; the release is deployed like any other (§4, §9).
+
+Smoke test after the first cycle on a new release:
+
+```sh
+sudo -u atlas python3 -c 'import json; d=json.load(open("/var/lib/waset-atlas/published/current/intelligence-v2.json")); print(d["mode"], d["publishable"], len(d["findings"]), d["sections"]["top_findings"]["finding_ids"])'
+curl -fsS http://127.0.0.1:${ATLAS_HTTP_PORT:-18000}/en/dashboard.html | grep -c 'class="iv-card"'
+curl -fsS http://127.0.0.1:${ATLAS_HTTP_PORT:-18000}/ar/dashboard.html | grep -c 'class="iv-card"'
+```
+
+Rollback, least to most invasive:
+
+1. **Previous publication:** `atlas-runtime rollback` (§6) to a publication made before Intelligence (for example the last one of
+   the previous release). It stays valid because the artifact is optional.
+2. **Turn the feature off in code:** set `publication.include_in_site_build` to `false` in `config/intelligence-v2.json`, ship that
+   commit through the normal release path; the next cycle publishes pages without Intelligence.
+3. **Previous release:** redeploy the previous release's images and release directory (§9).
+
 ## 11. Task 10 preparation — controlled live Monday validation, do not execute yet
 
 Before Task 10, approve the production host, reviewed image digests, read-only token scope, board ID,

@@ -33,6 +33,15 @@ Branch `ui-ux`. A from-scratch presentation layer for contract 1.5.0, built to t
 - English and Arabic render one view model; tests check identical numbers, Monday values, IDs and classification attributes.
 - Pages make no network request (no web fonts, no CDN).
 
+## Intelligence V2 (feat/atlas-intelligence-v2, D53)
+
+The Editors overview gains an **Intelligence** section above the cards: the engine's Top findings (at most five) with what Atlas
+noticed, what it may mean, why it matters, the evidence size, the confidence word (Weak / Moderate / Strong), contradicting
+evidence next to the claim and the suggested investigation; every finding opens an evidence drawer with every Monday project. The
+Editor Profile gains an Intelligence section after the signals, and Data & rules lists the approved parameters. The design reuses
+the existing cards, chips, drawers and tokens (light and dark, RTL by logical properties, no overflow at 375 px). See
+[`INTELLIGENCE-V2.md`](INTELLIGENCE-V2.md) §10.
+
 ## Local preview
 
 ```bash

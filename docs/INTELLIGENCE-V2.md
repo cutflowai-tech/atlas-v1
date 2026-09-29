@@ -1,14 +1,16 @@
 # Atlas Intelligence V2: the investigation layer
 
-**Branch:** `feat/atlas-intelligence-v2` (from `ui-ux` at `eccaa8c`). **Status:** implemented and tested; every new business
-threshold is **unapproved** (`rule_not_approved`, pending decision D53).
+**Branch:** `feat/atlas-intelligence-v2` (from `ui-ux` at `eccaa8c`). **Status (2026-09-30):** management approved every
+Intelligence V2 rule as **D53** ([`DECISIONS.md`](DECISIONS.md)); the configuration matches it, publication is on
+(`publication.include_in_site_build`), and the Editors app shows the Top findings, each Editor's findings and their evidence in
+English and Arabic.
 
 Companion documents:
 
 - [`INTELLIGENCE-V2-CURRENT-STATE.md`](INTELLIGENCE-V2-CURRENT-STATE.md): the audit;
 - [`INTELLIGENCE-V2-DATA-CAPABILITIES.md`](INTELLIGENCE-V2-DATA-CAPABILITIES.md): the data map;
 - [`INTELLIGENCE-V2-VALIDATION.md`](INTELLIGENCE-V2-VALIDATION.md): production validation;
-- [`DECISIONS.md`](DECISIONS.md) → D53: the decisions this layer needs.
+- [`DECISIONS.md`](DECISIONS.md) → D53: the approved rules and values.
 
 Atlas used to stop at `data → metrics → dashboard`. Intelligence V2 adds the step a manager did by hand:
 
@@ -133,7 +135,8 @@ supporting records. A test checks that every event ID resolves to a Monday activ
 
 ## 4. Confidence (Task 6)
 
-Confidence is a level: `low`, `moderate` or `strong` evidence. It is never a percentage. The factors are:
+Confidence is a level: **Weak**, **Moderate** or **Strong** (keys `weak`, `moderate`, `strong`; D53.11). It is never a percentage.
+The factors are:
 
 | Factor | Supports when | Limits when |
 |---|---|---|
@@ -147,10 +150,17 @@ The levels:
 
 - **strong** = sample well supported **and** replicated in ≥ 2 slices **and** no contradicting evidence **and** data complete;
 - **moderate** = sample well supported **or** replicated at least once, unless contradicted without replication;
-- **low** = passed the detector's gate only.
+- **weak** = passed the detector's gate only;
+- a **direct fact** read from the Monday snapshot (an open project already past its Requested ETA) is **strong** with the single
+  factor `direct_observation`: nothing is inferred, so there is no sample to grade.
 
 A factor whose parameter is unapproved is `not_assessed` and can never support `strong`. Every result lists its factors,
 the rule and `why`.
+
+**Publication (D53.11).** A publishable (`approved_only`) document keeps Strong and Moderate findings. A Weak finding is published
+only when it is a direct fact or a data warning; every other Weak finding stays in review mode and is listed under
+`examined_without_finding` with the reason `weak_evidence_review_only`, its confidence level and factors (never silently
+dropped).
 
 ## 5. Prioritization (Tasks 40-42, 50)
 
@@ -234,21 +244,21 @@ required signal to be classed reliable or usable in the data capability map.
 | `workflow.time_map` | 14, 15 | Where elapsed project time is spent: pre-editor, editor execution (first In Progress -> first Ready For Approval), review wait, submission to delivery | status_history, editor_execution_interval, item_creation_time, post_editor_delivery | `evidence.minimum_group_projects` | every phase >= evidence.minimum_group_projects valid projects | one team finding with each phase's median and 75th percentile, invalid and censored visits counted | each phase vs its minimum; completeness = projects with a creation time | Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Who held the project in this stage cannot be identified (shared Waset Co account) | bottlenecks-v1.0 |
 | `bottleneck.pre_editor_runway` | 16 | Late projects that entered editor execution with less runway than typical same-Video-Type execution, and the association between short runway and lateness | requested_eta, execution_runway, video_type, deadline_result, editor_identity | `runway.short_rule`, `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_rate_difference` | short and adequate runway groups >= evidence.minimum_group_projects; short-runway late >= evidence.minimum_outcome_events | one team finding: late projects with short runway, both groups' late rates, ETA already passed at start, contradicting late-with-adequate-runway projects | groups vs minimums; replication per exact Video Type and per window | This is an association in observational data, not proof of cause; Typical execution time uses the whole ingested history of other Editors in the same Video Type; Some Requested ETAs were first recorded after work started | bottlenecks-v1.0 |
 | `bottleneck.post_editor` | 17 | Projects submitted for approval on or before the Requested ETA that were delivered after it (delay after the Editor's interval) | deadline_result, post_editor_delivery, performance_labels | `evidence.minimum_outcome_events`, `evidence.minimum_group_projects` | on-time submissions >= evidence.minimum_group_projects; delivered after ETA >= evidence.minimum_outcome_events | one team finding with the projects, review wait and submission-to-delivery medians, and Late Delivery labels on on-time submissions | groups vs minimums | Who held the project in this stage cannot be identified (shared Waset Co account); Labels are applied by hand, so label counts are a lower bound | bottlenecks-v1.0 |
-| `change.editor` | 19, 52 | An Editor against their own history: late rate and scored Negative label rate (current vs comparison window and vs history), median execution per exact Video Type (current vs history); the rest of the team's change over the same periods is shown beside it | editor_identity, deadline_result, performance_labels, editor_execution_interval, video_type, concurrent_workload_history | `evidence.material_rate_difference`, `evidence.material_duration_pct`, `recent_change.minimum_sample`, `quality.minimum_projects`, `speed.minimum_editor_projects` | both periods >= recent_change.minimum_sample (rates, D52) / quality.minimum_projects (labels, D52) / speed.minimum_editor_projects per Video Type (D52) | one finding per material change (improving / deteriorating) with both periods' projects, the team's change and the Editor's workload | periods vs minimums; contradicting evidence when the team moved the same way; replication against the other baseline | The data shows what happened, not why; Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Workload counts only attributed, completed first cycles, so it is a lower bound | changes-v1.0 |
-| `change.team` | 20 | Team late rate and scored Negative label rate, current vs comparison window and vs history | deadline_result, performance_labels, editor_identity | `evidence.material_rate_difference`, `recent_change.minimum_sample`, `quality.minimum_projects` | both periods >= recent_change.minimum_sample / quality.minimum_projects | one finding per material team change, with how many Editors moved the same way | periods vs minimums; replication = Editors moving the same way | The data shows what happened, not why | changes-v1.0 |
-| `change.video_type` | 21 | A Video Type's median execution time, current vs history, across Editors | editor_execution_interval, video_type | `evidence.material_duration_pct`, `evidence.minimum_group_projects` | both periods >= evidence.minimum_group_projects in the exact Video Type | one finding per material change with how many Editors moved the same way | periods vs minimums; replication = Editors moving the same way | Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Video Type is the only available control for complexity; length, footage and brief are not recorded | changes-v1.0 |
+| `change.editor` | 19, 52 | An Editor against their own history: late rate and scored Negative label rate (current vs comparison window and vs history), median execution per exact Video Type (current vs history); the rest of the team's change over the same periods is shown beside it | editor_identity, deadline_result, performance_labels, editor_execution_interval, video_type, concurrent_workload_history | `evidence.material_rate_difference`, `evidence.material_duration_pct`, `recent_change.minimum_sample`, `quality.minimum_projects`, `speed.minimum_editor_projects`, `speed.minimum_comparator_projects`, `speed.minimum_comparator_editors` | both periods >= recent_change.minimum_sample (rates, D52) / quality.minimum_projects (labels, D52) / speed.minimum_editor_projects per Video Type (D52); the team's change counts only at the same floors (rates) or the D52 comparator minimums (execution), otherwise it is unavailable | one finding per material change (improving / deteriorating) with both periods' projects, the team's change and the Editor's workload | periods vs minimums; contradicting evidence when the team moved the same way; replication against the other baseline | The data shows what happened, not why; Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Workload counts only attributed, completed first cycles, so it is a lower bound | changes-v1.0 |
+| `change.team` | 20 | Team late rate and scored Negative label rate, current vs comparison window and vs history | deadline_result, performance_labels, editor_identity | `evidence.material_rate_difference`, `recent_change.minimum_sample`, `quality.minimum_projects`, `evidence.minimum_projects_per_editor_for_breadth`, `evidence.minimum_editors_for_breadth`, `evidence.breadth_share` | both periods >= recent_change.minimum_sample / quality.minimum_projects; 'shared across Editors' only under the D53.4 breadth rule | one finding per material team change, with how many Editors moved the same way | periods vs minimums; replication = Editors moving the same way | The data shows what happened, not why | changes-v1.0 |
+| `change.video_type` | 21 | A Video Type's median execution time, current vs history, across Editors | editor_execution_interval, video_type | `evidence.material_duration_pct`, `evidence.minimum_group_projects`, `evidence.minimum_projects_per_editor_for_breadth`, `evidence.minimum_editors_for_breadth`, `evidence.breadth_share` | both periods >= evidence.minimum_group_projects in the exact Video Type; 'across Editors' only under the D53.4 breadth rule | one finding per material change with how many Editors moved the same way | periods vs minimums; replication = Editors moving the same way | Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Video Type is the only available control for complexity; length, footage and brief are not recorded | changes-v1.0 |
 | `workload.association` | 22, 23, 24, 25 | Team-wide association between concurrent workload (relative to each Editor's own median) and execution time (within Editor x exact Video Type), late rate and scored Negative label rate | concurrent_workload_history, editor_execution_interval, video_type, deadline_result, performance_labels | `workload.band_rule`, `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_duration_pct`, `evidence.material_rate_difference` | both bands >= evidence.minimum_group_projects; rate outcomes >= evidence.minimum_outcome_events | one association finding per measurement with both bands, strata and agreement | bands vs minimums; replication = strata / Video Types agreeing | This is an association in observational data, not proof of cause; Workload counts only attributed, completed first cycles, so it is a lower bound | workload-v1.0 |
 | `workload.overload_pattern` | 26 | Inside one Editor's work: repeated combination of higher concurrency (above their own median) and longer execution, a higher late rate or more Negative labels | concurrent_workload_history, editor_execution_interval, video_type, deadline_result, performance_labels | `workload.band_rule`, `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_duration_pct`, `evidence.material_rate_difference` | both bands >= evidence.minimum_group_projects inside the Editor's work | one association finding per Editor and measurement | bands vs minimums; replication = strata / Video Types agreeing | This is an association in observational data, not proof of cause; Workload counts only attributed, completed first cycles, so it is a lower bound | workload-v1.0 |
 | `pattern.shared_across_editors` | 18, 29, 32 | Whether elevated lateness (or short runway) in a Video Type appears across several Editors (process-wide) or in one Editor only, comparing each Editor with themselves inside vs outside the Video Type | editor_identity, video_type, deadline_result, execution_runway | `evidence.minimum_projects_per_editor_for_breadth`, `evidence.minimum_editors_for_breadth`, `evidence.breadth_share` | qualifying Editors (>= minimum projects inside and outside) >= evidence.minimum_editors_for_breadth | system pattern (shared) or editor-specific pattern (confined), with every qualifying Editor's two rates | qualifying Editors vs minimum; replication = each Editor agreeing with the conclusion | Video Type is the only available control for complexity; length, footage and brief are not recorded; The data shows what happened, not why | patterns-v1.0 |
-| `pattern.repeated_delay` | 27 | Repeated combinations (Video Type x runway band, Video Type x workload band) with elevated lateness in both halves of the history | video_type, execution_runway, concurrent_workload_history, deadline_result | `runway.short_rule`, `workload.band_rule`, `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_rate_difference`, `patterns.maximum_combinations` | cell >= evidence.minimum_group_projects and late >= evidence.minimum_outcome_events | one finding per repeated combination; cells tested published | cell vs minimums; replication = both halves of history | Several combinations were tested; some elevated cells can appear by chance, which is why repetition over time is required; This is an association in observational data, not proof of cause | patterns-v1.0 |
+| `pattern.repeated_delay` | 27 | Repeated combinations (Video Type x runway band, Video Type x workload band) late materially more often than the same Video Type as a whole, in both halves of the history | video_type, execution_runway, concurrent_workload_history, deadline_result | `runway.short_rule`, `workload.band_rule`, `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_rate_difference`, `patterns.maximum_combinations` | cell >= evidence.minimum_group_projects and late >= evidence.minimum_outcome_events | one finding per repeated combination; cells tested published | cell vs minimums; replication = both halves of history | Several combinations were tested; some elevated cells can appear by chance, which is why repetition over time is required; This is an association in observational data, not proof of cause | patterns-v1.0 |
 | `pattern.repeated_quality` | 28 | The same scored Negative label repeated in one Video Type across several Editors | performance_labels, video_type, editor_identity | `evidence.minimum_outcome_events`, `evidence.minimum_editors_for_breadth` | occurrences >= evidence.minimum_outcome_events across >= evidence.minimum_editors_for_breadth Editors | one finding per repeated label and Video Type | occurrences and Editors vs minimums | Labels are applied by hand, so label counts are a lower bound | patterns-v1.0 |
-| `pattern.time` | 30 | Late rate by Cairo weekday of first In Progress and by period of the month, reported only when it repeats in >= 2 months | deadline_result, status_history | `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_rate_difference` | bucket >= evidence.minimum_group_projects with >= evidence.minimum_outcome_events late | one finding per repeated timing bucket | bucket vs minimum; replication = months where the bucket is elevated | Several combinations were tested; some elevated cells can appear by chance, which is why repetition over time is required; This is an association in observational data, not proof of cause | patterns-v1.0 |
+| `pattern.time` | 30 | Late rate by Cairo weekday of first In Progress and by period of the month against the rate its Video Type mix predicts, reported only when it repeats in >= 2 months | deadline_result, status_history | `evidence.minimum_group_projects`, `evidence.minimum_outcome_events`, `evidence.material_rate_difference` | bucket >= evidence.minimum_group_projects with >= evidence.minimum_outcome_events late | one finding per repeated timing bucket | bucket vs minimum; replication = months where the bucket is elevated | Several combinations were tested; some elevated cells can appear by chance, which is why repetition over time is required; This is an association in observational data, not proof of cause | patterns-v1.0 |
 | `person.mix_adjusted_deadline` | 31, 33 | Whether an Editor's late rate differs from what the other Editors show on the same mix of Video Types (and under similar runway), or whether the raw gap is explained by the mix | editor_identity, video_type, deadline_result, execution_runway | `deadline.minimum_editor_projects`, `evidence.minimum_group_projects`, `evidence.material_rate_difference` | Editor projects covered by a comparable peer Video Type >= deadline.minimum_editor_projects (D52); peers per Video Type >= evidence.minimum_group_projects | editor-specific pattern (adverse or favourable) or hidden context (raw gap explained by mix), with every project's expected probability | Editor sample vs the approved minimum; replication = the excess survives the same-runway stratification | Video Type is the only available control for complexity; length, footage and brief are not recorded; The data shows what happened, not why | person-system-v1.0 |
 | `contradiction.metric_conflict` | 37 | Approved component states that point in opposite directions (fast but late, slow but on time, better than team but mostly late) | editor_identity, deadline_result, editor_execution_interval | none (approved inputs only) | the published components' own approved minimums (D52) | one hidden-context finding per Editor with the conflicting components' evidence | component samples vs their approved minimums | The data shows what happened, not why | contradictions-v1.0 |
-| `contradiction.bad_headline` | 34, 35 | A late rate above the other Editors' that deeper evidence qualifies: competitive execution speed, late projects clustered in short runway, late despite typical execution, peers as late on the same mix, ETA passed before work started | deadline_result, execution_runway, editor_execution_interval, video_type, editor_identity | `evidence.minimum_outcome_events`, `deadline.minimum_editor_projects` | Editor deadline-classifiable projects >= deadline.minimum_editor_projects (D52); each check's own minimum | one hidden-context finding per Editor with every check (holds / does not hold / not assessed) and contradicting evidence blocks | Editor sample vs minimum; replication = checks that hold | The data shows what happened, not why; Typical execution time uses the whole ingested history of other Editors in the same Video Type | contradictions-v1.0 |
+| `contradiction.bad_headline` | 34, 35 | A late rate above the other Editors' that deeper evidence qualifies: competitive execution speed, late projects clustered in short runway, late despite typical execution, peers as late on the same mix, ETA passed before work started | deadline_result, execution_runway, editor_execution_interval, video_type, editor_identity | `evidence.minimum_outcome_events`, `deadline.minimum_editor_projects`, `runway.short_rule`, `evidence.minimum_group_projects`, `evidence.material_rate_difference` | Editor deadline-classifiable projects >= deadline.minimum_editor_projects (D52); each check's own minimum | one hidden-context finding per Editor with every check (holds / does not hold / not assessed) and contradicting evidence blocks | Editor sample vs minimum; replication = checks that hold | The data shows what happened, not why; Typical execution time uses the whole ingested history of other Editors in the same Video Type | contradictions-v1.0 |
 | `contradiction.hidden_risk` | 36 | A favourable headline hiding another signal: Negative labels rising or present behind good speed, workload above the Editor's own history, late rate rising behind good speed | performance_labels, concurrent_workload_history, deadline_result | `evidence.material_rate_difference`, `evidence.minimum_outcome_events`, `recent_change.minimum_sample`, `quality.minimum_projects` | each check's window samples >= recent_change.minimum_sample / quality.minimum_projects (D52) | one hidden-context finding per Editor listing the checks that hold | current window vs minimum | Labels are applied by hand, so label counts are a lower bound; Workload counts only attributed, completed first cycles, so it is a lower bound | contradictions-v1.0 |
-| `risk.open_work` | 38 | Deterministic risk signals on current open work: past ETA (fact), short remaining runway, execution beyond the typical percentile, Editor workload above their own median, review wait beyond the typical percentile | current_open_work, current_editor_of_open_work, requested_eta, video_type, status_history, concurrent_workload_history | `runway.short_rule`, `risk.elapsed_percentile`, `workload.band_rule` | no minimum for the past-ETA fact; typical times valid at the D52 comparator minimums | one emerging-risk finding per signal listing the projects | facts about the snapshot; not graded beyond the sample shown | Based on the current Monday snapshot only; Typical execution time uses the whole ingested history of other Editors in the same Video Type | risks-v1.0 |
-| `risk.historical_similarity` | 39 | An In Progress project compared with historical same-Video-Type projects in the same runway band: their late share is a base rate, not a prediction | current_open_work, execution_runway, video_type, deadline_result | `runway.short_rule`, `evidence.minimum_group_projects` | similar historical projects >= evidence.minimum_group_projects | one emerging-risk finding per open project | similar group vs minimum | Based on the current Monday snapshot only; This is an association in observational data, not proof of cause | risks-v1.0 |
+| `risk.open_work` | 38 | Deterministic risk signals on current open work: past ETA (fact), short remaining runway, execution beyond the typical percentile, Editor workload above their own 75th percentile, review wait beyond the typical percentile | current_open_work, current_editor_of_open_work, requested_eta, video_type, status_history, concurrent_workload_history | `runway.short_rule`, `risk.elapsed_percentile`, `workload.high_percentile` | no minimum for the past-ETA fact; typical times valid at the D52 comparator minimums | one emerging-risk finding per signal listing the projects | facts about the snapshot; not graded beyond the sample shown | Based on the current Monday snapshot only; Typical execution time uses the whole ingested history of other Editors in the same Video Type | risks-v1.0 |
+| `risk.historical_similarity` | 39 | An In Progress project compared with historical same-Video-Type projects in the same runway band: their late share is a base rate, not a prediction | current_open_work, execution_runway, video_type, deadline_result | `runway.short_rule`, `evidence.minimum_group_projects`, `evidence.material_rate_difference` | similar historical projects >= evidence.minimum_group_projects; their late rate >= the Video Type's + evidence.material_rate_difference | one emerging-risk finding per open project | similar group vs minimum | Based on the current Monday snapshot only; This is an association in observational data, not proof of cause | risks-v1.0 |
 | `editor.speed_pattern` | 53, 54 | The approved per-Video-Type Speed verdicts (Faster / Slower, current window) as one strength and one weakness finding per Editor, with each comparator | editor_execution_interval, video_type, editor_identity | `speed.minimum_editor_projects`, `speed.minimum_comparator_projects`, `speed.minimum_comparator_editors`, `speed.faster_band_pct`, `speed.slower_band_pct` | the approved D52 Speed minimums (5 Editor / 10 comparator projects / 2 comparator Editors) | editor-specific pattern (favourable or adverse) listing each Video Type's comparison | per Video Type sample vs approved minimum; replication = several Video Types | Durations are elapsed clock time, not effort: nights, weekends and parallel work are included (D3); Video Type is the only available control for complexity; length, footage and brief are not recorded | editor-v1.0 |
 | `editor.label_pattern` | 54, 53 | Where an Editor's Negative and Positive labels sit (top label and its share), e.g. negative evidence concentrated in Late Delivery rather than broad quality | performance_labels, editor_identity | `evidence.minimum_outcome_events` | label occurrences >= evidence.minimum_outcome_events | editor-specific pattern with the label distribution | occurrences vs minimum | Labels are applied by hand, so label counts are a lower bound | editor-v1.0 |
 | `data.quality` | 59, 62 | Data warnings: unattributed projects, deadline-unclassifiable projects, ETAs set after work started, unknown-status spans, label/fact disagreement, non-benchmark-eligible Video Types | editor_identity, requested_eta, status_history, performance_labels, video_type | none (approved inputs only) | none: each warning is a count of affected projects | one data-warning finding per issue with the affected projects | not graded beyond the count shown | History starts at the ingest window (2026-02-01 in production) | data-quality-v1.0 |
@@ -273,38 +283,52 @@ required signal to be classed reliable or usable in the data capability map.
 - the Recent Change sample floor;
 - the Quality project floor.
 
-**Every new threshold is `rule_not_approved`** with `value: null` and a documented `proposed_value`:
+**New thresholds, approved by D53 (2026-09-30).** Each is `approved` with `decision_id` D53; the policy accepts only decisions D52
+and D53, and a test fails if `DECISIONS.md` and the configuration disagree (D25).
 
-- sample floors for groups and outcomes;
-- breadth: minimum Editors and the shared-pattern share;
-- concentration: ratio and difference;
-- materiality: rate and duration;
-- the short-runway and workload-band definitions;
-- the risk percentile;
-- the search-space cap;
-- the confidence method;
-- the top-findings limit;
-- the duplicate overlap.
+| Parameter | Approved value | D53 |
+|---|---|---|
+| `evidence.minimum_group_projects` | 10 projects | D53.2 |
+| `evidence.minimum_outcome_events` | 5 outcome events | D53.3 |
+| `evidence.minimum_editors_for_breadth` | 3 affected Editors | D53.4 |
+| `evidence.minimum_projects_per_editor_for_breadth` | 5 comparable projects per Editor | D53.4 |
+| `evidence.breadth_share` | 2/3 of eligible Editors (exact fraction) | D53.4 |
+| `concentration.minimum_share_ratio` | 1.25 | D53.5 |
+| `concentration.minimum_share_difference` | 10 percentage points | D53.5 |
+| `evidence.material_rate_difference` | 15 percentage points | D53.6 |
+| `evidence.material_duration_pct` | 25% | D53.6 |
+| `runway.short_rule` | runway below the leave-one-out same-Video-Type typical execution | D53.7 |
+| `workload.band_rule` | above the Editor's own median (association split) | D53.8 |
+| `workload.high_percentile` | 75th percentile of the Editor's own history (high-workload signal) | D53.8 |
+| `risk.elapsed_percentile` | 75th percentile | D53.9 |
+| `patterns.maximum_combinations` | 40 | D53.10 |
+| `confidence.sample_multiple` / `confidence.minimum_completeness` | 2 × every minimum / 90% | D53.11 |
+| `prioritization.top_findings` | 5 | D53.13 |
+| `prioritization.duplicate_overlap` | Jaccard 0.8 | D53.14 |
 
-The proposals and the decisions they need are recorded as **D53** in `DECISIONS.md`. `policy.config_errors` refuses:
+The shared-pattern rule (D53.4) applies to every "across Editors" statement: `pattern.shared_across_editors`, `change.team` and
+`change.video_type` (otherwise Atlas says the breadth is not established). `policy.config_errors` refuses:
 
-- an approved value without a decision;
+- an approved value without a decision, or with a decision other than D52/D53;
 - a value while unapproved;
 - a copied contract value;
 - a publication mode other than `approved_only`.
 
 **Modes:**
 
-- `approved_only` (the default, and the only publishable mode) uses approved parameters only;
-- `review` uses the proposals, marks every finding `proposed_not_approved` and the document `publishable: false`.
+- `approved_only` (the default, and the only publishable mode) uses approved parameters and publishes Strong and Moderate
+  findings, plus Weak direct facts and data warnings;
+- `review` uses the same parameters but keeps every finding, including Weak exploratory ones, and is `publishable: false`.
+  Before D53 it used the proposals and marked findings `proposed_not_approved`; the tests keep that path covered
+  (`investigation_factory.pre_d53`).
 
 The review page carries a banner. The publication check refuses a review document.
 
-**What each mode produces on production data (2026-09-29 run):**
+**What each mode produces on production data** (run `20260929T210734Z-4cb4bfa25596`, the newest completed production extract):
 
-- `approved_only`: 11 findings, namely the approved Speed strengths and weaknesses (4), the open-work past-ETA fact and 6 data
-  warnings. Every other detector reports `rule_not_approved`.
-- `review`: 75 findings. See [`INTELLIGENCE-V2-VALIDATION.md`](INTELLIGENCE-V2-VALIDATION.md).
+- `approved_only`: 55 findings from 21 detectors (2 Strong, 47 Moderate, 6 Weak direct facts or data warnings); 24 Weak findings
+  withheld; no detector blocked by governance.
+- `review`: 79 findings from 23 detectors. See [`INTELLIGENCE-V2-VALIDATION.md`](INTELLIGENCE-V2-VALIDATION.md).
 
 ## 9. Contract strategy, compatibility, gating and rollback (Tasks 65-68)
 
@@ -326,8 +350,9 @@ rank of people or HR field (tested).
 - Contracts ≤ 1.4.0 have no optional file (`site_layout.optional_files` → `[]`).
 - A build without `intelligence-v2.json` is identical to today's.
 
-**Feature gating (Task 67).** `config/intelligence-v2.json` → `publication.include_in_site_build` (default `false`). When it is
-true, production sync and the local site build write `intelligence-v2.json`, built `approved_only` only. It is listed in
+**Feature gating (Task 67).** `config/intelligence-v2.json` → `publication.include_in_site_build`, **on since D53.15**. When it is
+true, production sync and the local site build compute `intelligence-v2.json` (`approved_only` only) after the profiles and
+before the pages, write it beside `dashboard.json`, and pass it to the page renderer. It is listed in
 `build.json` like every artifact. It is validated whenever it is present:
 
 - schema and consistency;
@@ -335,12 +360,12 @@ true, production sync and the local site build write `intelligence-v2.json`, bui
 - the same Monday snapshot and contract.
 
 The validation runs in `atlas_sync.run.validate_site` and `atlas_sync.publish`. Like `dashboard.json`, the file is not served
-publicly; nginx serves only `/`, `/en` and `/ar`. Enabling it is a reviewed configuration change, the same path as contract
-activation.
+publicly; nginx serves only `/`, `/en` and `/ar`; its content reaches managers through the pages.
 
 **Rollback (Task 68):**
 
-1. Set `publication.include_in_site_build` back to `false` and deploy. The next cycle builds without the file.
+1. Set `publication.include_in_site_build` back to `false` and deploy. The next cycle builds without the file, and the pages are
+   exactly the pages without Intelligence (tested).
 2. Or roll the pointer back to any earlier publication with `atlas-runtime rollback` (`PRODUCTION-RUNBOOK.md`). Builds with and
    without the optional file both validate, publish and roll back, because the file is optional, never required.
 3. To remove the code as well, deploy the previous release (production runbook §9). Nothing reads V2 output, so nothing else
@@ -348,38 +373,31 @@ activation.
 
 No step rewrites Git history or edits a published build.
 
-## 10. UI integration (Tasks 69-72) and how the UI/UX branch should consume it
+## 10. UI integration (Tasks 69-72, brief §23-§24)
 
-**Added here (minimal, validation only):**
+**In the Editors app** (`atlas_commander.web.intel`, rendered by `web/app.py` from the published document; the page computes
+nothing):
 
-- `python -m atlas_commander.investigation` (and `make intelligence-v2-review`) writes a static English review page.
-  - It has an executive brief and one card per finding, in section order.
-  - Each card shows severity, evidence label, basis and rank, a "proposed parameters" tag and a summary.
-  - The drawers show why Atlas noticed it, the interpretation (labelled "not a fact"), contradicting evidence, the confidence
-    explanation, limitations, what management may want to investigate, the full Monday evidence tables, related findings and
-    the parameters used.
-  - Further sections list clustered duplicates, Not Enough Evidence, Editors with fairness context, and parameters with their
-    approval.
-- The page has no script and makes no network request.
-- No change was made to the redesigned `web/` app, `dashboard_html.py`, `profile_html.py` or the locale catalog.
+- **Editors overview → Intelligence.** The engine's `sections.top_findings` (at most five, D53.13), in the engine's order. Each
+  card shows the category, the confidence word, what Atlas noticed, what it may mean (labelled interpretation), why it matters,
+  the suggested investigation, the evidence size (projects and Editors) and, when present, the contradicting evidence next to the
+  claim ("The evidence is mixed", D53.12). Clustered duplicates show as "+N related" (D53.14). Every other published finding is
+  one click away under "All published findings", grouped by section.
+- **Evidence drawer** per finding: every sentence, the confidence basis and factors, the limitations, the cluster members, the
+  detector and version, and every Monday project behind each supporting, contradicting and context block. A project chip opens
+  that project's own evidence drawer (event IDs, timestamps, deadline, labels).
+- **Editor Profile → Intelligence**, after the signals: the findings that include this Editor.
+- **Data & rules → Intelligence rules (D53)**: every parameter, its approved value and decision, and the published / withheld /
+  examined counts.
+- **English and Arabic** render the same structure (`narrative` / `narrative_ar`, same keys, same Monday values and numbers per
+  sentence; 57 `ui.iv2.*` catalogue strings). Monday values are `<bdi>`, numbers `<bdi dir="ltr">`; the Arabic is marked
+  *Needs Arabic Review* (`docs/i18n/ARABIC-TRANSLATION-REVIEW.md`). Tested: `test_investigation_i18n.py` (774-finding corpus,
+  all 174 statement codes), `test_ui_intelligence.py`, `test_ui_v15.py` (EN/AR parity, no English on Arabic pages, no network).
+- Without a published document (gate off, contract 1.4, or a review document) the page is byte-identical to the page without
+  Intelligence.
 
-**Guidance for the UI/UX branch:**
-
-- Read `intelligence-v2.json` beside `dashboard.json`.
-- Render from `statements[].code` plus `params`, never from `text`, which is English only. Add the catalog keys
-  `iv2.<code>`, with Arabic, to `locales/catalog.json`. The narrative templates in `narrative.T` are the English reference.
-- Map `sections` to the Overview:
-  - Top Findings;
-  - Needs Attention;
-  - System Patterns;
-  - Hidden Context.
-- Put `editors[].finding_ids` and `fairness_context` on the Editor Profile, next to the components each finding qualifies.
-- Evidence drawers reuse the existing drawer component: `supporting_evidence` / `contradicting_evidence` blocks have the same
-  `records` shape (item, event IDs, timestamps, values) as the 1.5 evidence blocks.
-- Always show `confidence.label` and `limitations` with a finding, and show `parameter_status` while it is not `approved`.
-- Never show a finding whose `parameter_status` is not `approved` in the published app.
-- Chains (`investigation_graph.chains`) fit an "Investigate" view: finding → why → evidence → contradicting evidence → what to
-  check.
+**Review page** (unchanged): `python -m atlas_commander.investigation` / `make intelligence-v2-review` writes a static English
+page for management review of every finding, including Weak ones; it is never published.
 
 ## 11. Final validation questions
 
@@ -408,7 +426,7 @@ The answers below are for the production data, in review mode.
 | 19 | Can Atlas distinguish an observation from a hypothesis? | Yes: typed statements, the `evidence_level` basis and `statement_levels`. |
 | 20 | Can the conclusion be rebuilt without trusting an LLM? | Yes. No LLM is used; the calculation, samples and records are in the document and were independently recomputed. |
 
-The honest limit is that in `approved_only` mode most of these answers are "rule not approved" until D53 is decided.
+Since D53, `approved_only` answers them with approved rules; Weak exploratory answers stay in review mode.
 
 ## 12. What Atlas still cannot safely determine
 

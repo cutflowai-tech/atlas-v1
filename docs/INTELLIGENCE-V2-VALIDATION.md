@@ -1,20 +1,87 @@
 # Intelligence V2: production validation
 
-Task 64 of the Intelligence V2 brief.
+Tasks 64 and 20-22 of the D53 production instruction. Two validations are recorded here: **§1-§5** the D53 validation that
+preceded publication (2026-09-30, approved parameters), and **Appendix A** the earlier review-mode validation (2026-09-29,
+proposed parameters), kept as it was written.
 
-**Data.** Production run `20260929T130736Z-e6d03314e704`:
-
-- 2026-02-01 to 2026-09-29;
-- 1,305 items;
-- 861 completed first cycles, 681 attributed;
-- contract 1.5.0;
-- `generated_at` equal to the snapshot time, `2026-09-29T13:10:36Z`.
-
-The run was read from a read-only copy of the raw extract. Nothing was written to Monday, the repository or any published
-location. No credential appears here. Editor names are the attested display names already used throughout the repository.
+Nothing was written to Monday, the repository's data or any published location during validation. Raw extracts were read from
+read-only local copies. No credential appears here. Editor names are the attested display names already used in the repository;
 Monday item IDs are shown so a reviewer can open them.
 
-## 1. What was run
+## 1. Data
+
+Production run `20260929T210734Z-4cb4bfa25596`, the newest completed production extract at validation time (it was the live
+publication's source run):
+
+- board `5091110326`, contract 1.5.0, activity window 2026-02-01 to 2026-09-29T21:07:34Z;
+- `retrieved_at` and `generated_at` 2026-09-29T21:10:18Z (Cairo current window 2026-08-31 to 2026-09-29).
+
+## 2. What was run (D53 values)
+
+| Mode | Findings | Detectors with findings | Confidence | Withheld as Weak | `rule_not_approved` |
+|---|---|---|---|---|---|
+| `review` (never published) | 79 | 23 | 2 Strong, 47 Moderate, 30 Weak | — | none |
+| `approved_only` (published) | 55 | 21 | 2 Strong, 47 Moderate, 6 Weak (direct fact or data warning) | 24 | none |
+
+- Examined without a finding (approved_only): insufficient sample 146, insufficient outcome events 122, no effect at the approved
+  threshold 135, insufficient recent window 49, insufficient qualifying Editors 42, Weak evidence kept for review 24.
+- Duplicate clusters: 4 in approved_only (7 in review); every member stays in the document.
+- Categories published: 7 system patterns, 1 needs attention, 17 hidden context, 18 Editor-specific patterns, 5 improvements,
+  1 emerging risk, 6 data warnings.
+- No D53 detector is blocked by governance. Quality N/P and contract Trend materiality remain open (D52) and are not used by any
+  Intelligence V2 detector.
+
+## 3. The Top 5, recomputed independently
+
+A separate script (`reconstruct_cycles`, `metrics.deadline_result`, `speed_eligible`, `cohort_benchmark_eligibility`,
+`median_seconds` and the raw item snapshot; it asserts that no `atlas_commander.investigation` module is loaded) re-derived each
+Top finding from the raw extract. All five match exactly, including the Monday item ID sets.
+
+| # | Finding | Evidence | Confidence | Independent result |
+|---|---|---|---|---|
+| 1 | **Open work: 5 projects already past their Requested ETA** (emerging risk, direct fact) | 3109734616 (Revisions, 33.4 h past), 3202025538 (Revisions, 102.8 h), 3236578961 (Revisions, 2.0 h), 3243372495 (Revisions, 3.4 h), 3248895716 (In Progress, 0.2 h), read from the item snapshot's status and Requested ETA | Strong (direct observation) | identical items, statuses, Editors and hours |
+| 2 | **Late projects often start with too little runway** (system pattern) | 329 of 423 late projects entered In Progress with less time before the Requested ETA than the other Editors' typical same-Video-Type execution; 73.8% of 446 short-runway projects late against 53.9% of 89 adequate; 48 late projects had adequate runway (contradicting block) | Strong | identical counts, rates and 329 item IDs |
+| 3 | **Refaat: execution time in Simple Short worsened against own history** (needs attention) | 41.6 h over 11 projects (current window) against 33.0 h over 27 (history), +26.3%; the other Editors' change over the same periods is −4.1% (16 current / 114 history projects, 3 Editors, valid at the D52 comparator minimums), so the change is Editor-specific. It agrees with the approved D52 Speed verdict (Slower in Simple Short, 41.6 h against 29.1 h for 16 projects of 3 other Editors) | Moderate | identical medians, samples, peer change and 38 item IDs |
+| 4 | **Will: the late-rate headline needs context** (hidden context, mixed evidence) | late 84.5% (109 of 129) against 67.8% for the others; the approved Speed rule over the whole history reads neutral (faster 0, similar 109, slower 5); 30 late projects were executed within the others' typical time | Moderate | identical |
+| 5 | **Mario: the late-rate headline needs context** (hidden context, mixed evidence) | late 82.4% (103 of 125) against 68.5%; whole-history Speed neutral (faster 41, similar 66, slower 25); 40 late projects within typical time; on the same Video Type mix the others would be late 81% against 82% observed | Moderate | identical |
+
+The Top 5 ranking follows the approved order: time-sensitive facts and findings that change an obvious interpretation first,
+then evidence strength, worsening, affected projects and Editors, magnitude, recency and persistence. The past-ETA fact ranks
+above historical-similarity signals (D53.9).
+
+## 4. False-positive review of the strongest findings
+
+| Kind | Finding | Checks |
+|---|---|---|
+| Process-level | Runway (Top 2) | numerator, denominator and item IDs recomputed; typical time is leave-one-out, same exact Video Type, D52 minimums; contradicting block shown; wording "associated with", scheduling as a question (D46) |
+| Editor-specific | *Will: late rate differs from peers on the same work* (Moderate) | 93 of 113 late against 76.01 predicted by the same Video Type mix: 15.04 pp, just at the D53.6 material difference; under similar runway 17 pp (98 projects). Reported as a difference on comparable work, with "worth a specific, evidence-based conversation", no judgement |
+| Contradiction | Will's headline (Top 4) | contradicting blocks: speed competitive (114 projects), late despite typical execution (30); stated as "The evidence is mixed" |
+| Bottleneck | *Delay after on-time submission* | 72 of 163 projects submitted on or before the ETA were delivered after it; review wait 3.9 h, submission to delivery 9.6 h median; stage named, no person (shared account) |
+| Risk | Past ETA (Top 1) | recomputed from the raw item snapshot |
+| Concentration | *Scored Positive labels concentrate in Class A* | 33 of 58 positive labels (57%) on 185 of 686 projects (27%): ratio 2.1 ≥ 1.25 and difference 30 pp ≥ 10 pp; 58 ≥ 5 events |
+| Shared pattern | *Premium Short: execution time improved across Editors* | 3 of 3 Editors with ≥ 5 projects in both periods moved the same way (D53.4: ≥ 3 affected, ≥ 2/3) |
+
+## 5. Defects found in the D53 review and fixed before publication
+
+| Found | Fix | Test |
+|---|---|---|
+| `evidence.breadth_share` stored as 0.6667 rejected exactly two thirds (2 of 3) | exact fraction `2/3` | `test_investigation_d53.SharedPatternBoundaryTests` |
+| "Shared" did not require 3 *affected* Editors, and team / Video Type changes said "across Editors" with any number of Editors | D53.4 rule in `common.shared_across_editors`, used by the pattern and both change detectors | same, and `ChangeTests` |
+| Historical-similarity signals fired when the similar group was 1-4 points above its Video Type (72% vs 71%) | requires the D53.6 material rate difference | `FairnessGuardTests` |
+| Repeated-delay cells were compared with the pooled late rate of all Video Types | compared with the same Video Type (overall and in both halves) | `FairnessGuardTests` |
+| Timing buckets were not adjusted for Video Type mix | indirect standardisation by Video Type | `FairnessGuardTests` |
+| An Editor change was called Editor-specific even when the team's comparison group was below any sample floor | the team's change counts only at the same floors (rates) or the D52 comparator minimums (execution); otherwise "team comparison unavailable" | `FairnessGuardTests` |
+| A direct fact (past ETA) was graded "Weak" | Strong with the single factor `direct_observation` | `FairnessGuardTests` |
+| Titles did not name their subject (two identical "headline needs context" cards) | every title names the Editor, Video Type or project | `test_investigation_i18n` |
+| The high-workload open-work signal used the Editor's median | the Editor's own 75th percentile (D53.8) | `WorkloadPercentileBoundaryTests` |
+| Two detectors used parameters their catalog entry did not declare | declared; a test compares used and declared parameters | `test_every_parameter_a_finding_uses_is_declared_in_the_detector_catalog` |
+
+Residual concerns for reviewers: the workload association is partly mechanical (a long project overlaps more work), which the
+wording and limitations say; "typical execution" uses other Editors' whole history; the Arabic narrative is *Needs Arabic Review*.
+
+## Appendix A. Review-mode validation before D53 (2026-09-29, run `20260929T130736Z-e6d03314e704`)
+
+### A.1 What was run
 
 | Mode | Findings | Analyses run | Build time |
 |---|---|---|---|
@@ -54,7 +121,7 @@ Evidence levels: 45 findings have moderate evidence and 30 have low. None reache
 strong-evidence condition. The runway finding, for example, has 525 of 587 projects with a comparable typical time, which is
 below the 90% completeness proposal.
 
-## 2. Independent recomputation
+### A.2 Independent recomputation
 
 Each figure below was recomputed by a separate script that uses **only** the existing pipeline primitives:
 
@@ -76,7 +143,7 @@ leave-one-out, D52 minimums, Cairo windows) and compares both the values and the
 | Simple Short execution time | 39.7 h (24 projects, current window) vs 31.6 h (141 projects, history) | identical | — |
 | Mario: Negative labels | 43 of 64 are Late Delivery | identical | — |
 
-## 3. One record traced to raw Monday data
+### A.3 One record traced to raw Monday data
 
 Evidence record from *Will: the late-rate headline needs context*, in the contradicting block
 `late_despite_typical_execution`:
@@ -98,7 +165,7 @@ What this record shows: the project was executed faster than typical (24.5 h aga
 entered In Progress with 11.4 h of runway. That is the pattern the finding reports. It does not show that Will has no part in
 lateness, and the wording says so.
 
-## 4. Reviewed findings, with wording checks
+### A.4 Reviewed findings, with wording checks
 
 For each finding below, the evidence was reconstructed and the sample and wording checked. It had to state counts, name
 what it compares against, say *associated* rather than *caused*, label interpretation as interpretation and hypothesis as a
@@ -158,7 +225,7 @@ question, and contain no personality or HR language.
    started at higher concurrency took longer (median difference 59.1%, 27 of 31 groups the same way). The wording is "not proof
    of cause (elapsed time includes parallel work)".
 
-## 5. Defects found in validation and fixed before this report
+### A.5 Defects found in validation and fixed
 
 | Found | Fix |
 |---|---|
@@ -169,7 +236,7 @@ question, and contain no personality or HR language.
 | The relationship graph linked unrelated findings (185 context edges); chains hopped between Editors | Edges need an explicit type-pair rule **and** shared Monday projects; chains stay on one subject |
 | Almost every finding reported evidence level "hypothesis" | `evidence_level` is the observed basis; `statement_levels` lists the layers |
 
-## 6. Residual concerns for reviewers
+### A.6 Residual concerns (before D53)
 
 - **The workload association is partly mechanical.** A long project is more likely to overlap others; the wording and the
   limitations say so. Do not approve `workload.band_rule` without reading that caveat.

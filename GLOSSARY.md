@@ -167,6 +167,16 @@ _Avoid_: Buffer, slack, deadline pressure
 How many of the same Editor's other projects were already in execution when a project started; a lower bound, not effort.
 _Avoid_: Capacity, load, overload
 
+**Confidence (Intelligence V2)**:
+How well the data supports a Finding: Weak, Moderate or Strong, with the factors that decided it (Arabic: محدودة / متوسطة / قوية).
+Only Strong and Moderate Findings, and Weak direct facts or data warnings, are published (D53.11). It is separate from importance.
+_Avoid_: Percentage confidence, probability, certainty score
+
+**Shared Pattern**:
+A pattern that at least 3 Editors, each with at least 5 comparable projects and together at least two thirds of the eligible
+Editors, show in the same direction (D53.4); more consistent with a shared workflow pattern than an isolated Editor pattern.
+_Avoid_: Systemic (for two people), company-wide
+
 **Risk Signal**:
 A fact about open work, or a historical base rate for work in the same position, that deserves attention; never a prediction.
 _Avoid_: Forecast, prediction, likely late

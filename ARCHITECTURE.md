@@ -11,8 +11,9 @@
 5b. **Investigation layer (Intelligence V2, optional)** — `atlas_commander/investigation/` reads the cycle reconstruction and the
 finished 1.5 profiles and builds a separately versioned `intelligence-v2` document of findings (patterns, contradictions,
 context, investigations), each with Monday evidence, confidence and limitations. It never feeds back into any metric, state,
-status, profile or dashboard; new thresholds stay `rule_not_approved` until decided (D53). It is published only as an optional,
-feature-gated artifact (`docs/INTELLIGENCE-V2.md`).
+status, profile or dashboard; its thresholds are approved by D53. The site build computes it after the profiles and before the
+pages, writes it as an optional, feature-gated artifact and passes the published (`approved_only`) document to the English and
+Arabic pages, which render its Top findings and evidence without computing anything (`docs/INTELLIGENCE-V2.md`).
 6. **Evidence API** returns contract-versioned Editor Profile data. The UI does not recalculate metrics. Under 1.5.0 the Overview and Profile render one language-neutral interpretation view model (`dashboard.interpretation_view`, `interpretation_html.py`) in English and Arabic.
 7. **Optional AI explanation** reads deterministic outputs and evidence; it cannot mutate or supply them.
 
