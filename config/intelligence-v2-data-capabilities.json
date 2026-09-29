@@ -1,0 +1,150 @@
+{
+  "capability_map_version": "intelligence-v2-data-capabilities-v1.0",
+  "verified_against": {
+    "code": "pipeline.reconstruct_cycles, cycles.build_item_cycle, monday_source, quality.quality_occurrences, profile._current_workload",
+    "production_run": "20260929T130736Z-e6d03314e704 (2026-02-01 .. 2026-09-29, 1305 items, 17908 accepted status events, 861 completed first cycles, 681 attributed to a mapped Editor, contract 1.5.0)",
+    "verified_on": "2026-09-29"
+  },
+  "classes": {
+    "reliable": "present for (nearly) every record and defined by an approved rule; may be used directly",
+    "usable_with_limitations": "present or derivable but partial, lower-bound or proxy; every use must carry the stated limitation",
+    "unavailable": "not captured by the current Monday ingest; no detector may depend on it",
+    "unsafe_to_infer": "a value could be guessed from other data, but an approved rule or the data itself forbids it; no detector may depend on it"
+  },
+  "signals": {
+    "project_id": {
+      "class": "reliable", "source": "Monday item ID (pulse_id) on every activity log and item snapshot",
+      "coverage": "all 1305 items", "limitations": []
+    },
+    "board_id": {
+      "class": "reliable", "source": "source_board.board_id (single production board 5091110326)",
+      "coverage": "all records", "limitations": ["one board only; no cross-board analysis is possible"]
+    },
+    "status_event_id": {
+      "class": "reliable", "source": "activity log id of each accepted status transition (normalized event_id)",
+      "coverage": "17908 accepted events", "limitations": ["duplicate event IDs are de-duplicated by normalization"]
+    },
+    "status_history": {
+      "class": "reliable", "source": "accepted NormalizedStatusEvents per item (from, to, occurred_at)",
+      "coverage": "every item with status activity; 1300 of 1305 items have proven complete history (create_pulse read)",
+      "limitations": ["804 status logs are quarantined as UNKNOWN_STATUS (retired statuses, D18) and 231 as STATUS_CLEARED; a time span containing an unknown status cannot be assigned to a stage",
+                      "history before 2026-02-01 is outside the ingest window"]
+    },
+    "editor_execution_interval": {
+      "class": "reliable", "source": "cycles: first In Progress -> first Ready For Approval (D2, D3)",
+      "coverage": "861 completed first cycles, 681 attributed", "limitations": ["elapsed clock time, not effort; nights, weekends and parallel work are included (D3)"]
+    },
+    "editor_identity": {
+      "class": "reliable", "source": "Editor Name value in effect at Ready For Approval, resolved by (source_label_id, logged_name) (D48-D51)",
+      "coverage": "681 of 861 completed cycles", "limitations": ["180 completed cycles have no verified Editor (MISSING_EDITOR_EVENT, EDITOR_CHANGED_WITHIN_CYCLE, quarantined identities); they can enter team-level stage timing but never an Editor finding",
+                                                           "open cycles are not attributed: the Editor is resolved at Ready For Approval"]
+    },
+    "current_editor_of_open_work": {
+      "class": "usable_with_limitations", "source": "current item snapshot of Editor Name (profile._current_editor)",
+      "coverage": "items in the retrieved snapshot", "limitations": ["current fact only; never used for past work"]
+    },
+    "editor_assignment_time": {
+      "class": "usable_with_limitations", "source": "Editor Name column-change event (or create_pulse value) that set the value in effect at Ready For Approval",
+      "coverage": "cycles whose Editor value was logged inside the ingest window", "limitations": ["the time the value was set, not when the Editor saw the work", "a reassignment to the same Editor is indistinguishable from the first"]
+    },
+    "item_creation_time": {
+      "class": "usable_with_limitations", "source": "create_pulse activity log timestamp",
+      "coverage": "1300 items created inside the window", "limitations": ["missing for items created before 2026-02-01"]
+    },
+    "video_type": {
+      "class": "reliable", "source": "latest valid Video Type at or before Ready For Approval (D8), exact cohort key; benchmark-eligible per D14",
+      "coverage": "every attributed completed cycle has a cohort key; 'Unbranded' (26) and 'Reels Boost Pack' (22) cohorts are not benchmark-eligible",
+      "limitations": ["the only available complexity control; video length, footage and brief are not captured"]
+    },
+    "requested_eta": {
+      "class": "reliable", "source": "latest valid Requested ETA at or before first Ready For Approval (D19); history of every observed value",
+      "coverage": "646 of 681 attributed completed cycles have a timed ETA; 32 date-only, 3 missing",
+      "limitations": ["a date-only ETA is never given a time (D6)", "in 58 cycles the selected ETA was first observed after In Progress (the ETA was set or changed during the work)"]
+    },
+    "requested_eta_at_work_start": {
+      "class": "usable_with_limitations", "source": "latest valid Requested ETA observed at or before first In Progress, from the same history",
+      "coverage": "cycles whose ETA history reaches back before In Progress", "limitations": ["not a metric input under D19; context for runway only"]
+    },
+    "execution_runway": {
+      "class": "usable_with_limitations", "source": "selected Requested ETA - first In Progress",
+      "coverage": "deadline-classifiable cycles", "limitations": ["uses the ETA in effect at first Ready For Approval; when that ETA was first observed after In Progress the runway is flagged eta_observed_after_work_start"]
+    },
+    "deadline_result": {
+      "class": "reliable", "source": "metrics.deadline_result (D5, D19)", "coverage": "587 deadline-classifiable attributed cycles",
+      "limitations": []
+    },
+    "performance_labels": {
+      "class": "usable_with_limitations", "source": "Performance Issues and For Bonus columns, current item value, per-label registry (D26-D30)",
+      "coverage": "366 attributed occurrences; 149 occurrences quarantined (no completed cycle or unresolved Editor)",
+      "limitations": ["applied by hand: rates are lower bounds (only a minority of computed-late projects carry Late Delivery)", "a removed label does not count", "labels sit on a project, attributed to the Editor of its first completed cycle"]
+    },
+    "label_timestamp": {
+      "class": "reliable", "source": "activity log that added the label", "coverage": "labels added inside the window",
+      "limitations": ["never moves a project to another window (D42)"]
+    },
+    "client_revision": {
+      "class": "reliable", "source": "transition into Revisions (D31)", "coverage": "every status history",
+      "limitations": ["context only; never Editor fault"]
+    },
+    "internal_revision": {
+      "class": "reliable", "source": "transition into Internal Revisions (D31)", "coverage": "every status history",
+      "limitations": ["context only; no cause inferred"]
+    },
+    "revision_cause": {
+      "class": "unavailable", "source": null, "coverage": null,
+      "limitations": ["no reason field is captured; only client vs internal is known (D31)"]
+    },
+    "stage_durations": {
+      "class": "usable_with_limitations", "source": "consecutive accepted status events of one item (dwell = next entry - this entry)",
+      "coverage": "items without a quarantined status inside the measured span", "limitations": ["elapsed time; the last visit of an item is right-censored at retrieval and excluded", "a span that contains a quarantined (unknown) status is not assigned to any stage"]
+    },
+    "post_editor_delivery": {
+      "class": "usable_with_limitations", "source": "first transition into a delivered-phase status (Sent, Done) after first Ready For Approval",
+      "coverage": "delivered items", "limitations": ["who moved the card is not identifiable for most transitions (shared account)"]
+    },
+    "transition_role": {
+      "class": "usable_with_limitations", "source": "monday-transition-role-v1.0 exact rules",
+      "coverage": "4035 editor and 553 production_manager transitions; 13320 unresolved", "limitations": ["a role, never a person; unlisted transitions stay unresolved"]
+    },
+    "actor_person_for_shared_account": {
+      "class": "unsafe_to_infer", "source": "actor_monday_id 99154021 (Waset Co)", "coverage": null,
+      "limitations": ["the shared account is used by several people; it never identifies a person (AGENTS.md, SPEC.md)"]
+    },
+    "actor_person_for_individual_accounts": {
+      "class": "unsafe_to_infer", "source": "actor_monday_id of non-shared accounts", "coverage": null,
+      "limitations": ["Activity-log user_id is audit metadata only (rule 3); no mapping of accounts to roles is approved"]
+    },
+    "concurrent_workload_history": {
+      "class": "usable_with_limitations", "source": "overlap of the same Editor's attributed completed first-cycle intervals",
+      "coverage": "attributed completed cycles only", "limitations": ["lower bound: open, unattributed, rework and non-first cycles are not counted", "concurrency is not effort; no capacity rule is approved (D33, HANDOFF §21)"]
+    },
+    "current_open_work": {
+      "class": "reliable", "source": "current item snapshot: Status and Editor Name (D33 Active Work / Awaiting Approval)",
+      "coverage": "all items in the snapshot", "limitations": ["current state only; the time an open project entered its current status comes from the status history"]
+    },
+    "reviewer_identity": {
+      "class": "unavailable", "source": null, "coverage": null,
+      "limitations": ["no reviewer column is ingested; review performance is out of scope (HANDOFF §27)"]
+    },
+    "client_identity": {
+      "class": "unavailable", "source": null, "coverage": null, "limitations": ["not captured; client intelligence is out of scope (HANDOFF §39)"]
+    },
+    "project_complexity_beyond_video_type": {
+      "class": "unavailable", "source": null, "coverage": null, "limitations": ["video length, footage volume and brief quality are not captured"]
+    },
+    "working_hours_or_effort": {
+      "class": "unavailable", "source": null, "coverage": null, "limitations": ["Monday records status changes, not time worked"]
+    },
+    "priority_or_queue_position": {
+      "class": "unavailable", "source": null, "coverage": null, "limitations": ["no priority field; why a project waited is a hypothesis only"]
+    },
+    "item_name_text": {
+      "class": "unsafe_to_infer", "source": "pulse_name in activity logs", "coverage": null,
+      "limitations": ["free text that may name clients; not used by any rule and not reproduced in findings"]
+    },
+    "retired_status_meaning": {
+      "class": "unsafe_to_infer", "source": "quarantined labels such as Uploading, Editing Now, Ready For Review", "coverage": null,
+      "limitations": ["meaning not attested (D18); affected spans are excluded"]
+    }
+  }
+}
