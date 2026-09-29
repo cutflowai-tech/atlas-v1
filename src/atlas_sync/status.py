@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -329,11 +330,32 @@ def _attach_retention(snapshot: StatusSnapshot, config: SyncConfig) -> StatusSna
     """Expose aggregate storage only from a clean, allow-listed retention report."""
     if config.lock_dir is None:
         return snapshot
-    directory = config.lock_dir.resolve() / "retention"
-    path = directory / "latest.json"
-    if directory.is_symlink() or path.is_symlink():
+    configured_lock_root = config.lock_dir.expanduser().absolute()
+    if configured_lock_root.is_symlink():
         return snapshot
-    document = _json_object(path)
+    lock_root = configured_lock_root.resolve()
+    lock_fd: int | None = None
+    directory_fd: int | None = None
+    try:
+        before = os.stat(lock_root, follow_symlinks=False)
+        lock_fd = os.open(lock_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        opened = os.fstat(lock_fd)
+        if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+            return snapshot
+        directory_fd = os.open("retention", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=lock_fd)
+        fd = os.open("latest.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+        with os.fdopen(fd, "rb") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                return snapshot
+            value = json.load(handle)
+        document = value if isinstance(value, dict) else None
+    except (OSError, ValueError):
+        return snapshot
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        if lock_fd is not None:
+            os.close(lock_fd)
     if not document or document.get("report_version") != "atlas-retention-v1" or document.get("status") != "complete":
         return snapshot
     storage = document.get("storage")

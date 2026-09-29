@@ -348,6 +348,115 @@ class RetentionTests(unittest.TestCase):
         self.assertTrue(record.exists())
         self.assertTrue(history.exists())
 
+    def test_corrupt_raw_without_build_keeps_attempt_record(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        shutil.rmtree(build)
+        (raw / "manifest.json").write_text("{")
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(raw.exists())
+        self.assertTrue(record.exists())
+
+    def test_incomplete_build_with_unknown_source_keeps_raw_graph(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        (build / "COMPLETE.json").unlink()
+        (build / "build.json").unlink()
+        record.unlink()
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(build.exists())
+        self.assertTrue(raw.exists())
+
+    def test_invalid_current_metadata_blocks_cleanup_without_live_pointer(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        (self.config.publish_dir / "CURRENT.json").write_text("{")
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(raw.exists())
+        self.assertTrue(build.exists())
+        self.assertTrue(record.exists())
+
+    def test_delete_swap_never_removes_replacement_object(self):
+        root = self.data / "delete-race"
+        root.mkdir()
+        target = root / "target"
+        target.mkdir()
+        (target / "original").write_text("keep")
+        moved = root / "moved-original"
+        real_rename = os.rename
+        swapped = False
+
+        def swap_then_rename(src, dst, *args, **kwargs):
+            nonlocal swapped
+            if src == target.name and not swapped:
+                swapped = True
+                real_rename(src, moved.name, src_dir_fd=kwargs["src_dir_fd"],
+                            dst_dir_fd=kwargs["dst_dir_fd"])
+                target.mkdir()
+                (target / "replacement").write_text("must survive")
+            return real_rename(src, dst, *args, **kwargs)
+
+        with (mock.patch.object(retention.os, "rename", side_effect=swap_then_rename),
+              self.assertRaisesRegex(OSError, "changed during deletion")):
+            retention._remove(root, target)
+        self.assertTrue((target / "replacement").exists())
+        self.assertTrue((moved / "original").exists())
+
+    def test_report_parent_swap_cannot_write_outside_opened_directory(self):
+        directory = self.config.lock_dir / "retention"
+        directory.mkdir()
+        saved = self.config.lock_dir / "retention-opened"
+        outside = self.data / "outside-race"
+        outside.mkdir()
+        real_open = os.open
+        swapped = False
+
+        def swap_parent(path, *args, **kwargs):
+            nonlocal swapped
+            if isinstance(path, str) and path.startswith(".latest.json") and not swapped:
+                swapped = True
+                directory.rename(saved)
+                directory.symlink_to(outside, target_is_directory=True)
+            return real_open(path, *args, **kwargs)
+
+        report = retention.RetentionReport("now", "cutoff", 345600, False)
+        with mock.patch.object(retention.os, "open", side_effect=swap_parent):
+            retention._write_report(self.config, report)
+        self.assertFalse((outside / "latest.json").exists())
+        self.assertTrue((saved / "latest.json").exists())
+
+    def test_status_parent_swap_never_reads_external_report(self):
+        directory = self.config.lock_dir / "retention"
+        directory.mkdir()
+        (directory / "latest.json").write_text(json.dumps({
+            "report_version": "atlas-retention-v1", "status": "partial", "storage": {},
+        }))
+        saved = self.config.lock_dir / "retention-opened"
+        outside = self.data / "outside-status-race"
+        outside.mkdir()
+        (outside / "latest.json").write_text(json.dumps({
+            "report_version": "atlas-retention-v1", "status": "complete",
+            "storage": {"raw_run": {"count": 1, "bytes": 1}},
+        }))
+        real_open = os.open
+        swapped = False
+
+        def swap_parent(path, *args, **kwargs):
+            nonlocal swapped
+            if path == "latest.json" and not swapped:
+                swapped = True
+                directory.rename(saved)
+                directory.symlink_to(outside, target_is_directory=True)
+            return real_open(path, *args, **kwargs)
+
+        snapshot = status.StatusSnapshot("now", "runtime", "healthy", "fresh", True, None, None, None, {})
+        with mock.patch.object(status.os, "open", side_effect=swap_parent):
+            status._attach_retention(snapshot, self.config)
+        self.assertIsNone(snapshot.retention)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import shutil
+import stat
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -72,7 +74,11 @@ def _iso(value: datetime) -> str:
 
 def _object(path: Path) -> dict[str, Any] | None:
     try:
-        value = json.loads(path.read_bytes())
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                return None
+            value = json.load(handle)
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None
@@ -152,10 +158,37 @@ def _safe_child(root: Path, path: Path) -> bool:
 def _remove(root: Path, path: Path) -> None:
     if not _safe_child(root, path) or path.is_symlink():
         raise OSError("unsafe retention target")
-    if path.is_dir():
-        shutil.rmtree(path)
-    else:
-        path.unlink()
+    root_before = os.stat(root, follow_symlinks=False)
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    candidate_fd: int | None = None
+    staged: str | None = None
+    try:
+        root_open = os.fstat(root_fd)
+        if (root_before.st_dev, root_before.st_ino) != (root_open.st_dev, root_open.st_ino):
+            raise OSError("retention root changed during deletion")
+        candidate_fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root_fd)
+        candidate = os.fstat(candidate_fd)
+        staged = f".atlas-retention-{os.getpid()}-{secrets.token_hex(12)}"
+        os.rename(path.name, staged, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+        staged_stat = os.stat(staged, dir_fd=root_fd, follow_symlinks=False)
+        if (candidate.st_dev, candidate.st_ino) != (staged_stat.st_dev, staged_stat.st_ino):
+            try:
+                os.stat(path.name, dir_fd=root_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                os.rename(staged, path.name, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+                staged = None
+            raise OSError("retention target changed during deletion")
+        if stat.S_ISDIR(candidate.st_mode):
+            shutil.rmtree(staged, dir_fd=root_fd)
+        elif stat.S_ISREG(candidate.st_mode):
+            os.unlink(staged, dir_fd=root_fd)
+        else:
+            raise OSError("unsafe retention target type")
+        staged = None
+    finally:
+        if candidate_fd is not None:
+            os.close(candidate_fd)
+        os.close(root_fd)
 
 
 def _source(build: Path, raw_root: Path) -> tuple[str | None, bool]:
@@ -254,27 +287,46 @@ def _record(report: RetentionReport, kind: str, path: Path, action: str, reason:
 def _write_report(config: SyncConfig, report: RetentionReport) -> None:
     if config.lock_dir is None:
         return
-    directory = config.lock_dir.resolve() / REPORT_DIR
-    if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
-        raise OSError("unsafe retention report directory")
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if directory.is_symlink():
-        raise OSError("unsafe retention report directory")
-    path = directory / REPORT_NAME
-    if path.is_symlink():
-        raise OSError("unsafe retention report path")
-    temporary = directory / f".{REPORT_NAME}.{os.getpid()}.tmp"
+    configured_lock_root = config.lock_dir.expanduser().absolute()
+    if configured_lock_root.is_symlink():
+        raise OSError("unsafe retention lock root")
+    lock_root = configured_lock_root.resolve()
+    before = os.stat(lock_root, follow_symlinks=False)
+    lock_fd = os.open(lock_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    directory_fd: int | None = None
+    temporary = f".{REPORT_NAME}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     data = json.dumps(report.as_dict(), indent=1, sort_keys=True).encode() + b"\n"
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     try:
+        opened = os.fstat(lock_fd)
+        if (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino):
+            raise OSError("retention lock root changed")
+        try:
+            os.mkdir(REPORT_DIR, mode=0o700, dir_fd=lock_fd)
+        except FileExistsError:
+            pass
+        directory_fd = os.open(REPORT_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=lock_fd)
+        try:
+            existing = os.stat(REPORT_NAME, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None and not stat.S_ISREG(existing.st_mode):
+            raise OSError("unsafe retention report path")
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=directory_fd)
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        os.replace(temporary, REPORT_NAME, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+        os.fsync(directory_fd)
     finally:
-        if temporary.exists():
-            temporary.unlink()
+        if directory_fd is not None:
+            try:
+                os.unlink(temporary, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+            os.close(directory_fd)
+        os.close(lock_fd)
 
 
 def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
@@ -330,7 +382,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     # Preserve CURRENT's exact record and the actual default rollback target.
     current_path = publish_root / "CURRENT.json"
     current_doc = _object(current_path) if current_path.is_file() and not current_path.is_symlink() else None
-    if current_doc is None and current is not None:
+    if current_doc is None and (current is not None or current_path.exists() or current_path.is_symlink()):
         ambiguous = True
     elif current_doc:
         reference = current_doc.get("history_record")
@@ -435,6 +487,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 raw_ambiguous = True
             if not terminal and terminal_state == "corrupt_reference":
                 raw_ambiguous = True
+            if not terminal and terminal_state == "active_or_incomplete" and source_id is None:
+                raw_ambiguous = True
             protect = ambiguous or raw_ambiguous or path.name in protected_attempts or not terminal or unsafe
             if protect:
                 reason = ("ambiguous_reference" if ambiguous or raw_ambiguous else "active_or_incomplete" if path.name in active_attempts
@@ -467,8 +521,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 _record(report, "attempt_record", path, "retained", "unknown_or_unsafe" if not match or unsafe else "corrupt_reference", size)
                 continue
             active = doc.get("status") not in {"success", "failed"}
-            if ambiguous or path.stem in protected_attempts or active:
-                reason = ("ambiguous_reference" if ambiguous else "build_evidence_required"
+            if ambiguous or raw_ambiguous or path.stem in protected_attempts or active:
+                reason = ("ambiguous_reference" if ambiguous or raw_ambiguous else "build_evidence_required"
                           if path.stem in protected_attempts else "active_or_incomplete")
                 _record(report, "attempt_record", path, "retained", reason, size)
                 source_id = doc.get("source_run_id")
