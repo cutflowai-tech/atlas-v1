@@ -77,11 +77,11 @@ The authoritative task input was applied only in memory:
 | `(7, Mans)` | Mansour / `editor-label-14` | 54 | 2026-03-14T06:03:36.639229Z | 2026-05-06T08:13:45.547424Z |
 | `(9, Michael)` | Michael / `editor-label-13` | 44 | 2026-03-14T06:03:49.632351Z | 2026-05-02T20:03:48.180209Z |
 
-The task's attestation is applied to each exact tuple over its observed historical range
-shown above. The tuple and range together prevent reused label IDs from crossing names.
-The current identity resolver keys on the exact tuple but does not enforce temporal bounds;
-the production identity update therefore needs to preserve the attested range explicitly
-and test that no observation outside it is silently admitted.
+The authoritative v1.3 identity mapping applies each exact tuple over its observed
+historical range shown above. The strict-name resolver enforces both bounds and returns
+`EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE` outside them, so the tuple and range together
+prevent reused label IDs from crossing names. The in-memory replay overlay populated the
+same bounds; rerunning it remained byte-identical to the aggregate digest above.
 
 The three residual tuples remain quarantined and contribute to no calibration:
 `(11, New)` (`invalid_identity_value`, 3 observations), `(2, Done)`
