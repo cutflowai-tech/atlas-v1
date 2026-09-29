@@ -21,7 +21,7 @@ from atlas_commander.identity import (
     IdentityMapping,
     resolve_editor,
 )
-from atlas_commander.intelligence import quality_rates
+from atlas_commander.intelligence import EvidenceScope, quality_rates
 from atlas_commander.pipeline import reconstruct_cycles, reconstruct_quality
 from atlas_commander.profile import build_editor_profile
 from atlas_commander.profile_cli import build_all
@@ -105,17 +105,23 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual((speed["minimum_editor_sample_size"], speed["minimum_comparator_sample_size"]), (None, None))
         self.assertEqual((speed["minimum_editor_sample_size_status"], speed["minimum_comparator_sample_size_status"]),
                          ("rule_not_approved", "rule_not_approved"))
-        self.assertEqual({speed["component"][key] for key in ("faster_band", "similar_band", "slower_band")}, {None})
+        self.assertEqual((speed["minimum_comparator_editor_count"], speed["minimum_comparator_editor_count_status"]), (None, "rule_not_approved"))
+        self.assertEqual({speed["component"][key] for key in ("faster_band", "slower_band")}, {None})
+        self.assertNotIn("similar_band", speed["component"])
         deadline = self.contract["deadline"]["component"]
-        self.assertEqual({deadline[key] for key in ("better_band", "similar_band", "worse_band", "minimum_editor_sample_size",
+        self.assertEqual({deadline[key] for key in ("better_band", "worse_band", "minimum_editor_sample_size",
                                                     "minimum_comparator_sample_size")}, {None})
+        self.assertNotIn("similar_band", deadline)
         interpretation = self.contract["interpretation"]
         self.assertIsNone(interpretation["overall_status"]["lookup_table"])
         self.assertEqual(interpretation["overall_status"]["threshold_status"], "rule_not_approved")
         self.assertEqual({interpretation["quality_component"][key] for key in
                           ("negative_rate_threshold", "positive_rate_threshold", "minimum_project_sample_size")}, {None})
-        self.assertEqual((interpretation["trend"]["minimum_sample_size"], interpretation["trend"]["material_change_threshold"]),
-                         (None, None))
+        self.assertIsNone(interpretation["trend"]["minimum_sample_size"])
+        self.assertEqual(interpretation["trend"]["material_change_thresholds"],
+                         {"positive_quality_rate": None, "negative_quality_rate": None, "late_rate": None, "median_speed_seconds": None})
+        self.assertEqual(interpretation["trend"]["directions"]["late_rate"], "lower_is_better")
+        self.assertEqual(interpretation["trend"]["directions"]["negative_quality_rate"], "lower_is_better")
         self.assertIsNone(self.contract["active_work"]["capacity_threshold"])
 
     def test_loader_rejects_schema_invalid_15_config(self):
@@ -279,7 +285,8 @@ class ContractV15IntegratedRuntimeTests(unittest.TestCase):
                     for row in quality.occurrences}
         self.assertEqual(observed, {("1- Exceptional Quality", "Positive"), ("On Time Delivery", "Positive"),
                                     ("High Workload", "Context")})
-        facts = quality_rates("editor-label-6", quality.occurrences, reconstruction.cycles)
+        facts = quality_rates("editor-label-6", quality.occurrences, reconstruction.cycles,
+                              EvidenceScope.from_contract(self.contract, "2026-09-29T12:00:00Z"), None, None)
         self.assertEqual((facts["positive_count"], facts["negative_count"]), (1, 0))
         self.assertEqual({row["label"] for row in facts["scoring_exclusions"]}, {"On Time Delivery", "High Workload"})
 
@@ -297,10 +304,11 @@ class ContractV15IntegratedRuntimeTests(unittest.TestCase):
         activity, items = dataset()
         reconstruction = reconstruct_cycles(activity, self.contract, items_payload=items, ingestion={"retrieved_at": NOW})
         profile = build_editor_profile(reconstruction, self.contract, "editor-label-6", NOW)
-        self.assertEqual(profile["overall"]["status"], "Not enough approved logic to classify")
+        self.assertIsNone(profile["overall"]["status"])
+        self.assertEqual(profile["overall"]["status_label"], "Not enough approved logic to classify")
         self.assertTrue(profile["speed"]["leave_one_out"])
         self.assertEqual(profile["trend"]["window"]["timezone"], "Africa/Cairo")
-        self.assertEqual(profile["quality"]["component"]["state"], "Not classifiable")
+        self.assertEqual(profile["quality"]["component"]["state"], "not_classifiable")
         with tempfile.TemporaryDirectory() as directory:
             dashboard = build_all(reconstruction, self.contract, Path(directory), NOW)
             publication = dashboard["publication"]

@@ -12,19 +12,27 @@ from collections.abc import Mapping
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.contracts import validate
 from atlas_commander.cycles import COMPLETED, ETA_AT_READY_FOR_APPROVAL, LATEST_ETA, CyclePolicy, CycleRecord, parse_time
 from atlas_commander.intelligence import (
-    IntelligencePolicy,
+    INSUFFICIENT_SAMPLE,
+    EvidenceScope,
+    completed_day_windows,
     deadline_component,
+    editor_window_coverage,
     evaluation_cohort,
+    late_rate_facts,
     overall_status,
     quality_component,
     quality_rates,
     recent_change,
-    speed_benchmarks_v15,
     speed_component,
+    speed_record,
+    window_assignment,
 )
+from atlas_commander.intelligence import speed_benchmarks as leave_one_out_speed_benchmarks
+from atlas_commander.interpretation_policy import InterpretationPolicy
 from atlas_commander.metrics import (
     MetricPolicy,
     classify_deadline,
@@ -51,6 +59,9 @@ PROFILE_CONTRACTS = {
 }
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
+OVERALL_NOTE_V15 = ("Overall Status is a lookup of the Quality, Speed and Deadline component states (D37); there is no score or weighting. "
+                    "Revisions, Current Work and context labels never affect it. Until management approves the thresholds and the lookup, "
+                    "each component shows its facts and the reason it is not classified.")
 POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
 REVISION_NOTE = "Revision activity is context only. It does not imply Editor fault and never affects any metric or conclusion."
 ACTIVE_WORK_STATUSES = ("In Progress", "Revisions", "Internal Revisions")
@@ -183,7 +194,7 @@ def _revision_context(editor_id: str, cycles: list[CycleRecord], *, v15: bool) -
 
 
 def _metric_coverage(completed: list[CycleRecord], deadline_results: list[dict[str, Any]], policy: MetricPolicy,
-                     quality: QualityResult) -> dict[str, Any]:
+                     quality: QualityResult, intelligence: Mapping[str, Any]) -> dict[str, Any]:
     def benchmark_eligible(cycle: CycleRecord) -> bool:
         return bool(
             speed_eligible(cycle)
@@ -237,11 +248,10 @@ def _metric_coverage(completed: list[CycleRecord], deadline_results: list[dict[s
         "deadline": block(len(deadline_results), deadline_reasons),
         "quality": quality_coverage,
         "classification": {
-            "overall_status": {
-                "value": None,
-                "availability": "rule_not_approved",
-                "reason": "Contract 1.5 thresholds remain unapproved; factual component results stay visible.",
-            }
+            "overall_status": {"value": intelligence["overall"]["status"], "availability": intelligence["overall"]["status_state"],
+                               "reason": intelligence["overall"]["reason"]},
+            **{name: {"state": component["state"], "reason": component["reason"], "rule_status": component["rule"]["status"]}
+               for name, component in intelligence["components"].items()},
         },
         "rule_versions": {"speed": policy.speed_rule_version, "deadline": policy.deadline_rule_version},
     }
@@ -298,82 +308,79 @@ def _quality_class_result(result: QualityResult, label_class: str, item_ids: set
 
 def _v15_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, generated_at: str,
                       quality: QualityResult, metric_policy: MetricPolicy) -> dict[str, Any]:
-    """Build the language-neutral D23--D45 blocks from the real 1.5 contract."""
-    policy = IntelligencePolicy.from_contract(contract)
-    cohorts = evaluation_cohort(result.cycles, generated_at, policy.window_days, policy.window_rule_version)
-    current = cohorts["current"]
-    comparison = cohorts["comparison"]
-    current_facts = quality_rates(editor_id, quality.occurrences, current)
-    comparison_facts = quality_rates(editor_id, quality.occurrences, comparison)
-    quality_state = quality_component(current_facts, policy.quality)
-    speed_facts = speed_benchmarks_v15(editor_id, current, metric_policy.video_types, policy.speed, generated_at)
-    speed_state = speed_component(speed_facts["cohorts"], policy.speed)
+    """The language-neutral D23--D47 blocks for one Editor, from the real 1.5 contract."""
+    policy = InterpretationPolicy.from_contract(contract)
+    scope = EvidenceScope.from_contract(contract, generated_at)
+    windows = completed_day_windows(generated_at, policy.window_days, policy.comparison_days)
+    cohort = evaluation_cohort(result.cycles, windows, policy.window_rule_version)
+    current, comparison = cohort["current"], cohort["comparison"]
+    ranges = {"current": windows.range("current"), "comparison": windows.range("comparison")}
+    quality_version = policy.rule_versions.get("quality_component")
+    rates = {name: quality_rates(editor_id, quality.occurrences, cycles, scope, ranges[name], quality_version)
+             for name, cycles in (("current", current), ("comparison", comparison))}
 
     def deadline_rows(cycles: list[CycleRecord]) -> list[dict[str, Any]]:
         return [row for row in (deadline_result(cycle, metric_policy, generated_at) for cycle in cycles) if row is not None]
 
-    current_deadlines = deadline_rows(current)
-    comparison_deadlines = deadline_rows(comparison)
-    deadline_state = deadline_component(editor_id, current_deadlines, policy.deadline)
-    components = {"quality": quality_state, "speed": speed_state, "deadline": deadline_state}
-    overall = overall_status(components, policy.overall)
-    if policy.overall and policy.overall.get("threshold_status") == "rule_not_approved":
-        overall = {**overall, "status": "Not enough approved logic to classify", "reason": "rule_not_approved"}
+    deadlines = {"current": deadline_rows(current), "comparison": deadline_rows(comparison)}
+    speed = leave_one_out_speed_benchmarks(editor_id, current, metric_policy.video_types, policy.speed, scope, ranges["current"])
+    components = {
+        "quality": quality_component(rates["current"], policy.quality),
+        "speed": speed_component(editor_id, speed, policy.speed, scope, ranges["current"]),
+        "deadline": deadline_component(editor_id, deadlines["current"], policy.deadline, scope, ranges["current"]),
+    }
+    overall = overall_status(components, policy, ranges["current"], generated_at)
+    late = {name: late_rate_facts(editor_id, deadlines[name], scope, ranges[name], policy.rule_versions.get("deadline_fact")) for name in ranges}
 
-    def editor_late_rate(rows: list[dict[str, Any]]) -> float | None:
-        mine = [row for row in rows if row["metric"]["editor_id"] == editor_id]
-        return round(sum(row["metric"]["result"] == "late" for row in mine) / len(mine), 4) if mine else None
+    def exact(count: int, total: int) -> float | None:
+        return count / total if total else None     # Trend compares exact rates; the published rates are rounded for display
 
-    current_editor_cycles = [cycle for cycle in current if cycle.editor_id == editor_id]
-    comparison_editor_cycles = [cycle for cycle in comparison if cycle.editor_id == editor_id]
-    current_deadline_sample = sum(row["metric"]["editor_id"] == editor_id for row in current_deadlines)
-    comparison_deadline_sample = sum(row["metric"]["editor_id"] == editor_id for row in comparison_deadlines)
+    def late_side(name: str) -> dict[str, Any]:
+        facts = late[name]
+        return {"value": exact(facts["late"], facts["deadline_classifiable_projects"]), "sample": facts["deadline_classifiable_projects"],
+                "evidence": facts["evidence"]}
+
+    def measured(name: str, key: str, sample_key: str) -> dict[str, Any]:
+        facts = rates[name]
+        return {"value": exact(facts[key], facts[sample_key]), "sample": facts[sample_key], "evidence": facts["evidence"]}
+
     changes: dict[str, Any] = {
-        "positive_quality_rate": recent_change(current_facts["positive_rate"], comparison_facts["positive_rate"],
-                                               "positive_quality_rate", policy.trend,
-                                               current_sample=current_facts["eligible_completed_projects"],
-                                               comparison_sample=comparison_facts["eligible_completed_projects"]),
-        "negative_quality_rate": recent_change(current_facts["negative_rate"], comparison_facts["negative_rate"],
-                                               "negative_quality_rate", policy.trend,
-                                               current_sample=current_facts["eligible_completed_projects"],
-                                               comparison_sample=comparison_facts["eligible_completed_projects"]),
-        "late_rate": recent_change(editor_late_rate(current_deadlines), editor_late_rate(comparison_deadlines),
-                                   "late_rate", policy.trend, current_sample=current_deadline_sample,
-                                   comparison_sample=comparison_deadline_sample),
+        "positive_quality_rate": recent_change("positive_quality_rate", measured("current", "positive_count", "eligible_completed_projects"),
+                                               measured("comparison", "positive_count", "eligible_completed_projects"), policy),
+        "negative_quality_rate": recent_change("negative_quality_rate", measured("current", "negative_count", "eligible_completed_projects"),
+                                               measured("comparison", "negative_count", "eligible_completed_projects"), policy),
+        "late_rate": recent_change("late_rate", late_side("current"), late_side("comparison"), policy),
     }
 
-    def speed_values(cycles: list[CycleRecord]) -> dict[str, list[int]]:
-        values: dict[str, list[int]] = {}
-        for cycle in cycles:
-            if not (cycle.editor_id == editor_id and speed_eligible(cycle) and cycle.video_type is not None and cycle.cohort_key
-                    and cycle.duration_seconds is not None
-                    and cohort_benchmark_eligibility(cycle.video_type.canonical_ids, metric_policy.video_types)[0]):
-                continue
-            values.setdefault(cycle.cohort_key, []).append(cycle.duration_seconds)
-        return values
+    def speed_window(name: str, cycles: list[CycleRecord]) -> dict[str, list[CycleRecord]]:
+        grouped: dict[str, list[CycleRecord]] = {}
+        for cycle in sorted(cycles, key=lambda c: c.monday_item_id):
+            if cycle.editor_id == editor_id and cycle.duration_seconds is not None and cycle.cohort_key \
+                    and cycle.video_type is not None and speed_eligible(cycle) \
+                    and cohort_benchmark_eligibility(cycle.video_type.canonical_ids, metric_policy.video_types)[0]:
+                grouped.setdefault(cycle.cohort_key, []).append(cycle)
+        return grouped
 
-    current_speed, comparison_speed = speed_values(current_editor_cycles), speed_values(comparison_editor_cycles)
-    speed_trend_rule = {**(policy.trend or {}), "lower_is_better": True}
+    by_window = {"current": speed_window("current", current), "comparison": speed_window("comparison", comparison)}
+
+    def speed_side(name: str, cohort_key: str) -> dict[str, Any]:
+        cycles = by_window[name].get(cohort_key, [])
+        return {"value": median_seconds(int(cycle.duration_seconds) for cycle in cycles if cycle.duration_seconds is not None), "sample": len(cycles),
+                "evidence": scope.block(roles=("status", "editor", "video_type"), rule_version=policy.rule_versions.get("recent_change"),
+                                        date_range=ranges[name], calculation="median of the Editor's first-pass durations in this exact Video Type",
+                                        sample={"editor_projects": len(cycles)}, records=[speed_record(cycle) for cycle in cycles])}
+
     changes["speed_by_video_type"] = [
-        {
-            "cohort_key": cohort_key,
-            "current_median_seconds": median_seconds(current_speed.get(cohort_key, [])),
-            "comparison_median_seconds": median_seconds(comparison_speed.get(cohort_key, [])),
-            "current_projects": len(current_speed.get(cohort_key, [])),
-            "comparison_projects": len(comparison_speed.get(cohort_key, [])),
-            "change": recent_change(
-                median_seconds(current_speed.get(cohort_key, [])), median_seconds(comparison_speed.get(cohort_key, [])),
-                "median_speed_seconds", speed_trend_rule,
-                current_sample=len(current_speed.get(cohort_key, [])), comparison_sample=len(comparison_speed.get(cohort_key, [])),
-            ),
-        }
-        for cohort_key in sorted(set(current_speed) | set(comparison_speed))
+        {"cohort_key": cohort_key, "change": recent_change("median_speed_seconds", speed_side("current", cohort_key), speed_side("comparison", cohort_key), policy)}
+        for cohort_key in sorted(set(by_window["current"]) | set(by_window["comparison"]))
     ]
     return {
-        "window": cohorts["windows"],
-        "coverage": cohorts["coverage"],
-        "quality_facts": current_facts,
-        "speed_facts": speed_facts,
+        "policy": policy,
+        "windows": windows.to_dict(),
+        "coverage": {"team": cohort["coverage"], "editor": editor_window_coverage(cohort, editor_id)},
+        "rates": rates,
+        "late": late,
+        "speed": speed,
         "components": components,
         "overall": overall,
         "recent_change": changes,
@@ -381,19 +388,52 @@ def _v15_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], 
     }
 
 
+SPEED_CONCLUSIONS = {"faster": "faster_than_team_median", "similar": "similar_to_team_median", "slower": "slower_than_team_median"}
+
+
+def _v15_speed_rows(intelligence: Mapping[str, Any], policy: MetricPolicy) -> list[dict[str, Any]]:
+    """Speed cohorts in the profile's cohort vocabulary, taken from the 1.5 leave-one-out benchmark without re-deciding anything."""
+    labels_by_cohort = {cycle.cohort_key: list(cycle.video_type.canonical_labels) for cycle in intelligence["current_cycles"] if cycle.cohort_key and cycle.video_type}
+    rule = intelligence["policy"].speed
+    rows = []
+    for row in intelligence["speed"]["cohorts"]:
+        conclusion = SPEED_CONCLUSIONS.get(row["verdict"], "insufficient_sample" if row["reason"] == INSUFFICIENT_SAMPLE else "not_comparable")
+        records = row["evidence"]["records"]
+        rows.append({
+            "cohort_key": row["cohort_key"], "cohort_labels": labels_by_cohort.get(row["cohort_key"], []),
+            "video_type_mapping_version": policy.video_types.mapping_version if policy.video_types else None,
+            "editor_sample_size": row["editor_sample_size"], "editor_median_seconds": row["editor_median_seconds"],
+            "team_sample_size": row["comparator_sample_size"], "team_editor_count": row["comparator_editor_count"],
+            "team_median_seconds": row["comparator_median_seconds"],
+            "editor_minus_team_median_seconds": row["editor_minus_comparator_seconds"],
+            "editor_vs_team_median_pct": row["editor_vs_comparator_pct"], "team_typical_range_seconds": None,
+            "editor_range_seconds": None, "team_includes_subject_editor": False, "benchmark_statistic": "median",
+            "benchmark_eligible": True, "unconfirmed_video_type_ids": [],
+            "minimum_editor_sample_size": rule.value("minimum_editor_sample_size"),
+            "minimum_comparator_sample_size": rule.value("minimum_comparator_sample_size"),
+            "minimum_comparator_editor_count": rule.value("minimum_comparator_editor_count"),
+            "comparison_status": row["reason"] or "comparable", "verdict": row["verdict"], "conclusion": conclusion,
+            "editor_cycle_ids": [record["cycle_id"] for record in records if record["source_values"]["editor_id"] == intelligence["editor_id"]],
+            "team_cycle_ids": [record["cycle_id"] for record in records if record["source_values"]["editor_id"] != intelligence["editor_id"]],
+            "benchmark": "descriptive leave-one-out median of other eligible Editors; not an SLA",
+            "rule": rule.state(), "evidence": row["evidence"],
+        })
+    return rows
+
+
 def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, generated_at: str) -> dict[str, Any]:
     """Contract-valid Editor Profile for one Editor from a cycle reconstruction.
 
-    editor-profile 1.4.0 under the frozen-ETA deadline rule (contract 1.4.0); 1.3.0 under the
-    earlier latest-ETA rule, so contract 1.3.0 still reproduces its original output."""
+    editor-profile 1.5.0 under contract 1.5 (the D20--D50 interpretation layer); 1.4.0 under the frozen-ETA deadline rule
+    (contract 1.4.0); 1.3.0 under the earlier latest-ETA rule, so contract 1.3.0 still reproduces its original output."""
     policy = MetricPolicy.from_contract(contract)
     frozen = policy.requested_eta_selection == ETA_AT_READY_FOR_APPROVAL
-    if contract["contract_version"] == "1.5.0":
+    v15 = capabilities(contract).editor_intelligence
+    if v15:
         profile_version = "1.5.0"
     else:
         profile_version = "1.3.0" if policy.requested_eta_selection == LATEST_ETA else CONTRACT_VERSION
     profile_schema = PROFILE_CONTRACTS[profile_version]
-    v15 = profile_version == "1.5.0"
     cycles = _editor_cycles(result.cycles, editor_id)
     if not cycles:
         raise ProfileError(f"no cycle is attributed to {editor_id}; unresolved Editors have no profile")
@@ -402,41 +442,18 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
 
     quality = reconstruct_quality(result, contract, generated_at)
     intelligence = _v15_intelligence(result, contract, editor_id, generated_at, quality, policy) if v15 else None
+    if intelligence is not None:
+        intelligence["editor_id"] = editor_id
+    # Contract 1.5 scores one window (D42); monthly history still covers every completed project (D24).
     metric_cycles = ([cycle for cycle in intelligence["current_cycles"] if cycle.editor_id == editor_id]
                      if intelligence is not None else completed)
-    if v15 and intelligence is not None:
-        raw_speed = intelligence["speed_facts"]
-        labels_by_cohort = {
-            cycle.cohort_key: list(cycle.video_type.canonical_labels)
-            for cycle in intelligence["current_cycles"] if cycle.cohort_key and cycle.video_type
-        }
-        speed_rows = []
-        for row in raw_speed["cohorts"]:
-            verdict = row["verdict"]
-            conclusion = {"Faster": "faster_than_team_median", "Similar": "equal_to_team_median",
-                          "Slower": "slower_than_team_median"}.get(verdict, "not_comparable")
-            speed_rows.append({
-                "cohort_key": row["cohort_key"], "cohort_labels": labels_by_cohort.get(row["cohort_key"], []),
-                "video_type_mapping_version": policy.video_types.mapping_version if policy.video_types else None,
-                "editor_sample_size": row["editor_sample_size"], "editor_median_seconds": row["editor_median_seconds"],
-                "team_sample_size": row["comparator_sample_size"], "team_editor_count": row["comparator_editor_count"],
-                "team_median_seconds": row["comparator_median_seconds"],
-                "editor_minus_team_median_seconds": row["editor_minus_comparator_seconds"],
-                "editor_vs_team_median_pct": row["editor_vs_comparator_pct"], "team_typical_range_seconds": None,
-                "editor_range_seconds": None, "team_includes_subject_editor": False, "benchmark_statistic": "median",
-                "benchmark_eligible": True, "unconfirmed_video_type_ids": [],
-                "minimum_editor_sample_size": None,
-                "comparison_status": ("minimum_sample_size_not_configured" if row["reason"] == "rule_not_approved"
-                                      else row["reason"] or "comparable"),
-                "conclusion": conclusion, "editor_cycle_ids": list(row["evidence"]["editor_cycle_ids"]),
-                "team_cycle_ids": list(row["evidence"]["comparator_cycle_ids"]),
-                "benchmark": "descriptive leave-one-out median of other eligible Editors; not an SLA",
-                "rule_version": row["rule_version"],
-            })
-        speed = {"cohorts": speed_rows, "metrics": []}
+    if intelligence is not None:
+        speed = {"cohorts": _v15_speed_rows(intelligence, policy), "metrics": []}
     else:
         speed = speed_benchmarks(editor_id, result.cycles, policy, generated_at)
     deadline_results = [r for r in (deadline_result(cycle, policy, generated_at) for cycle in metric_cycles) if r is not None]
+    history_deadlines = ([r for r in (deadline_result(cycle, policy, generated_at) for cycle in completed) if r is not None]
+                         if intelligence is not None else deadline_results)
     not_deadline = [cycle for cycle in metric_cycles if not deadline_eligible(cycle)]
     positive: dict[str, Any] | None
     context: dict[str, Any] | None
@@ -483,6 +500,10 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         if frozen:
             row["requested_eta_observed_at"] = cycle.requested_eta_observed_at
             row["requested_eta_changes_ignored_after_ready_for_approval"] = len(cycle.requested_eta_ignored_after_ready_for_approval)
+        if intelligence is not None:
+            windows = intelligence["windows"]
+            row["window"] = (window_assignment(cycle.ready_for_approval_at, completed_day_windows(
+                windows["as_of"], windows["current"]["completed_days"], windows["comparison"]["completed_days"])) if cycle.state == COMPLETED else "open")
         projects.append(row)
 
     deadline_block = deadline_summary(deadline_results, not_deadline)
@@ -501,28 +522,34 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
                    "retrieved_at": result.ingestion.get("retrieved_at"),
                    "history_coverage": {"activity_log_window": result.ingestion.get("activity_log_window"),
                                         "statement": "Metrics use only Monday evidence present in this ingestion."}},
-        "overall": ({**intelligence["overall"], "note": OVERALL_NOTE} if intelligence is not None
+        "overall": ({**intelligence["overall"], "note": OVERALL_NOTE_V15} if intelligence is not None
                     else {"status": None, "rule_version": None, "note": OVERALL_NOTE}),
         "speed": {"rule_version": policy.speed_rule_version, "benchmark_statistic": policy.benchmark_statistic,
-                  "minimum_editor_sample_size": policy.minimum_editor_sample_size, "cohorts": speed["cohorts"], "metrics": speed["metrics"],
-                  **({"leave_one_out": True, "minimum_comparator_sample_size": None,
-                      "component": intelligence["components"]["speed"]} if intelligence is not None else {})},
+                  "minimum_editor_sample_size": (intelligence["policy"].speed.value("minimum_editor_sample_size") if intelligence is not None
+                                                 else policy.minimum_editor_sample_size),
+                  "cohorts": speed["cohorts"], "metrics": speed["metrics"],
+                  **({"leave_one_out": True,
+                      "minimum_comparator_sample_size": intelligence["policy"].speed.value("minimum_comparator_sample_size"),
+                      "minimum_comparator_editor_count": intelligence["policy"].speed.value("minimum_comparator_editor_count"),
+                      "window": intelligence["windows"]["current"], "component": intelligence["components"]["speed"]}
+                     if intelligence is not None else {})},
         "deadline": {"rule_version": policy.deadline_rule_version, "summary": deadline_block, "results": [r["metric"] for r in deadline_results],
                      **({"requested_eta_selection": policy.requested_eta_selection} if frozen else {}),
-                     **({"component": intelligence["components"]["deadline"]} if intelligence is not None else {})},
+                     **({"window": intelligence["windows"]["current"], "component": intelligence["components"]["deadline"]}
+                        if intelligence is not None else {})},
         "quality": {"rule_version": contract["quality_labels"]["rule_version"], "negative": negative,
                     "positive": ({**positive, "count": positive["total_occurrences"], "note": "Positive labels are Monday evidence; deadline labels are visible but not scored in Quality."}
                                  if positive is not None else {"source": None, "count": 0, "note": POSITIVE_NOTE}),
-                    **({"context": context, "rates": intelligence["quality_facts"],
+                    **({"context": context, "window": intelligence["windows"]["current"], "rates": intelligence["rates"]["current"],
                         "component": intelligence["components"]["quality"]} if intelligence is not None else {}),
                     "for_bonus_context": _for_bonus_context(result, contract, {cycle.monday_item_id for cycle in completed}),
                     "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id
                                     and (not v15 or m["evidence"]["monday_item_id"] in metric_item_ids)]},
         "revisions": _revision_context(editor_id, result.cycles, v15=v15),
         "current_workload": _current_workload(result, contract, editor_id, v15=v15),
-        "trend": {**_trend(metric_cycles, deadline_results, policy, cairo=v15),
-                  **({"window": intelligence["window"], "recent_change": intelligence["recent_change"],
-                      "classification": {"value": None, "availability": "rule_not_approved"}}
+        "trend": {**_trend(completed if v15 else metric_cycles, history_deadlines, policy, cairo=v15),
+                  **({"window": intelligence["windows"], "recent_change": intelligence["recent_change"],
+                      "late_rate_by_window": intelligence["late"], "trend_rule": intelligence["policy"].trend.state()}
                      if intelligence is not None else {})},
         "coverage": {
             "completed_projects": len(completed),
@@ -540,11 +567,13 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         "projects": projects,
         "ai_annotation": None,
     }
-    if v15:
-        assert intelligence is not None
+    if intelligence is not None:
         profile["publication"] = build_publication_view(result, contract, generated_at)
-        profile["coverage"]["metrics"] = _metric_coverage(metric_cycles, deadline_results, policy, quality)
-        profile["coverage"]["window"] = intelligence["coverage"]
+        profile["coverage"]["metrics"] = _metric_coverage(metric_cycles, deadline_results, policy, quality, intelligence)
+        profile["coverage"]["window"] = intelligence["coverage"]["team"]
+        profile["coverage"]["editor_window"] = intelligence["coverage"]["editor"]
+        profile["coverage"]["history_scope"] = {"completed_projects": len(completed), "window": "all completed projects in the ingested history",
+                                                "timezone": "Africa/Cairo"}
     errors = validate(profile, profile_schema)
     if errors:
         raise ProfileError(f"profile violates {profile_schema}: {errors}")

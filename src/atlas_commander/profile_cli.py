@@ -119,7 +119,8 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
     publication = site_publication(result, contract, generated_at)
     dashboard = build_dashboard(profiles, generated_at, mapped_editors=contract["editor_attribution"]["entries"],
                                 attribution_coverage=attribution_coverage(result),
-                                profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids}, publication=publication)
+                                profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids}, publication=publication,
+                                contract_version=contract["contract_version"])
     (out / site_layout.DASHBOARD_JSON).write_text(json.dumps(dashboard, indent=1) + "\n")
     for loc in locales():
         _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(

@@ -234,6 +234,59 @@ def _snapshot(speed: Mapping[str, Any], deadline: Mapping[str, Any], quality: Ma
     return blocks
 
 
+def _evidence_summary(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    return {"records": len(evidence["records"]), "rule_version": evidence["rule_version"], "calculated_at": evidence["calculated_at"],
+            "date_range": evidence["date_range"], "monday_item_ids": sorted({record["monday_item_id"] for record in evidence["records"]})}
+
+
+def interpretation_view(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """The contract 1.5 interpretation layer as one language-neutral view model (D23--D47).
+
+    English and Arabic render exactly this document; nothing here is recomputed or re-decided, it only selects what the
+    Overview and Profile show from the profile's own results and evidence."""
+    quality, speed, deadline, overall = profile["quality"], profile["speed"], profile["deadline"], profile["overall"]
+    trend = profile["trend"]
+
+    def component(block: Mapping[str, Any]) -> dict[str, Any]:
+        return {"state": block["state"], "reason": block["reason"], "rule_status": block["rule"]["status"], "facts": dict(block["facts"]),
+                "evidence": _evidence_summary(block["evidence"])}
+
+    excluded: dict[str, int] = {}
+    for row in quality["rates"]["scoring_exclusions"]:
+        excluded[row["reason"]] = excluded.get(row["reason"], 0) + 1
+    changes = [{"measurement": name, "cohort_key": None, "cohort_labels": [], **_change(trend["recent_change"][name])}
+               for name in ("positive_quality_rate", "negative_quality_rate", "late_rate")]
+    labels = {row["cohort_key"]: row["cohort_labels"] for row in speed["cohorts"]}
+    changes += [{"measurement": "median_speed_seconds", "cohort_key": row["cohort_key"], "cohort_labels": labels.get(row["cohort_key"], []),
+                 **_change(row["change"])} for row in trend["recent_change"]["speed_by_video_type"]]
+    editor_window = profile["coverage"]["editor_window"]
+    return {
+        "window": {"current": trend["window"]["current"], "comparison": trend["window"]["comparison"]},
+        "overall": {key: overall[key] for key in ("status", "status_label", "status_state", "reason", "component_states", "classifiable_components",
+                                                  "minimum_classifiable_components", "why")} | {"rule_status": overall["rule"]["status"]},
+        "components": {
+            "quality": {**component(quality["component"]), "scoring_exclusions": dict(sorted(excluded.items()))},
+            "speed": {**component(speed["component"]),
+                      "video_types": [{"cohort_key": row["cohort_key"], "cohort_labels": row["cohort_labels"], "verdict": row["verdict"],
+                                       "reason": None if row["comparison_status"] == "comparable" else row["comparison_status"],
+                                       "editor_projects": row["editor_sample_size"], "editor_median_seconds": row["editor_median_seconds"],
+                                       "comparator_projects": row["team_sample_size"], "comparator_editor_count": row["team_editor_count"],
+                                       "comparator_median_seconds": row["team_median_seconds"], "editor_vs_comparator_pct": row["editor_vs_team_median_pct"]}
+                                      for row in speed["cohorts"]]},
+            "deadline": component(deadline["component"]),
+        },
+        "recent_change": changes,
+        "trend_rule_status": trend["trend_rule"]["status"],
+        "coverage": {"current_projects": editor_window["current_projects"], "comparison_projects": editor_window["comparison_projects"],
+                     "excluded_projects": editor_window["excluded_projects"], "exclusion_reasons": dict(editor_window["exclusion_reasons"]),
+                     "history_completed_projects": profile["coverage"]["history_scope"]["completed_projects"]},
+    }
+
+
+def _change(change: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: change[key] for key in ("direction", "current", "comparison", "difference", "current_sample", "comparison_sample", "trend", "trend_reason")}
+
+
 def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -> dict[str, Any]:
     """One Editor's dashboard summary, copied from their Editor Profile."""
     editor = profile["editor"]
@@ -241,6 +294,8 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
     speed, deadline, quality = _speed(profile), _deadline(profile), _quality(profile)
     workload, monthly = _workload(profile), _monthly(profile)
     intelligence = editor_intelligence(profile["executable_contract_version"])
+    interpretation = ({"interpretation": interpretation_view(profile)}
+                      if capabilities(profile["executable_contract_version"]).editor_intelligence else {})
     return {
         "editor_id": editor["editor_id"], "display_name": editor["display_name"], "monday_label": editor["monday_person_id"],
         "mapping_version": editor.get("mapping_version"), "profile_ref": profile_ref,
@@ -248,7 +303,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
         "sample": {"source": "coverage", "completed_projects": coverage["completed_projects"], "open_projects": coverage["open_projects"],
                    "speed_eligible_projects": coverage["speed_eligible_projects"], "exclusions_by_reason": dict(coverage["exclusions_by_reason"])},
         "speed": speed, "deadline": deadline, "quality": quality, "revisions": _revisions(profile), "current_workload": workload,
-        "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence,
+        "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence, **interpretation,
         "projects": _projects(profile), "events": _events(profile),
         "snapshot": _snapshot(speed, deadline, quality, workload, coverage, intelligence),
     }
@@ -306,7 +361,7 @@ def editors_without_data(mapped_editors: Iterable[Mapping[str, Any]], profiled: 
 
 def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *, mapped_editors: Iterable[Mapping[str, Any]] = (),
                     attribution_coverage: Mapping[str, Any] | None = None, profile_refs: Mapping[str, str] | None = None,
-                    publication: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                    publication: Mapping[str, Any] | None = None, contract_version: str | None = None) -> dict[str, Any]:
     """Dashboard document for a set of Editor Profiles built from one dataset snapshot.
 
     ``mapped_editors`` are the contract's Editor mapping entries; the ones without a profile are
@@ -316,7 +371,10 @@ def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *,
     sources = {(p["source"].get("retrieved_at"), p["executable_contract_version"]) for p in profiles}
     if len(sources) > 1:
         raise ValueError(f"profiles come from different snapshots or contracts: {sorted(map(str, sources))}")
-    retrieved_at, contract_version = next(iter(sources)) if sources else (None, None)
+    retrieved_at, profiled_contract = next(iter(sources)) if sources else (None, None)
+    if contract_version is not None and profiled_contract not in {None, contract_version}:
+        raise ValueError(f"profiles use contract {profiled_contract}, not {contract_version}")
+    features_contract = profiled_contract or contract_version
     summaries = [editor_summary(p, (profile_refs or {}).get(p["editor"]["editor_id"])) for p in profiles]
     summaries.sort(key=lambda s: (-s["sample"]["completed_projects"], s["display_name"]))  # display order only
     profiled = {s["editor_id"] for s in summaries}
@@ -324,11 +382,11 @@ def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *,
         "dashboard_version": DASHBOARD_VERSION,
         "generated_at": generated_at,
         **({"publication": dict(publication)} if publication is not None else {}),
-        "source": {"retrieved_at": retrieved_at, "executable_contract_version": contract_version,
+        "source": {"retrieved_at": retrieved_at, "executable_contract_version": profiled_contract,
                    "activity_log_window": profiles[0]["source"]["history_coverage"].get("activity_log_window") if profiles else None,
                    "statement": "Summary of Atlas Editor Profiles built from one Monday snapshot; the profiles and their Monday evidence are the source of every figure."},
         "editors": summaries,
-        "editors_without_attributable_data": editors_without_data(mapped_editors, profiled, contract_version),
+        "editors_without_attributable_data": editors_without_data(mapped_editors, profiled, features_contract),
         "attribution_coverage": dict(attribution_coverage) if attribution_coverage else None,
-        "team": _team(summaries, contract_version),
+        "team": _team(summaries, features_contract),
     }

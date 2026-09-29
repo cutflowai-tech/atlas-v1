@@ -21,6 +21,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.contracts import validate
 from atlas_commander.cycles import COMPLETED, CycleRecord
 from atlas_commander.monday_source import ColumnChange, dropdown_value_ids, dropdown_value_labels
@@ -51,11 +52,13 @@ class QualityPolicy:
         historical = {str(key): tuple(str(name) for name in names) for key, names in (section.get("historical_label_names") or {}).items()}
         if any(key not in labels for key in historical):
             raise ValueError("historical_label_names refers to an unmapped quality label ID")
-        primary = QualityLabelSource(section["column_id"], section["mapping_version"], labels, historical, {key: "Negative" for key in labels})
-        sources = [primary]
-        taxonomy_enabled = _contract_at_least(contract, (1, 5, 0))
+        taxonomy_enabled = capabilities(contract).label_taxonomy
         if taxonomy_enabled:
-            sources = _configured_sources(section, primary)
+            sources = _registry_sources(section, historical)
+        else:
+            # Contracts through 1.4: Performance Issues only, every label a (scored) Negative; For Bonus is not read (D10).
+            sources = [QualityLabelSource(section["column_id"], section["mapping_version"], labels, historical,
+                                          dict.fromkeys(labels, NEGATIVE), dict.fromkeys(labels, True))]
         return cls(section["rule_version"], section["mapping_version"], section["column_id"], labels, historical, tuple(sources), taxonomy_enabled)
 
     def names(self, label_id: str) -> set[str]:
@@ -64,106 +67,61 @@ class QualityPolicy:
 
 @dataclass(frozen=True)
 class QualityLabelSource:
+    """One Monday label column: each label ID's name, its class and whether it counts in the Quality component."""
+
     column_id: str
     mapping_version: str
     id_to_label: Mapping[str, str]
     historical_names: Mapping[str, tuple[str, ...]]
     class_by_id: Mapping[str, str]
+    scored_by_id: Mapping[str, bool]
 
     def names(self, label_id: str) -> set[str]:
         return {self.id_to_label[label_id], *self.historical_names.get(label_id, ())} if label_id in self.id_to_label else set()
 
 
-def _contract_at_least(contract: Mapping[str, Any], required: tuple[int, int, int]) -> bool:
-    try:
-        version = tuple(int(part) for part in str(contract.get("contract_version", "0.0.0")).split(".")[:3])
-    except ValueError:
-        return False
-    return version >= required
+POSITIVE, NEGATIVE, CONTEXT = "Positive", "Negative", "Context"
+LABEL_CLASSES = {"positive": POSITIVE, "negative": NEGATIVE, "context": CONTEXT}
 
 
-def _label_entries(section: Mapping[str, Any], default_class: str) -> tuple[dict[str, str], dict[str, str]]:
-    labels = {str(key): str(value) for key, value in (section.get("id_to_label") or {}).items()}
-    classes = {str(key): str(value).title() for key, value in (section.get("class_by_id") or section.get("label_class_by_id") or {}).items()}
-    entries = section.get("labels")
-    if isinstance(entries, Mapping):
-        for key, value in entries.items():
-            if isinstance(value, Mapping):
-                labels[str(key)] = str(value.get("label") or value.get("name"))
-                classes[str(key)] = str(value.get("class") or value.get("classification") or default_class).title()
-            else:
-                labels[str(key)] = str(value)
-    for label_id in labels:
-        classes.setdefault(label_id, default_class)
-    invalid = sorted({value for value in classes.values() if value not in {"Positive", "Negative", "Context"}})
-    if invalid:
-        raise ValueError(f"invalid quality label classes: {invalid}")
-    return labels, classes
+def _registry_sources(section: Mapping[str, Any], historical: Mapping[str, tuple[str, ...]]) -> list[QualityLabelSource]:
+    """Label sources from the contract's per-label registries (D28--D30), the only taxonomy shape.
 
-
-def _source(section: Mapping[str, Any], fallback: QualityLabelSource, default_class: str) -> QualityLabelSource:
-    labels, classes = _label_entries(section, default_class)
-    if not labels:
-        labels, classes = dict(fallback.id_to_label), dict(fallback.class_by_id)
-    historical = {str(key): tuple(str(name) for name in names) for key, names in (section.get("historical_label_names") or {}).items()}
-    return QualityLabelSource(str(section.get("column_id") or fallback.column_id), str(section.get("mapping_version") or fallback.mapping_version), labels,
-                              historical or fallback.historical_names, classes)
-
-
-def _configured_sources(section: Mapping[str, Any], primary: QualityLabelSource) -> list[QualityLabelSource]:
-    """Read common v1.5 config shapes while requiring explicit IDs and classes."""
+    Every label is keyed by ``(column_id, source_label_id)`` and carries its class and ``scored_quality`` flag explicitly;
+    a label absent from the registries is quarantined as unmapped, never given a default class. Context labels are never
+    scored. Performance Issues keeps its historical names (same label ID only)."""
     registries = section.get("registries")
-    if isinstance(registries, Mapping):
-        grouped: dict[str, dict[str, Any]] = {}
-        for class_name in ("positive", "negative", "context"):
-            entries = registries.get(class_name)
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, Mapping):
-                    continue
-                column_id = str(entry.get("column_id") or "")
-                label_id = str(entry.get("source_label_id") or "")
-                label = entry.get("label")
-                if not column_id or not label_id or not isinstance(label, str) or not label:
-                    raise ValueError("quality registry entries require column_id, source_label_id and label")
-                group = grouped.setdefault(column_id, {"labels": {}, "classes": {}})
-                if label_id in group["labels"]:
-                    raise ValueError(f"duplicate quality label key {(column_id, label_id)!r}")
-                group["labels"][label_id] = label
-                group["classes"][label_id] = class_name.title()
-        if grouped:
-            registry_sources = []
-            for column_id, values in sorted(grouped.items()):
-                is_primary = column_id == primary.column_id
-                registry_sources.append(QualityLabelSource(
-                    column_id,
-                    primary.mapping_version if is_primary else str(section.get("mapping_version")),
-                    values["labels"],
-                    primary.historical_names if is_primary else {},
-                    values["classes"],
-                ))
-            if not any(source.column_id == primary.column_id for source in registry_sources):
-                registry_sources.insert(0, primary)
-            return registry_sources
-    configured = section.get("columns") or section.get("label_sources")
-    sources: list[QualityLabelSource] = []
-    if isinstance(configured, Mapping):
-        for name, value in configured.items():
-            if isinstance(value, Mapping):
-                sources.append(_source(value, primary, "Negative" if "performance" in str(name).lower() else "Context"))
-    elif isinstance(configured, list):
-        for value in configured:
-            if isinstance(value, Mapping):
-                sources.append(_source(value, primary, "Context"))
-    if not sources:
-        sources.append(_source(section, primary, "Negative"))
-        bonus = section.get("for_bonus")
-        if isinstance(bonus, Mapping) and (bonus.get("id_to_label") or bonus.get("labels")):
-            sources.append(_source(bonus, primary, "Context"))
-    if not any(source.column_id == primary.column_id for source in sources):
-        sources.insert(0, primary)
-    return sources
+    if not isinstance(registries, Mapping) or set(registries) != set(LABEL_CLASSES):
+        raise ValueError(f"quality_labels.registries must list exactly {sorted(LABEL_CLASSES)}")
+    grouped: dict[str, dict[str, dict[str, Any]]] = {}
+    problems: list[str] = []
+    for registry, label_class in LABEL_CLASSES.items():
+        entries = registries[registry]
+        if not isinstance(entries, list):
+            problems.append(f"registries.{registry} must be a list")
+            continue
+        for entry in entries:
+            column_id, label_id, label, scored = entry.get("column_id"), entry.get("source_label_id"), entry.get("label"), entry.get("scored_quality")
+            key = (column_id, label_id)
+            if not (isinstance(column_id, str) and column_id and isinstance(label_id, str) and label_id and isinstance(label, str) and label):
+                problems.append("quality registry entries require column_id, source_label_id and label")
+            elif scored not in (True, False):
+                problems.append(f"quality registry entry {key!r} must say explicitly whether it is scored_quality")
+            elif label_class == CONTEXT and scored:
+                problems.append(f"context label {label!r} cannot be scored (D26, D30)")
+            elif label_id in grouped.setdefault(column_id, {"labels": {}, "classes": {}, "scored": {}})["labels"]:
+                problems.append(f"duplicate quality label key {key!r}")
+            else:
+                group = grouped[column_id]
+                group["labels"][label_id], group["classes"][label_id], group["scored"][label_id] = label, label_class, scored
+    if problems:
+        raise ValueError("invalid quality label registries: " + "; ".join(problems))
+    primary = str(section["column_id"])
+    if primary not in grouped:
+        raise ValueError("quality_labels.registries must classify the Performance Issues column")
+    return [QualityLabelSource(column_id, str(section["mapping_version"]), values["labels"], historical if column_id == primary else {},
+                               values["classes"], values["scored"])
+            for column_id, values in sorted(grouped.items(), key=lambda pair: (pair[0] != primary, pair[0]))]
 
 
 @dataclass
@@ -192,8 +150,7 @@ def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[
     ``snapshots`` maps item ID to the current Performance Issues column value from the items
     API (``item_column_snapshots``). Without a snapshot the latest logged value is used.
     """
-    sources = policy.label_sources or (QualityLabelSource(policy.column_id, policy.mapping_version, policy.id_to_label, policy.historical_names,
-                                                           {key: "Negative" for key in policy.id_to_label}),)
+    sources = policy.label_sources
     source_by_column = {source.column_id: source for source in sources}
     by_column_item: dict[str, dict[str, list[ColumnChange]]] = defaultdict(lambda: defaultdict(list))
     for change in column_changes:
@@ -257,8 +214,7 @@ def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[
                                  "current_value_source": current_source, "weight": 1,
                                  "attribution": "editor of the item's first completed cycle", "cycle_id": cycle.cycle_id}
                 if policy.taxonomy_enabled:
-                    source_values.update({"label_class": label_class,
-                                          "scoring_eligible": label_class != "Context" and label not in {"Late Delivery", "On Time Delivery"}})
+                    source_values.update({"label_class": label_class, "scoring_eligible": source.scored_by_id[label_id]})
                 metric = {
                     "contract_version": CONTRACT_VERSION,
                     "metric_name": "quality",

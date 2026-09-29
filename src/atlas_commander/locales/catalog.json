@@ -2852,6 +2852,486 @@
    "context": "Contract 1.5 empty Positive label list",
    "status": "Implemented conservatively"
   },
+  "interp.section_title": {
+   "en": "Overall Status",
+   "ar": "الحالة العامة",
+   "context": "1.5 Overall Status section",
+   "status": "Implemented conservatively"
+  },
+  "interp.window": {
+   "en": "Current window: {start} – {end} (Cairo time), compared with {cstart} – {cend}",
+   "ar": "الفترة الحالية: {start} – {end} (بتوقيت القاهرة)، مقارنةً بالفترة {cstart} – {cend}",
+   "context": "Evaluation windows (D24)",
+   "status": "Implemented conservatively"
+  },
+  "interp.window_short": {
+   "en": "Current window {start} – {end}",
+   "ar": "الفترة الحالية {start} – {end}",
+   "context": "Section caption for window-scoped figures (D24)",
+   "status": "Implemented conservatively"
+  },
+  "interp.history_scope": {
+   "en": "All completed projects · monthly history in Cairo months",
+   "ar": "جميع المشاريع المكتملة · السجل الشهري بأشهر توقيت القاهرة",
+   "context": "Caption for all-history figures",
+   "status": "Implemented conservatively"
+  },
+  "interp.no_score": {
+   "en": "Overall Status is a lookup of the Quality, Speed and Deadline states, with no score or weighting. Revisions, Current Work and context labels never affect it.",
+   "ar": "الحالة العامة تُحدَّد من جدول يربط حالات الجودة والسرعة والالتزام بالموعد، دون أي درجة أو أوزان. ولا تؤثر فيها التعديلات أو العمل الحالي أو علامات السياق.",
+   "context": "D37 note",
+   "status": "Implemented conservatively"
+  },
+  "interp.facts_note": {
+   "en": "Every component's facts are shown even when its rule is not approved yet; no classification is invented.",
+   "ar": "تُعرض حقائق كل مكوّن حتى إن لم تُعتمد قاعدته بعد؛ ولا يُختلق أي تصنيف.",
+   "context": "D25/D47 note",
+   "status": "Implemented conservatively"
+  },
+  "interp.why_title": {
+   "en": "Why this status",
+   "ar": "سبب هذه الحالة",
+   "context": "D37",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.strong": {
+   "en": "Strong",
+   "ar": "قوي",
+   "context": "Overall Status label (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.good": {
+   "en": "Good",
+   "ar": "جيد",
+   "context": "Overall Status label (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.mixed": {
+   "en": "Mixed",
+   "ar": "متباين",
+   "context": "Overall Status label (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.below_expectations": {
+   "en": "Below Expectations",
+   "ar": "دون التوقعات",
+   "context": "Overall Status label (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.not_enough_evidence": {
+   "en": "Not enough evidence to classify",
+   "ar": "لا تتوفر أدلة كافية للتصنيف",
+   "context": "D41/D47 data state",
+   "status": "Implemented conservatively"
+  },
+  "interp.status.not_enough_approved_logic": {
+   "en": "Not enough approved logic to classify",
+   "ar": "لا توجد قواعد معتمدة كافية للتصنيف",
+   "context": "D25 state",
+   "status": "Implemented conservatively"
+  },
+  "interp.component.overall_lookup": {
+   "en": "Overall Status lookup table",
+   "ar": "جدول تحديد الحالة العامة",
+   "context": "Why-this-status row",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.positive": {
+   "en": "Positive",
+   "ar": "إيجابي",
+   "context": "Component state (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.neutral": {
+   "en": "Neutral",
+   "ar": "محايد",
+   "context": "Component state (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.negative": {
+   "en": "Negative",
+   "ar": "سلبي",
+   "context": "Component state (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.not_classifiable": {
+   "en": "Not classifiable",
+   "ar": "غير قابل للتصنيف",
+   "context": "Component state (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.approved": {
+   "en": "Approved",
+   "ar": "معتمد",
+   "context": "Rule state",
+   "status": "Implemented conservatively"
+  },
+  "interp.state.rule_not_approved": {
+   "en": "Not approved yet",
+   "ar": "غير معتمد بعد",
+   "context": "Rule state",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.rule_not_approved": {
+   "en": "rule not approved by management yet",
+   "ar": "لم تعتمد الإدارة القاعدة بعد",
+   "context": "Classification reason (D25)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.insufficient_sample": {
+   "en": "not enough projects in the window",
+   "ar": "عدد المشاريع في الفترة غير كافٍ",
+   "context": "Classification reason (D47)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.no_other_editors_in_cohort": {
+   "en": "No valid team benchmark available",
+   "ar": "لا يتوفر مقياس فريق صالح للمقارنة",
+   "context": "Classification reason (D35)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.insufficient_comparator_editors": {
+   "en": "too few other Editors to compare with",
+   "ar": "عدد المونتيرين الآخرين غير كافٍ للمقارنة",
+   "context": "Classification reason (D36)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.not_enough_classifiable_components": {
+   "en": "fewer than {min} of the 3 components are classifiable",
+   "ar": "أقل من {min} من المكوّنات الثلاثة قابلة للتصنيف",
+   "context": "Classification reason (D41)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.no_value_in_one_window": {
+   "en": "no value in one of the two windows",
+   "ar": "لا توجد قيمة في إحدى الفترتين",
+   "context": "Recent Change reason",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.lookup": {
+   "en": "the approved lookup gives no status for this combination",
+   "ar": "لا يحدد الجدول المعتمد حالة لهذا التركيب",
+   "context": "Classification reason (D37)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.not_scored_quality": {
+   "en": "visible, not scored in Quality",
+   "ar": "ظاهرة ولا تُحتسب في الجودة",
+   "context": "Label scoring exclusion (D27/D30)",
+   "status": "Implemented conservatively"
+  },
+  "interp.reason.context_label": {
+   "en": "context only",
+   "ar": "للسياق فقط",
+   "context": "Label scoring exclusion (D26)",
+   "status": "Implemented conservatively"
+  },
+  "interp.quality.facts": {
+   "en": "Scored positive: {pos} ({prate}) · scored negative: {neg} ({nrate}) · eligible projects: {n}",
+   "ar": "إيجابية محتسبة: {pos} ({prate}) · سلبية محتسبة: {neg} ({nrate}) · مشاريع مؤهلة: {n}",
+   "context": "Quality component facts (D39)",
+   "status": "Implemented conservatively"
+  },
+  "interp.quality.excluded": {
+   "en": "Visible but not scored: {n}",
+   "ar": "ظاهرة وغير محتسبة: {n}",
+   "context": "Quality exclusions (D27/D30)",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.facts": {
+   "en": "Projects in classified Video Types: {n}",
+   "ar": "المشاريع في أنواع الفيديو المصنّفة: {n}",
+   "context": "Speed component facts (D38)",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.head.type": {
+   "en": "Video Type",
+   "ar": "Video Type",
+   "context": "Speed table",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.head.editor": {
+   "en": "This Editor",
+   "ar": "هذا المونتير",
+   "context": "Speed table",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.head.comparator": {
+   "en": "Other Editors",
+   "ar": "المونتيرون الآخرون",
+   "context": "Speed table (leave-one-out, D36)",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.head.difference": {
+   "en": "Difference",
+   "ar": "الفرق",
+   "context": "Speed table",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.value": {
+   "en": "{median} · projects: {n}",
+   "ar": "{median} · المشاريع: {n}",
+   "context": "Speed cell",
+   "status": "Implemented conservatively"
+  },
+  "interp.speed.comparator_value": {
+   "en": "{median} · projects: {n} · Editors: {editors}",
+   "ar": "{median} · المشاريع: {n} · المونتيرون: {editors}",
+   "context": "Speed comparator cell",
+   "status": "Implemented conservatively"
+  },
+  "interp.verdict.faster": {
+   "en": "Faster",
+   "ar": "أسرع",
+   "context": "Speed verdict (D38)",
+   "status": "Implemented conservatively"
+  },
+  "interp.verdict.similar": {
+   "en": "Similar",
+   "ar": "مماثل",
+   "context": "Speed verdict (D38)",
+   "status": "Implemented conservatively"
+  },
+  "interp.verdict.slower": {
+   "en": "Slower",
+   "ar": "أبطأ",
+   "context": "Speed verdict (D38)",
+   "status": "Implemented conservatively"
+  },
+  "interp.verdict.not_classifiable": {
+   "en": "Not classifiable",
+   "ar": "غير قابل للتصنيف",
+   "context": "Speed verdict (D38)",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.relative.positive": {
+   "en": "better than team comparison",
+   "ar": "أفضل من مقارنة الفريق",
+   "context": "D45",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.relative.neutral": {
+   "en": "similar to team comparison",
+   "ar": "مماثل لمقارنة الفريق",
+   "context": "D45",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.relative.negative": {
+   "en": "worse than team comparison",
+   "ar": "أسوأ من مقارنة الفريق",
+   "context": "D45",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.relative.not_classifiable": {
+   "en": "not classifiable",
+   "ar": "غير قابل للتصنيف",
+   "context": "D45",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.dual": {
+   "en": "Deadline: {relative} · Absolute late rate: {rate} ({late} of {n})",
+   "ar": "الالتزام بالموعد: {relative} · نسبة التأخر الفعلية: {rate} ({late} من {n})",
+   "context": "D45 dual display",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.comparator": {
+   "en": "Other Editors: late rate {rate} · projects: {n} · Editors: {editors}",
+   "ar": "المونتيرون الآخرون: نسبة التأخر {rate} · المشاريع: {n} · المونتيرون: {editors}",
+   "context": "D45 comparator",
+   "status": "Implemented conservatively"
+  },
+  "interp.deadline.absolute_note": {
+   "en": "The absolute late rate is a fact. Doing better than the team comparison does not mean the lateness itself is acceptable.",
+   "ar": "نسبة التأخر الفعلية حقيقة ثابتة، والأداء الأفضل من مقارنة الفريق لا يعني أن التأخر نفسه مقبول.",
+   "context": "D45/D46",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent_title": {
+   "en": "Recent Change",
+   "ar": "التغيّر الأخير",
+   "context": "D23",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent_sub": {
+   "en": "Current window minus comparison window, per measure. A Trend label appears only under an approved rule.",
+   "ar": "الفرق بين الفترة الحالية وفترة المقارنة لكل مقياس. ولا يظهر وصف الاتجاه إلا بقاعدة معتمدة.",
+   "context": "D23",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent.head.measure": {
+   "en": "Measure",
+   "ar": "المقياس",
+   "context": "Recent Change table",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent.head.current": {
+   "en": "Current window",
+   "ar": "الفترة الحالية",
+   "context": "Recent Change table",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent.head.comparison": {
+   "en": "Comparison window",
+   "ar": "فترة المقارنة",
+   "context": "Recent Change table",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent.head.change": {
+   "en": "Change",
+   "ar": "التغيّر",
+   "context": "Recent Change table",
+   "status": "Implemented conservatively"
+  },
+  "interp.recent.head.trend": {
+   "en": "Trend",
+   "ar": "الاتجاه",
+   "context": "Recent Change table",
+   "status": "Implemented conservatively"
+  },
+  "interp.measure.positive_quality_rate": {
+   "en": "Positive quality rate",
+   "ar": "معدل الجودة الإيجابي",
+   "context": "D39 measure",
+   "status": "Implemented conservatively"
+  },
+  "interp.measure.negative_quality_rate": {
+   "en": "Negative quality rate",
+   "ar": "معدل الجودة السلبي",
+   "context": "D39 measure",
+   "status": "Implemented conservatively"
+  },
+  "interp.measure.late_rate": {
+   "en": "Late rate",
+   "ar": "نسبة التأخر",
+   "context": "D40 measure",
+   "status": "Implemented conservatively"
+  },
+  "interp.measure.median_speed_seconds": {
+   "en": "Median first-pass time",
+   "ar": "وسيط زمن الإنجاز الأول",
+   "context": "D32 measure",
+   "status": "Implemented conservatively"
+  },
+  "interp.value_n": {
+   "en": "{value} · n = {n}",
+   "ar": "{value} · العدد = {n}",
+   "context": "Value with sample",
+   "status": "Implemented conservatively"
+  },
+  "interp.direction.lower_is_better": {
+   "en": "lower is better",
+   "ar": "الأقل أفضل",
+   "context": "Measure direction (D23)",
+   "status": "Implemented conservatively"
+  },
+  "interp.direction.higher_is_better": {
+   "en": "higher is better",
+   "ar": "الأعلى أفضل",
+   "context": "Measure direction (D23)",
+   "status": "Implemented conservatively"
+  },
+  "interp.trend.Improving": {
+   "en": "Improving",
+   "ar": "في تحسّن",
+   "context": "Trend label (D23)",
+   "status": "Implemented conservatively"
+  },
+  "interp.trend.Stable": {
+   "en": "Stable",
+   "ar": "مستقر",
+   "context": "Trend label (D23)",
+   "status": "Implemented conservatively"
+  },
+  "interp.trend.Declining": {
+   "en": "Declining",
+   "ar": "في تراجع",
+   "context": "Trend label (D23)",
+   "status": "Implemented conservatively"
+  },
+  "interp.evidence.summary": {
+   "en": "Evidence: {n} projects · rule {rule} · calculated {at}",
+   "ar": "الأدلة: {n} مشروع · القاعدة {rule} · حُسبت في {at}",
+   "context": "Evidence summary",
+   "status": "Implemented conservatively"
+  },
+  "interp.evidence.show": {
+   "en": "Evidence records",
+   "ar": "سجلات الأدلة",
+   "context": "Evidence drill-down",
+   "status": "Implemented conservatively"
+  },
+  "interp.evidence.head.values": {
+   "en": "Values used",
+   "ar": "القيم المستخدمة",
+   "context": "Evidence drill-down",
+   "status": "Implemented conservatively"
+  },
+  "interp.evidence.head.events": {
+   "en": "Monday events",
+   "ar": "أحداث Monday",
+   "context": "Evidence drill-down",
+   "status": "Implemented conservatively"
+  },
+  "interp.coverage": {
+   "en": "This Editor: {current} projects in the current window, {comparison} in the comparison window, {excluded} excluded",
+   "ar": "هذا المونتير: {current} مشروع في الفترة الحالية، و{comparison} في فترة المقارنة، و{excluded} مستبعد",
+   "context": "Editor-scoped coverage",
+   "status": "Implemented conservatively"
+  },
+  "interp.card.components": {
+   "en": "Q {quality} · S {speed} · D {deadline}",
+   "ar": "ج {quality} · س {speed} · م {deadline}",
+   "context": "Compact component states on the Overview card",
+   "status": "Implemented conservatively"
+  },
+  "conclusion.similar_to_team_median": {
+   "en": "Similar to team median",
+   "ar": "مماثل لوسيط الفريق",
+   "context": "Contract 1.5 speed conclusion (inclusive band)",
+   "status": "Implemented conservatively"
+  },
+  "status.rule_not_approved": {
+   "en": "Rule not approved yet",
+   "ar": "القاعدة غير معتمدة بعد",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.insufficient_sample": {
+   "en": "Not enough projects",
+   "ar": "عدد المشاريع غير كافٍ",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "status.insufficient_comparator_editors": {
+   "en": "Too few other Editors",
+   "ar": "عدد المونتيرين الآخرين غير كافٍ",
+   "context": "Speed comparison status",
+   "status": "Implemented conservatively"
+  },
+  "note.trend_v15": {
+   "en": "Monthly figures (Africa/Cairo month of Ready For Approval) over every completed project, with their sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn from these months.",
+   "ar": "أرقام شهرية (بحسب شهر Ready For Approval بتوقيت القاهرة) لجميع المشاريع المكتملة مع حجم العينة. تُعرض السرعة لكل مجموعة Video Type مؤهلة للمقارنة فقط ولا تُدمج المجموعات. ولا يُستخلص من هذه الأشهر أي استنتاج أو حكم على الاتجاه.",
+   "context": "Contract 1.5 monthly history note (D24)",
+   "status": "Implemented conservatively"
+  },
+  "interp.label.scored": {
+   "en": "scored",
+   "ar": "محتسبة",
+   "context": "Evidence drill-down",
+   "status": "Implemented conservatively"
+  },
+  "interp.label.not_scored": {
+   "en": "not scored",
+   "ar": "غير محتسبة",
+   "context": "Evidence drill-down",
+   "status": "Implemented conservatively"
+  },
+  "interp.pp": {
+   "en": "{value} pp",
+   "ar": "{value} نقطة مئوية",
+   "context": "Rate difference in percentage points",
+   "status": "Implemented conservatively"
+  },
   "workload.footer": {
    "en": "Factual context. Capacity is not evaluated.",
    "ar": "سياق فعلي فقط. لا يتم تقييم الطاقة الاستيعابية.",

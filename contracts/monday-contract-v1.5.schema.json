@@ -115,13 +115,14 @@
         "on_time_tolerance_seconds": {"const": 0},
         "component": {
           "type": "object",
-          "required": ["team_population", "fallback_to_absolute_threshold", "better_band", "similar_band", "worse_band", "minimum_editor_sample_size", "minimum_comparator_sample_size", "threshold_status"],
+          "required": ["team_population", "fallback_to_absolute_threshold", "better_band", "worse_band", "band_semantics", "minimum_editor_sample_size", "minimum_comparator_sample_size", "threshold_status"],
+          "not": {"required": ["similar_band"]},
           "properties": {
             "team_population": {"const": "other-eligible-editors-only-same-window"},
             "fallback_to_absolute_threshold": {"const": false},
             "better_band": {"type": "null"},
-            "similar_band": {"type": "null"},
             "worse_band": {"type": "null"},
+            "band_semantics": {"type": "string", "minLength": 1},
             "minimum_editor_sample_size": {"type": "null"},
             "minimum_comparator_sample_size": {"type": "null"},
             "threshold_status": {"const": "rule_not_approved"}
@@ -131,21 +132,24 @@
     },
     "speed_benchmark": {
       "type": "object",
-      "required": ["rule_version", "minimum_editor_sample_size", "minimum_editor_sample_size_status", "leave_one_out", "minimum_comparator_sample_size", "minimum_comparator_sample_size_status", "component"],
+      "required": ["rule_version", "minimum_editor_sample_size", "minimum_editor_sample_size_status", "leave_one_out", "minimum_comparator_sample_size", "minimum_comparator_sample_size_status", "minimum_comparator_editor_count", "minimum_comparator_editor_count_status", "component"],
       "properties": {
         "leave_one_out": {"const": true},
         "minimum_editor_sample_size": {"type": "null"},
         "minimum_editor_sample_size_status": {"const": "rule_not_approved"},
         "minimum_comparator_sample_size": {"type": "null"},
         "minimum_comparator_sample_size_status": {"const": "rule_not_approved"},
+        "minimum_comparator_editor_count": {"type": "null"},
+        "minimum_comparator_editor_count_status": {"const": "rule_not_approved"},
         "component": {
           "type": "object",
-          "required": ["faster_band", "similar_band", "slower_band", "band_status"],
+          "required": ["faster_band", "slower_band", "band_status", "band_semantics"],
+          "not": {"required": ["similar_band"]},
           "properties": {
             "faster_band": {"type": "null"},
-            "similar_band": {"type": "null"},
             "slower_band": {"type": "null"},
-            "band_status": {"const": "rule_not_approved"}
+            "band_status": {"const": "rule_not_approved"},
+            "band_semantics": {"type": "string", "minLength": 1}
           }
         }
       }
@@ -170,8 +174,9 @@
     },
     "interpretation": {
       "type": "object",
-      "required": ["overall_status", "quality_component", "trend", "strengths", "attention_areas", "recognition", "needs_attention_now", "insufficient_evidence"],
+      "required": ["component_states", "overall_status", "quality_component", "trend", "strengths", "attention_areas", "recognition", "needs_attention_now", "insufficient_evidence"],
       "properties": {
+        "component_states": {"const": ["positive", "neutral", "negative", "not_classifiable"]},
         "overall_status": {"$ref": "#/$defs/unapproved_overall_status"},
         "quality_component": {
           "type": "object",
@@ -185,10 +190,33 @@
         },
         "trend": {
           "type": "object",
-          "required": ["minimum_sample_size", "material_change_threshold", "threshold_status"],
+          "required": ["labels", "minimum_sample_size", "material_change_thresholds", "directions", "threshold_status"],
+          "not": {"required": ["material_change_threshold"]},
           "properties": {
+            "labels": {"const": ["Improving", "Stable", "Declining"]},
             "minimum_sample_size": {"type": "null"},
-            "material_change_threshold": {"type": "null"},
+            "material_change_thresholds": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["positive_quality_rate", "negative_quality_rate", "late_rate", "median_speed_seconds"],
+              "properties": {
+                "positive_quality_rate": {"type": "null"},
+                "negative_quality_rate": {"type": "null"},
+                "late_rate": {"type": "null"},
+                "median_speed_seconds": {"type": "null"}
+              }
+            },
+            "directions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["positive_quality_rate", "negative_quality_rate", "late_rate", "median_speed_seconds"],
+              "properties": {
+                "positive_quality_rate": {"const": "higher_is_better"},
+                "negative_quality_rate": {"const": "lower_is_better"},
+                "late_rate": {"const": "lower_is_better"},
+                "median_speed_seconds": {"const": "lower_is_better"}
+              }
+            },
             "threshold_status": {"const": "rule_not_approved"}
           }
         },

@@ -35,6 +35,8 @@ from typing import Any
 
 from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
+from atlas_commander.interpretation_html import CSS as IA_CSS
+from atlas_commander.interpretation_html import interpretation_section, overall_badge
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 
 SPEED_WORD = {"faster_than_team_median": "faster", "slower_than_team_median": "slower", "equal_to_team_median": "level"}
@@ -324,6 +326,11 @@ def overall_placeholder(loc: Loc = EN) -> str:
             f'<b aria-label="{_attr(loc.text("overall.aria"))}">—</b><span>{not_evaluated}</span></div>')
 
 
+def _overall(s: dict[str, Any], loc: Loc) -> str:
+    """Contract 1.5 shows the real Overall Status (or the reason there is none); earlier contracts keep the placeholder."""
+    return overall_badge(s["interpretation"], loc) if "interpretation" in s else overall_placeholder(loc)
+
+
 def deadline_strip(d: dict[str, Any], large: bool = False, loc: Loc = EN) -> str:
     total = (d.get("early") or 0) + (d.get("on_time") or 0) + (d.get("late") or 0)
     if not total:
@@ -523,7 +530,7 @@ def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
     body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{k}</span><div>{v}</div></div>' for ic, k, v in lines)
     return (f'<article class="card ed" aria-label="{_attr(s["display_name"])}">'
             f'<div class="who">{avatar(s["display_name"])}<div><h3>{loc.src(s["display_name"])}</h3>'
-            f'<span class="small quiet">{loc.count("noun.completed_project", s["sample"]["completed_projects"])}</span></div>{overall_placeholder(loc)}</div>'
+            f'<span class="small quiet">{loc.count("noun.completed_project", s["sample"]["completed_projects"])}</span></div>{_overall(s, loc)}</div>'
             f'{hero}{body}'
             f'<a class="cta stretch" href="#/editor/{escape(s["editor_id"])}">{loc.t("card.view_profile")} {icon("arrow", 15)}</a></article>')
 
@@ -1001,7 +1008,8 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
     pills = "".join(f'<button type="button" class="pill" role="tab" data-pill="t-{eid}-{k}" aria-selected="{"true" if i == 0 else "false"}">{loc.t("tab." + k)}</button>'
                     for i, k in enumerate(TABS))
     name = loc.src(s["display_name"])
-    overview = (f'<div class="sh"><div><h2>{loc.t("profile.timeline_title")}</h2><p>{loc.t("profile.timeline_sub")}</p></div></div>'
+    interpretation = interpretation_section(s["interpretation"], loc) + '<div style="margin-top:32px"></div>' if "interpretation" in s else ""
+    overview = (f'{interpretation}<div class="sh"><div><h2>{loc.t("profile.timeline_title")}</h2><p>{loc.t("profile.timeline_sub")}</p></div></div>'
                 f'<div class="card pulse">{timeline([s], retrieved, f"pt-{eid}", False, loc)}</div>'
                 f'<section style="margin-top:32px"><div class="sh"><div><h2>{loc.t("profile.snapshot_title")}</h2><p>{loc.t("profile.snapshot_sub")}</p></div></div>{_snapshot(s, loc)}</section>'
                 f'<section style="margin-top:32px"><div class="card" style="display:flex;gap:16px;align-items:center">{icon("spark", 22)}<div><b style="font-weight:500">{loc.t("profile.suggested_action")}</b>'
@@ -1017,7 +1025,7 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
               f'<div class="facts" style="margin-top:12px"><div><span>{loc.t("common.current_work")}</span>{workload_chips(s["current_workload"], 4, loc)}</div>'
               f'<div><span>{loc.t("profile.period")}</span><b>{escape(loc.month(last_month)) if last_month else "—"}</b></div>'
               f'<div><span>{loc.t("profile.data_updated")}</span><b>{escape(loc.date(retrieved, False))}</b></div></div></div>'
-              f'{overall_placeholder(loc)}</div>')
+              f'{_overall(s, loc)}</div>')
     report = template(f"report-{eid}", loc.text("profile.report_title", name=s["display_name"]),
                       f'<p>{loc.t("profile.report_intro")}</p>'
                       f'<iframe title="{_attr(loc.text("profile.report_button"))}" data-report="{escape(eid)}"></iframe>')
@@ -1199,6 +1207,7 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     """Render the dashboard in ``loc``. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML (same language), embedded
     unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
+    v15 = capabilities(source["executable_contract_version"]).editor_intelligence
     publication = doc.get("publication") or {}
     release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     retrieved = source.get("retrieved_at")
@@ -1229,7 +1238,7 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     publication_attrs = (f' data-atlas-release-id="{escape(release_id)}" data-atlas-snapshot-id="{escape(snapshot_id)}"'
                          if release_id and snapshot_id else "")
     return (f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'{publication_meta}<title>{loc.t("page.dashboard_title")}</title><style>{CSS}</style></head><body{publication_attrs}><div class="shell">'
+            f'{publication_meta}<title>{loc.t("page.dashboard_title")}</title><style>{CSS}{IA_CSS if v15 else ""}</style></head><body{publication_attrs}><div class="shell">'
             f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><div class="topnav"><nav class="nav" aria-label="{_attr(loc.text("nav.main_label"))}">'
             f'<a href="#/" data-nav="team" aria-current="page">{loc.t("nav.team")}</a><a href="#/system" data-nav="system">{loc.t("nav.system")}</a></nav>{switch}</div></header>'
             f'<main>{body}{data_system(doc, loc, status_snapshot)}</main></div>'

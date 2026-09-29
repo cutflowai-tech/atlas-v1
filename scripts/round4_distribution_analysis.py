@@ -24,11 +24,13 @@ from typing import Any
 from atlas_commander.cycles import COMPLETED, CycleRecord, parse_time
 from atlas_commander.ingest_verify import verify
 from atlas_commander.intelligence import (
+    EvidenceScope,
     completed_day_windows,
     evaluation_cohort,
     quality_rates,
-    speed_benchmarks_v15,
+    speed_benchmarks,
 )
+from atlas_commander.interpretation_policy import InterpretationPolicy
 from atlas_commander.metrics import MetricPolicy, cohort_benchmark_eligibility, deadline_result, speed_eligible
 from atlas_commander.monday_source import dropdown_value_ids, dropdown_value_labels
 from atlas_commander.pipeline import reconstruct_cycles, reconstruct_quality
@@ -288,11 +290,11 @@ def _deadline_by_editor(rows: Sequence[Mapping[str, Any]]) -> dict[str, dict[str
     return result
 
 
-def _quality_by_editor(cycles: Sequence[CycleRecord], occurrences: Sequence[Any]) -> dict[str, dict[str, Any]]:
+def _quality_by_editor(cycles: Sequence[CycleRecord], occurrences: Sequence[Any], scope: EvidenceScope) -> dict[str, dict[str, Any]]:
     editor_ids = sorted({str(cycle.editor_id) for cycle in cycles if cycle.editor_id is not None})
     result: dict[str, dict[str, Any]] = {}
     for editor_id in editor_ids:
-        facts = quality_rates(editor_id=editor_id, occurrences=occurrences, eligible_cycles=cycles)
+        facts = quality_rates(editor_id, occurrences, cycles, scope, None, None)
         name = next(_editor_name(cycle) for cycle in cycles if cycle.editor_id == editor_id)
         result[editor_id] = {
             "editor_name": name,
@@ -329,11 +331,12 @@ def _revision_by_editor(cycles: Sequence[CycleRecord]) -> dict[str, dict[str, An
     return result
 
 
-def _speed_by_editor(cycles: Sequence[CycleRecord], policy: MetricPolicy, rule: Mapping[str, Any], calculated_at: str) -> list[dict[str, Any]]:
+def _speed_by_editor(cycles: Sequence[CycleRecord], policy: MetricPolicy, contract: Mapping[str, Any], scope: EvidenceScope) -> list[dict[str, Any]]:
+    rule = InterpretationPolicy.from_contract(contract).speed
     rows: list[dict[str, Any]] = []
     for editor_id in sorted({str(cycle.editor_id) for cycle in cycles if cycle.editor_id is not None}):
         editor_name = next(_editor_name(cycle) for cycle in cycles if cycle.editor_id == editor_id)
-        facts = speed_benchmarks_v15(editor_id=editor_id, cycles=cycles, mapping=policy.video_types, rule=rule, calculated_at=calculated_at)
+        facts = speed_benchmarks(editor_id, list(cycles), policy.video_types, rule, scope, None)
         for benchmark in facts["cohorts"]:
             rows.append(
                 {
@@ -355,9 +358,10 @@ def _speed_by_editor(cycles: Sequence[CycleRecord], policy: MetricPolicy, rule: 
 
 def _window_analysis(cycles: Sequence[CycleRecord], occurrences: Sequence[Any], policy: MetricPolicy, contract: Mapping[str, Any], calculated_at: str) -> dict[str, Any]:
     deadline_rows = _deadline_rows(cycles, policy, calculated_at)
-    quality = _quality_by_editor(cycles, occurrences)
+    scope = EvidenceScope.from_contract(contract, calculated_at)
+    quality = _quality_by_editor(cycles, occurrences, scope)
     revisions = _revision_by_editor(cycles)
-    speed = _speed_by_editor(cycles, policy, {**contract["speed_benchmark"], **contract["speed_benchmark"]["component"]}, calculated_at)
+    speed = _speed_by_editor(cycles, policy, contract, scope)
     return {
         "eligible_projects": len(cycles),
         "projects_by_editor": dict(sorted(Counter(_editor_name(cycle) for cycle in cycles).items())),
@@ -749,8 +753,8 @@ def analyze(run_dir: Path, contract_path: Path) -> dict[str, Any]:
     policy = MetricPolicy.from_contract(overlaid_contract)
     as_of = datetime.fromisoformat(calculated_at.replace("Z", "+00:00"))
     window_days = int(overlaid_contract["time_windows"]["current_window"]["completed_days"])
-    windows = completed_day_windows(as_of=as_of, days=window_days)
-    partitioned = evaluation_cohort(reconstructed.cycles, as_of=as_of, days=window_days, rule_version=overlaid_contract["time_windows"]["rule_version"])
+    windows = completed_day_windows(as_of, window_days, int(overlaid_contract["time_windows"]["comparison_window"]["completed_days"]))
+    partitioned = evaluation_cohort(reconstructed.cycles, windows, overlaid_contract["time_windows"]["rule_version"])
     current = partitioned["current"]
     comparison = partitioned["comparison"]
     current_analysis = _window_analysis(current, quality.occurrences, policy, overlaid_contract, calculated_at)

@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-451 keys: 149 Approved from brief, 279 Implemented conservatively, 23 Needs Arabic Review.
+531 keys: 149 Approved from brief, 359 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -54,6 +54,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `conclusion.equal_to_team_median` | Equal to team median | مماثل لوسيط الفريق | Speed conclusion (describes the comparison, not the person) | Implemented conservatively |  |
 | `conclusion.faster_than_team_median` | Faster than team median | أسرع من وسيط الفريق | Speed conclusion (describes the comparison, not the person) | Implemented conservatively |  |
 | `conclusion.insufficient_sample` | Insufficient sample | حجم العينة غير كافٍ | Speed conclusion (describes the comparison, not the person) | Implemented conservatively |  |
+| `conclusion.similar_to_team_median` | Similar to team median | مماثل لوسيط الفريق | Contract 1.5 speed conclusion (inclusive band) | Implemented conservatively |  |
 | `conclusion.slower_than_team_median` | Slower than team median | أبطأ من وسيط الفريق | Speed conclusion (describes the comparison, not the person) | Implemented conservatively |  |
 | `coverage.all_projects` | All projects | جميع المشاريع | Heading | Implemented conservatively |  |
 | `coverage.completed` | Completed | مكتملة | Field / table header | Implemented conservatively |  |
@@ -130,6 +131,81 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `home.pulse_sub` | What happened, day by day. Select a marker for its evidence. | ما حدث يومًا بيوم. اختر أي علامة لعرض الأدلة الخاصة بها. | Section subheading | Implemented conservatively |  |
 | `home.pulse_title` | Team Pulse | نبض الفريق | Section heading | Implemented conservatively |  |
 | `home.team_sub` | Current performance evidence across the editing team. | أدلة الأداء الحالية لفريق المونتاج. | Section subheading | Implemented conservatively |  |
+| `interp.card.components` | Q {quality} · S {speed} · D {deadline} | ج {quality} · س {speed} · م {deadline} | Compact component states on the Overview card | Implemented conservatively |  |
+| `interp.component.overall_lookup` | Overall Status lookup table | جدول تحديد الحالة العامة | Why-this-status row | Implemented conservatively |  |
+| `interp.coverage` | This Editor: {current} projects in the current window, {comparison} in the comparison window, {excluded} excluded | هذا المونتير: {current} مشروع في الفترة الحالية، و{comparison} في فترة المقارنة، و{excluded} مستبعد | Editor-scoped coverage | Implemented conservatively |  |
+| `interp.deadline.absolute_note` | The absolute late rate is a fact. Doing better than the team comparison does not mean the lateness itself is acceptable. | نسبة التأخر الفعلية حقيقة ثابتة، والأداء الأفضل من مقارنة الفريق لا يعني أن التأخر نفسه مقبول. | D45/D46 | Implemented conservatively |  |
+| `interp.deadline.comparator` | Other Editors: late rate {rate} · projects: {n} · Editors: {editors} | المونتيرون الآخرون: نسبة التأخر {rate} · المشاريع: {n} · المونتيرون: {editors} | D45 comparator | Implemented conservatively |  |
+| `interp.deadline.dual` | Deadline: {relative} · Absolute late rate: {rate} ({late} of {n}) | الالتزام بالموعد: {relative} · نسبة التأخر الفعلية: {rate} ({late} من {n}) | D45 dual display | Implemented conservatively |  |
+| `interp.deadline.relative.negative` | worse than team comparison | أسوأ من مقارنة الفريق | D45 | Implemented conservatively |  |
+| `interp.deadline.relative.neutral` | similar to team comparison | مماثل لمقارنة الفريق | D45 | Implemented conservatively |  |
+| `interp.deadline.relative.not_classifiable` | not classifiable | غير قابل للتصنيف | D45 | Implemented conservatively |  |
+| `interp.deadline.relative.positive` | better than team comparison | أفضل من مقارنة الفريق | D45 | Implemented conservatively |  |
+| `interp.direction.higher_is_better` | higher is better | الأعلى أفضل | Measure direction (D23) | Implemented conservatively |  |
+| `interp.direction.lower_is_better` | lower is better | الأقل أفضل | Measure direction (D23) | Implemented conservatively |  |
+| `interp.evidence.head.events` | Monday events | أحداث Monday | Evidence drill-down | Implemented conservatively |  |
+| `interp.evidence.head.values` | Values used | القيم المستخدمة | Evidence drill-down | Implemented conservatively |  |
+| `interp.evidence.show` | Evidence records | سجلات الأدلة | Evidence drill-down | Implemented conservatively |  |
+| `interp.evidence.summary` | Evidence: {n} projects · rule {rule} · calculated {at} | الأدلة: {n} مشروع · القاعدة {rule} · حُسبت في {at} | Evidence summary | Implemented conservatively |  |
+| `interp.facts_note` | Every component's facts are shown even when its rule is not approved yet; no classification is invented. | تُعرض حقائق كل مكوّن حتى إن لم تُعتمد قاعدته بعد؛ ولا يُختلق أي تصنيف. | D25/D47 note | Implemented conservatively |  |
+| `interp.history_scope` | All completed projects · monthly history in Cairo months | جميع المشاريع المكتملة · السجل الشهري بأشهر توقيت القاهرة | Caption for all-history figures | Implemented conservatively |  |
+| `interp.label.not_scored` | not scored | غير محتسبة | Evidence drill-down | Implemented conservatively |  |
+| `interp.label.scored` | scored | محتسبة | Evidence drill-down | Implemented conservatively |  |
+| `interp.measure.late_rate` | Late rate | نسبة التأخر | D40 measure | Implemented conservatively |  |
+| `interp.measure.median_speed_seconds` | Median first-pass time | وسيط زمن الإنجاز الأول | D32 measure | Implemented conservatively |  |
+| `interp.measure.negative_quality_rate` | Negative quality rate | معدل الجودة السلبي | D39 measure | Implemented conservatively |  |
+| `interp.measure.positive_quality_rate` | Positive quality rate | معدل الجودة الإيجابي | D39 measure | Implemented conservatively |  |
+| `interp.no_score` | Overall Status is a lookup of the Quality, Speed and Deadline states, with no score or weighting. Revisions, Current Work and context labels never affect it. | الحالة العامة تُحدَّد من جدول يربط حالات الجودة والسرعة والالتزام بالموعد، دون أي درجة أو أوزان. ولا تؤثر فيها التعديلات أو العمل الحالي أو علامات السياق. | D37 note | Implemented conservatively |  |
+| `interp.pp` | {value} pp | {value} نقطة مئوية | Rate difference in percentage points | Implemented conservatively |  |
+| `interp.quality.excluded` | Visible but not scored: {n} | ظاهرة وغير محتسبة: {n} | Quality exclusions (D27/D30) | Implemented conservatively |  |
+| `interp.quality.facts` | Scored positive: {pos} ({prate}) · scored negative: {neg} ({nrate}) · eligible projects: {n} | إيجابية محتسبة: {pos} ({prate}) · سلبية محتسبة: {neg} ({nrate}) · مشاريع مؤهلة: {n} | Quality component facts (D39) | Implemented conservatively |  |
+| `interp.reason.context_label` | context only | للسياق فقط | Label scoring exclusion (D26) | Implemented conservatively |  |
+| `interp.reason.insufficient_comparator_editors` | too few other Editors to compare with | عدد المونتيرين الآخرين غير كافٍ للمقارنة | Classification reason (D36) | Implemented conservatively |  |
+| `interp.reason.insufficient_sample` | not enough projects in the window | عدد المشاريع في الفترة غير كافٍ | Classification reason (D47) | Implemented conservatively |  |
+| `interp.reason.lookup` | the approved lookup gives no status for this combination | لا يحدد الجدول المعتمد حالة لهذا التركيب | Classification reason (D37) | Implemented conservatively |  |
+| `interp.reason.no_other_editors_in_cohort` | No valid team benchmark available | لا يتوفر مقياس فريق صالح للمقارنة | Classification reason (D35) | Implemented conservatively |  |
+| `interp.reason.no_value_in_one_window` | no value in one of the two windows | لا توجد قيمة في إحدى الفترتين | Recent Change reason | Implemented conservatively |  |
+| `interp.reason.not_enough_classifiable_components` | fewer than {min} of the 3 components are classifiable | أقل من {min} من المكوّنات الثلاثة قابلة للتصنيف | Classification reason (D41) | Implemented conservatively |  |
+| `interp.reason.not_scored_quality` | visible, not scored in Quality | ظاهرة ولا تُحتسب في الجودة | Label scoring exclusion (D27/D30) | Implemented conservatively |  |
+| `interp.reason.rule_not_approved` | rule not approved by management yet | لم تعتمد الإدارة القاعدة بعد | Classification reason (D25) | Implemented conservatively |  |
+| `interp.recent.head.change` | Change | التغيّر | Recent Change table | Implemented conservatively |  |
+| `interp.recent.head.comparison` | Comparison window | فترة المقارنة | Recent Change table | Implemented conservatively |  |
+| `interp.recent.head.current` | Current window | الفترة الحالية | Recent Change table | Implemented conservatively |  |
+| `interp.recent.head.measure` | Measure | المقياس | Recent Change table | Implemented conservatively |  |
+| `interp.recent.head.trend` | Trend | الاتجاه | Recent Change table | Implemented conservatively |  |
+| `interp.recent_sub` | Current window minus comparison window, per measure. A Trend label appears only under an approved rule. | الفرق بين الفترة الحالية وفترة المقارنة لكل مقياس. ولا يظهر وصف الاتجاه إلا بقاعدة معتمدة. | D23 | Implemented conservatively |  |
+| `interp.recent_title` | Recent Change | التغيّر الأخير | D23 | Implemented conservatively |  |
+| `interp.section_title` | Overall Status | الحالة العامة | 1.5 Overall Status section | Implemented conservatively |  |
+| `interp.speed.comparator_value` | {median} · projects: {n} · Editors: {editors} | {median} · المشاريع: {n} · المونتيرون: {editors} | Speed comparator cell | Implemented conservatively |  |
+| `interp.speed.facts` | Projects in classified Video Types: {n} | المشاريع في أنواع الفيديو المصنّفة: {n} | Speed component facts (D38) | Implemented conservatively |  |
+| `interp.speed.head.comparator` | Other Editors | المونتيرون الآخرون | Speed table (leave-one-out, D36) | Implemented conservatively |  |
+| `interp.speed.head.difference` | Difference | الفرق | Speed table | Implemented conservatively |  |
+| `interp.speed.head.editor` | This Editor | هذا المونتير | Speed table | Implemented conservatively |  |
+| `interp.speed.head.type` | Video Type | Video Type | Speed table | Implemented conservatively |  |
+| `interp.speed.value` | {median} · projects: {n} | {median} · المشاريع: {n} | Speed cell | Implemented conservatively |  |
+| `interp.state.approved` | Approved | معتمد | Rule state | Implemented conservatively |  |
+| `interp.state.negative` | Negative | سلبي | Component state (D37) | Implemented conservatively |  |
+| `interp.state.neutral` | Neutral | محايد | Component state (D37) | Implemented conservatively |  |
+| `interp.state.not_classifiable` | Not classifiable | غير قابل للتصنيف | Component state (D37) | Implemented conservatively |  |
+| `interp.state.positive` | Positive | إيجابي | Component state (D37) | Implemented conservatively |  |
+| `interp.state.rule_not_approved` | Not approved yet | غير معتمد بعد | Rule state | Implemented conservatively |  |
+| `interp.status.below_expectations` | Below Expectations | دون التوقعات | Overall Status label (D37) | Implemented conservatively |  |
+| `interp.status.good` | Good | جيد | Overall Status label (D37) | Implemented conservatively |  |
+| `interp.status.mixed` | Mixed | متباين | Overall Status label (D37) | Implemented conservatively |  |
+| `interp.status.not_enough_approved_logic` | Not enough approved logic to classify | لا توجد قواعد معتمدة كافية للتصنيف | D25 state | Implemented conservatively |  |
+| `interp.status.not_enough_evidence` | Not enough evidence to classify | لا تتوفر أدلة كافية للتصنيف | D41/D47 data state | Implemented conservatively |  |
+| `interp.status.strong` | Strong | قوي | Overall Status label (D37) | Implemented conservatively |  |
+| `interp.trend.Declining` | Declining | في تراجع | Trend label (D23) | Implemented conservatively |  |
+| `interp.trend.Improving` | Improving | في تحسّن | Trend label (D23) | Implemented conservatively |  |
+| `interp.trend.Stable` | Stable | مستقر | Trend label (D23) | Implemented conservatively |  |
+| `interp.value_n` | {value} · n = {n} | {value} · العدد = {n} | Value with sample | Implemented conservatively |  |
+| `interp.verdict.faster` | Faster | أسرع | Speed verdict (D38) | Implemented conservatively |  |
+| `interp.verdict.not_classifiable` | Not classifiable | غير قابل للتصنيف | Speed verdict (D38) | Implemented conservatively |  |
+| `interp.verdict.similar` | Similar | مماثل | Speed verdict (D38) | Implemented conservatively |  |
+| `interp.verdict.slower` | Slower | أبطأ | Speed verdict (D38) | Implemented conservatively |  |
+| `interp.why_title` | Why this status | سبب هذه الحالة | D37 | Implemented conservatively |  |
+| `interp.window` | Current window: {start} – {end} (Cairo time), compared with {cstart} – {cend} | الفترة الحالية: {start} – {end} (بتوقيت القاهرة)، مقارنةً بالفترة {cstart} – {cend} | Evaluation windows (D24) | Implemented conservatively |  |
+| `interp.window_short` | Current window {start} – {end} | الفترة الحالية {start} – {end} | Section caption for window-scoped figures (D24) | Implemented conservatively |  |
 | `lang.switch_label` | View this page in Arabic | عرض هذه الصفحة باللغة الإنجليزية | Accessible label of the language switch | Implemented conservatively |  |
 | `metric.issues_across` | across {projects} of {total} | في {projects} من أصل {total} | Metric card | Implemented conservatively |  |
 | `metric.projects_detail` | completed · {measurable} measurable for speed | مكتملة · {measurable} قابلة لقياس السرعة | Metric card | Implemented conservatively |  |
@@ -140,6 +216,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `note.positive` | No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality. | لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط ولا تؤثر على الجودة. | Profile note (positive signals) | Implemented conservatively |  |
 | `note.positive_v15` | Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made. | تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة. | Profile note (positive signals), contract 1.5 | Implemented conservatively |  |
 | `note.trend` | Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn. | أرقام شهرية (حسب شهر Ready For Approval بتوقيت UTC) مع حجم العينة. تظهر السرعة فقط لكل Video Type مؤهل للمقارنة على حدة، ولا يتم دمج الأنواع. لا يتم استنتاج أي اتجاه أو حكم. | Profile note (trend) | Implemented conservatively |  |
+| `note.trend_v15` | Monthly figures (Africa/Cairo month of Ready For Approval) over every completed project, with their sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn from these months. | أرقام شهرية (بحسب شهر Ready For Approval بتوقيت القاهرة) لجميع المشاريع المكتملة مع حجم العينة. تُعرض السرعة لكل مجموعة Video Type مؤهلة للمقارنة فقط ولا تُدمج المجموعات. ولا يُستخلص من هذه الأشهر أي استنتاج أو حكم على الاتجاه. | Contract 1.5 monthly history note (D24) | Implemented conservatively |  |
 | `note.workload` | Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made. | وصفي فقط. لم يتم في V1 تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي للمونتير، لذلك لا يوجد أي حكم على الطاقة الاستيعابية. | Profile note (workload) | Implemented conservatively |  |
 | `note.workload_v15` | Active Work includes only In Progress, Revisions and Internal Revisions. Ready For Approval is shown separately as Awaiting Approval. No capacity judgement is made. | يشمل العمل النشط فقط حالات In Progress وRevisions وInternal Revisions. وتظهر Ready For Approval منفصلة بصفتها بانتظار الاعتماد. لا يصدر أي حكم على الطاقة الاستيعابية. | Contract 1.5 current-work semantics | Implemented conservatively |  |
 | `noun.client_revision_event` | one: {n} client revision event / other: {n} client revision events | zero: {n} تعديل من العميل / one: تعديل واحد من العميل / two: تعديلان من العميل / two_gen: تعديلين من العميل / few: {n} تعديلات من العميل / many: {n} تعديلًا من العميل / other: {n} تعديل من العميل | Counted client revisions (context only) | Implemented conservatively |  |
@@ -261,8 +338,11 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `stat.median` | median | الوسيط | Benchmark statistic name | Implemented conservatively |  |
 | `status.cohort_not_benchmark_eligible` | Video Type combination not approved for benchmarking | تركيبة Video Type غير معتمدة للمقارنة | Speed comparison status | Implemented conservatively |  |
 | `status.comparable` | Comparable | قابلة للمقارنة | Speed comparison status | Implemented conservatively |  |
+| `status.insufficient_comparator_editors` | Too few other Editors | عدد المونتيرين الآخرين غير كافٍ | Speed comparison status | Implemented conservatively |  |
 | `status.insufficient_editor_sample` | Fewer than the minimum Editor projects | عدد مشاريع المونتير أقل من الحد الأدنى | Speed comparison status | Implemented conservatively |  |
+| `status.insufficient_sample` | Not enough projects | عدد المشاريع غير كافٍ | Speed comparison status | Implemented conservatively |  |
 | `status.minimum_sample_size_not_configured` | Minimum sample not configured | لم يتم تحديد الحد الأدنى لحجم العينة | Speed comparison status | Implemented conservatively |  |
+| `status.rule_not_approved` | Rule not approved yet | القاعدة غير معتمدة بعد | Speed comparison status | Implemented conservatively |  |
 | `system.attribution_text` | {attributed} of {completed} in this snapshot have a verified Editor. The others are not shown on any Editor; unverified labels stay quarantined until confirmed. | {attributed} من أصل {completed} في هذه البيانات لها مونتير تم التحقق منه. لا تظهر المشاريع الأخرى ضمن أي مونتير، وتبقى العلامات غير المؤكدة معزولة حتى يتم تأكيدها. | Coverage explanation | Implemented conservatively |  |
 | `system.head.atlas_id` | Atlas ID | معرّف Atlas | Data & System table header | Implemented conservatively |  |
 | `system.head.editor_n` | Editor n | عينة المونتير | Data & System table header | Implemented conservatively |  |

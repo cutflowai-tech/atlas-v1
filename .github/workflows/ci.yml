@@ -72,6 +72,10 @@ jobs:
         run: make contract-v15
       - name: Contract 1.4 output and operations unchanged by 1.5 code
         run: make contract-v14-compat
+      - name: Contract 1.5 profile semantics and publication parity tests
+        run: make profile-publication-v15
+      - name: Contract 1.5 evidence, history, bilingual rendering and publication identity tests
+        run: make contract-v15-release
       - name: Deadline v1.2 (ETA frozen at Ready For Approval) tests
         run: make deadline-v12
       - name: Editor Profile tests

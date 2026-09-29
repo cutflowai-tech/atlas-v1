@@ -6,8 +6,23 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "contract_version", "subject_type", "editor", "generated_at", "executable_contract_version", "source", "publication",
-    "overall", "speed", "deadline", "quality", "revisions", "current_workload", "trend", "coverage", "projects", "ai_annotation"
+    "contract_version",
+    "subject_type",
+    "editor",
+    "generated_at",
+    "executable_contract_version",
+    "source",
+    "publication",
+    "overall",
+    "speed",
+    "deadline",
+    "quality",
+    "revisions",
+    "current_workload",
+    "trend",
+    "coverage",
+    "projects",
+    "ai_annotation"
   ],
   "properties": {
     "contract_version": {"const": "1.5.0"},
@@ -26,10 +41,122 @@
         "routes": {"type": "object", "required": ["/", "/en", "/ar"]}
       }
     },
-    "overall": {"type": "object"},
-    "speed": {"type": "object"},
-    "deadline": {"type": "object"},
-    "quality": {"type": "object"},
+    "overall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "status_label",
+        "status_state",
+        "reason",
+        "component_states",
+        "classifiable_components",
+        "minimum_classifiable_components",
+        "why",
+        "rule",
+        "evidence",
+        "note"
+      ],
+      "properties": {
+        "status": {"enum": ["Strong", "Good", "Mixed", "Below Expectations", null]},
+        "status_label": {"enum": ["Strong", "Good", "Mixed", "Below Expectations", "Not enough evidence to classify", "Not enough approved logic to classify"]},
+        "status_state": {"enum": ["classified", "not_enough_evidence_to_classify", "rule_not_approved"]},
+        "reason": {"type": ["string", "null"]},
+        "component_states": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["quality", "speed", "deadline"],
+          "properties": {
+            "quality": {"enum": ["positive", "neutral", "negative", "not_classifiable"]},
+            "speed": {"enum": ["positive", "neutral", "negative", "not_classifiable"]},
+            "deadline": {"enum": ["positive", "neutral", "negative", "not_classifiable"]}
+          }
+        },
+        "classifiable_components": {"type": "integer", "minimum": 0, "maximum": 3},
+        "minimum_classifiable_components": {"type": "integer", "minimum": 1},
+        "why": {"type": "array", "minItems": 4, "items": {"type": "object", "required": ["component", "state", "reason"]}},
+        "rule": {"$ref": "#/$defs/ruleState"},
+        "evidence": {
+          "type": "object",
+          "required": ["source", "rule_version", "calculated_at", "date_range", "calculation", "components", "lookup_key"],
+          "properties": {
+            "source": {"const": "monday"},
+            "rule_version": {"$ref": "#/$defs/id"},
+            "calculated_at": {"type": "string", "format": "date-time"},
+            "date_range": {"$ref": "#/$defs/dateRange"},
+            "calculation": {"type": "string", "minLength": 1},
+            "components": {"type": "object", "required": ["quality", "speed", "deadline"]},
+            "lookup_key": {"type": "string", "minLength": 1}
+          }
+        },
+        "note": {"type": "string", "minLength": 1}
+      },
+      "if": {
+        "properties": {"status_state": {"const": "classified"}}
+      },
+      "then": {
+        "properties": {"status": {"type": "string"}}
+      },
+      "else": {
+        "properties": {"status": {"type": "null"}}
+      }
+    },
+    "speed": {
+      "type": "object",
+      "required": [
+        "cohorts",
+        "component",
+        "window",
+        "leave_one_out",
+        "minimum_editor_sample_size",
+        "minimum_comparator_sample_size",
+        "minimum_comparator_editor_count"
+      ],
+      "properties": {
+        "leave_one_out": {"const": true},
+        "component": {"$ref": "#/$defs/componentState"},
+        "window": {"$ref": "#/$defs/dateRange"},
+        "cohorts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["cohort_key", "verdict", "comparison_status", "rule", "evidence"],
+            "properties": {
+              "verdict": {"enum": ["faster", "similar", "slower", "not_classifiable"]},
+              "rule": {"$ref": "#/$defs/ruleState"},
+              "evidence": {"$ref": "#/$defs/evidenceBlock"}
+            }
+          }
+        }
+      }
+    },
+    "deadline": {
+      "type": "object",
+      "required": ["summary", "results", "component", "window"],
+      "properties": {"component": {"$ref": "#/$defs/componentState"}, "window": {"$ref": "#/$defs/dateRange"}}
+    },
+    "quality": {
+      "type": "object",
+      "required": ["negative", "positive", "context", "rates", "component", "window", "occurrences"],
+      "properties": {
+        "component": {"$ref": "#/$defs/componentState"},
+        "window": {"$ref": "#/$defs/dateRange"},
+        "rates": {
+          "type": "object",
+          "required": [
+            "eligible_completed_projects",
+            "positive_count",
+            "positive_rate",
+            "negative_count",
+            "negative_rate",
+            "visible",
+            "scoring_exclusions",
+            "evidence"
+          ],
+          "properties": {"evidence": {"$ref": "#/$defs/evidenceBlock"}}
+        }
+      }
+    },
     "revisions": {
       "type": "object",
       "required": ["context_only", "client", "internal", "total_revision_activity", "note"],
@@ -40,11 +167,7 @@
         "total_revision_activity": {
           "type": "object",
           "required": ["projects", "events", "affects_scoring"],
-          "properties": {
-            "projects": {"type": "integer", "minimum": 0},
-            "events": {"type": "integer", "minimum": 0},
-            "affects_scoring": {"const": false}
-          }
+          "properties": {"projects": {"type": "integer", "minimum": 0}, "events": {"type": "integer", "minimum": 0}, "affects_scoring": {"const": false}}
         },
         "note": {"type": "string", "minLength": 1}
       }
@@ -82,10 +205,7 @@
             "evidence_refs": {"type": "array", "items": {"type": "string"}}
           }
         },
-        "excluded_from_active": {
-          "type": "object",
-          "required": ["count", "by_status", "approved_non_active_statuses", "reason"]
-        },
+        "excluded_from_active": {"type": "object", "required": ["count", "by_status", "approved_non_active_statuses", "reason"]},
         "capacity_classification": {
           "type": "object",
           "required": ["value", "availability", "reason"],
@@ -93,10 +213,51 @@
         }
       }
     },
-    "trend": {"type": "object"},
+    "trend": {
+      "type": "object",
+      "required": ["window", "recent_change", "late_rate_by_window", "trend_rule", "speed_by_cohort_month", "deadline_by_month", "note"],
+      "properties": {
+        "trend_rule": {"$ref": "#/$defs/ruleState"},
+        "recent_change": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["positive_quality_rate", "negative_quality_rate", "late_rate", "speed_by_video_type"],
+          "properties": {
+            "positive_quality_rate": {"$ref": "#/$defs/recentChange"},
+            "negative_quality_rate": {"$ref": "#/$defs/recentChange"},
+            "late_rate": {"$ref": "#/$defs/recentChange"},
+            "speed_by_video_type": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["cohort_key", "change"],
+                "properties": {"cohort_key": {"$ref": "#/$defs/id"}, "change": {"$ref": "#/$defs/recentChange"}}
+              }
+            }
+          }
+        },
+        "late_rate_by_window": {
+          "type": "object",
+          "required": ["current", "comparison"],
+          "properties": {
+            "current": {
+              "type": "object",
+              "required": ["deadline_classifiable_projects", "late", "absolute_late_rate", "evidence"],
+              "properties": {"evidence": {"$ref": "#/$defs/evidenceBlock"}}
+            },
+            "comparison": {
+              "type": "object",
+              "required": ["deadline_classifiable_projects", "late", "absolute_late_rate", "evidence"],
+              "properties": {"evidence": {"$ref": "#/$defs/evidenceBlock"}}
+            }
+          }
+        }
+      }
+    },
     "coverage": {
       "type": "object",
-      "required": ["completed_projects", "speed_eligible_projects", "exclusions_by_reason", "states", "metrics"],
+      "required": ["completed_projects", "speed_eligible_projects", "exclusions_by_reason", "states", "metrics", "window", "editor_window", "history_scope"],
       "properties": {
         "metrics": {
           "type": "object",
@@ -108,6 +269,16 @@
             "classification": {"type": "object"},
             "rule_versions": {"type": "object"}
           }
+        },
+        "window": {
+          "type": "object",
+          "required": ["scope", "current_projects", "comparison_projects", "exclusions"],
+          "properties": {"scope": {"const": "team"}}
+        },
+        "editor_window": {
+          "type": "object",
+          "required": ["scope", "current_projects", "comparison_projects", "exclusions", "exclusion_reasons"],
+          "properties": {"scope": {"const": "editor"}}
         }
       }
     },
@@ -136,6 +307,140 @@
         "excluded_records": {"type": "integer", "minimum": 0},
         "exclusion_reasons": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
         "coverage_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    },
+    "id": {"type": "string", "minLength": 1},
+    "dateRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window", "timezone", "start_date", "end_date_exclusive", "completed_days"],
+      "properties": {
+        "window": {"enum": ["current", "comparison"]},
+        "timezone": {"const": "Africa/Cairo"},
+        "start_date": {"type": "string", "format": "date"},
+        "end_date_exclusive": {"type": "string", "format": "date"},
+        "completed_days": {"type": "integer", "minimum": 1}
+      }
+    },
+    "evidenceRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monday_item_id", "cycle_id", "event_ids", "source_timestamps", "source_values"],
+      "properties": {
+        "monday_item_id": {"$ref": "#/$defs/id"},
+        "cycle_id": {"$ref": "#/$defs/id"},
+        "event_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "source_timestamps": {"type": "array", "minItems": 1, "items": {"type": "string", "format": "date-time"}},
+        "source_values": {"type": "object", "minProperties": 1, "required": ["editor_id"]}
+      }
+    },
+    "evidenceBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Everything needed to recompute one conclusion without Atlas: Monday source, board, columns, window, sample, calculation, one record per contributing project, exclusions, rule version and calculation time (CONTRACTS.md).",
+      "required": ["source", "monday_board_id", "column_ids", "rule_version", "calculated_at", "date_range", "calculation", "sample", "records", "exclusions"],
+      "properties": {
+        "source": {"const": "monday"},
+        "monday_board_id": {"$ref": "#/$defs/id"},
+        "column_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "rule_version": {"$ref": "#/$defs/id"},
+        "calculated_at": {"type": "string", "format": "date-time"},
+        "date_range": {"$ref": "#/$defs/dateRange"},
+        "calculation": {"type": "string", "minLength": 1},
+        "sample": {"type": "object", "minProperties": 1},
+        "records": {"type": "array", "items": {"$ref": "#/$defs/evidenceRecord"}},
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["monday_item_id", "reasons"],
+            "properties": {"monday_item_id": {"$ref": "#/$defs/id"}, "reasons": {"type": "array", "minItems": 1}}
+          }
+        }
+      }
+    },
+    "ruleState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "rule_version", "status", "decision_id", "values"],
+      "properties": {
+        "rule": {"enum": ["quality", "speed", "deadline", "overall", "trend"]},
+        "rule_version": {"$ref": "#/$defs/id"},
+        "status": {"enum": ["approved", "rule_not_approved"]},
+        "decision_id": {"type": ["string", "null"]},
+        "values": {"type": "object"}
+      },
+      "if": {
+        "properties": {"status": {"const": "rule_not_approved"}}
+      },
+      "then": {
+        "properties": {"decision_id": {"type": "null"}}
+      }
+    },
+    "componentState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "reason", "facts", "rule", "evidence"],
+      "properties": {
+        "state": {"enum": ["positive", "neutral", "negative", "not_classifiable"]},
+        "reason": {"type": ["string", "null"]},
+        "facts": {"type": "object", "minProperties": 1},
+        "rule": {"$ref": "#/$defs/ruleState"},
+        "evidence": {"$ref": "#/$defs/evidenceBlock"}
+      },
+      "if": {
+        "properties": {"state": {"const": "not_classifiable"}}
+      },
+      "then": {
+        "properties": {"reason": {"type": "string", "minLength": 1}}
+      },
+      "else": {
+        "properties": {"reason": {"type": "null"}}
+      }
+    },
+    "recentChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measurement",
+        "direction",
+        "current",
+        "comparison",
+        "difference",
+        "current_sample",
+        "comparison_sample",
+        "trend",
+        "trend_reason",
+        "rule",
+        "evidence"
+      ],
+      "properties": {
+        "measurement": {"enum": ["positive_quality_rate", "negative_quality_rate", "late_rate", "median_speed_seconds"]},
+        "direction": {"enum": ["higher_is_better", "lower_is_better"]},
+        "current": {"type": ["number", "null"]},
+        "comparison": {"type": ["number", "null"]},
+        "difference": {"type": ["number", "null"]},
+        "current_sample": {"type": "integer", "minimum": 0},
+        "comparison_sample": {"type": "integer", "minimum": 0},
+        "trend": {"enum": ["Improving", "Stable", "Declining", null]},
+        "trend_reason": {"type": ["string", "null"]},
+        "rule": {"$ref": "#/$defs/ruleState"},
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["current", "comparison", "calculation"],
+          "properties": {
+            "current": {"$ref": "#/$defs/evidenceBlock"},
+            "comparison": {"$ref": "#/$defs/evidenceBlock"},
+            "calculation": {"type": "string", "minLength": 1}
+          }
+        }
+      },
+      "if": {
+        "properties": {"trend": {"const": null}}
+      },
+      "then": {
+        "properties": {"trend_reason": {"type": "string", "minLength": 1}}
       }
     }
   },

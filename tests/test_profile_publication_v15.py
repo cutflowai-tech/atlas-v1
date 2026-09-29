@@ -34,8 +34,7 @@ def _current(item_id: str, status: str) -> dict:
 class ProfilePublicationV15Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.contract = copy.deepcopy(load_contract_version("1.4.0"))
-        cls.contract["contract_version"] = "1.5.0"
+        cls.contract = copy.deepcopy(load_contract_version("1.5.0"))
         activity, items = dataset()
         activity["boards"][0]["activity_logs"].append(
             mf.status("internal-r1", "5", "2026-09-05T01:00:00Z", "Ready For Approval", "Internal Revisions")
@@ -90,9 +89,12 @@ class ProfilePublicationV15Tests(unittest.TestCase):
         self.assertIsInstance(speed, list)
         self.assertEqual(len({row["cohort_key"] for row in speed}), len(speed))
         for row in speed:
-            self.assertIn("current_median_seconds", row)
-            self.assertIn("comparison_median_seconds", row)
-            self.assertEqual(row["change"]["measurement"], "median_speed_seconds")
+            change = row["change"]
+            self.assertEqual((change["measurement"], change["direction"]), ("median_speed_seconds", "lower_is_better"))
+            self.assertIn("current", change)
+            self.assertIn("comparison", change)
+            for window in ("current", "comparison"):
+                self.assertEqual({record["source_values"]["cohort_key"] for record in change["evidence"][window]["records"]} - {row["cohort_key"]}, set())
 
     def test_locales_share_metrics_classifications_and_one_publication(self):
         with tempfile.TemporaryDirectory() as tmp:

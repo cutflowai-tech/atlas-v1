@@ -4,9 +4,12 @@ import json
 from pathlib import Path
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.contracts import schema_errors
 from atlas_commander.identity import IdentityMapping, Resolution, resolve_editor
+from atlas_commander.interpretation_policy import policy_errors
 from atlas_commander.normalization import NormalizationResult, normalize_events, status_mapping_config
+from atlas_commander.quality import QualityPolicy
 from atlas_commander.video_type import VideoTypeMapping, VideoTypeResolution, resolve_video_type
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,6 +94,12 @@ def contract_config_errors(config: Any) -> list[str]:
             errors.append("D44 identity blockers must be empty after the D49 management attestation")
         if governance.get("status") != "identity_gate_satisfied_thresholds_unapproved":
             errors.append("threshold governance must record that the identity gate is satisfied while thresholds remain unapproved")
+    if capabilities(config).editor_intelligence:
+        errors += policy_errors(config)
+        try:
+            QualityPolicy.from_contract(config)
+        except (KeyError, ValueError) as error:
+            errors.append(f"quality_labels: {error}")
     return errors
 
 
