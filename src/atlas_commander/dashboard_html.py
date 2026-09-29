@@ -35,6 +35,7 @@ from typing import Any
 
 from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
+from atlas_commander.intelligence import CAIRO
 from atlas_commander.interpretation_html import CSS as IA_CSS
 from atlas_commander.interpretation_html import interpretation_section, overall_badge, window_caption
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
@@ -544,7 +545,7 @@ def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
 # ---------------------------------------------------------------- timelines (Team Pulse and Editor Performance Timeline)
 
 def _event_month(event: dict[str, Any]) -> str:
-    return str(event["at"])[:7]
+    return str(event.get("month") or str(event["at"])[:7])   # contract 1.5 events carry their Cairo month
 
 
 def _position(at: str, month: str) -> float:
@@ -593,7 +594,7 @@ def _lane(s: dict[str, Any], month: str, retrieved: str | None, show_name: bool,
     rows_last: dict[int, float] = {}
     events = [(i, e) for i, e in enumerate(s["events"]) if _event_month(e) == month]
     for index, event in events:
-        pos = _position(event["at"], month)
+        pos = _position(event.get("local_at") or event["at"], month)
         row = 0
         while row in rows_last and pos - rows_last[row] < 1.3:
             row += 1
@@ -629,6 +630,9 @@ def legend(loc: Loc = EN) -> str:
 
 
 def timeline(summaries: list[dict[str, Any]], retrieved: str | None, prefix: str, show_names: bool = True, loc: Loc = EN) -> str:
+    if retrieved and any("interpretation" in s for s in summaries):
+        # Contract 1.5: the "updated" marker sits on the Cairo day, like the events (displayed dates stay UTC-labelled).
+        retrieved = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).isoformat()
     months = sorted({_event_month(e) for s in summaries for e in s["events"]}, reverse=True)
     if not months:
         return empty_state(loc.t("timeline.no_events"))
@@ -1177,8 +1181,9 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
                f'<table><thead><tr><th>{loc.t("system.head.reason_not_attributed")}</th><th>{loc.t("common.projects")}</th></tr></thead><tbody>{reasons}</tbody></table></div>')
     missing = "".join(f'<tr><td>{loc.src(e["display_name"])}</td><td>{loc.tech(e["editor_id"])}</td><td>{loc.src(e["monday_label"])}</td></tr>'
                       for e in doc["editors_without_attributable_data"])
+    months_note = "system.presentation.months_v15" if v15 else "system.presentation.months"
     presentation = "<ul>" + "".join(f"<li>{loc.t(k)}</li>" for k in ("system.presentation.headline", "system.presentation.timeline",
-                                                                     "system.presentation.months", "system.presentation.languages")) + "</ul>"
+                                                                     months_note, "system.presentation.languages")) + "</ul>"
 
     none_row = f'<tr><td colspan=9 class=quiet>{loc.t("common.none")}</td></tr>'
 
@@ -1219,6 +1224,8 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     retrieved = source.get("retrieved_at")
     month = str(retrieved)[:7] if retrieved else None
+    if v15 and retrieved:
+        month = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).strftime("%Y-%m")
     blob = json.dumps(profile_pages).replace("</", "<\\/")
     editors = doc["editors"]
     cards = "".join(editor_card(s, loc) for s in editors) or empty_state(loc.t("home.no_editors"))

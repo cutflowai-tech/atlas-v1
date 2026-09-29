@@ -168,8 +168,8 @@ def policy_errors(contract: Mapping[str, Any]) -> list[str]:
         errors.append(f"interpretation.overall_status.scored_components must be {list(SCORED_COMPONENTS)}")
     if overall_section.get("weighted_composite") is not False:
         errors.append("interpretation.overall_status.weighted_composite must be false (D37: no weighted score)")
-    if not _positive_int(overall_section.get("minimum_classifiable_components")):
-        errors.append("interpretation.overall_status.minimum_classifiable_components must be a positive integer")
+    if overall_section.get("minimum_classifiable_components") != 2:
+        errors.append("interpretation.overall_status.minimum_classifiable_components must be 2 (D41)")
     trend_section = _section(interpretation.get("trend"))
     if trend_section.get("labels") != list(TREND_LABELS):
         errors.append(f"interpretation.trend.labels must be {list(TREND_LABELS)}")

@@ -101,6 +101,9 @@ def _registry_sources(section: Mapping[str, Any], historical: Mapping[str, tuple
             problems.append(f"registries.{registry} must be a list")
             continue
         for entry in entries:
+            if not isinstance(entry, Mapping):
+                problems.append(f"registries.{registry} entries must be objects")
+                continue
             column_id, label_id, label, scored = entry.get("column_id"), entry.get("source_label_id"), entry.get("label"), entry.get("scored_quality")
             key = (column_id, label_id)
             if not (isinstance(column_id, str) and column_id and isinstance(label_id, str) and label_id and isinstance(label, str) and label):

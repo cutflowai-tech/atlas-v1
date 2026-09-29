@@ -87,19 +87,37 @@
             "calculation": {"type": "string", "minLength": 1},
             "components": {"type": "object", "required": ["quality", "speed", "deadline"]},
             "lookup_key": {"type": "string", "minLength": 1}
-          }
+          },
+          "additionalProperties": false
         },
         "note": {"type": "string", "minLength": 1}
       },
-      "if": {
-        "properties": {"status_state": {"const": "classified"}}
-      },
-      "then": {
-        "properties": {"status": {"type": "string"}}
-      },
-      "else": {
-        "properties": {"status": {"type": "null"}}
-      }
+      "allOf": [
+        {
+          "if": {
+            "properties": {"status_state": {"const": "classified"}}
+          },
+          "then": {
+            "properties": {"status": {"type": "string"}}
+          },
+          "else": {
+            "properties": {"status": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rule": {
+                "properties": {"status": {"const": "rule_not_approved"}}
+              }
+            },
+            "required": ["rule"]
+          },
+          "then": {
+            "properties": {"status": {"const": null}, "status_state": {"enum": ["rule_not_approved", "not_enough_evidence_to_classify"]}}
+          }
+        }
+      ]
     },
     "speed": {
       "type": "object",
@@ -120,12 +138,41 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["cohort_key", "verdict", "comparison_status", "rule", "evidence"],
+            "required": [
+              "cohort_key",
+              "comparison_status",
+              "editor_median_seconds",
+              "editor_sample_size",
+              "evidence",
+              "rule",
+              "team_editor_count",
+              "team_median_seconds",
+              "team_sample_size",
+              "verdict"
+            ],
             "properties": {
               "verdict": {"enum": ["faster", "similar", "slower", "not_classifiable"]},
               "rule": {"$ref": "#/$defs/ruleState"},
-              "evidence": {"$ref": "#/$defs/evidenceBlock"}
-            }
+              "evidence": {"$ref": "#/$defs/evidenceBlock"},
+              "editor_sample_size": {"type": "integer", "minimum": 0},
+              "team_sample_size": {"type": "integer", "minimum": 0},
+              "team_editor_count": {"type": "integer", "minimum": 0}
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "rule": {
+                      "properties": {"status": {"const": "rule_not_approved"}}
+                    }
+                  },
+                  "required": ["rule"]
+                },
+                "then": {
+                  "properties": {"verdict": {"const": "not_classifiable"}}
+                }
+              }
+            ]
           }
         }
       }
@@ -153,7 +200,14 @@
             "scoring_exclusions",
             "evidence"
           ],
-          "properties": {"evidence": {"$ref": "#/$defs/evidenceBlock"}}
+          "properties": {
+            "evidence": {"$ref": "#/$defs/evidenceBlock"},
+            "eligible_completed_projects": {"type": "integer", "minimum": 0},
+            "positive_count": {"type": "integer", "minimum": 0},
+            "negative_count": {"type": "integer", "minimum": 0},
+            "positive_rate": {"type": ["number", "null"], "minimum": 0},
+            "negative_rate": {"type": ["number", "null"], "minimum": 0}
+          }
         }
       }
     },
@@ -388,15 +442,32 @@
         "rule": {"$ref": "#/$defs/ruleState"},
         "evidence": {"$ref": "#/$defs/evidenceBlock"}
       },
-      "if": {
-        "properties": {"state": {"const": "not_classifiable"}}
-      },
-      "then": {
-        "properties": {"reason": {"type": "string", "minLength": 1}}
-      },
-      "else": {
-        "properties": {"reason": {"type": "null"}}
-      }
+      "allOf": [
+        {
+          "if": {
+            "properties": {"state": {"const": "not_classifiable"}}
+          },
+          "then": {
+            "properties": {"reason": {"type": "string", "minLength": 1}}
+          },
+          "else": {
+            "properties": {"reason": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rule": {
+                "properties": {"status": {"const": "rule_not_approved"}}
+              }
+            },
+            "required": ["rule"]
+          },
+          "then": {
+            "properties": {"state": {"const": "not_classifiable"}}
+          }
+        }
+      ]
     },
     "recentChange": {
       "type": "object",
@@ -436,12 +507,29 @@
           }
         }
       },
-      "if": {
-        "properties": {"trend": {"const": null}}
-      },
-      "then": {
-        "properties": {"trend_reason": {"type": "string", "minLength": 1}}
-      }
+      "allOf": [
+        {
+          "if": {
+            "properties": {"trend": {"const": null}}
+          },
+          "then": {
+            "properties": {"trend_reason": {"type": "string", "minLength": 1}}
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "rule": {
+                "properties": {"status": {"const": "rule_not_approved"}}
+              }
+            },
+            "required": ["rule"]
+          },
+          "then": {
+            "properties": {"trend": {"const": null}}
+          }
+        }
+      ]
     }
   },
   "x-atlas-invariants": [

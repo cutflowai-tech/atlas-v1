@@ -432,7 +432,8 @@ def late_rate_facts(editor_id: str, rows: Sequence[Mapping[str, Any]], scope: Ev
                                     records=[deadline_record(row) for row in mine])}
 
 
-def deadline_component(editor_id: str, rows: Sequence[Mapping[str, Any]], rule: Rule, scope: EvidenceScope, date_range: Mapping[str, Any] | None) -> dict[str, Any]:
+def deadline_component(editor_id: str, rows: Sequence[Mapping[str, Any]], rule: Rule, scope: EvidenceScope, date_range: Mapping[str, Any] | None,
+                       exclusions: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """D45: the Editor's late rate against the other Editors' late rate in the same window; never an absolute fallback."""
     mine = sorted((row for row in rows if row["metric"]["editor_id"] == editor_id), key=lambda row: row["monday_item_id"])
     peers = sorted((row for row in rows if row["metric"]["editor_id"] != editor_id), key=lambda row: (row["metric"]["editor_id"], row["monday_item_id"]))
@@ -448,7 +449,7 @@ def deadline_component(editor_id: str, rows: Sequence[Mapping[str, Any]], rule: 
                            sample={"editor_projects": len(mine), "comparator_projects": len(peers),
                                    "minimum_editor_projects": rule.value("minimum_editor_sample_size"),
                                    "minimum_comparator_projects": rule.value("minimum_comparator_sample_size")},
-                           records=[deadline_record(row) for row in (*mine, *peers)])
+                           records=[deadline_record(row) for row in (*mine, *peers)], exclusions=exclusions)
     if not peers or not mine:
         return _component(NOT_CLASSIFIABLE, NO_OTHER_EDITORS if not peers else INSUFFICIENT_SAMPLE, facts, rule, evidence)
     if not rule.approved:
@@ -483,7 +484,8 @@ def overall_status(components: Mapping[str, Mapping[str, Any]], policy: Interpre
     unapproved_components = [name for name in SCORED_COMPONENTS if components[name]["reason"] == RULE_NOT_APPROVED]
     enough = len(classifiable) >= policy.minimum_classifiable_components and bool({"quality", "deadline"} & set(classifiable))
     if not enough:
-        logic_missing = bool(unapproved_components) or not policy.overall.approved
+        # A component held back by an unapproved rule makes this a logic gap (D25); otherwise it is a data state (D47).
+        logic_missing = bool(unapproved_components)
         return {**base, "status": None, "status_label": NOT_ENOUGH_APPROVED_LOGIC if logic_missing else NOT_ENOUGH_EVIDENCE,
                 "status_state": RULE_NOT_APPROVED if logic_missing else "not_enough_evidence_to_classify", "reason": NOT_ENOUGH_COMPONENTS}
     if not policy.overall.approved:

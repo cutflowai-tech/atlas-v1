@@ -62,8 +62,10 @@ replace the corresponding 1.4.0 rules above; every other rule above applies unch
   "Not enough evidence to classify".
 - **Rule 10 (evidence).** Every 1.5 conclusion carries an evidence block from which it can be recomputed: Monday board and columns,
   Cairo date range, sample, calculation, one record per contributing project (item, cycle, event IDs, timestamps, values used),
-  exclusions and reasons, rule version and calculation time. `contracts/editor-profile-v1.5.schema.json` rejects empty or
-  incomplete evidence.
+  exclusions and reasons, rule version and calculation time. `contracts/editor-profile-v1.5.schema.json` rejects empty event IDs or
+  timestamps, a conclusion without its evidence, and any classification, verdict, Overall Status or Trend label under an unapproved
+  rule; `profile.evidence_consistency_errors` (run at build, staged validation and publication) rejects evidence whose records do not
+  match the published sample.
 
 ## Contract ownership
 

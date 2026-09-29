@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-533 keys: 149 Approved from brief, 361 Implemented conservatively, 23 Needs Arabic Review.
+534 keys: 149 Approved from brief, 362 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -361,6 +361,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `system.presentation.headline` | Editor card headline: the first comparable Video Type speed result; otherwise deadlines if any are classified; otherwise the project count. A fixed display order, not a judgement. | العنوان الرئيسي لبطاقة المونتير: أول نتيجة سرعة قابلة للمقارنة في Video Type؛ وإلا فمواعيد التسليم إن وُجدت مصنفة؛ وإلا فعدد المشاريع. ترتيب عرض ثابت وليس حكمًا. | Presentation note | Implemented conservatively |  |
 | `system.presentation.languages` | English and Arabic pages are rendered from the same data. Monday values (names, Video Types, statuses, labels, IDs) are shown exactly as recorded. Time always runs left (earlier) to right (later). | الصفحات العربية والإنجليزية مبنية على نفس البيانات. تظهر قيم Monday (الأسماء وVideo Type والحالات والعلامات والمعرّفات) كما هي مسجلة تمامًا. ويسير الخط الزمني دائمًا من اليسار (الأقدم) إلى اليمين (الأحدث). | Presentation note | Implemented conservatively |  |
 | `system.presentation.months` | Month pills group dated facts by UTC calendar month. | تُجمّع أزرار الشهور الأحداث المؤرخة حسب الشهر الميلادي بتوقيت UTC. | Presentation note | Implemented conservatively |  |
+| `system.presentation.months_v15` | Month pills group dated facts by Africa/Cairo calendar month (D24); timestamps are shown in UTC. | تُجمّع أزرار الشهور الأحداث المؤرخة حسب الشهر بتوقيت القاهرة (D24)؛ وتُعرض الأوقات بتوقيت UTC. | Presentation note, contract 1.5 | Implemented conservatively |  |
 | `system.presentation.timeline` | Timelines place each project at its first Ready For Approval and each issue label at the time it was added. Revision events are not dated in the Editor Profile, so they appear only as context on each project. | تضع الخطوط الزمنية كل مشروع عند أول Ready For Approval، وكل مؤشر مشكلة عند وقت إضافته. أحداث التعديل غير مؤرخة في ملف المونتير، لذلك تظهر فقط كسياق داخل كل مشروع. | Presentation note | Implemented conservatively |  |
 | `system.presentation_notes` | Presentation notes | ملاحظات العرض | Card heading | Implemented conservatively |  |
 | `system.rule.deadlines` | rule {rule}: first Ready For Approval against the Requested ETA in effect at that moment; no tolerance; a date-only or missing ETA is never classified. | القاعدة {rule}: أول Ready For Approval مقارنة بموعد Requested ETA المسجل في ذلك الوقت؛ بدون هامش سماح؛ ولا يتم تصنيف Requested ETA الذي يحتوي على تاريخ فقط أو غير المسجل. | Rule summary | Implemented conservatively |  |

@@ -14,6 +14,8 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 from atlas_commander.capabilities import capabilities
+from atlas_commander.cycles import parse_time
+from atlas_commander.intelligence import CAIRO
 from atlas_commander.management import editor_intelligence, team_intelligence
 
 DASHBOARD_VERSION = "ceo-dashboard-v0.1"
@@ -130,7 +132,19 @@ def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
             label_class = occurrence["evidence"]["source_values"]["label_class"]
             event.update({"kind": LABEL_EVENT_KINDS[label_class], "label_class": label_class, "column_id": occurrence["label_column_id"]})
         events.append(event)
+    if taxonomy:
+        # Contract 1.5 groups and places timeline events by their Cairo date (D24); earlier contracts keep UTC months.
+        for event in events:
+            if event["at"]:
+                event.update(_cairo_time(event["at"]))
     return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
+
+
+def _cairo_time(at: str | None) -> dict[str, Any]:
+    if not at:
+        return {}
+    local = parse_time(at).astimezone(CAIRO)
+    return {"local_at": local.isoformat(), "month": local.strftime("%Y-%m")}
 
 
 def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
@@ -166,7 +180,11 @@ def _monthly(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
     for row in trend["speed_by_cohort_month"]:
         months.setdefault(row["month"], {"speed_by_cohort": []})["speed_by_cohort"].append(
             {"cohort_key": row["cohort_key"], "labels": labels.get(row["cohort_key"], []), "projects": row["projects"], "median_seconds": row["median_seconds"]})
-    retrieved = str(profile["source"].get("retrieved_at") or "")[:7]
+    retrieved_at = profile["source"].get("retrieved_at")
+    if capabilities(profile["executable_contract_version"]).editor_intelligence and retrieved_at:
+        retrieved = parse_time(retrieved_at).astimezone(CAIRO).strftime("%Y-%m")   # D24: the partial month is Cairo's
+    else:
+        retrieved = str(retrieved_at or "")[:7]
     return [{"month": month, "month_name": month_name(month), "partial": month == retrieved, "deadline": data.get("deadline"),
              "speed_by_cohort": data["speed_by_cohort"]} for month, data in sorted(months.items(), reverse=True)]  # most recent first
 

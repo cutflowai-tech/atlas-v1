@@ -94,8 +94,9 @@ def publication_problems(files: Mapping[str, Path], editor_ids: Iterable[str], c
     release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     routes_value = publication.get("routes")
     routes: dict[str, Any] = routes_value if isinstance(routes_value, dict) else {}
-    route_release_ids = {(row or {}).get("release_id") for row in routes.values()}
-    route_snapshot_ids = {(row or {}).get("snapshot_id") for row in routes.values()}
+    rows = [row if isinstance(row, dict) else {} for row in routes.values()]
+    route_release_ids = {row.get("release_id") for row in rows}
+    route_snapshot_ids = {row.get("snapshot_id") for row in rows}
     if not release_id or not snapshot_id or set(routes) != {"/", "/en", "/ar"} \
             or route_release_ids != {release_id} or route_snapshot_ids != {snapshot_id}:
         problems.append("root, /en and /ar do not identify one release and source snapshot")

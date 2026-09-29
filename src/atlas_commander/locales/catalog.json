@@ -3344,6 +3344,12 @@
    "context": "Glossary term (change-based, D-glossary); contract 1.5",
    "status": "Implemented conservatively"
   },
+  "system.presentation.months_v15": {
+   "en": "Month pills group dated facts by Africa/Cairo calendar month (D24); timestamps are shown in UTC.",
+   "ar": "تُجمّع أزرار الشهور الأحداث المؤرخة حسب الشهر بتوقيت القاهرة (D24)؛ وتُعرض الأوقات بتوقيت UTC.",
+   "context": "Presentation note, contract 1.5",
+   "status": "Implemented conservatively"
+  },
   "workload.footer": {
    "en": "Factual context. Capacity is not evaluated.",
    "ar": "سياق فعلي فقط. لا يتم تقييم الطاقة الاستيعابية.",

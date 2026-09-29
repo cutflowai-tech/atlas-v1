@@ -108,7 +108,7 @@ sudo -u atlas cat /var/lib/waset-atlas/published/current/dashboard.json | python
 
 Pass only if all hold:
 
-- `status --json`: `live_usable` true, no failure categories, `current_publication.contract_version` `1.5.0`, freshness `fresh`,
+- `status --json`: `live_usable` true, no failure categories, `current_publication.contract_version` `1.5.0`, `freshness_state` `fresh`,
   and `current_publication.source_run_id` is the run ingested by the §4.3 cycle (**latest ingest**).
 - The release ID is identical on `/`, `/en/` and `/ar/` and equals `publication.json` → `release_id`; `publication.json` names
   `executable_contract_version` `1.5.0`, and its `source.retrieved_at` equals `current_publication.monday_retrieved_at` in

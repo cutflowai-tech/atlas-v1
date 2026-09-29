@@ -159,12 +159,53 @@ class ContractV15ReleaseTests(unittest.TestCase):
             "comparison evidence missing": lambda p: p["trend"]["recent_change"]["late_rate"]["evidence"].pop("comparison"),
             "status without classification": lambda p: p["overall"].update(status="Good"),
             "invented rule approval": lambda p: p["overall"]["rule"].update(decision_id="D37"),
+            "speed verdict under an unapproved rule": lambda p: p["speed"]["cohorts"][0].update(verdict="faster"),
+            "overall classified under an unapproved lookup": lambda p: p["overall"].update(status="Strong", status_label="Strong", status_state="classified", reason=None),
+            "component classified under an unapproved rule": lambda p: p["quality"]["component"].update(state="positive", reason=None),
+            "trend label under an unapproved rule": lambda p: p["trend"]["recent_change"]["late_rate"].update(trend="Improving", trend_reason=None),
+            "rate as text": lambda p: p["quality"]["rates"].update(positive_rate="0.5"),
+            "extra overall evidence key": lambda p: p["overall"]["evidence"].update(extra=1),
         }
         for name, mutate in mutations.items():
             with self.subTest(mutation=name):
                 profile = copy.deepcopy(self.profile)
                 mutate(profile)
                 self.assertTrue(validate(profile, SCHEMA), f"schema accepted: {name}")
+
+    def test_evidence_records_must_match_their_samples(self):
+        from atlas_commander.profile import evidence_consistency_errors
+        self.assertEqual(evidence_consistency_errors(self.profile), [])
+        for name, mutate in {
+            "empty speed records": lambda p: p["speed"]["cohorts"][0]["evidence"].update(records=[]),
+            "missing quality record": lambda p: p["quality"]["rates"]["evidence"]["records"].pop(),
+            "comparison sample overstated": lambda p: p["trend"]["recent_change"]["late_rate"].update(comparison_sample=99),
+        }.items():
+            with self.subTest(mutation=name):
+                profile = copy.deepcopy(self.profile)
+                mutate(profile)
+                self.assertTrue(evidence_consistency_errors(profile), name)
+
+    def test_project_rows_keep_their_own_results_outside_the_scoring_window(self):
+        rows = {row["monday_item_id"]: row for row in self.profile["projects"]}
+        self.assertEqual((rows["121"]["window"], rows["121"]["deadline_result"]), ("outside", "late"))
+        self.assertEqual((rows["111"]["window"], rows["111"]["quality_labels"]), ("comparison", ["1- Exceptional Quality"]))
+        items = {occurrence["evidence"]["monday_item_id"] for occurrence in self.profile["quality"]["occurrences"]}
+        self.assertIn("111", items, "the timeline keeps labels from before the current window")
+
+    def test_deadline_evidence_lists_the_editors_unclassifiable_window_projects(self):
+        logs = [*project("301", WILL, "2026-09-15T10:00:00Z", 10, True), *project("302", AHMED, "2026-09-15T10:00:00Z", 10, False)]
+        logs += [log for log in project("303", WILL, "2026-09-16T10:00:00Z", 10, True) if not log["id"].endswith("-eta")]   # no Requested ETA
+        result = reconstruct_cycles(mf.payload(*logs), self.contract, ingestion={"retrieved_at": NOW})
+        profile = build_editor_profile(result, self.contract, "editor-label-6", NOW)
+        exclusions = profile["deadline"]["component"]["evidence"]["exclusions"]
+        self.assertEqual([row["monday_item_id"] for row in exclusions], ["303"])
+        self.assertTrue(exclusions[0]["reasons"])
+
+    def test_timeline_groups_contract_1_5_events_by_cairo_month(self):
+        from atlas_commander.dashboard import editor_summary
+        events = {event["monday_item_id"]: event for event in editor_summary(self.profile)["events"] if event["kind"] == "delivery"}
+        self.assertEqual((events["122"]["at"][:7], events["122"]["month"]), ("2026-06", "2026-07"))
+        self.assertTrue(events["122"]["local_at"].endswith("+03:00"))
 
     def test_not_enough_data_and_rule_not_approved_are_distinct_reasons(self):
         overall = self.profile["overall"]
@@ -223,6 +264,15 @@ class ContractV15ReleaseTests(unittest.TestCase):
         self.assertEqual({(label["source_label_id"], label["logged_name"]) for label in ahmed["monday_labels"]}, {("12", "Ahmed"), ("5", "Ahmed")})
         anas = next(row for row in rows if row["editor_id"] == "editor-label-5")
         self.assertEqual(anas["display_name"], "Anas", "label 5 is shown as its canonical owner only")
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            site = build_all(self.result, self.contract, out, NOW)
+            profiled = {summary["display_name"] for summary in site["editors"]}
+            for locale in ("en", "ar"):
+                page = (out / locale / "dashboard.html").read_text(encoding="utf-8")
+                for name in ("Mansour", "Michael", "Mario", "Anas"):
+                    self.assertNotIn(name, profiled)
+                    self.assertEqual(page.count(f">{name}<"), 1, f"{name} rendered more than once in {locale}")
 
     # ------------------------------------------------------------ RB-8: publication identity is enforced for 1.5, never for 1.4
     def test_publication_identity_rejections(self):

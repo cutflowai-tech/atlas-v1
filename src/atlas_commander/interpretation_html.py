@@ -80,8 +80,8 @@ def _records(evidence: Mapping[str, Any], loc: Loc, item_url: str | None) -> str
     """Drill-down of one evidence block: each project with the values used and the Monday events behind them."""
     rows = []
     for record in evidence["records"]:
-        item = escape(record["monday_item_id"])
-        link = f'<a href="{escape(item_url.format(item_id=record["monday_item_id"]))}">{loc.tech(record["monday_item_id"])}</a>' if item_url else loc.tech(item)
+        link = (f'<a href="{escape(item_url.format(item_id=record["monday_item_id"]))}">{loc.tech(record["monday_item_id"])}</a>' if item_url
+                else loc.tech(record["monday_item_id"]))
         values = "".join(f"<li>{loc.tech(key)}: {loc.tech(_plain(value))}</li>" for key, value in record["source_values"].items() if key != "labels")
         labels = "".join(f'<li>{loc.src(label["label"])} · {loc.tech(label["label_class"])} · {loc.t("interp.label.scored" if label["scored_quality"] else "interp.label.not_scored")}</li>'
                          for label in record["source_values"].get("labels", []))

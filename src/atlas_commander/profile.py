@@ -327,7 +327,8 @@ def _v15_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], 
     components = {
         "quality": quality_component(rates["current"], policy.quality),
         "speed": speed_component(editor_id, speed, policy.speed, scope, ranges["current"]),
-        "deadline": deadline_component(editor_id, deadlines["current"], policy.deadline, scope, ranges["current"]),
+        "deadline": deadline_component(editor_id, deadlines["current"], policy.deadline, scope, ranges["current"],
+                                       _deadline_exclusions(editor_id, current, deadlines["current"])),
     }
     overall = overall_status(components, policy, ranges["current"], generated_at)
     late = {name: late_rate_facts(editor_id, deadlines[name], scope, ranges[name], policy.rule_versions.get("deadline_fact")) for name in ranges}
@@ -386,6 +387,14 @@ def _v15_intelligence(result: CycleReconstruction, contract: Mapping[str, Any], 
         "recent_change": changes,
         "current_cycles": current,
     }
+
+
+def _deadline_exclusions(editor_id: str, cycles: list[CycleRecord], rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The Editor's window projects without a deadline result, with why (missing or date-only Requested ETA, other exclusions)."""
+    classified = {row["cycle_id"] for row in rows}
+    return [{"monday_item_id": cycle.monday_item_id, "cycle_id": cycle.cycle_id,
+             "reasons": sorted({*cycle.exclusions, *([cycle.requested_eta_issue] if cycle.requested_eta_issue else [])}) or ["NOT_DEADLINE_CLASSIFIABLE"]}
+            for cycle in sorted(cycles, key=lambda c: c.monday_item_id) if cycle.editor_id == editor_id and cycle.cycle_id not in classified]
 
 
 SPEED_CONCLUSIONS = {"faster": "faster_than_team_median", "similar": "similar_to_team_median", "slower": "slower_than_team_median"}
@@ -465,11 +474,12 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
     else:
         negative = quality_summary(editor_id, quality, result.cycles)
         positive = context = None
-    deltas = {r["cycle_id"]: r for r in deadline_results}
+    # Project rows (the timeline and drawers) cover every cycle: each keeps its own deadline result and labels, whichever window
+    # it falls in. Only the scored blocks above are window-scoped under contract 1.5.
+    deltas = {r["cycle_id"]: r for r in history_deadlines}
     labels_by_item: dict[str, list[str]] = {}
-    metric_item_ids = {cycle.monday_item_id for cycle in metric_cycles}
     for metric in quality.occurrences:
-        if metric["editor_id"] == editor_id and (not v15 or metric["evidence"]["monday_item_id"] in metric_item_ids):
+        if metric["editor_id"] == editor_id:
             labels_by_item.setdefault(metric["evidence"]["monday_item_id"], []).append(metric["performance_label"])
 
     projects = []
@@ -543,8 +553,8 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
                     **({"context": context, "window": intelligence["windows"]["current"], "rates": intelligence["rates"]["current"],
                         "component": intelligence["components"]["quality"]} if intelligence is not None else {}),
                     "for_bonus_context": _for_bonus_context(result, contract, {cycle.monday_item_id for cycle in completed}),
-                    "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id
-                                    and (not v15 or m["evidence"]["monday_item_id"] in metric_item_ids)]},
+                    # Every label occurrence on the Editor's projects (the timeline's history); window counts are in the blocks above.
+                    "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id]},
         "revisions": _revision_context(editor_id, result.cycles, v15=v15),
         "current_workload": _current_workload(result, contract, editor_id, v15=v15),
         "trend": {**_trend(completed if v15 else metric_cycles, history_deadlines, policy, cairo=v15),
@@ -574,10 +584,49 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         profile["coverage"]["editor_window"] = intelligence["coverage"]["editor"]
         profile["coverage"]["history_scope"] = {"completed_projects": len(completed), "window": "all completed projects in the ingested history",
                                                 "timezone": "Africa/Cairo"}
-    errors = validate(profile, profile_schema)
+    errors = validate(profile, profile_schema) + evidence_consistency_errors(profile)
     if errors:
         raise ProfileError(f"profile violates {profile_schema}: {errors}")
     return profile
+
+
+def evidence_consistency_errors(profile: Mapping[str, Any]) -> list[str]:
+    """Checks JSON Schema cannot express: every contract 1.5 evidence block holds exactly one record per counted project.
+
+    Empty for earlier profile contracts. Run when a profile is built and again when a staged build is validated or published,
+    so a published figure can always be recomputed from records that match its sample."""
+    if profile.get("contract_version") != "1.5.0":
+        return []
+    problems: list[str] = []
+    editor_id = profile["editor"]["editor_id"]
+
+    def count(block: Mapping[str, Any], expected: int, where: str, *, editor: bool | None = None) -> None:
+        records = block["records"]
+        if editor is not None:
+            records = [r for r in records if (r["source_values"]["editor_id"] == editor_id) == editor]
+        if len(records) != expected:
+            problems.append(f"{where}: {len(records)} evidence records for a sample of {expected}")
+
+    rates = profile["quality"]["rates"]
+    count(rates["evidence"], rates["eligible_completed_projects"], "quality.rates")
+    for row in profile["speed"]["cohorts"]:
+        count(row["evidence"], row["editor_sample_size"], f"speed.cohorts[{row['cohort_key']}] editor", editor=True)
+        count(row["evidence"], row["team_sample_size"], f"speed.cohorts[{row['cohort_key']}] comparator", editor=False)
+    speed = profile["speed"]["component"]["evidence"]
+    count(speed, speed["sample"]["editor_projects"], "speed.component")
+    deadline = profile["deadline"]["component"]
+    count(deadline["evidence"], deadline["facts"]["deadline_classifiable_projects"], "deadline.component editor", editor=True)
+    count(deadline["evidence"], deadline["facts"]["comparator_projects"], "deadline.component comparator", editor=False)
+    for window, facts in profile["trend"]["late_rate_by_window"].items():
+        count(facts["evidence"], facts["deadline_classifiable_projects"], f"trend.late_rate_by_window.{window}")
+    changes = profile["trend"]["recent_change"]
+    for name in ("positive_quality_rate", "negative_quality_rate", "late_rate"):
+        for window in ("current", "comparison"):
+            count(changes[name]["evidence"][window], changes[name][f"{window}_sample"], f"trend.recent_change.{name}.{window}")
+    for row in changes["speed_by_video_type"]:
+        for window in ("current", "comparison"):
+            count(row["change"]["evidence"][window], row["change"][f"{window}_sample"], f"trend.recent_change.speed[{row['cohort_key']}].{window}")
+    return problems
 
 
 def profiled_editors(result: CycleReconstruction) -> list[dict[str, Any]]:

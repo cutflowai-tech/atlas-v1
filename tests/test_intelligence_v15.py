@@ -329,7 +329,25 @@ class IntelligenceV15Tests(unittest.TestCase):
         contract = approved(self.contract, quality={"minimum_project_sample_size": 10, "negative_rate_threshold": 0.3, "positive_rate_threshold": 0.2})
         contract["interpretation"]["quality_component"]["decision_id"] = "D38"
         self.assertTrue(any("without its decision" in error for error in policy_errors(contract)))
+        contract = copy.deepcopy(self.contract)
+        contract["interpretation"]["overall_status"]["minimum_classifiable_components"] = 1
+        self.assertTrue(any("D41" in error for error in policy_errors(contract)))
         self.assertEqual(policy_errors(self.contract), [])
+
+    def test_malformed_quality_registry_is_a_config_error_not_a_crash(self):
+        from atlas_commander.runtime import contract_config_errors
+        contract = copy.deepcopy(self.contract)
+        contract["quality_labels"]["registries"]["positive"].append("oops")
+        self.assertTrue(contract_config_errors(contract))
+
+    def test_insufficient_data_with_approved_components_is_a_data_state_even_before_lookup_approval(self):
+        rules = approved(self.contract, quality={"minimum_project_sample_size": 1, "negative_rate_threshold": 0.5, "positive_rate_threshold": 0.5},
+                         speed={"minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1, "minimum_comparator_editor_count": 1,
+                                "faster_band": -25, "slower_band": 25},
+                         deadline={"minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1, "better_band": -0.15, "worse_band": 0.15})
+        thin = self.components((POSITIVE, None), (NOT_CLASSIFIABLE, NO_OTHER_EDITORS), (NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE))
+        result = overall_status(thin, InterpretationPolicy.from_contract(rules), None, NOW)
+        self.assertEqual(result["status_label"], NOT_ENOUGH_EVIDENCE)
 
 
 if __name__ == "__main__":
