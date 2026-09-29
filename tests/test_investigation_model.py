@@ -249,11 +249,14 @@ class NarrativeTests(unittest.TestCase):
             self.assertIsNone(re.search(pattern, templates.replace("not a prediction that these projects will be late", "")), pattern)
 
     def test_formatting_helpers(self):
-        self.assertEqual(narrative.pct(0.7206), "72%")
-        self.assertEqual(narrative.pp(-0.15), "15 percentage points")
-        self.assertEqual(narrative.hrs(31.62), "31.6 h")
-        self.assertEqual(narrative.plural(1, "project"), "1 project")
-        self.assertEqual(narrative.plural(2, "project"), "2 projects")
+        plain = narrative.plain
+        self.assertEqual(plain(narrative.pct(0.7206)), "72%")
+        self.assertEqual(plain(narrative.pp(-0.15)), "15 percentage points")
+        self.assertEqual(plain(narrative.hrs(31.62)), "31.6 h")
+        self.assertEqual(plain(narrative.plural(1, "project")), "1 project")
+        self.assertEqual(plain(narrative.plural(2, "project")), "2 projects")
+        self.assertEqual(narrative.pct(0.7206), "\u206672%\u2069")                   # numbers are left-to-right isolated for the site
+        self.assertEqual(narrative.mon("Simple Short"), "\u2068Simple Short\u2069")  # Monday values keep their own direction
 
     def test_missing_template_is_an_error_not_a_guess(self):
         with self.assertRaises(KeyError):
