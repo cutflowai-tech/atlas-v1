@@ -69,7 +69,7 @@
                      "records": {"type": "array", "items": {"$ref": "#/$defs/record"}}}},
     "finding": {
       "type": "object", "additionalProperties": false,
-      "required": ["finding_id", "finding_type", "detector_version", "category", "direction", "scope", "evidence_level", "parameter_status", "statements",
+      "required": ["finding_id", "finding_type", "detector_version", "category", "direction", "scope", "evidence_level", "statement_levels", "parameter_status", "statements",
                    "significance", "suggested_investigations", "confidence", "importance", "severity", "sample_size", "affected_editors",
                    "affected_video_types", "affected_projects", "time_window", "supporting_evidence", "contradicting_evidence", "context_evidence",
                    "limitations", "parameters", "headline_contradiction", "worsening", "persistent", "related", "cluster", "text"],
@@ -91,7 +91,8 @@
         "category": {"enum": ["needs_attention", "important_improvement", "system_pattern", "editor_specific_pattern", "hidden_context", "emerging_risk", "data_warning"]},
         "direction": {"enum": ["adverse", "favourable", "mixed", "neutral"]},
         "scope": {"$ref": "#/$defs/scope"},
-        "evidence_level": {"enum": ["fact", "metric", "pattern", "association", "interpretation", "hypothesis"]},
+        "evidence_level": {"enum": ["fact", "metric", "pattern", "association"]},
+        "statement_levels": {"type": "array", "minItems": 1, "items": {"enum": ["fact", "metric", "pattern", "association", "interpretation", "hypothesis"]}},
         "parameter_status": {"enum": ["approved", "proposed_not_approved"]},
         "statements": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/statement"}},
         "significance": {"$ref": "#/$defs/statement"},

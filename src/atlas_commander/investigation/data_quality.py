@@ -52,7 +52,7 @@ def run(ctx: RunContext) -> DetectorResult:
     attributed = ctx.facts.attributed
     unclassifiable = [p for p in attributed if not p.deadline_classifiable]
     if unclassifiable:
-        reasons = Counter(p.requested_eta_issue or "OTHER_EXCLUSION" for p in unclassifiable)
+        reasons = Counter(p.requested_eta_issue or next(iter(sorted(p.exclusions)), "NOT_DEADLINE_CLASSIFIABLE") for p in unclassifiable)
         result.add(_warning(ctx, "deadline_not_classifiable", unclassifiable, {"projects": len(unclassifiable), "attributed": len(attributed),
                                                                                 "reasons": dict(sorted(reasons.items()))}, keys=("requested_eta_issue",)))
     after_start = [p for p in attributed if p.eta_observed_after_start]

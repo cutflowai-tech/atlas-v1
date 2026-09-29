@@ -13,8 +13,10 @@ Evidence levels, from least to most inference:
 - ``interpretation``: what a pattern may mean for management, stated as such;
 - ``hypothesis``: a possible explanation that needs investigation.
 
-A finding's ``evidence_level`` is the highest-inference statement it makes. An interpretation or a hypothesis is never
-allowed without at least one fact, metric, pattern or association in the same finding (``finding_errors``).
+A finding's ``evidence_level`` is its observed basis: the highest of fact, metric, pattern or association among its statements
+(what the data shows). ``statement_levels`` lists every level the finding contains, in order, so the interpretation and
+hypothesis layers stay visible but are never mistaken for the evidence. An interpretation or a hypothesis is never allowed
+without at least one fact, metric, pattern or association in the same finding (``finding_errors``).
 """
 
 from __future__ import annotations
@@ -158,7 +160,13 @@ class Finding:
 
     @property
     def evidence_level(self) -> str:
-        return max((statement.level for statement in self.statements), key=EVIDENCE_LEVELS.index)
+        observed = [statement.level for statement in self.statements if statement.level in OBSERVED_LEVELS]
+        return max(observed or [statement.level for statement in self.statements], key=EVIDENCE_LEVELS.index)
+
+    @property
+    def statement_levels(self) -> list[str]:
+        present = {statement.level for statement in self.statements}
+        return [level for level in EVIDENCE_LEVELS if level in present]
 
     @property
     def affected_projects(self) -> list[str]:
@@ -191,6 +199,7 @@ class Finding:
             "direction": self.direction,
             "scope": self.scope.to_dict(),
             "evidence_level": self.evidence_level,
+            "statement_levels": self.statement_levels,
             "parameter_status": parameter_status(self.parameters),
             "statements": [statement.to_dict() for statement in self.statements],
             "significance": self.significance.to_dict(),

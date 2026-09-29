@@ -83,7 +83,7 @@ def finding_card(finding: Mapping[str, Any], names: Mapping[str, str], titles: M
     who = ", ".join(names.get(editor, editor) for editor in finding["affected_editors"][:8])
     return (f'<article class="card" id="{_e(finding["finding_id"])}"><h3>{_e(text["title"])}</h3>'
             f'<p><span class="pill sev-{_e(finding["severity"])}">{_e(finding["severity"])}</span><span class="pill">{_e(confidence["label"])}</span>'
-            f'<span class="pill">level: {_e(finding["evidence_level"])}</span><span class="pill">rank {_e(finding["importance"]["rank"])}</span>'
+            f'<span class="pill">basis: {_e(finding["evidence_level"])}</span><span class="pill">rank {_e(finding["importance"]["rank"])}</span>'
             + ('<span class="pill sev-medium">proposed parameters</span>' if finding["parameter_status"] != "approved" else "")
             + f'</p><p>{_e(text["summary"])}</p>'
             f'<p class="muted">{_e(finding["sample_size"])} projects · Editors: {_e(who) or "—"} · Video Types: {_e(", ".join((types or {}).get(key, key) for key in finding["affected_video_types"][:8])) or "—"}</p>'

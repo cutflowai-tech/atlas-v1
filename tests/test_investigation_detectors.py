@@ -427,6 +427,12 @@ class EditorTests(unittest.TestCase):
 
 
 class DataQualityTests(unittest.TestCase):
+    def test_unclassifiable_deadline_names_the_exclusion(self):
+        blocked = proj("x1", A)
+        blocked.deadline_result, blocked.requested_eta_issue, blocked.exclusions = None, None, ("UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW",)
+        found = [x for x in run("data.quality", f.base([blocked, proj("x2", A)])).findings if x.finding_type == "data.deadline_not_classifiable"]
+        self.assertEqual(found[0].statements[0].params["reasons"], {"UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW": 1})
+
     def test_warnings_are_data_states(self):
         rows = [proj("u1", None, late=True), proj("a1", A, late=False, labels=(f.label("Late Delivery", scored=False, item="a1"),))]
         rows[0].exclusions = ("MISSING_EDITOR_EVENT",)
@@ -468,3 +474,16 @@ class FalsePositiveTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PrioritizationTests(unittest.TestCase):
+    def test_historical_similarity_ranks_below_open_work_facts(self):
+        from atlas_commander.investigation import prioritization
+        history = [f.fact(f"h{i}", editor=[B, C, D][i % 3], start=f.days_before(40 + i), hours=10, eta_hours=6 if i < 12 else 12) for i in range(24)]
+        facts = f.base(history, [f.open_work("o1", eta_in_hours=-3), f.open_work("o3", started_hours_ago=1, eta_in_hours=5)])
+        findings = run("risk.open_work", facts).findings + run("risk.historical_similarity", facts).findings
+        ranked = prioritization.rank(findings)
+        self.assertEqual([x.finding_type for x in ranked][:1], ["risk.open_work"])
+        self.assertEqual(prioritization.tier(ranked[-1]), 3)
+        self.assertTrue(all(x.importance["method"].startswith("lexicographic") for x in ranked))
+        self.assertEqual([x.importance["rank"] for x in ranked], list(range(1, len(ranked) + 1)))

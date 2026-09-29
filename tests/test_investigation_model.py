@@ -56,7 +56,8 @@ class FindingModelTests(unittest.TestCase):
     def test_valid_finding_has_no_errors_and_highest_level(self):
         item = finding()
         self.assertEqual(finding_errors(item), [])
-        self.assertEqual(item.evidence_level, INTERPRETATION)
+        self.assertEqual(item.evidence_level, METRIC)
+        self.assertEqual(item.statement_levels, [METRIC, INTERPRETATION])
 
     def test_interpretation_without_observation_is_rejected(self):
         self.assertIn("an interpretation or hypothesis needs a fact, metric, pattern or association in the same finding",

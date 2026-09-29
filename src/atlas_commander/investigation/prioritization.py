@@ -5,11 +5,11 @@ both. It is a *lexicographic* ordering, with no weighted sum, so ``importance.ba
 another:
 
 1. tier:
-   1. time-sensitive or fairness-critical: emerging risk, adverse needs-attention change, or a finding that contradicts a
-      published headline;
+   1. time-sensitive or fairness-critical: an open-work risk signal, adverse needs-attention change, or a finding that contradicts
+      a published headline;
    2. adverse system pattern;
    3. adverse Editor-specific pattern;
-   4. other hidden context;
+   4. other hidden context, and historical-similarity base rates (hypotheses about open work, not facts about it);
    5. favourable finding (improvement, strength);
    6. neutral system description;
    7. data warning;
@@ -62,6 +62,8 @@ METHOD = ("lexicographic: tier, evidence level, worsening, affected projects, af
 def tier(finding: Finding) -> int:
     if finding.category == DATA_WARNING:
         return 6
+    if finding.finding_type == "risk.historical_similarity":
+        return 3                                   # a historical base rate (hypothesis), not a fact about the open work
     if finding.category == EMERGING_RISK or (finding.category == NEEDS_ATTENTION and finding.direction == ADVERSE) or finding.headline_contradiction:
         return 0
     if finding.direction == ADVERSE and finding.category == SYSTEM_PATTERN:

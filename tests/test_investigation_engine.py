@@ -89,7 +89,8 @@ class DocumentTests(unittest.TestCase):
             self.assertTrue(finding["limitations"] and finding["text"]["limitations"], finding["finding_type"])
             self.assertTrue(all(block["calculation"] for block in finding["supporting_evidence"]), finding["finding_type"])
             self.assertTrue(finding["text"]["investigation_question"].endswith("?"), finding["finding_type"])
-            self.assertIn(finding["evidence_level"], ("fact", "metric", "pattern", "association", "interpretation", "hypothesis"))
+            self.assertIn(finding["evidence_level"], ("fact", "metric", "pattern", "association"))
+            self.assertIn(finding["evidence_level"], finding["statement_levels"])
 
     def test_rendered_language_never_blames_diagnoses_or_predicts(self):
         text = json.dumps([finding["text"] for finding in self.review["findings"]] + self.review["executive_brief"]).lower()
