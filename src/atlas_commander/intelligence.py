@@ -17,6 +17,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from fractions import Fraction
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -456,8 +457,10 @@ def deadline_component(editor_id: str, rows: Sequence[Mapping[str, Any]], rule: 
         return _component(NOT_CLASSIFIABLE, RULE_NOT_APPROVED, facts, rule, evidence)
     if len(mine) < rule.values["minimum_editor_sample_size"] or len(peers) < rule.values["minimum_comparator_sample_size"]:
         return _component(NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE, facts, rule, evidence)
-    assert difference is not None
-    state = POSITIVE if difference < rule.values["better_band"] else NEGATIVE if difference > rule.values["worse_band"] else NEUTRAL
+    # Compared exactly: a difference of exactly -15 pp is inside the neutral band, which float subtraction could not guarantee.
+    exact = Fraction(late(mine), len(mine)) - Fraction(late(peers), len(peers))
+    better, worse = Fraction(str(rule.values["better_band"])), Fraction(str(rule.values["worse_band"]))
+    state = POSITIVE if exact < better else NEGATIVE if exact > worse else NEUTRAL
     return _component(state, None, facts, rule, evidence)
 
 
@@ -465,9 +468,11 @@ def overall_status(components: Mapping[str, Mapping[str, Any]], policy: Interpre
                    calculated_at: str) -> dict[str, Any]:
     """D37 lookup of the three component states; no arithmetic, weight or fallback status.
 
-    Fewer than the minimum classifiable components (D41) is a data state, ``Not enough evidence to classify`` (D47) -- unless
-    the missing classifications are themselves caused by unapproved rules, which is ``Not enough approved logic to
-    classify`` (D25). "Why this status" lists every component's state and reason, and the lookup's own approval state."""
+    Fewer than the minimum classifiable components (D41) is a data state, ``Not enough evidence to classify`` (D47, D52),
+    even when one component is held back by its own unapproved rule (Quality N/P): that reason stays visible in "Why this
+    status". Before the lookup itself is approved, a gap caused by unapproved component rules is ``Not enough approved logic
+    to classify`` (D25). "Why this status" lists every
+    component's state and reason, and the lookup's own approval state."""
     states = {name: components[name]["state"] for name in SCORED_COMPONENTS}
     classifiable = [name for name in SCORED_COMPONENTS if states[name] in CLASSIFIED_STATES]
     why = [{"component": name, "state": states[name], "reason": components[name]["reason"]} for name in SCORED_COMPONENTS]
@@ -484,8 +489,7 @@ def overall_status(components: Mapping[str, Mapping[str, Any]], policy: Interpre
     unapproved_components = [name for name in SCORED_COMPONENTS if components[name]["reason"] == RULE_NOT_APPROVED]
     enough = len(classifiable) >= policy.minimum_classifiable_components and bool({"quality", "deadline"} & set(classifiable))
     if not enough:
-        # A component held back by an unapproved rule makes this a logic gap (D25); otherwise it is a data state (D47).
-        logic_missing = bool(unapproved_components)
+        logic_missing = not policy.overall.approved and bool(unapproved_components)
         return {**base, "status": None, "status_label": NOT_ENOUGH_APPROVED_LOGIC if logic_missing else NOT_ENOUGH_EVIDENCE,
                 "status_state": RULE_NOT_APPROVED if logic_missing else "not_enough_evidence_to_classify", "reason": NOT_ENOUGH_COMPONENTS}
     if not policy.overall.approved:

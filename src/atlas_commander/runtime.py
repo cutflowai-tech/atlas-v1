@@ -40,14 +40,14 @@ def contract_config_errors(config: Any) -> list[str]:
         return []
     errors = schema_errors(config, schema)
     if version == "1.5.0":   # data checks of this exact config file (its attested identities); behaviour gates use capabilities
-        expected = {f"D{number}" for number in range(20, 52)}
+        expected = {f"D{number}" for number in range(20, 53)}
         authority_value = config.get("authority")
         authority: dict[str, Any] = authority_value if isinstance(authority_value, dict) else {}
         raw_decisions_value = authority.get("settled_decisions")
         raw_decisions: list[Any] = raw_decisions_value if isinstance(raw_decisions_value, list) else []
         decisions = {value for value in raw_decisions if isinstance(value, str)}
         if decisions != expected:
-            errors.append("settled_decisions must contain D20 through D51 exactly")
+            errors.append("settled_decisions must contain D20 through D52 exactly")
         attribution_value = config.get("editor_attribution")
         attribution: dict[str, Any] = attribution_value if isinstance(attribution_value, dict) else {}
         raw_entries_value = attribution.get("entries")
@@ -79,8 +79,8 @@ def contract_config_errors(config: Any) -> list[str]:
                     all(isinstance(part, str) for part in value)} if isinstance(blockers_value, list) else set()
         if blockers:
             errors.append("D44 identity blockers must be empty after the D49 management attestation")
-        if governance.get("status") != "identity_gate_satisfied_thresholds_unapproved":
-            errors.append("threshold governance must record that the identity gate is satisfied while thresholds remain unapproved")
+        if governance.get("status") != "identity_gate_satisfied_thresholds_partially_approved":
+            errors.append("threshold governance must record that the identity gate is satisfied and the thresholds are partially approved (D52)")
     if capabilities(config).editor_intelligence:
         errors += policy_errors(config)
         try:

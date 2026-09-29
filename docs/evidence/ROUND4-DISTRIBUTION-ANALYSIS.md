@@ -4,6 +4,10 @@
 
 The identity prerequisite in D44 is satisfied by management's attestation and the authoritative `monday-editor-v1.3` mapping. An apples-to-apples replay of the prior mapping raises attributable completed cycles from **170/861 (19.7%)** to **681/861 (79.1%)**. The common all-time metric cohort contains **617** projects, compared with the previous 147 fully speed-eligible projects. The current and comparison windows contain 136 and 129 eligible projects respectively.
 
+> **Outcome (2026-09-29, D52 in `docs/DECISIONS.md`):** management approved the Quality sample floor (10), the Speed values
+> (5 / 10 / 2 Editors, ±25%), the Deadline values (10 / 60, ±15 pp), the Trend sample floors (10 / 10) and the Overall lookup, as
+> proposed below. Quality N/P and every Trend material-change threshold remain OPEN. The analysis below is unchanged.
+
 This report proposes the following values for management review; none is written to the contract or treated as approved:
 
 | Rule | Proposed value | Evidence status |

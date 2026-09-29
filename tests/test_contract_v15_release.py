@@ -74,6 +74,10 @@ class ContractV15ReleaseTests(unittest.TestCase):
         cls.contract = load_contract_version("1.5.0")
         cls.result = reconstruct_cycles(dataset(), cls.contract, ingestion={"retrieved_at": NOW})
         cls.profile = build_editor_profile(cls.result, cls.contract, "editor-label-6", NOW)
+        # The same data under the pre-D52 contract state (every rule unapproved): the D25 schema guards must still hold.
+        from test_intelligence_v15 import unapproved
+        cls.unapproved_contract = unapproved(cls.contract)
+        cls.unapproved_profile = build_editor_profile(cls.result, cls.unapproved_contract, "editor-label-6", NOW)
 
     # ------------------------------------------------------------ RB-7: history is not the scoring window
     def test_monthly_history_spans_every_cairo_month_not_only_the_current_window(self):
@@ -146,7 +150,8 @@ class ContractV15ReleaseTests(unittest.TestCase):
         self.assertEqual((component["facts"]["absolute_late_rate"], component["facts"]["comparator_late_rate"]),
                          (round(late(mine), 4), round(late(peers), 4)))
         self.assertEqual(component["facts"]["late_rate_difference"], round(late(mine) - late(peers), 4))
-        self.assertEqual((component["state"], component["reason"], component["rule"]["status"]), ("not_classifiable", "rule_not_approved", "rule_not_approved"))
+        self.assertEqual((component["state"], component["reason"], component["rule"]["status"]), ("not_classifiable", "insufficient_sample", "approved"),
+                         "3 Editor projects are below the D52 minimum of 10")
 
     def test_schema_rejects_empty_or_incomplete_evidence(self):
         self.assertEqual(validate(self.profile, SCHEMA), [])
@@ -158,9 +163,6 @@ class ContractV15ReleaseTests(unittest.TestCase):
             "classified with a reason": lambda p: p["deadline"]["component"].update(state="positive"),
             "comparison evidence missing": lambda p: p["trend"]["recent_change"]["late_rate"]["evidence"].pop("comparison"),
             "status without classification": lambda p: p["overall"].update(status="Good"),
-            "invented rule approval": lambda p: p["overall"]["rule"].update(decision_id="D37"),
-            "speed verdict under an unapproved rule": lambda p: p["speed"]["cohorts"][0].update(verdict="faster"),
-            "overall classified under an unapproved lookup": lambda p: p["overall"].update(status="Strong", status_label="Strong", status_state="classified", reason=None),
             "component classified under an unapproved rule": lambda p: p["quality"]["component"].update(state="positive", reason=None),
             "trend label under an unapproved rule": lambda p: p["trend"]["recent_change"]["late_rate"].update(trend="Improving", trend_reason=None),
             "rate as text": lambda p: p["quality"]["rates"].update(positive_rate="0.5"),
@@ -169,6 +171,16 @@ class ContractV15ReleaseTests(unittest.TestCase):
         for name, mutate in mutations.items():
             with self.subTest(mutation=name):
                 profile = copy.deepcopy(self.profile)
+                mutate(profile)
+                self.assertTrue(validate(profile, SCHEMA), f"schema accepted: {name}")
+        self.assertEqual(validate(self.unapproved_profile, SCHEMA), [])
+        for name, mutate in {
+            "invented rule approval": lambda p: p["overall"]["rule"].update(decision_id="D37"),
+            "speed verdict under an unapproved rule": lambda p: p["speed"]["cohorts"][0].update(verdict="faster"),
+            "overall classified under an unapproved lookup": lambda p: p["overall"].update(status="Strong", status_label="Strong", status_state="classified", reason=None),
+        }.items():
+            with self.subTest(mutation=name):
+                profile = copy.deepcopy(self.unapproved_profile)
                 mutate(profile)
                 self.assertTrue(validate(profile, SCHEMA), f"schema accepted: {name}")
 
@@ -210,10 +222,12 @@ class ContractV15ReleaseTests(unittest.TestCase):
     def test_not_enough_data_and_rule_not_approved_are_distinct_reasons(self):
         overall = self.profile["overall"]
         self.assertEqual((overall["status"], overall["status_label"], overall["status_state"]),
-                         (None, "Not enough approved logic to classify", "rule_not_approved"))
+                         (None, "Not enough evidence to classify", "not_enough_evidence_to_classify"))
         self.assertEqual({row["component"]: row["reason"] for row in overall["why"]},
-                         {"quality": "rule_not_approved", "speed": "rule_not_approved", "deadline": "rule_not_approved",
-                          "overall_lookup": "rule_not_approved"})
+                         {"quality": "rule_not_approved", "speed": "insufficient_sample", "deadline": "insufficient_sample",
+                          "overall_lookup": None}, "Quality N/P stay unapproved (D52); the other two lack data")
+        before = self.unapproved_profile["overall"]
+        self.assertEqual((before["status_label"], before["status_state"]), ("Not enough approved logic to classify", "rule_not_approved"))
         alone = build_editor_profile(reconstruct_cycles(mf.payload(*project("1", WILL, "2026-09-10T10:00:00Z", 10, True)), self.contract,
                                                         ingestion={"retrieved_at": NOW}), self.contract, "editor-label-6", NOW)
         self.assertEqual(alone["deadline"]["component"]["reason"], "no_other_editors_in_cohort", "no benchmark is a data reason, not the rule")
@@ -221,10 +235,12 @@ class ContractV15ReleaseTests(unittest.TestCase):
 
     def test_profile_reports_the_configured_policy_not_placeholders(self):
         self.assertEqual(self.profile["speed"]["component"]["rule"],
-                         {"rule": "speed", "rule_version": "speed-component-v1.0", "status": "rule_not_approved", "decision_id": None,
-                          "values": {"minimum_editor_sample_size": None, "minimum_comparator_sample_size": None, "minimum_comparator_editor_count": None,
-                                     "faster_band": None, "slower_band": None}})
-        self.assertEqual(self.profile["coverage"]["metrics"]["classification"]["overall_status"]["availability"], "rule_not_approved")
+                         {"rule": "speed", "rule_version": "speed-component-v1.0", "status": "approved", "decision_id": "D38",
+                          "values": {"minimum_editor_sample_size": 5, "minimum_comparator_sample_size": 10, "minimum_comparator_editor_count": 2,
+                                     "faster_band": -25, "slower_band": 25}})
+        self.assertEqual(self.profile["quality"]["component"]["rule"]["values"],
+                         {"minimum_project_sample_size": 10, "negative_rate_threshold": None, "positive_rate_threshold": None})
+        self.assertEqual(self.profile["coverage"]["metrics"]["classification"]["overall_status"]["availability"], "not_enough_evidence_to_classify")
         self.assertNotIn("equal_to_team_median", json.dumps(self.profile), "contract 1.5 says similar (inclusive band), never equal")
 
     # ------------------------------------------------------------ RB-4 / RB-5: the layer is visible, identically in both languages
@@ -241,7 +257,7 @@ class ContractV15ReleaseTests(unittest.TestCase):
                 self.assertEqual(Counter(attributes.findall(en)), Counter(attributes.findall(ar)), page)
                 self.assertEqual(Counter(re.findall(r'<data value="([^"]*)">', en)), Counter(re.findall(r'<data value="([^"]*)">', ar)), page)
             english = (out / "en" / "profiles" / "editor-label-6.html").read_text(encoding="utf-8")
-            for text in ("Not enough approved logic to classify", "Why this status", "Recent Change", "Absolute late rate", "Positive quality rate",
+            for text in ("Not enough evidence to classify", "Why this status", "Recent Change", "Absolute late rate", "Positive quality rate",
                          "Median first-pass time", "Current window", "Evidence records"):
                 self.assertIn(text, english)
             self.assertNotIn("UTC month", english)
@@ -310,10 +326,14 @@ class ContractV15ReleaseTests(unittest.TestCase):
             self.assertEqual(problems(), ["publication.json is missing or invalid"])
             self.assertNotIn(site_layout.PUBLICATION_JSON, site_layout.required_files(editors, "1.4.0"))
 
-    def test_production_sync_still_refuses_contract_1_5(self):
+    def test_production_sync_runs_contract_1_5_only_by_explicit_opt_in(self):
         from atlas_sync.config import ConfigError, load_sync_config
-        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ConfigError, "not allowed for production sync"):
-            load_sync_config({"MONDAY_API_TOKEN": "x", "ATLAS_DATA_DIR": directory, "ATLAS_CONTRACT_VERSION": "1.5.0"})
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(load_sync_config({"MONDAY_API_TOKEN": "x", "ATLAS_DATA_DIR": directory}).contract_version, "1.4.0")
+            self.assertEqual(load_sync_config({"MONDAY_API_TOKEN": "x", "ATLAS_DATA_DIR": directory,
+                                               "ATLAS_CONTRACT_VERSION": "1.5.0"}).contract_version, "1.5.0")
+            with self.assertRaisesRegex(ConfigError, "not allowed for production sync"):
+                load_sync_config({"MONDAY_API_TOKEN": "x", "ATLAS_DATA_DIR": directory, "ATLAS_CONTRACT_VERSION": "1.3.0"})
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ class ProfilePublicationV15Tests(unittest.TestCase):
         self.assertEqual(coverage["quality"]["availability"], "available")
         self.assertEqual(coverage["quality"]["included_records"], coverage["quality"]["eligible_records"])
         self.assertIn("quarantined_label_occurrences", coverage["quality"])
-        self.assertEqual(coverage["classification"]["overall_status"]["availability"], "rule_not_approved")
+        self.assertEqual(coverage["classification"]["overall_status"]["availability"], "not_enough_evidence_to_classify")
 
     def test_recent_change_includes_speed_without_pooling_video_types(self):
         speed = self.profile["trend"]["recent_change"]["speed_by_video_type"]

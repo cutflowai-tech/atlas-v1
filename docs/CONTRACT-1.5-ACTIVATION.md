@@ -1,7 +1,8 @@
 # Contract 1.5.0 activation and rollback runbook
 
-**Status: not executed. Nothing in this document is authorized until the Atlas business owner approves activation in writing
-and that approval is recorded in `docs/DECISIONS.md`.** Production runs contract **1.4.0**. This runbook separates five steps
+**Status: activation approved by Waset management on 2026-09-29 and recorded as D52 in `docs/DECISIONS.md`.** The §4.2 code
+change (`PRODUCTION_CONTRACT_VERSIONS = ("1.4.0", "1.5.0")`) ships with the D52 threshold approvals; the host switch in §4.3 is
+the remaining activation step. This runbook separates five steps
 that are often confused; each has its own approval and none implies the next.
 
 | Step | What changes | Production effect |
@@ -44,9 +45,10 @@ The explicit rollback in §5 must also work against a publication made before th
 ### 4.1 Preconditions (all required)
 
 1. Written activation approval from the Atlas business owner, recorded in `docs/DECISIONS.md`.
-2. Threshold state understood and accepted. Activation is possible while thresholds are unapproved: every component then shows its
-   facts with "rule not approved", and Overall Status shows "Not enough approved logic to classify" (D25). Approving any threshold
-   is a separate decision and a new contract version; never edit `config/monday-contract-v1.5.json` values in place on the host.
+2. Threshold state understood and accepted. D52 approves Speed, Deadline, the Overall lookup and the Quality and Trend sample
+   floors; Quality N/P and Trend materiality stay `rule_not_approved`, so Quality shows facts without a classification and Recent
+   Change shows deltas without a Trend label. Approving any further threshold is a separate decision and a new contract version
+   once 1.5.0 has run in production; never edit `config/monday-contract-v1.5.json` values in place on the host.
 3. Shadow review of a 1.5 build of recent production data, made **offline** on a read-only copy of a verified raw run (never
    against Monday, never on the production data directory):
 

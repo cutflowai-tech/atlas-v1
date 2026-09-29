@@ -59,7 +59,9 @@ replace the corresponding 1.4.0 rules above; every other rule above applies unch
   other Editors' (leave-one-out) and the absolute facts stay visible beside it. Recent Change is a fact; Trend needs an approved
   per-measurement materiality threshold and direction. A rule classifies only when it is marked approved in the contract **and**
   names its decision (D25); until then results show "Not enough approved logic to classify", which is distinct from the data state
-  "Not enough evidence to classify".
+  "Not enough evidence to classify". D52 approves the Speed and Deadline values, the Overall lookup and the Quality and Trend sample
+  floors; Quality N/P and Trend materiality stay unapproved, so Quality and Trend show facts only, and an Overall Status needs two
+  classifiable components (in practice Speed and Deadline).
 - **Rule 10 (evidence).** Every 1.5 conclusion carries an evidence block from which it can be recomputed: Monday board and columns,
   Cairo date range, sample, calculation, one record per contributing project (item, cycle, event IDs, timestamps, values used),
   exclusions and reasons, rule version and calculation time. `contracts/editor-profile-v1.5.schema.json` rejects empty event IDs or

@@ -101,11 +101,12 @@ class GoldenSiteTests(unittest.TestCase):
         self.assertNotIn("D10", current["reward_recommendation"]["reason"])
         self.assertIn("(D10)", team_intelligence("1.4.0")["positive_signals"]["reason"])
 
-    def test_production_stays_pinned_to_contract_1_4_everywhere(self):
-        # Activation is a separate, approved change (docs/CONTRACT-1.5-ACTIVATION.md); this test changes with it, visibly.
+    def test_production_defaults_to_contract_1_4_and_allows_1_5_only_by_explicit_opt_in(self):
+        # D52 activation change set (docs/CONTRACT-1.5-ACTIVATION.md 4.2): 1.5.0 is allowed, 1.4.0 stays the default everywhere,
+        # so the host switch and the rollback are both configuration changes.
         from atlas_sync.config import PRODUCTION_CONTRACT_VERSIONS
         self.assertEqual(ACTIVE_CONTRACT_VERSION, "1.4.0")
-        self.assertEqual(PRODUCTION_CONTRACT_VERSIONS, ("1.4.0",))
+        self.assertEqual(PRODUCTION_CONTRACT_VERSIONS, ("1.4.0", "1.5.0"))
         self.assertIn("ATLAS_CONTRACT_VERSION: ${ATLAS_CONTRACT_VERSION:-1.4.0}", (ROOT / "deploy" / "production" / "compose.yaml").read_text())
         self.assertIn("ATLAS_CONTRACT_VERSION=1.4.0", (ROOT / "deploy" / "production" / "atlas.env.example").read_text())
 

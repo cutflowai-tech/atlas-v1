@@ -70,7 +70,8 @@ def approved(contract, **sections):
     contract = copy.deepcopy(contract)
     interpretation = contract["interpretation"]
     if "quality" in sections:
-        interpretation["quality_component"].update({**sections["quality"], "threshold_status": "approved", "decision_id": "D39"})
+        interpretation["quality_component"].update({**sections["quality"], "minimum_project_sample_size_status": "approved",
+                                                    "threshold_status": "approved", "decision_id": "D39"})
     if "speed" in sections:
         values = sections["speed"]
         for key in ("minimum_editor_sample_size", "minimum_comparator_sample_size", "minimum_comparator_editor_count"):
@@ -86,7 +87,23 @@ def approved(contract, **sections):
         values = sections["trend"]
         interpretation["trend"].update({"minimum_sample_size": values["minimum_sample_size"],
                                         "material_change_thresholds": values["material_change_thresholds"],
-                                        "threshold_status": "approved", "decision_id": "D23"})
+                                        "minimum_sample_size_status": "approved", "threshold_status": "approved", "decision_id": "D23"})
+    return contract
+
+
+def unapproved(contract):
+    """A copy of the contract with every interpretation rule back at null / rule_not_approved (the pre-D52 state)."""
+    contract = copy.deepcopy(contract)
+    interpretation = contract["interpretation"]
+    interpretation["quality_component"].update({"minimum_project_sample_size": None, "minimum_project_sample_size_status": "rule_not_approved",
+                                                "threshold_status": "rule_not_approved"})
+    for key in ("minimum_editor_sample_size", "minimum_comparator_sample_size", "minimum_comparator_editor_count"):
+        contract["speed_benchmark"].update({key: None, f"{key}_status": "rule_not_approved"})
+    contract["speed_benchmark"]["component"].update({"faster_band": None, "slower_band": None, "band_status": "rule_not_approved"})
+    contract["deadline"]["component"].update({"minimum_editor_sample_size": None, "minimum_comparator_sample_size": None,
+                                              "better_band": None, "worse_band": None, "threshold_status": "rule_not_approved"})
+    interpretation["overall_status"].update({"lookup_table": None, "threshold_status": "rule_not_approved"})
+    interpretation["trend"].update({"minimum_sample_size": None, "minimum_sample_size_status": "rule_not_approved", "threshold_status": "rule_not_approved"})
     return contract
 
 
@@ -107,6 +124,7 @@ class IntelligenceV15Tests(unittest.TestCase):
     def setUpClass(cls):
         cls.contract = load_contract_version("1.5.0")
         cls.policy = InterpretationPolicy.from_contract(cls.contract)
+        cls.unapproved = InterpretationPolicy.from_contract(unapproved(cls.contract))
         cls.mapping = MetricPolicy.from_contract(cls.contract).video_types
         cls.scope = EvidenceScope.from_contract(cls.contract, NOW)
 
@@ -172,7 +190,7 @@ class IntelligenceV15Tests(unittest.TestCase):
     def test_quality_component_classifies_only_under_an_approved_rule(self):
         facts = {"eligible_completed_projects": 4, "positive_count": 2, "negative_count": 0, "positive_rate": 0.5, "negative_rate": 0.0,
                  "evidence": {"records": []}}
-        self.assertEqual(quality_component(facts, self.policy.quality)["reason"], RULE_NOT_APPROVED)
+        self.assertEqual(quality_component(facts, self.policy.quality)["reason"], RULE_NOT_APPROVED)  # D52: N/P still unapproved
         rule = InterpretationPolicy.from_contract(approved(self.contract, quality={
             "minimum_project_sample_size": 2, "negative_rate_threshold": 0.5, "positive_rate_threshold": 0.25})).quality
         self.assertEqual(quality_component(facts, rule)["state"], POSITIVE)
@@ -207,7 +225,7 @@ class IntelligenceV15Tests(unittest.TestCase):
                 row = speed_benchmarks("editor-label-6", result.cycles, self.mapping, self.speed_rule(**overrides), self.scope, None)["cohorts"][0]
                 self.assertEqual(row["reason"], reason)
                 self.assertEqual(row["comparator_editor_count"], 1)
-        unapproved = speed_benchmarks("editor-label-6", result.cycles, self.mapping, self.policy.speed, self.scope, None)["cohorts"][0]
+        unapproved = speed_benchmarks("editor-label-6", result.cycles, self.mapping, self.unapproved.speed, self.scope, None)["cohorts"][0]
         self.assertEqual((unapproved["verdict"], unapproved["reason"]), (NOT_CLASSIFIABLE, RULE_NOT_APPROVED))
 
     def test_speed_bands_are_compared_unrounded_and_boundaries_are_similar(self):
@@ -239,7 +257,7 @@ class IntelligenceV15Tests(unittest.TestCase):
 
     def test_deadline_component_is_relative_leave_one_out_and_keeps_absolute_facts(self):
         rows = self.deadline_rows(("1", WILL, False), ("2", AHMED, True))
-        unapproved = deadline_component("editor-label-6", rows, self.policy.deadline, self.scope, None)
+        unapproved = deadline_component("editor-label-6", rows, self.unapproved.deadline, self.scope, None)
         self.assertEqual((unapproved["state"], unapproved["reason"]), (NOT_CLASSIFIABLE, RULE_NOT_APPROVED))
         self.assertEqual((unapproved["facts"]["absolute_late_rate"], unapproved["facts"]["comparator_late_rate"]), (0.0, 1.0))
         rule = InterpretationPolicy.from_contract(approved(self.contract, deadline={
@@ -255,7 +273,7 @@ class IntelligenceV15Tests(unittest.TestCase):
 
     def test_overall_is_a_lookup_and_never_classifies_without_approval(self):
         classified = self.components((POSITIVE, None), (NEUTRAL, None), (NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE))
-        unapproved = overall_status(classified, self.policy, None, NOW)
+        unapproved = overall_status(classified, self.unapproved, None, NOW)
         self.assertEqual((unapproved["status"], unapproved["status_label"], unapproved["reason"]), (None, NOT_ENOUGH_APPROVED_LOGIC, RULE_NOT_APPROVED))
         policy = InterpretationPolicy.from_contract(approved(self.contract, overall=test_lookup()))
         result = overall_status(classified, policy, None, NOW)
@@ -270,7 +288,12 @@ class IntelligenceV15Tests(unittest.TestCase):
         result = overall_status(thin, policy, None, NOW)
         self.assertEqual((result["status"], result["status_label"], result["reason"]), (None, NOT_ENOUGH_EVIDENCE, "not_enough_classifiable_components"))
         unapproved = self.components((POSITIVE, None), (NOT_CLASSIFIABLE, RULE_NOT_APPROVED), (NOT_CLASSIFIABLE, RULE_NOT_APPROVED))
-        self.assertEqual(overall_status(unapproved, policy, None, NOW)["status_label"], NOT_ENOUGH_APPROVED_LOGIC)
+        self.assertEqual(overall_status(unapproved, self.unapproved, None, NOW)["status_label"], NOT_ENOUGH_APPROVED_LOGIC)
+        # Once the lookup is approved (D52), fewer than two classifiable components is a data state whatever the reason;
+        # the unapproved component rule stays visible in "Why this status".
+        gap = overall_status(unapproved, policy, None, NOW)
+        self.assertEqual(gap["status_label"], NOT_ENOUGH_EVIDENCE)
+        self.assertEqual(gap["why"][1]["reason"], RULE_NOT_APPROVED)
         why = {row["component"]: row["reason"] for row in result["why"]}
         self.assertEqual(why, {"quality": None, "speed": INSUFFICIENT_SAMPLE, "deadline": NO_OTHER_EDITORS, "overall_lookup": None})
 
@@ -307,7 +330,7 @@ class IntelligenceV15Tests(unittest.TestCase):
         self.assertEqual(recent_change("late_rate", self.side(0.3), self.side(0.2), policy)["trend"], "Declining")
 
     def test_recent_change_is_a_fact_without_an_approved_trend_rule(self):
-        change = recent_change("late_rate", self.side(0.2), self.side(0.4), self.policy)
+        change = recent_change("late_rate", self.side(0.2), self.side(0.4), self.unapproved)
         self.assertEqual((change["difference"], change["trend"], change["trend_reason"]), (-0.2, None, RULE_NOT_APPROVED))
         self.assertEqual(recent_change("late_rate", self.side(0.2, 3), self.side(0.4), self.trend_policy())["trend"], "Improving")
         small = InterpretationPolicy.from_contract(approved(self.contract, trend={
@@ -333,6 +356,7 @@ class IntelligenceV15Tests(unittest.TestCase):
         contract["interpretation"]["overall_status"]["minimum_classifiable_components"] = 1
         self.assertTrue(any("D41" in error for error in policy_errors(contract)))
         self.assertEqual(policy_errors(self.contract), [])
+        self.assertEqual(policy_errors(unapproved(self.contract)), [])
 
     def test_malformed_quality_registry_is_a_config_error_not_a_crash(self):
         from atlas_commander.runtime import contract_config_errors
@@ -341,13 +365,51 @@ class IntelligenceV15Tests(unittest.TestCase):
         self.assertTrue(contract_config_errors(contract))
 
     def test_insufficient_data_with_approved_components_is_a_data_state_even_before_lookup_approval(self):
-        rules = approved(self.contract, quality={"minimum_project_sample_size": 1, "negative_rate_threshold": 0.5, "positive_rate_threshold": 0.5},
+        rules = approved(unapproved(self.contract), quality={"minimum_project_sample_size": 1, "negative_rate_threshold": 0.5, "positive_rate_threshold": 0.5},
                          speed={"minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1, "minimum_comparator_editor_count": 1,
                                 "faster_band": -25, "slower_band": 25},
                          deadline={"minimum_editor_sample_size": 1, "minimum_comparator_sample_size": 1, "better_band": -0.15, "worse_band": 0.15})
         thin = self.components((POSITIVE, None), (NOT_CLASSIFIABLE, NO_OTHER_EDITORS), (NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE))
         result = overall_status(thin, InterpretationPolicy.from_contract(rules), None, NOW)
         self.assertEqual(result["status_label"], NOT_ENOUGH_EVIDENCE)
+
+    # --- D52: the approved production values
+    def test_d52_approved_values_are_exactly_the_management_decision(self):
+        state = lambda rule: (rule.approved, rule.state()["values"])
+        self.assertEqual(state(self.policy.speed), (True, {"minimum_editor_sample_size": 5, "minimum_comparator_sample_size": 10,
+                                                           "minimum_comparator_editor_count": 2, "faster_band": -25, "slower_band": 25}))
+        self.assertEqual(state(self.policy.deadline), (True, {"minimum_editor_sample_size": 10, "minimum_comparator_sample_size": 60,
+                                                              "better_band": -0.15, "worse_band": 0.15}))
+        self.assertEqual(state(self.policy.quality), (False, {"minimum_project_sample_size": 10, "negative_rate_threshold": None,
+                                                              "positive_rate_threshold": None}))
+        self.assertEqual(state(self.policy.trend), (False, {"minimum_sample_size": 10, "material_change_thresholds": None}))
+        self.assertEqual(self.contract["interpretation"]["trend"]["material_change_thresholds"], dict.fromkeys(RATE_KEYS))
+        self.assertTrue(self.policy.overall.approved)
+        self.assertEqual(self.policy.overall.values["lookup_table"], test_lookup(), "the configured table is the D52 counting rule")
+
+    def test_d52_quality_unapproved_does_not_block_overall_when_speed_and_deadline_are_valid(self):
+        quality_held = (NOT_CLASSIFIABLE, RULE_NOT_APPROVED)
+        cases = {((POSITIVE, None), (POSITIVE, None)): "Strong", ((POSITIVE, None), (NEUTRAL, None)): "Good",
+                 ((NEGATIVE, None), (POSITIVE, None)): "Mixed", ((NEGATIVE, None), (NEGATIVE, None)): "Below Expectations"}
+        for (speed, deadline), expected in cases.items():
+            with self.subTest(speed=speed, deadline=deadline):
+                self.assertEqual(overall_status(self.components(quality_held, speed, deadline), self.policy, None, NOW)["status"], expected)
+        thin = overall_status(self.components(quality_held, (NOT_CLASSIFIABLE, INSUFFICIENT_SAMPLE), (POSITIVE, None)), self.policy, None, NOW)
+        self.assertEqual((thin["status"], thin["status_label"]), (None, NOT_ENOUGH_EVIDENCE))
+
+    def test_d52_deadline_band_edges_are_exact(self):
+        # 3 of 10 late (30%) against 27 of 60 late (45%): exactly -15 pp is inside the neutral band.
+        rows = self.deadline_rows(*((str(n), WILL, n < 3) for n in range(10)), *((str(100 + n), AHMED, n < 27) for n in range(60)))
+        component = deadline_component("editor-label-6", rows, self.policy.deadline, self.scope, None)
+        self.assertEqual((component["state"], component["facts"]["late_rate_difference"]), (NEUTRAL, -0.15))
+        rows = self.deadline_rows(*((str(n), WILL, n < 3) for n in range(10)), *((str(100 + n), AHMED, n < 28) for n in range(60)))
+        self.assertEqual(deadline_component("editor-label-6", rows, self.policy.deadline, self.scope, None)["state"], POSITIVE)
+        few = self.deadline_rows(*((str(n), WILL, False) for n in range(9)), *((str(100 + n), AHMED, True) for n in range(60)))
+        self.assertEqual(deadline_component("editor-label-6", few, self.policy.deadline, self.scope, None)["reason"], INSUFFICIENT_SAMPLE)
+
+    def test_d52_trend_stays_unclassified_while_recent_change_is_shown(self):
+        change = recent_change("late_rate", self.side(0.2, 20), self.side(0.6, 20), self.policy)
+        self.assertEqual((change["difference"], change["trend"], change["trend_reason"]), (-0.4, None, RULE_NOT_APPROVED))
 
 
 if __name__ == "__main__":

@@ -59,7 +59,7 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual(load_contract_version("1.4.0")["contract_version"], "1.4.0")
 
     def test_settled_decisions_and_rule_versions_are_complete(self):
-        self.assertEqual(set(self.contract["authority"]["settled_decisions"]), {f"D{number}" for number in range(20, 52)})
+        self.assertEqual(set(self.contract["authority"]["settled_decisions"]), {f"D{number}" for number in range(20, 53)})
         self.assertEqual(
             set(self.contract["rule_versions"]),
             {
@@ -88,49 +88,56 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual(self.contract["active_work"]["active_statuses"], ["In Progress", "Revisions", "Internal Revisions"])
         self.assertEqual(self.contract["active_work"]["awaiting_approval_statuses"], ["Ready For Approval"])
         self.assertFalse(self.contract["revision_context"]["scored"])
-        self.assertEqual(self.contract["threshold_governance"]["status"], "identity_gate_satisfied_thresholds_unapproved")
+        self.assertEqual(self.contract["threshold_governance"]["status"], "identity_gate_satisfied_thresholds_partially_approved")
         self.assertEqual(self.contract["threshold_governance"]["governing_decision"], "D44")
         self.assertEqual(self.contract["threshold_governance"]["blocking_identity_keys"], [])
         self.assertEqual(self.contract["threshold_governance"]["completed_steps"],
                          ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision",
                           "rerun_production_distributions", "propose_threshold_values"])
-        self.assertEqual(self.contract["threshold_governance"]["threshold_approval_status"], "rule_not_approved")
+        self.assertEqual(self.contract["threshold_governance"]["threshold_approval_status"], "partially_approved_D52")
         self.assertFalse(self.contract["threshold_governance"]["pre_resolution_calibration_approved"])
         self.assertEqual(self.contract["deadline"]["team_wide_lateness"], "process-diagnostic-only-never-an-editor-scoring-input")
         self.assertTrue(self.contract["evidence_requirements"]["raw_identity_evidence_retained_on_quarantine"])
         self.assertFalse(self.contract["coverage_requirements"]["unresolved_identities_enter_calibration"])
 
-    def test_every_unapproved_threshold_is_null_and_marked(self):
+    def test_thresholds_are_exactly_the_d52_approvals_and_the_rest_stay_null(self):
         speed = self.contract["speed_benchmark"]
-        self.assertEqual((speed["minimum_editor_sample_size"], speed["minimum_comparator_sample_size"]), (None, None))
-        self.assertEqual((speed["minimum_editor_sample_size_status"], speed["minimum_comparator_sample_size_status"]),
-                         ("rule_not_approved", "rule_not_approved"))
-        self.assertEqual((speed["minimum_comparator_editor_count"], speed["minimum_comparator_editor_count_status"]), (None, "rule_not_approved"))
-        self.assertEqual({speed["component"][key] for key in ("faster_band", "slower_band")}, {None})
+        self.assertEqual([(speed[key], speed[f"{key}_status"]) for key in
+                          ("minimum_editor_sample_size", "minimum_comparator_sample_size", "minimum_comparator_editor_count")],
+                         [(5, "approved"), (10, "approved"), (2, "approved")])
+        self.assertEqual({key: speed["component"][key] for key in ("faster_band", "slower_band", "band_status", "decision_id")},
+                         {"faster_band": -25, "slower_band": 25, "band_status": "approved", "decision_id": "D38"})
         self.assertNotIn("similar_band", speed["component"])
         deadline = self.contract["deadline"]["component"]
-        self.assertEqual({deadline[key] for key in ("better_band", "worse_band", "minimum_editor_sample_size",
-                                                    "minimum_comparator_sample_size")}, {None})
+        self.assertEqual({key: deadline[key] for key in ("better_band", "worse_band", "minimum_editor_sample_size",
+                                                         "minimum_comparator_sample_size", "threshold_status", "decision_id")},
+                         {"better_band": -0.15, "worse_band": 0.15, "minimum_editor_sample_size": 10, "minimum_comparator_sample_size": 60,
+                          "threshold_status": "approved", "decision_id": "D45"})
         self.assertNotIn("similar_band", deadline)
+        self.assertEqual(self.contract["deadline"]["on_time_tolerance_seconds"], 0, "D52 adds no ETA tolerance")
         interpretation = self.contract["interpretation"]
-        self.assertIsNone(interpretation["overall_status"]["lookup_table"])
-        self.assertEqual(interpretation["overall_status"]["threshold_status"], "rule_not_approved")
-        self.assertEqual({interpretation["quality_component"][key] for key in
-                          ("negative_rate_threshold", "positive_rate_threshold", "minimum_project_sample_size")}, {None})
-        self.assertIsNone(interpretation["trend"]["minimum_sample_size"])
-        self.assertEqual(interpretation["trend"]["material_change_thresholds"],
-                         {"positive_quality_rate": None, "negative_quality_rate": None, "late_rate": None, "median_speed_seconds": None})
+        self.assertEqual((interpretation["overall_status"]["threshold_status"], interpretation["overall_status"]["decision_id"]), ("approved", "D37"))
+        self.assertEqual(len(interpretation["overall_status"]["lookup_table"]), 64)
+        quality = interpretation["quality_component"]
+        self.assertEqual((quality["minimum_project_sample_size"], quality["minimum_project_sample_size_status"]), (10, "approved"))
+        self.assertEqual((quality["negative_rate_threshold"], quality["positive_rate_threshold"], quality["threshold_status"]),
+                         (None, None, "rule_not_approved"), "Quality N/P stay open")
+        trend = interpretation["trend"]
+        self.assertEqual((trend["minimum_sample_size"], trend["minimum_sample_size_status"], trend["threshold_status"]), (10, "approved", "rule_not_approved"))
+        self.assertEqual(trend["material_change_thresholds"],
+                         {"positive_quality_rate": None, "negative_quality_rate": None, "late_rate": None, "median_speed_seconds": None},
+                         "Trend materiality stays open")
         self.assertEqual(interpretation["trend"]["directions"]["late_rate"], "lower_is_better")
         self.assertEqual(interpretation["trend"]["directions"]["negative_quality_rate"], "lower_is_better")
         self.assertIsNone(self.contract["active_work"]["capacity_threshold"])
 
     def test_loader_rejects_schema_invalid_15_config(self):
         invalid = copy.deepcopy(self.contract)
-        invalid["speed_benchmark"]["minimum_comparator_sample_size"] = 5
+        invalid["speed_benchmark"]["minimum_comparator_sample_size"] = 5   # not the D52 value
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "contract.json"
             path.write_text(json.dumps(invalid))
-            with self.assertRaisesRegex(ContractConfigError, "not of type 'null'"):
+            with self.assertRaisesRegex(ContractConfigError, "10 was expected"):
                 load_contract(path)
 
     def test_loader_rejects_tampered_d49_canonical_identity(self):
@@ -366,7 +373,7 @@ class ContractV15IntegratedRuntimeTests(unittest.TestCase):
         reconstruction = reconstruct_cycles(activity, self.contract, items_payload=items, ingestion={"retrieved_at": NOW})
         profile = build_editor_profile(reconstruction, self.contract, "editor-label-6", NOW)
         self.assertIsNone(profile["overall"]["status"])
-        self.assertEqual(profile["overall"]["status_label"], "Not enough approved logic to classify")
+        self.assertEqual(profile["overall"]["status_label"], "Not enough evidence to classify")   # a small fixture under the D52 lookup
         self.assertTrue(profile["speed"]["leave_one_out"])
         self.assertEqual(profile["trend"]["window"]["timezone"], "Africa/Cairo")
         self.assertEqual(profile["quality"]["component"]["state"], "not_classifiable")

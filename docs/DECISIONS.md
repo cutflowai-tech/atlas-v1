@@ -2,7 +2,9 @@
 
 These product decisions drive runtime behavior. Each one is encoded in a versioned executable contract (`config/monday-contract-v*.json`), so historical results stay reproducible. Changing a decision requires a new contract version; an approved contract is never edited in place.
 
-> **Implementation status, 2026-09-29:** D20–D51 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
+> **Status, 2026-09-29 (D52):** D51 is management-confirmed. D52 approves the round-4 thresholds except Quality N/P and Trend materiality (both still OPEN) and approves production activation of contract 1.5.0.
+>
+> **Implementation status, 2026-09-29 (before D52):** D20–D51 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
 
 ## Confirmed by Waset management, 2026-09-28 (contract 1.2.0)
 
@@ -139,7 +141,7 @@ distributions were rerun and shadow values proposed in the Round 4 evidence repo
 and `null` until the Atlas business owner records a matching approval decision. Runtime encoding: `monday-editor-v1.3` in contract
 1.5.0.
 
-### D51 ongoing and historical identities — recorded 2026-09-29 for contract 1.5.0
+### D51 ongoing and historical identities — confirmed by Waset management 2026-09-29 for contract 1.5.0
 
 | # | Decision | Runtime encoding |
 |---|---|---|
@@ -149,6 +151,20 @@ Source: management intent relayed in the PR #25 remediation instruction on 2026-
 bounds, not permanent expiration dates for confirmed current Editors"). It resolves review finding AB-1 (future work quarantined as
 `EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE`). If Monday ever reuses one of these seven label names for a different person, a new
 identity decision is required before that label's work is attributed.
+
+**Management confirmation, 2026-09-29:** D51 is confirmed as recorded. The seven confirmed current Editors keep resolving to the
+same canonical Editor until management records a later role or end-date decision; `(5, "Ahmed")`, `(7, "Mans")` and
+`(9, "Michael")` stay historically bounded; `New`, `Done` and unresolved `El Baz` stay quarantined (D50).
+
+### D52 threshold approvals and contract 1.5.0 activation — confirmed by Waset management 2026-09-29
+
+| # | Decision | Runtime encoding |
+|---|---|---|
+| D52 | **Round-4 threshold approvals and production activation of contract 1.5.0.** Approved: **Quality** minimum project sample = 10 (D39); **Speed** minimum subject projects per Video Type = 5, minimum comparator projects = 10, minimum comparator Editors = 2, bands Faster < −25%, Similar −25% through +25% inclusive, Slower > +25% (D36/D38; same Video Type, leave-one-out, first pass only); **Deadline** minimum subject deadline-classifiable projects = 10, minimum comparator projects = 60, Positive when the Editor's late rate is more than 15 percentage points lower than the other Editors', Neutral from −15 pp through +15 pp, Negative when more than 15 pp higher (D45; facts stay absolute, no ETA tolerance); **Trend** minimum sample = 10 in both the current and the comparison window (D23); **Overall Status** lookup (D37, D41): fewer than 2 classifiable components → Not enough evidence to classify; 2 or more Negative → Below Expectations; exactly 1 Negative → Mixed; 0 Negative and at least 2 Positive → Strong; every other valid combination → Good. No weighted score. Quality unclassified must not prevent an Overall Status when Speed and Deadline are valid. **Not approved (OPEN):** Quality Negative threshold N and Positive threshold P, and every per-measure Trend material-change threshold — they stay `null` / `rule_not_approved`; Quality shows its facts, counts, rates, evidence and coverage while its component stays Not classifiable, and Recent Change shows factual deltas without a Trend label. Activation of contract 1.5.0 in production is approved. | `config/monday-contract-v1.5.json`: `speed_benchmark` minimums and `component` bands (`decision_id` D38); `deadline.component` (D45, bands as late-rate differences −0.15 / 0.15, compared exactly); `interpretation.quality_component.minimum_project_sample_size` = 10 with its own approval (N/P `rule_not_approved`, D39); `interpretation.trend.minimum_sample_size` = 10 with its own approval (materiality `rule_not_approved`, D23); `interpretation.overall_status.lookup_table` (64 keys, D37). The schema pins exactly these values. Production allow-list: `atlas_sync/config.PRODUCTION_CONTRACT_VERSIONS = ("1.4.0", "1.5.0")`; 1.4.0 stays the code and compose default and the host opts in through `ATLAS_CONTRACT_VERSION` (`docs/CONTRACT-1.5-ACTIVATION.md`). |
+
+Source: final management approvals relayed on 2026-09-29 in the Contract 1.5 closing instruction. Contract 1.5.0 had never run in
+production, so the values are recorded in the 1.5.0 configuration itself rather than a new contract version.
+
 
 ## Verified from Monday evidence (no business judgement involved)
 
@@ -176,6 +192,9 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
 
 ## Open decisions
 
+0. **Quality N / P and Trend materiality (OPEN after D52).** The Quality Negative threshold N, the Quality Positive threshold P
+   and each per-measure Trend material-change threshold (positive and negative quality rate, late rate, median speed) are not
+   approved. Until they are, the Quality component and every Trend label stay unclassified with `rule_not_approved`.
 1. **Resolved by the D49 management attestation (contract 1.5.0 candidate).** Mario (4), Ibrahim (9), Samra (8), Amir (10),
    Anas (5), Martin (7) and Refaat (11) are attested as Editors for their documented ranges; the three historical merges are also
    attested. The exact record is in `docs/evidence/IDENTITY-ATTESTATION-REQUEST.md`. The identity gate, distribution rerun and

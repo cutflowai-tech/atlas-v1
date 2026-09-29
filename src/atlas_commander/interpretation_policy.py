@@ -52,7 +52,8 @@ class Rule:
     status: str
     decision_id: str | None
     values: Mapping[str, Any] = field(default_factory=dict)
-    # Per-value approval, where a contract approves parts of a rule separately (Speed minimums and bands).
+    # Per-value approval, where a contract approves parts of a rule separately (Speed minimums and bands; the Quality and
+    # Trend sample floors, approved by D52 while Quality N/P and Trend materiality stay unapproved).
     value_status: Mapping[str, str] = field(default_factory=dict)
 
     @property
@@ -113,23 +114,28 @@ def _policy(contract: Mapping[str, Any]) -> InterpretationPolicy:
     speed_values = {key: speed_root.get(key) for key in SPEED_MINIMUMS} | {key: speed_component.get(key) for key in SPEED_BANDS}
     speed_status = {key: str(speed_root.get(f"{key}_status")) for key in SPEED_MINIMUMS} | {key: str(speed_component.get("band_status")) for key in SPEED_BANDS}
     speed_all_approved = all(value == APPROVED for value in speed_status.values())
+    quality_status = {key: str(quality.get(f"{key}_status", quality.get("threshold_status"))) for key in QUALITY_VALUES}
+    quality_status.update({key: str(quality.get("threshold_status")) for key in ("negative_rate_threshold", "positive_rate_threshold")})
+    trend_status = {"minimum_sample_size": str(trend.get("minimum_sample_size_status", trend.get("threshold_status"))),
+                    "material_change_thresholds": str(trend.get("threshold_status"))}
+    whole = lambda statuses: APPROVED if all(value == APPROVED for value in statuses.values()) else RULE_NOT_APPROVED
     return InterpretationPolicy(
         window_days=int(_section(windows.get("current_window"))["completed_days"]),
         comparison_days=int(_section(windows.get("comparison_window"))["completed_days"]),
         timezone=str(windows["timezone"]),
         window_rule_version=str(windows.get("rule_version") or versions["windowing"]),
         minimum_classifiable_components=int(overall["minimum_classifiable_components"]),
-        quality=Rule("quality", versions.get("quality_component"), str(quality.get("threshold_status")), quality.get("decision_id"),
-                     {key: quality.get(key) for key in QUALITY_VALUES}),
+        quality=Rule("quality", versions.get("quality_component"), whole(quality_status), quality.get("decision_id"),
+                     {key: quality.get(key) for key in QUALITY_VALUES}, quality_status),
         speed=Rule("speed", versions.get("speed_component"), APPROVED if speed_all_approved else RULE_NOT_APPROVED,
                    speed_component.get("decision_id"), speed_values, speed_status),
         deadline=Rule("deadline", versions.get("deadline_component"), str(deadline_component.get("threshold_status")),
                       deadline_component.get("decision_id"), {key: deadline_component.get(key) for key in DEADLINE_VALUES}),
         overall=Rule("overall", versions.get("overall_status"), str(overall.get("threshold_status")), overall.get("decision_id"),
                      {"lookup_table": overall.get("lookup_table")}),
-        trend=Rule("trend", versions.get("trend"), str(trend.get("threshold_status")), trend.get("decision_id"),
+        trend=Rule("trend", versions.get("trend"), whole(trend_status), trend.get("decision_id"),
                    {"minimum_sample_size": trend.get("minimum_sample_size"),
-                    "material_change_thresholds": trend.get("material_change_thresholds")}),
+                    "material_change_thresholds": trend.get("material_change_thresholds")}, trend_status),
         trend_directions=dict(_section(trend.get("directions"))),
         rule_versions=dict(versions),
     )
@@ -194,7 +200,8 @@ def policy_errors(contract: Mapping[str, Any]) -> list[str]:
         "overall": overall_section.get("threshold_status"),
         "trend": trend_section.get("threshold_status"),
     }
-    statuses.update({f"speed.{key}": value for key, value in policy.speed.value_status.items()})
+    for rule in (policy.speed, policy.quality, policy.trend):
+        statuses.update({f"{rule.name}.{key}": value for key, value in rule.value_status.items()})
     errors += [f"{name} status {value!r} is not one of {sorted(RULE_STATUSES)}" for name, value in statuses.items() if value not in RULE_STATUSES]
     for rule in (policy.quality, policy.speed, policy.deadline, policy.overall, policy.trend):
         approved_parts = [key for key in rule.values if rule.value_status.get(key, rule.status) == APPROVED]
@@ -211,13 +218,12 @@ def policy_errors(contract: Mapping[str, Any]) -> list[str]:
 
 def _approved_value_errors(policy: InterpretationPolicy) -> list[str]:
     errors: list[str] = []
-    if policy.quality.status == APPROVED:
-        values = policy.quality.values
-        if not _positive_int(values["minimum_project_sample_size"]):
-            errors.append("approved quality.minimum_project_sample_size must be a positive integer")
-        for key in ("negative_rate_threshold", "positive_rate_threshold"):
-            if not (_number(values[key]) and 0 <= values[key] <= 1):
-                errors.append(f"approved quality.{key} must be a rate between 0 and 1")
+    values = policy.quality.values
+    if policy.quality.value_status["minimum_project_sample_size"] == APPROVED and not _positive_int(values["minimum_project_sample_size"]):
+        errors.append("approved quality.minimum_project_sample_size must be a positive integer")
+    for key in ("negative_rate_threshold", "positive_rate_threshold"):
+        if policy.quality.value_status[key] == APPROVED and not (_number(values[key]) and 0 <= values[key] <= 1):
+            errors.append(f"approved quality.{key} must be a rate between 0 and 1")
     for key in SPEED_MINIMUMS:
         if policy.speed.value_status[key] == APPROVED and not _positive_int(policy.speed.values[key]):
             errors.append(f"approved speed.{key} must be a positive integer")
@@ -238,13 +244,13 @@ def _approved_value_errors(policy: InterpretationPolicy) -> list[str]:
             errors.append("approved overall_status.lookup_table must map every quality|speed|deadline state combination exactly once")
         elif any(value not in (*OVERALL_LABELS, NOT_ENOUGH_EVIDENCE) for value in table.values()):
             errors.append(f"approved overall_status.lookup_table values must be one of {[*OVERALL_LABELS, NOT_ENOUGH_EVIDENCE]} (D37)")
-    if policy.trend.status == APPROVED:
-        values = policy.trend.values
-        if not _positive_int(values["minimum_sample_size"]):
-            errors.append("approved trend.minimum_sample_size must be a positive integer")
+    values = policy.trend.values
+    if policy.trend.value_status["minimum_sample_size"] == APPROVED and not _positive_int(values["minimum_sample_size"]):
+        errors.append("approved trend.minimum_sample_size must be a positive integer")
+    if policy.trend.value_status["material_change_thresholds"] == APPROVED:
         thresholds = values["material_change_thresholds"]
         if not all(_number(thresholds.get(name)) and thresholds[name] >= 0 for name in TREND_DIRECTIONS):
             errors.append("approved trend.material_change_thresholds must give a non-negative threshold for every measurement")
-    elif any(value is not None for value in _section(policy.trend.values["material_change_thresholds"]).values()):
-        errors.append("trend.material_change_thresholds has values but the trend rule is not approved (D25)")
+    elif any(value is not None for value in _section(values["material_change_thresholds"]).values()):
+        errors.append("trend.material_change_thresholds has values but materiality is not approved (D25)")
     return errors
