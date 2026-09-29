@@ -155,9 +155,19 @@ def _safe_child(root: Path, path: Path) -> bool:
         return False
 
 
-def _remove(root: Path, path: Path) -> None:
+def _identity(path: Path) -> tuple[int, int] | None:
+    try:
+        value = path.stat(follow_symlinks=False)
+        return value.st_dev, value.st_ino
+    except OSError:
+        return None
+
+
+def _remove(root: Path, path: Path, expected: tuple[int, int] | None) -> None:
     if not _safe_child(root, path) or path.is_symlink():
         raise OSError("unsafe retention target")
+    if expected is None:
+        raise OSError("missing retention target identity")
     root_before = os.stat(root, follow_symlinks=False)
     root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     candidate_fd: int | None = None
@@ -168,6 +178,8 @@ def _remove(root: Path, path: Path) -> None:
             raise OSError("retention root changed during deletion")
         candidate_fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root_fd)
         candidate = os.fstat(candidate_fd)
+        if expected != (candidate.st_dev, candidate.st_ino):
+            raise OSError("retention target changed since validation")
         staged = f".atlas-retention-{os.getpid()}-{secrets.token_hex(12)}"
         os.rename(path.name, staged, src_dir_fd=root_fd, dst_dir_fd=root_fd)
         staged_stat = os.stat(staged, dir_fd=root_fd, follow_symlinks=False)
@@ -439,6 +451,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     retained_history_attempts: set[str] = set()
     for path, doc in histories:
         size, unsafe = _tree_size(path)
+        identity = _identity(path)
         if unsafe:
             _record(report, "publication_history", path, "retained", "unknown_or_unsafe", size)
         elif ambiguous:
@@ -455,7 +468,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
             _record(report, "publication_history", path, "would_delete", "expired", size)
         else:
             try:
-                _remove(history_root, path); _record(report, "publication_history", path, "deleted", "expired", size)
+                _remove(history_root, path, identity)
+                _record(report, "publication_history", path, "deleted", "expired", size)
             except OSError:
                 _record(report, "publication_history", path, "retained", "delete_failed", size); report.status = "partial"
                 if doc.get("switched") is True and isinstance(doc.get("attempt_id"), str):
@@ -480,8 +494,11 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                     source_id, source_valid = _source(path, raw_root)
                     if source_valid and source_id:
                         preserved_sources.add(source_id)
+                    else:
+                        raw_ambiguous = True
                 continue
             size, unsafe = _tree_size(path)
+            identity = _identity(path)
             terminal, source_id, terminal_state = _valid_build(path, raw_root, attempt_documents.get(path.name))
             if terminal and terminal_state == "complete" and source_id is None:
                 raw_ambiguous = True
@@ -506,7 +523,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                     _record(report, "build", path, "would_delete", "expired", size)
                 else:
                     try:
-                        _remove(build_root, path); _record(report, "build", path, "deleted", "expired", size)
+                        _remove(build_root, path, identity)
+                        _record(report, "build", path, "deleted", "expired", size)
                     except OSError:
                         _record(report, "build", path, "retained", "delete_failed", size); report.status = "partial"
                         if source_id: preserved_sources.add(source_id)
@@ -514,6 +532,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     if attempts_root.is_dir() and not attempts_root.is_symlink():
         for path in attempt_paths:
             size, unsafe = _tree_size(path)
+            identity = _identity(path)
             match = path.suffix == ".json" and RUN_ID_PATTERN.match(path.stem)
             doc, valid = _valid_attempt(path, raw_root) if match and not path.is_symlink() else (None, False)
             if not match or unsafe or not valid or doc is None:
@@ -535,7 +554,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 _record(report, "attempt_record", path, "would_delete", "expired", size)
             else:
                 try:
-                    _remove(attempts_root, path); _record(report, "attempt_record", path, "deleted", "expired", size)
+                    _remove(attempts_root, path, identity)
+                    _record(report, "attempt_record", path, "deleted", "expired", size)
                 except OSError:
                     _record(report, "attempt_record", path, "retained", "delete_failed", size); report.status = "partial"
                     source_id = doc.get("source_run_id")
@@ -544,6 +564,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     if raw_root.is_dir():
         for path in raw_paths:
             size, unsafe = _tree_size(path)
+            identity = _identity(path)
             valid_raw, raw_state = raw_validation[path]
             if RUN_ID_PATTERN.match(path.name) is None or path.is_symlink() or not path.is_dir() or unsafe:
                 _record(report, "raw_run", path, "retained", "unknown_or_unsafe", size)
@@ -557,7 +578,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 _record(report, "raw_run", path, "would_delete", "expired", size)
             else:
                 try:
-                    _remove(raw_root, path); _record(report, "raw_run", path, "deleted", "expired", size)
+                    _remove(raw_root, path, identity)
+                    _record(report, "raw_run", path, "deleted", "expired", size)
                 except OSError:
                     _record(report, "raw_run", path, "retained", "delete_failed", size); report.status = "partial"
 
@@ -581,6 +603,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
             old = _old_id(cycle_id, cutoff)
             for path in paths:
                 size, unsafe = _tree_size(path)
+                identity = _identity(path)
                 if unsafe or not safe:
                     _record(report, "scheduled_cycle", path, "retained", "corrupt_reference", size)
                 elif not terminal:
@@ -591,7 +614,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                     _record(report, "scheduled_cycle", path, "would_delete", "expired", size)
                 else:
                     try:
-                        _remove(cycle_root, path); _record(report, "scheduled_cycle", path, "deleted", "expired", size)
+                        _remove(cycle_root, path, identity)
+                        _record(report, "scheduled_cycle", path, "deleted", "expired", size)
                     except OSError:
                         _record(report, "scheduled_cycle", path, "retained", "delete_failed", size); report.status = "partial"
     elif cycle_root and (cycle_root.exists() or cycle_root.is_symlink()):

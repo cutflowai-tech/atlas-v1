@@ -401,9 +401,50 @@ class RetentionTests(unittest.TestCase):
 
         with (mock.patch.object(retention.os, "rename", side_effect=swap_then_rename),
               self.assertRaisesRegex(OSError, "changed during deletion")):
-            retention._remove(root, target)
+            retention._remove(root, target, retention._identity(target))
         self.assertTrue((target / "replacement").exists())
         self.assertTrue((moved / "original").exists())
+
+    def test_delete_swap_before_open_never_removes_replacement_object(self):
+        root = self.data / "delete-early-race"
+        root.mkdir()
+        target = root / "target"
+        target.mkdir()
+        (target / "original").write_text("keep")
+        expected = retention._identity(target)
+        moved = root / "moved-original"
+        real_safe_child = retention._safe_child
+        swapped = False
+
+        def validate_then_swap(parent, candidate):
+            nonlocal swapped
+            valid = real_safe_child(parent, candidate)
+            if valid and not swapped:
+                swapped = True
+                target.rename(moved)
+                target.mkdir()
+                (target / "replacement").write_text("must survive")
+            return valid
+
+        with (mock.patch.object(retention, "_safe_child", side_effect=validate_then_swap),
+              self.assertRaisesRegex(OSError, "changed since validation")):
+            retention._remove(root, target, expected)
+        self.assertTrue((target / "replacement").exists())
+        self.assertTrue((moved / "original").exists())
+
+    def test_unknown_build_with_invalid_source_blocks_raw_deletion(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        unknown = self.config.build_dir / "legacy-build"
+        build.rename(unknown)
+        record.unlink()
+        (unknown / "build.json").write_text(json.dumps({
+            "source": {"run_id": raw.name, "raw_run_dir": "/outside/raw"},
+        }))
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(unknown.exists())
+        self.assertTrue(raw.exists())
 
     def test_report_parent_swap_cannot_write_outside_opened_directory(self):
         directory = self.config.lock_dir / "retention"
