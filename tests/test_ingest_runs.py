@@ -170,7 +170,8 @@ class IngestRunTests(unittest.TestCase):
         record = json.loads((run / "FAILED.json").read_text())
         self.assertEqual((record["status"], record["failure"]["category"], record["failure"]["stage"], record["raw_files"]),
                          ("failed", "authentication", "columns", []))
-        self.assertEqual(caught.exception.atlas_failure_record, run / "FAILED.json")
+        # macOS exposes /var as a symlink to /private/var; compare canonical paths.
+        self.assertEqual(caught.exception.atlas_failure_record.resolve(), (run / "FAILED.json").resolve())
         self.assertEqual(verify(run)["status"], "failed")
 
     def test_11_failure_after_partial_evidence_keeps_it(self):
