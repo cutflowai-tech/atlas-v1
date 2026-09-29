@@ -1,4 +1,4 @@
-.PHONY: demo doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-container-docker production-deploy json test runtime-health
+.PHONY: demo doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts retention production-container production-container-docker production-deploy json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -90,6 +90,9 @@ scheduled-run:
 alerts:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_alerts.py' -v
 
+retention:
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_retention.py' -v
+
 production-container:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_production_container.py' -v
 
@@ -105,7 +108,7 @@ ingest:
 json:
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
-test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts production-container production-deploy json
+test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality contract-v13 deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n sync-status scheduled-run alerts retention production-container production-deploy json
 
 runtime-health:
 	./scripts/runtime-health

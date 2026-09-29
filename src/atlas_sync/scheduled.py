@@ -19,7 +19,7 @@ from typing import Any
 from atlas_commander.ingest import RUN_ID_PATTERN, Clock, new_run_id, utc_now
 from atlas_monday_probe.raw_store import write_immutable_atomic
 
-from . import alerts
+from . import alerts, retention
 from . import publish as publication
 from . import run as sync
 from . import status as operational_status
@@ -75,6 +75,9 @@ class ScheduledResult:
     outcome_record: str | None = None
     cycle_record: str | None = None
     lock: dict[str, Any] | None = None
+    retention_status: str | None = None
+    retention_deleted_count: int = 0
+    retention_deleted_bytes: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -194,6 +197,17 @@ def _complete(result: ScheduledResult, config: SyncConfig, clock: Clock, *, eval
             result.active_alert_types = tuple(sorted(str(item["kind"]) for item in update.active_incidents))
         except Exception:  # noqa: BLE001 - category only; never persist exception text
             result.status, result.failure_stage, result.failure_category = ALERT_STATE_FAILED, "alerts", "alert_state_failed"
+    # Retention runs only after publication, status, durable outcome and alert
+    # update. Its failure is evidence in the final cycle record, never a
+    # publication failure.
+    if result.status == PUBLISHED and snapshot is not None:
+        try:
+            cleanup = retention._cleanup_locked(config=config, clock=clock)
+            result.retention_status = cleanup.status
+            result.retention_deleted_count = cleanup.deleted_count
+            result.retention_deleted_bytes = cleanup.deleted_bytes
+        except Exception:  # noqa: BLE001 - publication remains successful
+            result.retention_status = "failed"
     try:
         result.cycle_record = str(_record_final(config, result))
     except Exception:  # noqa: BLE001 - outcome remains durable and restart-safe

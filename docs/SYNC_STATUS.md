@@ -32,6 +32,11 @@ dashboard with a degraded system or delayed/stale data; `2` means failed/unknown
 system state. Consumers must inspect `live_usable` separately. Status never uses
 lock code 75.
 
+When `locks/retention/latest.json` is a clean, recognized retention report, runtime JSON also
+exposes its cutoff and retained byte/count aggregates under `retention`. Missing, partial,
+blocked, corrupt, or unknown-version retention state is omitted rather than presented as
+trustworthy storage accounting. Status remains read-only and never runs cleanup.
+
 The model also supports a read-only `build_time_snapshot(...)` from explicit
 verified attempt/source/config fields and earlier immutable attempt records. It has the identical shape with
 `snapshot_scope=build_time`; runtime CLI snapshots use `snapshot_scope=runtime`.

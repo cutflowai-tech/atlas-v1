@@ -31,6 +31,7 @@ import sys
 
 from . import publish as publication
 from . import status as operational_status
+from .retention import cleanup as retention_cleanup
 from .run import exit_code, run_once, summary
 from .scheduled import exit_code as scheduled_exit_code
 from .scheduled import scheduled_run
@@ -52,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--json", action="store_true", help="print the structured status snapshot")
     scheduled = sub.add_parser("scheduled-run", help="run one sync and publish that exact completed attempt atomically")
     scheduled.add_argument("--json", action="store_true", help="print the safe scheduled-cycle result")
+    retain = sub.add_parser("retention", help="remove expired Atlas evidence under the production lock")
+    retain.add_argument("--dry-run", action="store_true", help="report eligible objects without deleting or writing state")
+    retain.add_argument("--json", action="store_true", help="print the structured retention report")
     args = parser.parse_args(argv)
     if args.command == "run-once":
         result = run_once()
@@ -65,6 +69,12 @@ def main(argv: list[str] | None = None) -> int:
         scheduled_result = scheduled_run()
         print(json.dumps(scheduled_result.as_dict(), indent=1) if args.json else scheduled_summary(scheduled_result))
         return scheduled_exit_code(scheduled_result)
+    if args.command == "retention":
+        report = retention_cleanup(dry_run=args.dry_run)
+        print(json.dumps(report.as_dict(), indent=1) if args.json else
+              f"RETENTION {report.status.upper()}: deleted {report.deleted_count} objects / {report.deleted_bytes} bytes; "
+              f"would delete {report.would_delete_count} objects / {report.would_delete_bytes} bytes")
+        return 0 if report.status == "complete" else (75 if report.status == "locked" else 2)
     outcome = publication.publish(args.attempt_id) if args.command == "publish" else publication.rollback(args.attempt_id)
     print(json.dumps(outcome.as_dict(), indent=1) if args.json else publication.summary(outcome))
     return publication.exit_code(outcome)
