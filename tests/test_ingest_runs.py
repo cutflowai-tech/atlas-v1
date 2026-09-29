@@ -280,6 +280,40 @@ class IngestRunTests(unittest.TestCase):
         self.assertTrue(verify(legacy)["passed"], verify(legacy)["failures"])           # older manifests still verify as before...
         self.assertFalse(verify(legacy, require_production=True)["passed"])            # ...but never as production runs
 
+    def test_15b_unreadable_or_malformed_evidence_is_a_failed_report_not_an_exception(self):
+        def fresh():
+            root = outside_git()
+            manifest = ing.ingest_run(ReadOnlyMondayClient(FakeMonday(logs(), items())), mf.BOARD, COLUMNS, HISTORY, root, clock=Clock())
+            return root / manifest["run"]["run_id"]
+
+        def replace(path, data):
+            path.chmod(0o644)
+            path.write_bytes(data)
+
+        for name, target, data in (("manifest not JSON", "manifest.json", b"{not json"),
+                                   ("manifest not an object", "manifest.json", b"[]"),
+                                   ("manifest without raw files", "manifest.json", b"{}"),
+                                   ("extract not JSON", "extract.json", b"\x00\x01")):
+            run = fresh()
+            replace(run / target, data)
+            report = verify(run, require_production=True)
+            with self.subTest(name):
+                self.assertFalse(report["passed"])
+                self.assertTrue(report["failures"])
+        run = fresh()
+        replace(run / "manifest.json", b"{not json")
+        self.assertEqual(verify(run)["status"], "unreadable")
+
+    def test_15c_manifest_cannot_name_files_outside_the_run(self):
+        run = self.root / self.run_once()["run"]["run_id"]
+        manifest = json.loads((run / "manifest.json").read_text())
+        manifest["raw_files"].append({"name": "../outside.json", "sha256": "0" * 64, "size_bytes": 1})
+        (run / "manifest.json").chmod(0o644)
+        (run / "manifest.json").write_text(json.dumps(manifest))
+        report = verify(run)
+        self.assertFalse(report["passed"])
+        self.assertTrue(any("not a plain file name" in failure for failure in report["failures"]), report["failures"])
+
     # 16–18 — existing protections under the production entry point
     def test_16_to_18_split_boundary_and_complete_history_protections_hold(self):
         boundary_log = mf.status("s-boundary", "1", "2026-09-01T00:00:00Z", "Ready For Approval", "Sent")

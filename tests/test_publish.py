@@ -180,6 +180,26 @@ class PublishTests(unittest.TestCase):
         self.assert_rejected(result, "raw_evidence_invalid", None)
         self.assertTrue(any("SHA-256 mismatch" in problem for problem in result.problems))
 
+    def test_9b_unreadable_raw_manifest_is_rejected_not_raised(self):
+        attempt = self.stage()
+        manifest = Path(attempt.raw_run_dir) / "manifest.json"
+        manifest.chmod(0o644)
+        manifest.write_bytes(b"{not json")
+        result = self.publish(attempt.attempt_id)
+        self.assert_rejected(result, "raw_evidence_invalid", None)
+        self.assertEqual(pub.exit_code(result), pub.EXIT_REJECTED)
+
+    def test_9c_status_reports_a_live_build_whose_raw_manifest_became_unreadable(self):
+        from atlas_sync import status as st
+
+        attempt = self.stage()
+        self.assert_published(self.publish(attempt.attempt_id), attempt)
+        manifest = Path(attempt.raw_run_dir) / "manifest.json"
+        manifest.chmod(0o644)
+        manifest.write_bytes(b"{not json")
+        snapshot = st.evaluate_status(self.env, clock=lambda: T0 + timedelta(days=30))
+        self.assertEqual((snapshot.system_state, snapshot.live_usable, snapshot.failure_categories), ("failed", False, ["raw_evidence_invalid"]))
+
     # 10, 11 — contract and board
     def test_10_wrong_contract_cannot_publish(self):
         attempt = self.stage()

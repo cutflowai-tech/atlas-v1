@@ -121,6 +121,16 @@ def _production_failures(raw_dir: Path, manifest: dict[str, Any], extract: dict[
 
 
 def verify(raw_dir: Path, *, require_production: bool = False) -> dict[str, Any]:
+    """The verification report for ``raw_dir``. Never raises for bad evidence: a manifest or extract that cannot
+    be read or does not have the expected shape is a failed report (status ``unreadable``), like any other failure."""
+    try:
+        return _verify(raw_dir, require_production=require_production)
+    except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
+        return {"raw_dir": str(raw_dir), "passed": False, "status": "unreadable", "run_id": None,
+                "failures": [f"run evidence is unreadable or malformed ({type(error).__name__}); it must never be used as build input"]}
+
+
+def _verify(raw_dir: Path, *, require_production: bool) -> dict[str, Any]:
     failures: list[str] = []
     if (raw_dir / FAILURE_NAME).exists():
         failures.append(f"run is marked failed ({FAILURE_NAME} present); it must never be used as build input")
@@ -133,7 +143,11 @@ def verify(raw_dir: Path, *, require_production: bool = False) -> dict[str, Any]
     manifest = json.loads((raw_dir / MANIFEST_NAME).read_text())
 
     for record in [*manifest["raw_files"], manifest["extract"]]:
-        path = raw_dir / record["name"]
+        name = record["name"]
+        if not isinstance(name, str) or Path(name).name != name or name in {".", ".."}:
+            failures.append(f"raw file name {name!r} is not a plain file name inside the run")
+            continue
+        path = raw_dir / name
         if not path.exists():
             failures.append(f"missing raw file {record['name']}")
         elif sha256_file(path) != record["sha256"]:
