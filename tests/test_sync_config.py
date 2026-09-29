@@ -63,6 +63,7 @@ class SyncConfigTests(unittest.TestCase):
                          (self.data / "raw/monday", self.data / "builds", self.data / "published"))
         self.assertEqual((config.history_start, config.sync_interval_seconds, config.stale_after_seconds, config.max_consecutive_failures),
                          ("2026-02-01T00:00:00Z", 3600, 7200, 3))
+        self.assertEqual(config.retention_hours, 96)
         self.assertEqual(config.contract()["source_board"]["board_id"], config.board_id)
 
     def test_missing_data_directories_fail_clearly(self):
@@ -172,6 +173,7 @@ class SyncConfigTests(unittest.TestCase):
         self.assertIn("between 300", self.problems(ATLAS_SYNC_INTERVAL_SECONDS="60"))
         self.assertIn("must be greater than", self.problems(ATLAS_STALE_AFTER_SECONDS="3600"))
         self.assertIn("between 1", self.problems(ATLAS_MAX_CONSECUTIVE_FAILURES="0"))
+        self.assertIn("between 1", self.problems(ATLAS_RETENTION_HOURS="0"))
 
     def test_every_problem_is_reported_at_once(self):
         with self.assertRaises(ConfigError) as caught:

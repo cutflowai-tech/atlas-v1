@@ -75,6 +75,7 @@ class ScheduledResult:
     outcome_record: str | None = None
     cycle_record: str | None = None
     lock: dict[str, Any] | None = None
+    retention: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -171,6 +172,7 @@ def _evaluate_status(result: ScheduledResult, config: SyncConfig, clock: Clock) 
 
 
 def _complete(result: ScheduledResult, config: SyncConfig, clock: Clock, *, evaluate: bool = True) -> ScheduledResult:
+    published_successfully = result.status == PUBLISHED
     result.resulting_live_attempt = _actual_live(config)
     snapshot = _evaluate_status(result, config, clock) if evaluate else None
     result.completed_at = _iso(clock())
@@ -194,6 +196,13 @@ def _complete(result: ScheduledResult, config: SyncConfig, clock: Clock, *, eval
             result.active_alert_types = tuple(sorted(str(item["kind"]) for item in update.active_incidents))
         except Exception:  # noqa: BLE001 - category only; never persist exception text
             result.status, result.failure_stage, result.failure_category = ALERT_STATE_FAILED, "alerts", "alert_state_failed"
+    if published_successfully and snapshot is not None:
+        try:
+            from .retention import _cleanup_locked
+
+            result.retention = _cleanup_locked(config, dry_run=False, clock=clock).as_dict()
+        except Exception:  # noqa: BLE001 - publication remains valid; report a safe cleanup-only failure
+            result.retention = {"status": "failed", "failures": ["retention_failed"]}
     try:
         result.cycle_record = str(_record_final(config, result))
     except Exception:  # noqa: BLE001 - outcome remains durable and restart-safe
@@ -289,6 +298,7 @@ def summary(result: ScheduledResult) -> str:
              f"  live attempt:  {result.resulting_live_attempt or 'none'}",
              f"  final status:  {result.final_system_state or 'unknown'} / {result.final_freshness_state or 'unknown'}",
              f"  active alerts: {', '.join(result.active_alert_types) or 'none'}",
+             f"  retention:     {(result.retention or {}).get('status', 'not run')}",
              f"  cycle record:  {result.cycle_record or 'not written'}"]
     if result.failure_category:
         lines.append(f"  failure:       {result.failure_stage} [{result.failure_category}]")

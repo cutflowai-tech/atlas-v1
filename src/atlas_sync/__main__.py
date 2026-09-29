@@ -5,6 +5,7 @@
     PYTHONPATH=src python3 -m atlas_sync rollback [<attempt_id>] [--json]
     PYTHONPATH=src python3 -m atlas_sync status [--json]
     PYTHONPATH=src python3 -m atlas_sync scheduled-run [--json]
+    PYTHONPATH=src python3 -m atlas_sync retention [--apply] [--json]
 
 ``run-once`` performs one sync attempt (see :mod:`atlas_sync.run`) and stages a build; it never publishes.
 Exit status: 0 only for a verified, validated, completed staged build; 2 configuration or Monday access;
@@ -31,6 +32,9 @@ import sys
 
 from . import publish as publication
 from . import status as operational_status
+from .retention import cleanup as retention_cleanup
+from .retention import exit_code as retention_exit_code
+from .retention import summary as retention_summary
 from .run import exit_code, run_once, summary
 from .scheduled import exit_code as scheduled_exit_code
 from .scheduled import scheduled_run
@@ -52,6 +56,9 @@ def main(argv: list[str] | None = None) -> int:
     state.add_argument("--json", action="store_true", help="print the structured status snapshot")
     scheduled = sub.add_parser("scheduled-run", help="run one sync and publish that exact completed attempt atomically")
     scheduled.add_argument("--json", action="store_true", help="print the safe scheduled-cycle result")
+    retention = sub.add_parser("retention", help="inspect bounded retention, or safely apply it under the production lock")
+    retention.add_argument("--apply", action="store_true", help="delete eligible Atlas-owned evidence; default is dry-run")
+    retention.add_argument("--json", action="store_true", help="print counts, bytes, and protection reasons as JSON")
     args = parser.parse_args(argv)
     if args.command == "run-once":
         result = run_once()
@@ -65,6 +72,10 @@ def main(argv: list[str] | None = None) -> int:
         scheduled_result = scheduled_run()
         print(json.dumps(scheduled_result.as_dict(), indent=1) if args.json else scheduled_summary(scheduled_result))
         return scheduled_exit_code(scheduled_result)
+    if args.command == "retention":
+        report = retention_cleanup(dry_run=not args.apply)
+        print(json.dumps(report.as_dict(), indent=1) if args.json else retention_summary(report))
+        return retention_exit_code(report)
     outcome = publication.publish(args.attempt_id) if args.command == "publish" else publication.rollback(args.attempt_id)
     print(json.dumps(outcome.as_dict(), indent=1) if args.json else publication.summary(outcome))
     return publication.exit_code(outcome)

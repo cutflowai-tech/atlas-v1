@@ -41,3 +41,9 @@ published, a build-time snapshot always reports system state `unknown` and
 freshness thresholds and in-progress attempt. The static page labels this scope
 explicitly, while `atlas_sync status` remains authoritative for current runtime
 and publication state.
+
+Runtime status also performs the retention engine's read-only inventory. `storage.status=clean`
+exposes per-kind counts/bytes and currently eligible counts with the configured retention hours.
+If an unknown, corrupt, ambiguous, or unsafe filesystem object prevents a clean inventory, status
+exposes only `storage.status=attention_required` and the retention hours; it neither guesses counts
+nor writes or deletes anything. Build-time snapshots use `storage.status=unknown`.

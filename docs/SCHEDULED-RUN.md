@@ -30,6 +30,31 @@ After the run/publish outcome, Atlas evaluates the existing Task 7 runtime statu
 that same snapshot to update operational alert state. No second health implementation and
 no Monday request are used for this step.
 
+After an exact attempt is published and status evaluation succeeds, the same locked cycle applies
+bounded retention. The default `ATLAS_RETENTION_HOURS=96` boundary is inclusive: an object is
+age-eligible at exactly 96 hours. Cleanup failure is reported in the cycle's `retention` result but
+never changes or rolls back the successful publication. Failed sync, rejected/inconsistent publish,
+failed status evaluation, and lock-contention cycles do not clean anything.
+
+Retention deletes only strictly named Atlas-owned raw runs, terminal builds/attempt records,
+publication-history records, and terminal scheduled-cycle groups. It preserves the live attempt,
+every explicitly rollback-authorized published attempt, the default rollback target, all of their
+source runs, within-window evidence, active/incomplete evidence, and anything corrupt, ambiguous,
+unknown, symlinked, or outside its configured root. References are retained transitively. Duplicate
+old publication records may be removed, but one successful authorization record remains for every
+distinct attempt accepted by explicit rollback.
+Age is derived from the UTC timestamp embedded in the immutable Atlas run, attempt, publication,
+or cycle ID—not mutable filesystem timestamps.
+
+Operators can inspect the identical decision engine without deleting anything:
+
+```text
+PYTHONPATH=src python3 -m atlas_sync retention --json
+```
+
+`--apply` performs cleanup under the shared production lock. The JSON report contains deterministic
+per-kind object/byte totals, eligible/deleted totals, protection reasons, and safe failure categories.
+
 ## Persisted operational state
 
 The already validated `ATLAS_LOCK_DIR` (normally `<ATLAS_DATA_DIR>/locks`) is also the safe
@@ -47,7 +72,7 @@ outcome before alert mutation prevents alert state from getting ahead of cycle h
 
 Cycle records contain version, monotonic sequence, IDs/times, exact run and publication
 outcomes, previous/resulting live attempts, final Task 7 system/freshness state, safe failure
-categories, scheduled-failure count, and active alert types. They contain no token, request
+categories, scheduled-failure count, active alert types, and the retention report when cleanup ran. They contain no token, request
 header, raw exception text, or raw exception type. The persisted records reconstruct counters
 and incidents after a process or container restart.
 

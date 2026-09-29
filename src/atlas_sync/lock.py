@@ -39,7 +39,7 @@ from .config import SyncConfig
 
 LOCK_FILE_NAME = "production.lock"
 LOCK_VERSION = "atlas-lock-v1"
-OPERATIONS = ("run-once", "publish", "rollback", "scheduled-run")
+OPERATIONS = ("run-once", "publish", "rollback", "scheduled-run", "retention")
 # One exit code for lock contention across every production operation (EX_TEMPFAIL: try again later).
 EXIT_LOCKED = 75
 LOCKED_CATEGORY = "operation_locked"

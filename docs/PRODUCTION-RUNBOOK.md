@@ -1,7 +1,8 @@
 # Waset Atlas production runbook
 
 This runbook installs the Task 9 systemd wrapper around the existing Task 8 one-cycle command. It
-does not change Atlas analytics, schedule retries, deliver alerts, or delete retained evidence.
+does not change Atlas analytics, schedule retries, or deliver alerts. Successful scheduled cycles
+apply the conservative bounded-retention policy documented below.
 Monday remains read-only and authoritative. The Task 6 production-operation lock remains the sole
 authority for overlap between scheduled runs, manual sync, publish, and rollback.
 
@@ -49,7 +50,7 @@ Compose YAML, shell history, tickets, or journals. The container sees the secret
 
 `atlas.env` is the single deployment configuration source for image digests, host data/token paths,
 UID/GID, local HTTP bind, API version, board and contract versions, history start, hourly interval,
-stale threshold, maximum consecutive failures, and maximum cycle duration. Inside the container,
+stale threshold, maximum consecutive failures, maximum cycle duration, and retention hours. Inside the container,
 `ATLAS_DATA_DIR=/var/lib/waset-atlas` is fixed deliberately. The application's existing configuration
 derives `raw/monday`, `builds`, `published`, `locks`, `locks/alerts`, and
 `locks/scheduled-cycles` from that root; do not duplicate or override those directories separately.
@@ -60,13 +61,13 @@ The host directory `/var/lib/waset-atlas` is mounted at the identical absolute p
 
 ```text
 /var/lib/waset-atlas/
-  raw/monday/                  immutable Monday evidence
-  builds/                      staged immutable builds and attempt records
+  raw/monday/                  immutable Monday evidence within bounded retention
+  builds/                      staged immutable builds and attempt records within bounded retention
   published/current           authoritative live relative symlink
   published/CURRENT.json      operational metadata, not the live pointer
-  published/history/          immutable publication history
+  published/history/          immutable records, conservatively bounded by retention
   locks/production.lock       Task 6 shared operation lock
-  locks/scheduled-cycles/      immutable scheduled-cycle journal
+  locks/scheduled-cycles/      immutable scheduled-cycle journal within bounded retention
   locks/alerts/state.json      atomically replaced alert lifecycle state
 ```
 
@@ -166,6 +167,7 @@ sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-dir
 sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-directory /opt/waset-atlas/current -f /opt/waset-atlas/current/deploy/production/compose.yaml run --rm --no-deps atlas-runtime run-once --json
 sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-directory /opt/waset-atlas/current -f /opt/waset-atlas/current/deploy/production/compose.yaml run --rm --no-deps atlas-runtime publish ATTEMPT_ID --json
 sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-directory /opt/waset-atlas/current -f /opt/waset-atlas/current/deploy/production/compose.yaml run --rm --no-deps atlas-runtime rollback --json
+sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-directory /opt/waset-atlas/current -f /opt/waset-atlas/current/deploy/production/compose.yaml run --rm --no-deps atlas-runtime retention --json
 ```
 
 Never edit `current`, `CURRENT.json`, publication history, build markers, scheduled-cycle records,
@@ -173,7 +175,8 @@ or alert state manually. Never publish “the newest” directory without an exp
 
 Normal production is `timer -> scheduled-run`, which syncs, validates, and atomically publishes one
 exact attempt. `run-once` is manual staging only. `publish ATTEMPT_ID` is a separate explicit switch,
-and `rollback [ATTEMPT_ID]` is an explicit operator recovery action.
+and `rollback [ATTEMPT_ID]` is an explicit operator recovery action. `retention --json` is dry-run;
+add `--apply` only for an intentional locked cleanup outside the normal post-success cycle.
 
 ## 7. Failure response
 
@@ -265,9 +268,13 @@ missed interval produces at most one activation, not one activation per missed h
 - Before release approval, scan the Git diff, Docker build contexts, `docker image inspect`,
   `docker history --no-trunc`, generated site, Compose config, unit files, and captured test output
   for credential patterns. Report only pass/fail and safe identifiers—never echo a discovered value.
-- Monitor `df -h /var/lib/waset-atlas`, `df -i /var/lib/waset-atlas`, and
-  `du -sh /var/lib/waset-atlas/*`. Atlas performs no retention deletion in Task 9. Never improvise
-  deletion of raw evidence, builds, publication history, scheduled cycles, or alert history.
+- Monitor `df -h /var/lib/waset-atlas`, `df -i /var/lib/waset-atlas`, `du -sh
+  /var/lib/waset-atlas/*`, and `status --json` storage visibility. Atlas defaults to a 96-hour
+  inclusive age boundary and cleans only after successful scheduled publish/status while holding
+  the production lock. Live, rollback-authorized, referenced, active/incomplete, corrupt/ambiguous,
+  unknown, symlinked, and out-of-root objects are protected. Never improvise deletion of raw evidence,
+  builds, publication history, scheduled cycles, or alert history. Use `retention --json` before any
+  exceptional `retention --apply`; investigate `attention_required` rather than deleting around it.
 - Before a backup, stop the timer and confirm the service is inactive. Back up
   `/var/lib/waset-atlas` with permissions, timestamps, and symlinks preserved. Back up
   `/etc/waset-atlas` separately into an encrypted secret store with stricter access. Restore into a

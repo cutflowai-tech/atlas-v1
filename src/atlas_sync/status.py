@@ -57,6 +57,7 @@ class StatusSnapshot:
     failure_categories: list[str] = field(default_factory=list)
     active_alert_types: list[str] = field(default_factory=list)
     alert_state_status: str = "not_applicable"
+    storage: dict[str, Any] = field(default_factory=lambda: {"status": "unknown"})
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -324,6 +325,17 @@ def _attach_alert_state(snapshot: StatusSnapshot, config: SyncConfig) -> StatusS
     return snapshot
 
 
+def _attach_storage(snapshot: StatusSnapshot, config: SyncConfig, observed_at: datetime) -> StatusSnapshot:
+    """Expose bounded counts only when the conservative read-only retention scan is clean."""
+    from .retention import storage_snapshot
+
+    try:
+        snapshot.storage = storage_snapshot(config, clock=lambda: observed_at)
+    except Exception:  # noqa: BLE001 - status remains useful; never expose filesystem exception details
+        snapshot.storage = {"status": "unavailable", "retention_hours": config.retention_hours}
+    return snapshot
+
+
 def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncConfig | None = None,
                     clock: Callable[[], datetime] = utc_now) -> StatusSnapshot:
     """Evaluate a bounded, pointer-stable runtime view without locks, network, cache, or writes."""
@@ -341,9 +353,9 @@ def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncCon
         snapshot = _evaluate_observation(cfg, now, before, records)
         after = _pointer_state(cfg)
         if before == after:
-            return _attach_alert_state(snapshot, cfg)
+            return _attach_storage(_attach_alert_state(snapshot, cfg), cfg, now)
     successes = [record for record in records if record.get("status") == "success"]
-    return _attach_alert_state(
+    return _attach_storage(_attach_alert_state(
         StatusSnapshot(_iso(now), "runtime", SYSTEM_UNKNOWN, FRESHNESS_UNKNOWN, False, None,
                        _safe_attempt(records[-1]) if records else None,
                        _safe_attempt(successes[-1]) if successes else None,
@@ -352,7 +364,7 @@ def evaluate_status(environ: Mapping[str, str] | None = None, *, config: SyncCon
                        cfg.max_consecutive_failures, [HealthCheck("current_pointer", "unknown", "concurrent_transition")],
                        ["concurrent_transition"], ["concurrent_transition"]),
         cfg,
-    )
+    ), cfg, now)
 
 
 def build_time_snapshot(*, config: SyncConfig, generated_at: str, attempt_id: str, source_run_id: str,
@@ -413,4 +425,5 @@ def summary(snapshot: StatusSnapshot) -> str:
         f"Consecutive failures: {snapshot.consecutive_failures}/{snapshot.failure_threshold or 'unknown'}",
         (f"Active alerts: {', '.join(snapshot.active_alert_types) or 'none'} "
          f"(state: {snapshot.alert_state_status})"),
+        f"Retention storage: {snapshot.storage.get('status', 'unknown')} ({snapshot.storage.get('retention_hours', 'unknown')}h)",
     ])
