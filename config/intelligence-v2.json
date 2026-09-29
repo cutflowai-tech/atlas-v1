@@ -13,10 +13,10 @@
     "approved_decision": "D53"
   },
   "publication": {
-    "include_in_site_build": false,
+    "include_in_site_build": true,
     "mode": "approved_only",
-    "decision_id": null,
-    "note": "When true, a site build also writes intelligence-v2.json (approved_only) as an optional artifact. Turning it off again needs no code change; builds with or without the file both validate and roll back."
+    "decision_id": "D53",
+    "note": "D53.15: a site build also writes intelligence-v2.json (approved_only) as an optional artifact and the pages show its Top findings in English and Arabic. Setting include_in_site_build to false needs no code change: builds with or without the file both validate, publish and roll back, and the pages are then exactly the pages without Intelligence."
   },
   "parameters": {
     "deadline.minimum_comparator_projects": {

@@ -10,6 +10,7 @@ import random
 import re
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -224,21 +225,53 @@ class SiteArtifactTests(unittest.TestCase):
     def attempt(self):
         return sync.run_once(self.env, transport=FakeMonday(logs(), items()), clock=Clock(), monotonic=Monotonic(), sleep=lambda seconds: None)
 
-    def test_gate_off_by_default_builds_no_artifact(self):
-        self.assertFalse(site.enabled())
-        result = self.attempt()
-        self.assertEqual(result.status, "success", result.as_dict())
-        self.assertFalse((Path(result.staged_build_dir) / "site" / site.INTELLIGENCE_JSON).exists())
+    def test_gate_is_on_under_d53(self):
+        config = json.loads(site.CONFIG_PATH.read_text())
+        self.assertTrue(site.enabled())
+        self.assertEqual((config["publication"]["decision_id"], config["publication"]["mode"]), ("D53", "approved_only"))
 
-    def test_gate_on_builds_a_valid_approved_only_artifact(self):
-        with mock.patch.object(site, "enabled", return_value=True):
+    def test_gate_off_builds_no_artifact_and_pages_without_intelligence(self):
+        with mock.patch.object(site, "enabled", return_value=False):
             result = self.attempt()
         self.assertEqual(result.status, "success", result.as_dict())
-        path = Path(result.staged_build_dir) / "site" / site.INTELLIGENCE_JSON
-        document = json.loads(path.read_text())
+        build = Path(result.staged_build_dir) / "site"
+        self.assertFalse((build / site.INTELLIGENCE_JSON).exists())
+        for page in ("en/dashboard.html", "ar/dashboard.html"):
+            html = (build / page).read_text()
+            self.assertNotIn('data-section="intelligence"', html)
+            self.assertNotIn("iv2-", html)
+
+    def test_gate_on_builds_a_valid_approved_only_artifact_shown_on_both_pages(self):
+        result = self.attempt()
+        self.assertEqual(result.status, "success", result.as_dict())
+        build = Path(result.staged_build_dir) / "site"
+        document = json.loads((build / site.INTELLIGENCE_JSON).read_text())
         self.assertEqual((document["mode"], document["publishable"]), ("approved_only", True))
         metadata = json.loads((Path(result.staged_build_dir) / "build.json").read_text())
         self.assertIn(site.INTELLIGENCE_JSON, metadata["artifacts"]["files"])
+        top = document["sections"]["top_findings"]["finding_ids"]
+        for page in ("en/dashboard.html", "ar/dashboard.html"):
+            html = (build / page).read_text()
+            self.assertIn('data-section="intelligence"', html)
+            section = html.split('data-section="intelligence"')[1].split("</section>")[0]
+            self.assertEqual(re.findall(r'<article class="iv-card" data-finding="([^"]+)"', section), top)
+            for finding in document["findings"]:
+                self.assertIn(f'<template id="iv2-{finding["finding_id"].replace(".", "-").replace(":", "-")}"', html)
+
+    def test_builds_with_and_without_the_artifact_publish_and_roll_back(self):
+        from atlas_sync import publish as pub
+        with mock.patch.object(site, "enabled", return_value=False):
+            without = self.attempt()
+        with_artifact = sync.run_once(self.env, transport=FakeMonday(logs(), items()), clock=Clock(start=T0 + timedelta(days=1)), monotonic=Monotonic(),
+                                      sleep=lambda seconds: None)
+        self.assertTrue((Path(with_artifact.staged_build_dir) / "site" / site.INTELLIGENCE_JSON).exists())
+        clock = Clock(start=T0 + timedelta(days=30))
+        for attempt in (without, with_artifact):
+            self.assertEqual(pub.publish(attempt.attempt_id, self.env, clock=clock).status, pub.PUBLISHED)
+        back = pub.rollback(None, self.env, clock=clock)                      # to the build without Intelligence
+        self.assertEqual((back.status, back.attempt_id), (pub.PUBLISHED, without.attempt_id), back.as_dict())
+        forward = pub.rollback(with_artifact.attempt_id, self.env, clock=clock)
+        self.assertEqual((forward.status, forward.attempt_id), (pub.PUBLISHED, with_artifact.attempt_id), forward.as_dict())
 
     def test_review_or_foreign_artifact_is_rejected(self):
         with mock.patch.object(site, "enabled", return_value=True):
