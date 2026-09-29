@@ -311,6 +311,11 @@ class PersonSystemTests(unittest.TestCase):
         self.assertEqual((mine[0].category, mine[0].direction), ("editor_specific_pattern", "adverse"))
         self.assertEqual(mine[0].statements[0].params["expected_late"], 1.0)
 
+    def test_favourable_difference_points_to_recognition(self):
+        rows = self.peers() + [proj(f"a{i}", A, "8", late=i < 2, days=5 + i) for i in range(10)]
+        mine = [x for x in run("person.mix_adjusted_deadline", f.base(rows)).findings if x.scope.editor_id == A]
+        self.assertEqual((mine[0].direction, mine[0].investigations[0].code), ("favourable", "recognise_evidence"))
+
     def test_below_approved_editor_minimum_is_insufficient(self):
         rows = self.peers() + [proj(f"a{i}", A, "4", late=True, days=5 + i) for i in range(9)]
         self.assertIn("insufficient_sample", reasons(run("person.mix_adjusted_deadline", f.base(rows))))

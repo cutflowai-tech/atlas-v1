@@ -130,10 +130,11 @@ def run(ctx: RunContext) -> DetectorResult:
             if same is not None:
                 statements.append(Statement(METRIC, "same_conditions_late_rate", params))
             statements += [Statement(INTERPRETATION, "difference_persists_after_mix" if adverse else "better_than_peers_after_mix", params),
-                           Statement(HYPOTHESIS, "editor_specific_factor_possible", params)]
+                           Statement(HYPOTHESIS, "editor_specific_factor_possible" if adverse else "working_practice_worth_understanding", params)]
             finding = Finding("person.mix_adjusted_deadline", VERSION, EDITOR_SPECIFIC_PATTERN, ADVERSE if adverse else FAVOURABLE, scope, statements, [evidence],
                               used, ctx.history_window, limitations, Statement(INTERPRETATION, "significance_editor_specific", params),
-                              [Statement(HYPOTHESIS, "review_editor_specific_deadline", params)], key={"test": "mix_adjusted"}, magnitude=float(abs(excess)))
+                              [Statement(HYPOTHESIS, "review_editor_specific_deadline" if adverse else "recognise_evidence", params)],
+                              key={"test": "mix_adjusted"}, magnitude=float(abs(excess)))
             replication = []
             if same is not None:
                 replication.append({"slice": "same_runway_conditions", "holds": (Fraction(str(same["excess"])) > 0) == adverse and abs(Fraction(str(same["excess"]))) >= material})

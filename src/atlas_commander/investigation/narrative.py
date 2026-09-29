@@ -194,6 +194,7 @@ T: dict[str, Callable[[Params], str]] = {
     "runway_pattern_is_upstream_context": lambda p: "Runway is set before the Editor starts, so this is context about the work received, not about the Editor's execution.",
     "assignment_or_scheduling_for_this_editor": lambda p: "How this Video Type is scheduled or assigned to this Editor may warrant checking.",
     "editor_specific_factor_possible": lambda p: "An Editor-specific factor is possible and may warrant a conversation; the data does not identify it.",
+    "working_practice_worth_understanding": lambda p: "How this Editor plans or sequences comparable work may be worth understanding and sharing; the data does not identify it.",
     "significance_shared": lambda p: "A shared pattern points to process or scheduling, not to one person.",
     "significance_confined_late_delivery": lambda p: "A pattern confined to one Editor is worth a specific, evidence-based conversation.",
     "significance_confined_short_runway": lambda p: "Short runway concentrated on one Editor's work changes how that Editor's late rate should be read.",
