@@ -15,7 +15,7 @@ Every change must include tests, evidence for metric outputs, deterministic beha
 - Monday is the source of truth.
 - The Editor is the evaluated entity.
 - Work duration is `In Progress` to `Ready For Approval`.
-- Deadline performance is `Ready For Approval <= Requested ETA`; missing ETA is not guessed.
+- Deadline delta is `first Ready For Approval − Requested ETA in effect then`: negative is early, zero is on time, positive is late, with no tolerance; missing ETA is not guessed.
 - Benchmarks compare only within the same Video Type.
 - Waset Co actor attribution is deterministic.
 - Revisions are context only, never an automatic quality penalty.
