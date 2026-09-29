@@ -200,9 +200,10 @@ def _valid_raw_run(path: Path) -> tuple[bool, str]:
 def _valid_build(path: Path, raw_root: Path, attempt_doc: dict[str, Any] | None) -> tuple[bool, str | None, str]:
     complete_path, failed_path = path / COMPLETE_NAME, path / FAILED_NAME
     complete, failed = _object(complete_path), _object(failed_path)
-    if complete_path.exists() == failed_path.exists():
-        return False, None, "active_or_incomplete" if not complete_path.exists() else "corrupt_reference"
     source_id, source_valid = _source(path, raw_root)
+    if complete_path.exists() == failed_path.exists():
+        return (False, source_id if source_valid else None,
+                "active_or_incomplete" if not complete_path.exists() else "corrupt_reference")
     if complete is not None:
         marker_valid = (complete.get("status") == "complete" and complete.get("attempt_id") == path.name
                         and complete.get("source_run_id") == source_id)
@@ -254,8 +255,14 @@ def _write_report(config: SyncConfig, report: RetentionReport) -> None:
     if config.lock_dir is None:
         return
     directory = config.lock_dir.resolve() / REPORT_DIR
+    if directory.is_symlink() or (directory.exists() and not directory.is_dir()):
+        raise OSError("unsafe retention report directory")
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if directory.is_symlink():
+        raise OSError("unsafe retention report directory")
     path = directory / REPORT_NAME
+    if path.is_symlink():
+        raise OSError("unsafe retention report path")
     temporary = directory / f".{REPORT_NAME}.{os.getpid()}.tmp"
     data = json.dumps(report.as_dict(), indent=1, sort_keys=True).encode() + b"\n"
     fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
@@ -321,7 +328,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
         if not isinstance(attempt, str) or RUN_ID_PATTERN.match(attempt) is None:
             ambiguous = True
     # Preserve CURRENT's exact record and the actual default rollback target.
-    current_doc = _object(publish_root / "CURRENT.json")
+    current_path = publish_root / "CURRENT.json"
+    current_doc = _object(current_path) if current_path.is_file() and not current_path.is_symlink() else None
     if current_doc is None and current is not None:
         ambiguous = True
     elif current_doc:
@@ -370,6 +378,10 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
         _record(report, "attempt_record", attempts_root, "retained", "unknown_or_unsafe", _tree_size(attempts_root)[0])
         ambiguous = True
 
+    active_attempts = {attempt_id for attempt_id, document in attempt_documents.items()
+                       if document.get("status") not in {"success", "failed"}}
+    protected_attempts.update(active_attempts)
+
     # A corrupt publication reference may name any build, so keep the whole
     # provenance graph.  Clean old, non-required history remains bounded.
     retained_history_attempts: set[str] = set()
@@ -400,13 +412,22 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     protected_attempts.update(retained_history_attempts)
 
     preserved_sources: set[str] = set()
-    raw_ambiguous = False
+    raw_paths = sorted(raw_root.iterdir()) if raw_root.is_dir() else []
+    raw_validation = {path: (_valid_raw_run(path) if path.is_dir() and not path.is_symlink()
+                             and RUN_ID_PATTERN.fullmatch(path.name) else (False, "corrupt_reference"))
+                      for path in raw_paths}
+    raw_ambiguous = any(RUN_ID_PATTERN.fullmatch(path.name) and not valid
+                        for path, (valid, _) in raw_validation.items())
     if build_root.is_dir():
         for path in sorted(build_root.iterdir()):
             if path.name == "attempts":
                 continue
             if RUN_ID_PATTERN.match(path.name) is None or path.is_symlink() or not path.is_dir():
                 _record(report, "build", path, "retained", "unknown_or_unsafe", _tree_size(path)[0])
+                if path.is_dir() and not path.is_symlink():
+                    source_id, source_valid = _source(path, raw_root)
+                    if source_valid and source_id:
+                        preserved_sources.add(source_id)
                 continue
             size, unsafe = _tree_size(path)
             terminal, source_id, terminal_state = _valid_build(path, raw_root, attempt_documents.get(path.name))
@@ -414,9 +435,10 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 raw_ambiguous = True
             if not terminal and terminal_state == "corrupt_reference":
                 raw_ambiguous = True
-            protect = ambiguous or path.name in protected_attempts or not terminal or unsafe
+            protect = ambiguous or raw_ambiguous or path.name in protected_attempts or not terminal or unsafe
             if protect:
-                reason = ("ambiguous_reference" if ambiguous else "publication_or_rollback_required" if path.name in protected_attempts
+                reason = ("ambiguous_reference" if ambiguous or raw_ambiguous else "active_or_incomplete" if path.name in active_attempts
+                          else "publication_or_rollback_required" if path.name in protected_attempts
                           else "unknown_or_unsafe" if unsafe else terminal_state)
                 _record(report, "build", path, "retained", reason, size)
                 protected_attempts.add(path.name)
@@ -466,12 +488,6 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                     if isinstance(source_id, str) and RUN_ID_PATTERN.match(source_id): preserved_sources.add(source_id)
 
     if raw_root.is_dir():
-        raw_paths = sorted(raw_root.iterdir())
-        raw_validation = {path: (_valid_raw_run(path) if path.is_dir() and not path.is_symlink()
-                                 and RUN_ID_PATTERN.fullmatch(path.name) else (False, "corrupt_reference"))
-                          for path in raw_paths}
-        if any(RUN_ID_PATTERN.fullmatch(path.name) and not valid for path, (valid, _) in raw_validation.items()):
-            raw_ambiguous = True
         for path in raw_paths:
             size, unsafe = _tree_size(path)
             valid_raw, raw_state = raw_validation[path]

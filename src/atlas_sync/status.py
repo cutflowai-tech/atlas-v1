@@ -329,7 +329,11 @@ def _attach_retention(snapshot: StatusSnapshot, config: SyncConfig) -> StatusSna
     """Expose aggregate storage only from a clean, allow-listed retention report."""
     if config.lock_dir is None:
         return snapshot
-    document = _json_object(config.lock_dir.resolve() / "retention" / "latest.json")
+    directory = config.lock_dir.resolve() / "retention"
+    path = directory / "latest.json"
+    if directory.is_symlink() or path.is_symlink():
+        return snapshot
+    document = _json_object(path)
     if not document or document.get("report_version") != "atlas-retention-v1" or document.get("status") != "complete":
         return snapshot
     storage = document.get("storage")

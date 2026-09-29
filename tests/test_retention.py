@@ -268,6 +268,86 @@ class RetentionTests(unittest.TestCase):
         self.assertTrue(current_history.exists())
         self.assertEqual(first.status, "complete")
 
+    def test_retention_report_symlink_never_writes_or_supplies_status_outside_lock_root(self):
+        outside = self.data / "outside-report"
+        outside.mkdir()
+        (self.config.lock_dir / "retention").symlink_to(outside, target_is_directory=True)
+        report = self.cleanup()
+        self.assertEqual((report.status, report.failure_category), ("partial", "report_write_failed"))
+        self.assertFalse((outside / "latest.json").exists())
+        (outside / "latest.json").write_text(json.dumps({
+            "report_version": "atlas-retention-v1", "status": "complete", "storage": {},
+        }))
+        snapshot = status.StatusSnapshot("now", "runtime", "healthy", "fresh", True, None, None, None, {})
+        status._attach_retention(snapshot, self.config)
+        self.assertIsNone(snapshot.retention)
+
+    def test_running_attempt_protects_paired_build_and_source(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb", status="failed")
+        document = json.loads(record.read_text())
+        document["status"] = "running"
+        record.write_text(json.dumps(document))
+        report = self.cleanup()
+        self.assertTrue(record.exists())
+        self.assertTrue(build.exists())
+        self.assertTrue(raw.exists())
+        self.assertIn("active_or_incomplete", report.reasons)
+
+    def test_incomplete_build_without_attempt_record_keeps_its_source(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        source = "20260901T010000Z-bbbbbbbbbbbb"
+        raw, build, record = self.artifact(attempt, source)
+        (build / "COMPLETE.json").unlink()
+        record.unlink()
+        report = self.cleanup()
+        self.assertEqual(report.status, "complete")
+        self.assertTrue(build.exists())
+        self.assertTrue(raw.exists())
+        self.assertIn("source_evidence_required", report.reasons)
+
+    def test_unknown_build_directory_keeps_valid_referenced_source(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        source = "20260901T010000Z-bbbbbbbbbbbb"
+        raw, build, record = self.artifact(attempt, source)
+        unknown = self.config.build_dir / "legacy-build"
+        build.rename(unknown)
+        record.unlink()
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(unknown.exists())
+        self.assertTrue(raw.exists())
+
+    def test_corrupt_raw_blocks_deletion_of_referencing_build_and_attempt(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        (raw / "manifest.json").write_text("{")
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(raw.exists())
+        self.assertTrue(build.exists())
+        self.assertTrue(record.exists())
+
+    def test_current_metadata_symlink_blocks_cleanup(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        (build / "site").mkdir()
+        history = self.history(1, "20260901T020000Z-cccccccccccc", attempt)
+        (self.config.publish_dir / "current").symlink_to(f"../builds/{attempt}/site")
+        outside = self.data / "outside-current.json"
+        outside.write_text(json.dumps({
+            "attempt_id": attempt,
+            "publication_id": "20260901T020000Z-cccccccccccc",
+            "history_record": str(history),
+        }))
+        (self.config.publish_dir / "CURRENT.json").symlink_to(outside)
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(raw.exists())
+        self.assertTrue(build.exists())
+        self.assertTrue(record.exists())
+        self.assertTrue(history.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
