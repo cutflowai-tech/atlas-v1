@@ -108,5 +108,6 @@ The dashboard is organised in three layers:
 - **Metric engine** (`cycles`, `metrics`, `quality`, `pipeline`): unchanged.
 - **Summary layer** (`dashboard.py`, `dashboard_html.py`): reads only Editor Profile documents. Every figure names the profile field it comes from.
 - **Management rules** (`management.py`): holds the not-yet-approved rules, such as overall status, score, needs-attention, trend, workload capacity and recommendations. Each is shown as "Rule not approved yet" and never gets a value until a rule is approved in a new contract version.
+- **Contract 1.5.0 interpretation layer (inactive candidate):** with `--contract 1.5.0` the profiles and pages add the D23–D51 layer (Overall Status lookup, component states and reasons, Recent Change, Cairo windows, evidence drill-down) from `interpretation_policy.py`, `intelligence.py` and `interpretation_html.py`. Production stays on 1.4.0; see `docs/CONTRACT-1.5-ACTIVATION.md` before any activation.
 
 Write the output outside git, like the raw extract: it contains real Monday data.

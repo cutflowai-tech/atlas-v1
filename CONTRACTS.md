@@ -17,4 +17,11 @@ Metric payload contracts retain their own version declared in each schema. The i
 retains board ID, item ID, column IDs, event IDs, source timestamps, source values, rule version, and calculation time. Empty
 evidence is invalid. Identity quarantine output additionally retains the exact logged name, event ID and observation timestamp.
 
+Contract 1.5.0 conclusions (Quality rates, Speed per Video Type, the three component states, Overall Status, Recent Change) each carry
+an evidence block in `contracts/editor-profile-v1.5.schema.json`: Monday source, board ID, column IDs, Cairo date range, sample,
+calculation, one record per contributing project (item ID, cycle ID, event IDs, source timestamps, values used), exclusions with
+reasons, rule version and calculation time; the schema rejects empty event IDs or timestamps and any conclusion without its evidence.
+Each rule also publishes its approval state (`rule_not_approved` until a matching approved decision exists, D25). Contracts up to
+1.4.0 are unchanged, including their output bytes (`fixtures/golden`).
+
 Contract-owner approval is required for compatibility-affecting changes. No schema may introduce a composite score, revision penalty, global speed cohort, AI-authored fact, or substitute another field when Requested ETA is missing.
