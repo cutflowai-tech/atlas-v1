@@ -8,7 +8,10 @@ severity weights, and revisions never enter the value (``revision_context`` is d
 
 Each occurrence is attributed to the Editor of the item's first completed work cycle. When
 that Editor is unresolved, the occurrence is quarantined with the cycle's reasons.
-``For Bonus`` labels are context only in V1 and are not read here.
+Contracts through 1.4 treat ``For Bonus`` as unclassified context and do not read it.
+From 1.5 onward, a contract may provide an explicit per-label registry for that column;
+those labels are parsed individually as Positive or Context without changing historical
+contract output.
 """
 
 from __future__ import annotations
@@ -36,6 +39,8 @@ class QualityPolicy:
     column_id: str
     id_to_label: Mapping[str, str]
     historical_names: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    label_sources: tuple[QualityLabelSource, ...] = ()
+    taxonomy_enabled: bool = False
 
     @classmethod
     def from_contract(cls, contract: Mapping[str, Any]) -> QualityPolicy:
@@ -46,10 +51,85 @@ class QualityPolicy:
         historical = {str(key): tuple(str(name) for name in names) for key, names in (section.get("historical_label_names") or {}).items()}
         if any(key not in labels for key in historical):
             raise ValueError("historical_label_names refers to an unmapped quality label ID")
-        return cls(section["rule_version"], section["mapping_version"], section["column_id"], labels, historical)
+        primary = QualityLabelSource(section["column_id"], section["mapping_version"], labels, historical, {key: "Negative" for key in labels})
+        sources = [primary]
+        taxonomy_enabled = _contract_at_least(contract, (1, 5, 0))
+        if taxonomy_enabled:
+            sources = _configured_sources(section, primary)
+        return cls(section["rule_version"], section["mapping_version"], section["column_id"], labels, historical, tuple(sources), taxonomy_enabled)
 
     def names(self, label_id: str) -> set[str]:
         return {self.id_to_label[label_id], *self.historical_names.get(label_id, ())} if label_id in self.id_to_label else set()
+
+
+@dataclass(frozen=True)
+class QualityLabelSource:
+    column_id: str
+    mapping_version: str
+    id_to_label: Mapping[str, str]
+    historical_names: Mapping[str, tuple[str, ...]]
+    class_by_id: Mapping[str, str]
+
+    def names(self, label_id: str) -> set[str]:
+        return {self.id_to_label[label_id], *self.historical_names.get(label_id, ())} if label_id in self.id_to_label else set()
+
+
+def _contract_at_least(contract: Mapping[str, Any], required: tuple[int, int, int]) -> bool:
+    try:
+        version = tuple(int(part) for part in str(contract.get("contract_version", "0.0.0")).split(".")[:3])
+    except ValueError:
+        return False
+    return version >= required
+
+
+def _label_entries(section: Mapping[str, Any], default_class: str) -> tuple[dict[str, str], dict[str, str]]:
+    labels = {str(key): str(value) for key, value in (section.get("id_to_label") or {}).items()}
+    classes = {str(key): str(value).title() for key, value in (section.get("class_by_id") or section.get("label_class_by_id") or {}).items()}
+    entries = section.get("labels")
+    if isinstance(entries, Mapping):
+        for key, value in entries.items():
+            if isinstance(value, Mapping):
+                labels[str(key)] = str(value.get("label") or value.get("name"))
+                classes[str(key)] = str(value.get("class") or value.get("classification") or default_class).title()
+            else:
+                labels[str(key)] = str(value)
+    for label_id in labels:
+        classes.setdefault(label_id, default_class)
+    invalid = sorted({value for value in classes.values() if value not in {"Positive", "Negative", "Context"}})
+    if invalid:
+        raise ValueError(f"invalid quality label classes: {invalid}")
+    return labels, classes
+
+
+def _source(section: Mapping[str, Any], fallback: QualityLabelSource, default_class: str) -> QualityLabelSource:
+    labels, classes = _label_entries(section, default_class)
+    if not labels:
+        labels, classes = dict(fallback.id_to_label), dict(fallback.class_by_id)
+    historical = {str(key): tuple(str(name) for name in names) for key, names in (section.get("historical_label_names") or {}).items()}
+    return QualityLabelSource(str(section.get("column_id") or fallback.column_id), str(section.get("mapping_version") or fallback.mapping_version), labels,
+                              historical or fallback.historical_names, classes)
+
+
+def _configured_sources(section: Mapping[str, Any], primary: QualityLabelSource) -> list[QualityLabelSource]:
+    """Read common v1.5 config shapes while requiring explicit IDs and classes."""
+    configured = section.get("columns") or section.get("label_sources")
+    sources: list[QualityLabelSource] = []
+    if isinstance(configured, Mapping):
+        for name, value in configured.items():
+            if isinstance(value, Mapping):
+                sources.append(_source(value, primary, "Negative" if "performance" in str(name).lower() else "Context"))
+    elif isinstance(configured, list):
+        for value in configured:
+            if isinstance(value, Mapping):
+                sources.append(_source(value, primary, "Context"))
+    if not sources:
+        sources.append(_source(section, primary, "Negative"))
+        bonus = section.get("for_bonus")
+        if isinstance(bonus, Mapping) and (bonus.get("id_to_label") or bonus.get("labels")):
+            sources.append(_source(bonus, primary, "Context"))
+    if not any(source.column_id == primary.column_id for source in sources):
+        sources.insert(0, primary)
+    return sources
 
 
 @dataclass
@@ -72,85 +152,103 @@ def _add_events(changes: list[ColumnChange]) -> dict[str, ColumnChange]:
 
 
 def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[ColumnChange], policy: QualityPolicy, calculated_at: str,
-                        snapshots: Mapping[str, Mapping[str, Any]] | None = None) -> QualityResult:
+                        snapshots: Mapping[str, Mapping[str, Any]] | Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None) -> QualityResult:
     """Contract-valid quality metrics (one per label occurrence) plus quarantined occurrences.
 
     ``snapshots`` maps item ID to the current Performance Issues column value from the items
     API (``item_column_snapshots``). Without a snapshot the latest logged value is used.
     """
-    by_item: dict[str, list[ColumnChange]] = defaultdict(list)
+    sources = policy.label_sources or (QualityLabelSource(policy.column_id, policy.mapping_version, policy.id_to_label, policy.historical_names,
+                                                           {key: "Negative" for key in policy.id_to_label}),)
+    source_by_column = {source.column_id: source for source in sources}
+    by_column_item: dict[str, dict[str, list[ColumnChange]]] = defaultdict(lambda: defaultdict(list))
     for change in column_changes:
-        if change.column_id == policy.column_id:
-            by_item[change.item_id].append(change)
+        if change.column_id in source_by_column:
+            by_column_item[change.column_id][change.item_id].append(change)
     cycle_by_item = {cycle.monday_item_id: cycle for cycle in cycles}
     result = QualityResult()
-    for item_id in sorted(set(by_item) | set(snapshots or {})):
-        changes = sorted(by_item.get(item_id, []), key=lambda change: change.sort_key)
-        snapshot = (snapshots or {}).get(item_id)
-        current_ids: tuple[str, ...]
-        current_names: tuple[str, ...]
-        if snapshot is not None:
-            current_ids, current_names = dropdown_value_ids(snapshot.get("value")), ()
-            current_source, current_id, current_time = "item_snapshot", str(snapshot["evidence_id"]), snapshot.get("retrieved_at")
-        elif changes:
-            current_ids, current_names = dropdown_value_ids(changes[-1].value), dropdown_value_labels(changes[-1].value)
-            current_source, current_id, current_time = "activity_log", changes[-1].log_id, changes[-1].occurred_at
-        else:
-            continue
-        added = _add_events(changes)
-        cycle = cycle_by_item.get(item_id)
-        for position, label_id in enumerate(current_ids):
-            event = added.get(label_id)
-            raw_name = current_names[position] if position < len(current_names) else None
-            base = {"monday_item_id": item_id, "label_id": label_id, "raw_label": raw_name, "current_value_source": current_source,
-                    "current_value_evidence_id": current_id, "added_event_id": event.log_id if event else None}
-            if label_id not in policy.id_to_label:
-                result.quarantined.append({**base, "reason": UNMAPPED_QUALITY_LABEL})
+    snapshot_values = snapshots or {}
+    nested_snapshots = any(key in source_by_column for key in snapshot_values)
+    for source in sources:
+        column_snapshots = snapshot_values.get(source.column_id, {}) if nested_snapshots else snapshot_values
+        for item_id in sorted(set(by_column_item[source.column_id]) | set(column_snapshots)):
+            changes = sorted(by_column_item[source.column_id].get(item_id, []), key=lambda change: change.sort_key)
+            snapshot = column_snapshots.get(item_id)
+            current_ids: tuple[str, ...]
+            current_names: tuple[str, ...]
+            if snapshot is not None:
+                current_ids, current_names = dropdown_value_ids(snapshot.get("value")), ()
+                current_source, current_id, current_time = "item_snapshot", str(snapshot["evidence_id"]), snapshot.get("retrieved_at")
+            elif changes:
+                current_ids, current_names = dropdown_value_ids(changes[-1].value), dropdown_value_labels(changes[-1].value)
+                current_source, current_id, current_time = "activity_log", changes[-1].log_id, changes[-1].occurred_at
+            else:
                 continue
-            if raw_name is not None and raw_name not in policy.names(label_id):
-                result.quarantined.append({**base, "reason": QUALITY_LABEL_NAME_MISMATCH})
-                continue
-            if cycle is None or cycle.state != COMPLETED:
-                result.quarantined.append({**base, "reason": NO_COMPLETED_CYCLE})
-                continue
-            editor_reasons = [reason for reason in cycle.exclusions if "EDITOR" in reason]
-            if cycle.editor_id is None or editor_reasons:
-                result.quarantined.append({**base, "reason": EDITOR_UNRESOLVED, "cycle_reasons": sorted(set(cycle.exclusions))})
-                continue
-            timestamp = event.occurred_at if event else current_time
-            if not isinstance(timestamp, str):
-                result.quarantined.append({**base, "reason": "MISSING_EVIDENCE_TIMESTAMP"})
-                continue
-            label = policy.id_to_label[label_id]
-            event_ids = [event.log_id] if event else []
-            if current_id not in event_ids:
-                event_ids.append(current_id)
-            metric = {
-                "contract_version": CONTRACT_VERSION,
-                "metric_name": "quality",
-                "editor_id": cycle.editor_id,
-                "performance_label": label,
-                "label_column_id": policy.column_id,
-                "label_mapping_version": policy.mapping_version,
-                "revision_context": dict(cycle.revision_context),
-                "evidence": {
-                    "source": "monday",
-                    "monday_board_id": cycle.monday_board_id,
-                    "monday_item_id": item_id,
-                    "column_ids": [policy.column_id],
-                    "event_ids": event_ids,
-                    "source_timestamps": [timestamp],
-                    "source_values": {"label_id": label_id, "label": label, "raw_label_at_add": list(dropdown_value_labels(event.value)) if event else None,
-                                      "current_value_source": current_source, "weight": 1, "attribution": "editor of the item's first completed cycle",
-                                      "cycle_id": cycle.cycle_id},
-                    "rule_version": policy.rule_version,
-                    "calculated_at": calculated_at,
-                },
-            }
-            errors = validate(metric, "quality-metric.schema.json")
-            if errors:
-                raise ValueError(f"quality metric violates contract: {errors}")
-            result.occurrences.append(metric)
+            added = _add_events(changes)
+            cycle = cycle_by_item.get(item_id)
+            for position, label_id in enumerate(current_ids):
+                event = added.get(label_id)
+                raw_name = current_names[position] if position < len(current_names) else None
+                base = {"monday_item_id": item_id, "label_id": label_id, "raw_label": raw_name, "current_value_source": current_source,
+                        "current_value_evidence_id": current_id, "added_event_id": event.log_id if event else None}
+                if label_id not in source.id_to_label:
+                    detail = {**base, "reason": UNMAPPED_QUALITY_LABEL}
+                    if policy.taxonomy_enabled:
+                        detail["column_id"] = source.column_id
+                    result.quarantined.append(detail)
+                    continue
+                if raw_name is not None and raw_name not in source.names(label_id):
+                    detail = {**base, "reason": QUALITY_LABEL_NAME_MISMATCH}
+                    if policy.taxonomy_enabled:
+                        detail["column_id"] = source.column_id
+                    result.quarantined.append(detail)
+                    continue
+                if cycle is None or cycle.state != COMPLETED:
+                    result.quarantined.append({**base, "reason": NO_COMPLETED_CYCLE})
+                    continue
+                editor_reasons = [reason for reason in cycle.exclusions if "EDITOR" in reason]
+                if cycle.editor_id is None or editor_reasons:
+                    result.quarantined.append({**base, "reason": EDITOR_UNRESOLVED, "cycle_reasons": sorted(set(cycle.exclusions))})
+                    continue
+                timestamp = event.occurred_at if event else current_time
+                if not isinstance(timestamp, str):
+                    result.quarantined.append({**base, "reason": "MISSING_EVIDENCE_TIMESTAMP"})
+                    continue
+                label = source.id_to_label[label_id]
+                label_class = source.class_by_id[label_id]
+                event_ids = [event.log_id] if event else []
+                if current_id not in event_ids:
+                    event_ids.append(current_id)
+                source_values = {"label_id": label_id, "label": label, "raw_label_at_add": list(dropdown_value_labels(event.value)) if event else None,
+                                 "current_value_source": current_source, "weight": 1,
+                                 "attribution": "editor of the item's first completed cycle", "cycle_id": cycle.cycle_id}
+                if policy.taxonomy_enabled:
+                    source_values.update({"label_class": label_class,
+                                          "scoring_eligible": label_class != "Context" and label not in {"Late Delivery", "On Time Delivery"}})
+                metric = {
+                    "contract_version": CONTRACT_VERSION,
+                    "metric_name": "quality",
+                    "editor_id": cycle.editor_id,
+                    "performance_label": label,
+                    "label_column_id": source.column_id,
+                    "label_mapping_version": source.mapping_version,
+                    "revision_context": dict(cycle.revision_context),
+                    "evidence": {
+                        "source": "monday",
+                        "monday_board_id": cycle.monday_board_id,
+                        "monday_item_id": item_id,
+                        "column_ids": [source.column_id],
+                        "event_ids": event_ids,
+                        "source_timestamps": [timestamp],
+                        "source_values": source_values,
+                        "rule_version": policy.rule_version,
+                        "calculated_at": calculated_at,
+                    },
+                }
+                errors = validate(metric, "quality-metric.schema.json")
+                if errors:
+                    raise ValueError(f"quality metric violates contract: {errors}")
+                result.occurrences.append(metric)
     return result
 
 
@@ -186,4 +284,3 @@ def revision_context_summary(editor_id: str, cycles: Iterable[CycleRecord]) -> d
         "client_revision_rate": round(len(with_revisions) / len(mine), 4) if mine else None,
         "monday_item_ids_with_client_revisions": sorted(cycle.monday_item_id for cycle in with_revisions),
     }
-

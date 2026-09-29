@@ -46,7 +46,8 @@ class CycleReconstruction:
 def reconstruct_quality(result: CycleReconstruction, contract: Mapping[str, Any], calculated_at: str) -> QualityResult:
     """Quality occurrences for a reconstruction, using the current item values when they were ingested."""
     policy = QualityPolicy.from_contract(contract)
-    return quality_occurrences(result.cycles, result.column_changes, policy, calculated_at, result.item_snapshots.get(policy.column_id))
+    snapshots: Mapping[str, Any] = (result.item_snapshots if len(policy.label_sources) > 1 else result.item_snapshots.get(policy.column_id, {}))
+    return quality_occurrences(result.cycles, result.column_changes, policy, calculated_at, snapshots)
 
 
 def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[str, Any], items_payload: Mapping[str, Any] | None = None,
