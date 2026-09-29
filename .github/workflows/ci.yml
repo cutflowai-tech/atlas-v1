@@ -70,6 +70,8 @@ jobs:
         run: make contract-v13
       - name: Contract 1.5.0 configuration and identity tests
         run: make contract-v15
+      - name: Contract 1.4 output and operations unchanged by 1.5 code
+        run: make contract-v14-compat
       - name: Deadline v1.2 (ETA frozen at Ready For Approval) tests
         run: make deadline-v12
       - name: Editor Profile tests

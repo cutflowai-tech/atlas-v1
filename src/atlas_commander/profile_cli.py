@@ -30,7 +30,7 @@ from atlas_commander.identity import AMBIGUOUS_EDITOR, EDITOR_LABEL_NAME_MISMATC
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
-from atlas_commander.publication import build_publication_view
+from atlas_commander.publication import site_publication
 from atlas_commander.runtime import ACTIVE_CONTRACT_VERSION, load_contract_version
 
 
@@ -69,8 +69,9 @@ def build_profiles(result: CycleReconstruction, contract: dict[str, Any], out: P
     every locale (``<locale>/profiles/<id>.html``). Returns the profiles and, per locale, the report HTML embedded in that
     locale's dashboard. Any locale failing to render fails the whole build."""
     (out / "profiles").mkdir(parents=True, exist_ok=True)
-    publication = build_publication_view(result, contract, generated_at)
-    (out / site_layout.PUBLICATION_JSON).write_text(json.dumps(publication, indent=1) + "\n")
+    publication = site_publication(result, contract, generated_at)
+    if publication is not None:
+        (out / site_layout.PUBLICATION_JSON).write_text(json.dumps(publication, indent=1) + "\n")
     profiles = []
     for editor in profiled_editors(result):
         profile = build_editor_profile(result, contract, editor["editor_id"], generated_at)
@@ -88,18 +89,21 @@ def build_profiles(result: CycleReconstruction, contract: dict[str, Any], out: P
     return profiles, pages
 
 
-def _entry_page(loc: Loc, target: str, publication: dict[str, Any], alternate: tuple[Loc, str] | None = None) -> str:
-    """A tiny page that sends the visitor to ``target`` (no third dashboard is rendered)."""
+def _entry_page(loc: Loc, target: str, publication: dict[str, Any] | None, alternate: tuple[Loc, str] | None = None) -> str:
+    """A tiny page that sends the visitor to ``target`` (no third dashboard is rendered). Under a contract with publication
+    identity it also names the release and source snapshot every route shares."""
     links = f'<a href="{target}">{loc.t("entry.open_dashboard")}</a>'
     if alternate:
         other, href = alternate
         links += f' · <a href="{href}" hreflang="{other.code}" lang="{other.code}" dir="{other.dir}">{other.t("entry.open_dashboard")}</a>'
-    release_id, snapshot_id = publication["release_id"], publication["snapshot_id"]
+    head = body = identity = ""
+    if publication is not None:
+        release_id, snapshot_id = publication["release_id"], publication["snapshot_id"]
+        head = f'<meta name="atlas-release-id" content="{release_id}"><meta name="atlas-snapshot-id" content="{snapshot_id}">'
+        body = f' data-atlas-release-id="{release_id}" data-atlas-snapshot-id="{snapshot_id}"'
+        identity = f'<p>{loc.t("publication.identity", release=loc.tech(release_id), snapshot=loc.tech(snapshot_id))}</p>'
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<meta name="atlas-release-id" content="{release_id}"><meta name="atlas-snapshot-id" content="{snapshot_id}">'
-            f'<meta http-equiv="refresh" content="0; url={target}"><title>Atlas</title></head>'
-            f'<body data-atlas-release-id="{release_id}" data-atlas-snapshot-id="{snapshot_id}"><p>{links}</p>'
-            f'<p>{loc.t("publication.identity", release=loc.tech(release_id), snapshot=loc.tech(snapshot_id))}</p></body></html>')
+            f'{head}<meta http-equiv="refresh" content="0; url={target}"><title>Atlas</title></head><body{body}><p>{links}</p>{identity}</body></html>')
 
 
 def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, profiles: list[dict[str, Any]],
@@ -112,7 +116,7 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
     exact same object.
     """
     editor_ids = [profile["editor"]["editor_id"] for profile in profiles]
-    publication = build_publication_view(result, contract, generated_at)
+    publication = site_publication(result, contract, generated_at)
     dashboard = build_dashboard(profiles, generated_at, mapped_editors=contract["editor_attribution"]["entries"],
                                 attribution_coverage=attribution_coverage(result),
                                 profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids}, publication=publication)

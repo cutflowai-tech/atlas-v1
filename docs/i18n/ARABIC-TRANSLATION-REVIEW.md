@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-443 keys: 148 Approved from brief, 272 Implemented conservatively, 23 Needs Arabic Review.
+451 keys: 149 Approved from brief, 279 Implemented conservatively, 23 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -137,7 +137,8 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `metric.speed_median` | {labels} median | وسيط {labels} | Metric card | Implemented conservatively |  |
 | `nav.main_label` | Main navigation | القائمة الرئيسية | Accessible name of the main navigation | Implemented conservatively |  |
 | `note.not_attributed` | Projects whose Editor is unverified, unrecorded at Ready For Approval, or changed during the work are not attributed to any Editor and so do not appear in this profile. | المشاريع التي لم يتم التحقق من المونتير الخاص بها، أو لم يُسجل المونتير فيها عند Ready For Approval، أو تغيّر أثناء العمل، لا تُسند إلى أي مونتير ولذلك لا تظهر في هذا الملف. | Profile note (attribution) | Implemented conservatively |  |
-| `note.positive` | Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made. | تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة. | Profile note (positive signals) | Implemented conservatively |  |
+| `note.positive` | No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality. | لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط ولا تؤثر على الجودة. | Profile note (positive signals) | Implemented conservatively |  |
+| `note.positive_v15` | Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made. | تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة. | Profile note (positive signals), contract 1.5 | Implemented conservatively |  |
 | `note.trend` | Monthly figures (UTC month of Ready For Approval) with their sample sizes. Speed is shown only per exact benchmark-eligible Video Type cohort, never pooled across cohorts. No trend conclusion or judgement is drawn. | أرقام شهرية (حسب شهر Ready For Approval بتوقيت UTC) مع حجم العينة. تظهر السرعة فقط لكل Video Type مؤهل للمقارنة على حدة، ولا يتم دمج الأنواع. لا يتم استنتاج أي اتجاه أو حكم. | Profile note (trend) | Implemented conservatively |  |
 | `note.workload` | Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made. | وصفي فقط. لم يتم في V1 تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي للمونتير، لذلك لا يوجد أي حكم على الطاقة الاستيعابية. | Profile note (workload) | Implemented conservatively |  |
 | `note.workload_v15` | Active Work includes only In Progress, Revisions and Internal Revisions. Ready For Approval is shown separately as Awaiting Approval. No capacity judgement is made. | يشمل العمل النشط فقط حالات In Progress وRevisions وInternal Revisions. وتظهر Ready For Approval منفصلة بصفتها بانتظار الاعتماد. لا يصدر أي حكم على الطاقة الاستيعابية. | Contract 1.5 current-work semantics | Implemented conservatively |  |
@@ -168,15 +169,19 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `pending.needs_attention.reason` | No rule defines when an Editor needs management attention. | لا توجد قاعدة تحدد متى يحتاج المونتير إلى انتباه الإدارة. | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.overall_status.reason` | No overall performance status rule is approved for Atlas V1. | لا توجد قاعدة معتمدة للتقييم العام للأداء في Atlas V1. | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.positive_signals.label` | Positive signals | المؤشرات الإيجابية | Unapproved management rule (Data & System) | Implemented conservatively |  |
-| `pending.positive_signals.reason` | Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved. | تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير. | Why the rule is not evaluated | Implemented conservatively |  |
+| `pending.positive_signals.reason` | No approved positive quality signal exists in V1; For Bonus is context only (D10). | لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط (D10). | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.reward_recommendation.label` | Reward recommendation | توصية بالمكافأة | Unapproved management rule (Data & System) | Implemented conservatively |  |
-| `pending.reward_recommendation.reason` | No reward rule is approved; positive labels are evidence and never an automatic reward recommendation. | لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة. | Why the rule is not evaluated | Implemented conservatively |  |
+| `pending.reward_recommendation.reason` | No reward rule is approved; For Bonus labels are context only (D10). | لا توجد قاعدة مكافآت معتمدة؛ وعلامات For Bonus للسياق فقط (D10). | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.team_patterns.label` | Team / process patterns | أنماط الفريق / سير العمل | Unapproved management rule (Data & System) | Implemented conservatively |  |
 | `pending.team_patterns.reason` | No rule defines a team or process pattern; label counts per Editor are shown as facts only. | لا توجد قاعدة تحدد نمطًا على مستوى الفريق أو سير العمل؛ تُعرض أعداد المؤشرات لكل مونتير كحقائق فقط. | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.trend_direction.label` | Improving / declining | التحسن / التراجع | Unapproved management rule (Data & System) | Implemented conservatively |  |
 | `pending.trend_direction.reason` | No trend rule is approved; monthly figures are shown with their sample sizes only. | لا توجد قاعدة معتمدة للاتجاه؛ تُعرض الأرقام الشهرية مع حجم العينة فقط. | Why the rule is not evaluated | Implemented conservatively |  |
 | `pending.workload_capacity.label` | Workload / capacity judgement | الحكم على عبء العمل / الطاقة الاستيعابية | Unapproved management rule (Data & System) | Implemented conservatively |  |
-| `pending.workload_capacity.reason` | Active Work statuses are approved; no capacity threshold or capacity judgement is approved. | حالات العمل النشط معتمدة؛ ولا توجد عتبة سعة أو حكم سعة معتمد. | Why the rule is not evaluated | Implemented conservatively |  |
+| `pending.workload_capacity.reason` | Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5). | لم يتم بعد تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي (DECISIONS.md، القرار المفتوح 5). | Why the rule is not evaluated | Implemented conservatively |  |
+| `pending_v15.positive_signals.reason` | Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved. | تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
+| `pending_v15.reward_recommendation.reason` | No reward rule is approved; positive labels are evidence and never an automatic reward recommendation. | لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
+| `pending_v15.trend_direction.reason` | Recent Change is shown as a fact with both windows and samples; no Trend materiality threshold is approved. | يُعرض التغيّر الأخير كحقيقة مع الفترتين وحجم العينة؛ ولا توجد عتبة معتمدة لأهمية تغيّر الاتجاه. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
+| `pending_v15.workload_capacity.reason` | Active Work statuses are approved; no capacity threshold or capacity judgement is approved. | حالات العمل النشط معتمدة؛ ولا توجد عتبة سعة أو حكم سعة معتمد. | Why the rule is not evaluated (contract 1.5) | Implemented conservatively |  |
 | `profile.data_updated` | Data updated | آخر تحديث للبيانات | Header fact | Implemented conservatively |  |
 | `profile.period` | Period | الفترة | Header fact | Implemented conservatively |  |
 | `profile.report_intro` | The full Editor Profile as produced by the Atlas engine, with every project, exclusion and Monday event ID. | ملف أداء المونتير الكامل كما أنتجه Atlas، مع كل مشروع وكل استبعاد وكل معرّف حدث على Monday. | Drawer intro | Implemented conservatively |  |
@@ -184,8 +189,11 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `profile.suggested_action_detail` | Not available yet. Management actions will appear here once Atlas has approved rules for them. | غير متاح حاليًا. ستظهر إجراءات الإدارة هنا بعد اعتماد قواعدها في Atlas. | Empty state | Implemented conservatively |  |
 | `publication.identity` | Release {release} · source snapshot {snapshot} | الإصدار {release} · لقطة المصدر {snapshot} | Visible publication and source snapshot identifiers | Implemented conservatively |  |
 | `publication.release` | Release {release} | الإصدار {release} | Compact visible publication identifier | Implemented conservatively |  |
+| `quality.context_none` | No context labels on these projects. | لا توجد علامات سياق على هذه المشاريع. | Contract 1.5 empty Context label list | Implemented conservatively |  |
+| `quality.context_title` | Context labels | علامات السياق | Contract 1.5 Context label class (High Workload, Additional Revisions); visible, never scored | Implemented conservatively |  |
 | `quality.for_bonus` | For Bonus labels on {projects} — shown as context, not as a signal. | علامات For Bonus على {projects} — تُعرض كسياق فقط وليست مؤشرًا. | Context note | Implemented conservatively |  |
 | `quality.positive_detail` | Recognition signals will appear here once supported by evidence. | ستظهر مؤشرات التقدير هنا عندما تدعمها الأدلة. | Empty state detail (absence is not a negative judgement) | Implemented conservatively |  |
+| `quality.positive_detail_v15` | No positive Monday labels on these projects. | لا توجد علامات Monday إيجابية على هذه المشاريع. | Contract 1.5 empty Positive label list | Implemented conservatively |  |
 | `quality.source_column` | Monday Performance Issues column | عمود Performance Issues في Monday | Evidence source | Implemented conservatively |  |
 | `report.back` | Back to the dashboard | العودة إلى لوحة المتابعة | Link | Implemented conservatively |  |
 | `report.coverage_title` | Data coverage | تغطية البيانات | Heading | Implemented conservatively |  |
@@ -233,7 +241,6 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `report.tile.projects_with_revisions` | projects with revisions of {total} | مشاريع بها تعديلات من أصل {total} | Tile | Implemented conservatively |  |
 | `report.tile.revision_rate` | revision rate | نسبة المشاريع التي بها تعديلات | Tile | Implemented conservatively |  |
 | `revisions.drawer_intro` | Projects where a client asked for changes. Their cause is not known. | مشاريع طلب فيها العميل تعديلات، وسبب التعديلات غير معروف. | Drawer intro | Implemented conservatively |  |
-| `revisions.internal_events` | Internal revision events | مرات التعديلات الداخلية | Non-scoring revision context tile | Implemented conservatively |  |
 | `revisions.of_completed` | of {completed} | من أصل {completed} | Tile detail | Implemented conservatively |  |
 | `snapshot.head.over_time` | Over time | على مدار الوقت | Snapshot card heading | Implemented conservatively |  |
 | `speed.benchmark_is_descriptive` | Team figures are historical and descriptive — not a target or an SLA. | أرقام الفريق تاريخية ووصفية فقط — وليست هدفًا أو مستوى خدمة مطلوبًا. | Benchmark disclaimer in each Video Type drawer | Implemented conservatively |  |
@@ -418,6 +425,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `revisions.context_heading` | Client revision context | تعديلات العميل | Heading | Approved from brief |  |
 | `revisions.disclaimer` | Context only. Revisions do not imply Editor fault and never affect any metric. | للسياق فقط. وجود تعديلات من العميل لا يعني أن المونتير أخطأ، ولا يؤثر على أي من مؤشرات الأداء. | Revision disclaimer (core rule) | Approved from brief |  |
 | `revisions.drawer_title` | Client revision context · {name} | تعديلات العميل · {name} | Drawer title | Approved from brief |  |
+| `revisions.internal_events` | Internal revision events | مرات التعديل الداخلي | Tile | Approved from brief |  |
 | `revisions.projects_with` | Projects with client revisions | مشاريع بها تعديلات من العميل | Tile / button | Approved from brief |  |
 | `snapshot.head.attention` | May need a look | نقاط تستحق المراجعة | Snapshot card heading | Approved from brief |  |
 | `snapshot.head.doing_well` | Doing well | مؤشرات إيجابية | Snapshot card heading | Approved from brief |  |

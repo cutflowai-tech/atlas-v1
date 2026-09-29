@@ -12,6 +12,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.pipeline import CycleReconstruction
 
 PUBLICATION_VIEW_VERSION = "atlas-publication-view-v1"
@@ -63,3 +64,9 @@ def build_publication_view(result: CycleReconstruction, contract: Mapping[str, A
             "/ar": {"entry": "ar/index.html", **route_state},
         },
     }
+
+
+def site_publication(result: CycleReconstruction, contract: Mapping[str, Any], generated_at: str) -> dict[str, Any] | None:
+    """The publication identity of a site built under ``contract``, or None for contracts without publication identity
+    (through 1.4.0), whose sites keep their original files and pages."""
+    return build_publication_view(result, contract, generated_at) if capabilities(contract).publication_identity else None

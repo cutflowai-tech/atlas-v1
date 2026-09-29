@@ -266,7 +266,7 @@ def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[
                     "performance_label": label,
                     "label_column_id": source.column_id,
                     "label_mapping_version": source.mapping_version,
-                    "revision_context": dict(cycle.revision_context),
+                    "revision_context": _revision_context(cycle, policy.taxonomy_enabled),
                     "evidence": {
                         "source": "monday",
                         "monday_board_id": cycle.monday_board_id,
@@ -284,6 +284,18 @@ def quality_occurrences(cycles: Iterable[CycleRecord], column_changes: Iterable[
                     raise ValueError(f"quality metric violates contract: {errors}")
                 result.occurrences.append(metric)
     return result
+
+
+# Per-kind revision event IDs are contract 1.5 evidence (D32); earlier contracts publish the original revision_context keys.
+V15_REVISION_KEYS = ("client_revision_event_ids", "internal_revision_event_ids")
+
+
+def _revision_context(cycle: CycleRecord, taxonomy_enabled: bool) -> dict[str, Any]:
+    context = dict(cycle.revision_context)
+    if not taxonomy_enabled:
+        for key in V15_REVISION_KEYS:
+            context.pop(key, None)
+    return context
 
 
 def quality_summary(editor_id: str, result: QualityResult, cycles: Iterable[CycleRecord]) -> dict[str, Any]:

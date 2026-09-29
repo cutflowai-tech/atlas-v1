@@ -33,8 +33,9 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
-from atlas_commander.management import PENDING_RULES
+from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 
 SPEED_WORD = {"faster_than_team_median": "faster", "slower_than_team_median": "slower", "equal_to_team_median": "level"}
 RESULTS = ("early", "on_time", "late")
@@ -568,7 +569,7 @@ def _event_templates(s: dict[str, Any], loc: Loc) -> str:
         out.append(template(_event_tid(s["editor_id"], index), event["label"], _dl([
             (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
             (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])),
-            (loc.t("field.source"), loc.tech(event.get("column_id") or "Monday"))])
+            (loc.t("field.source"), loc.tech(event["column_id"]) if "column_id" in event else loc.t("quality.source_column"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
             + f'<p><button type="button" class="ghost" data-drawer="{escape(_project_tid(s["editor_id"], event["monday_item_id"]))}">{loc.t("evidence.open_project")}</button></p>'))
     return "".join(out)
@@ -908,8 +909,13 @@ def _quality_panel(s: dict[str, Any], loc: Loc = EN) -> str:
                 f'{loc.t("quality.affected", affected=loc.num(q["projects_with_issues"]), total=loc.num(q["completed_projects_attributed"]))}</p></div>')
     else:
         body = f'<div class="card">{empty_state(loc.t("quality.none_recorded_sentence"), " " + loc.t("quality.empty_detail"))}</div>'
-    positive = q.get("positive") or {"total_occurrences": 0, "by_label": []}
-    context = q.get("context") or {"total_occurrences": 0, "by_label": []}
+    if not q.get("taxonomy_enabled"):
+        # Contracts through 1.4: no positive signal exists and For Bonus is context only (D10).
+        return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
+                f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
+                f'{empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail"))}'
+                f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p></div></div>')
+    positive, context = q["positive"], q["context"]
 
     def label_rows(block: dict[str, Any]) -> str:
         return "".join(
@@ -920,11 +926,11 @@ def _quality_panel(s: dict[str, Any], loc: Loc = EN) -> str:
     positive_rows = label_rows(positive)
     context_rows = label_rows(context)
     positive_body = (f'<div class="rowlist">{positive_rows}</div>' if positive_rows
-                     else empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail")))
+                     else empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail_v15")))
     context_body = (f'<div class="rowlist">{context_rows}</div>' if context_rows
-                    else f'<p class="tiny quiet">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p>')
+                    else f'<p class="tiny quiet">{loc.t("quality.context_none")}</p>')
     taxonomy = (f'<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
-                f'{positive_body}<h3 style="margin:16px 0 6px;font-weight:500;font-size:16px">{loc.t("report.tile.for_bonus")}</h3>'
+                f'{positive_body}<h3 style="margin:16px 0 6px;font-weight:500;font-size:16px">{loc.t("quality.context_title")}</h3>'
                 f'{context_body}</div>')
     return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
             f'<div class="two">{body}{taxonomy}</div>')
@@ -1132,8 +1138,11 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
                  ("common.deadlines", loc.t("system.rule.deadlines", rule=loc.tech(first["deadline"]["rule_version"]))),
                  ("common.quality", loc.t("system.rule.quality")), ("common.revisions", loc.t("system.rule.revisions"))]
         approved = "<ul>" + "".join(f"<li><b>{loc.t(name)}</b> — {text}</li>" for name, text in rules) + "</ul>"
-    pending = "".join(f'<tr><td>{pending_label(slot, loc)}</td><td>{loc.t("common.not_evaluated")}</td><td>{loc.t(f"pending.{slot}.reason")}</td></tr>'
-                      for slot in PENDING_RULES)
+    v15 = capabilities(doc["source"]["executable_contract_version"]).editor_intelligence
+    slots = [slot for slot in PENDING_RULES if not (v15 and slot not in V15_PENDING_SLOTS)]
+    pending = "".join(f'<tr><td>{pending_label(slot, loc)}</td><td>{loc.t("common.not_evaluated")}</td>'
+                      f'<td>{loc.t(f"pending_v15.{slot}.reason" if v15 and slot in V15_REASONS else f"pending.{slot}.reason")}</td></tr>'
+                      for slot in slots)
     editors = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.tech(s["editor_id"])}</td><td>{loc.src(s["monday_label"])}</td>'
                       f'<td>{loc.tech(s["mapping_version"])}</td><td>{loc.tech(s["profile_contract_version"])}</td>'
                       f'<td>{loc.num(s["sample"]["completed_projects"])}</td></tr>' for s in doc["editors"])

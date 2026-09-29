@@ -12,6 +12,7 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
 
 CSS = """
@@ -54,6 +55,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     editor = profile["editor"]
     speed, deadline, quality, revisions, coverage = profile["speed"], profile["deadline"], profile["quality"], profile["revisions"], profile["coverage"]
     summary = deadline["summary"]
+    v15 = capabilities(profile["executable_contract_version"]).editor_intelligence
     publication = publication or profile.get("publication")
     release_meta = (f'<meta name="atlas-release-id" content="{escape(publication["release_id"])}">'
                     f'<meta name="atlas-snapshot-id" content="{escape(publication["snapshot_id"])}">') if publication else ""
@@ -94,7 +96,8 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         shown_pct = cohort.get("editor_vs_team_median_pct") if cohort["comparison_status"] != "no_other_editors_in_cohort" else None
         conclusion = cohort["conclusion"]
         rng = cohort.get("team_typical_range_seconds") or {}
-        rows.append(f"<tr data-classification=\"{escape(conclusion)}\" data-comparison-status=\"{escape(cohort['comparison_status'])}\"><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
+        row_attrs = (f' data-classification="{escape(conclusion)}" data-comparison-status="{escape(cohort["comparison_status"])}"' if v15 else "")
+        rows.append(f"<tr{row_attrs}><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
                     f"<td>{loc.hours(cohort['editor_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=loc.num(cohort['editor_sample_size']))}</span></td>"
                     f"<td>{loc.hours(cohort['team_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=_n(cohort['team_sample_size'], loc))}</span></td>"
                     f"<td>{loc.pct_value(shown_pct, signed=True)}</td>"
@@ -138,7 +141,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
             f"<h3>{t('quality.positive_title')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
             f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
             f"<tbody>{positive_rows or no_labels}</tbody></table></div>"
-            f"<h3>{t('report.tile.for_bonus')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
+            f"<h3>{t('quality.context_title')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
             f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
             f"<tbody>{context_rows or no_labels}</tbody></table></div>"
         )
@@ -146,11 +149,12 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
                  + tile(loc.num(quality["negative"]["projects_with_issues"]), t("report.tile.projects_with_issues", total=loc.num(quality["negative"]["completed_projects_attributed"])))
                  + tile(loc.num(quality["positive"]["count"]), t("report.tile.positive"))
-                 + tile(loc.num(quality.get("context", {}).get("total_occurrences", len(bonus["projects"]))), t("report.tile.for_bonus"))
+                 + (tile(loc.num(quality["context"]["total_occurrences"]), t("quality.context_title")) if v15
+                    else tile(loc.num(len(bonus["projects"])), t("report.tile.for_bonus")))
                  + f"</div><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th><th scope=col>{t('report.head.occurrences')}</th>"
                  f"<th scope=col>{t('common.projects')}</th></tr></thead><tbody>{labels or no_labels}</tbody></table></div>"
                  f"{taxonomy_tables}"
-                 f"<p class=\"note\">{t('report.quality_note')} {t('note.positive')}</p></section>")
+                 f"<p class=\"note\">{t('report.quality_note')} {t('note.positive_v15' if v15 else 'note.positive')}</p></section>")
 
     revision_tiles = tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
     if "internal" in revisions:
@@ -189,6 +193,9 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     states = "".join(f"<li>{loc.tech(state)}: {loc.num(count)}</li>" for state, count in coverage["states"].items() if count)
     parts.append(f"<section class=\"card\"><h2>{t('report.coverage_title')}</h2><ul>{reasons}</ul><ul>{states}</ul><p class=\"note\">{t('note.not_attributed')}</p></section>")
 
+    def deadline_attr(result: str | None) -> str:
+        return f' data-classification="{escape(result or "not_classifiable")}"' if v15 else ""
+
     project_rows = []
     for row in profile["projects"]:
         result = row["deadline_result"]
@@ -200,7 +207,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         project_rows.append(
             f"<tr><td>{_item(row['monday_item_id'], monday_item_url, loc)}</td><td>{loc.tech(row['ready_for_approval_at'] or '—')}</td>"
             f"<td>{loc.hours(row['duration_seconds'])}</td><td>{loc.labels(row['cohort_labels'])}</td>"
-            f"<td class=\"{escape(result or '')}\" data-classification=\"{escape(result or 'not_classifiable')}\">{deadline_cell}</td>"
+            f"<td class=\"{escape(result or '')}\"{deadline_attr(result)}>{deadline_cell}</td>"
             f"<td>{loc.comma().join(loc.src(label) for label in row['quality_labels']) or '—'}</td><td>{loc.num(row['client_revision_events'])}</td>"
             f"<td>{loc.comma().join(loc.tech(reason) for reason in row['exclusions']) or t('evidence.included_lower')}</td>"
             f"<td>{loc.tech(ids['in_progress'])}<br>{loc.tech(ids['ready_for_approval'])}</td></tr>")

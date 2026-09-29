@@ -13,6 +13,7 @@ import calendar
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.management import editor_intelligence, team_intelligence
 
 DASHBOARD_VERSION = "ceo-dashboard-v0.1"
@@ -67,7 +68,7 @@ def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
 def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
     quality = profile["quality"]
     negative = quality["negative"]
-    result = {"source": "quality", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
+    result = {"source": "quality" if "context" in quality else "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
             "completed_projects_attributed": negative["completed_projects_attributed"],
             "by_label": [{"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
                          for row in negative["by_label"]],
@@ -96,6 +97,8 @@ def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
     return result
 
 
+LABEL_EVENT_KINDS = {"Positive": "positive_label", "Negative": "issue_label", "Context": "context_label"}
+
 PROJECT_FIELDS = ("monday_item_id", "state", "in_progress_at", "ready_for_approval_at", "duration_seconds", "cohort_key", "cohort_labels",
                   "speed_eligible", "requested_eta", "requested_eta_issue", "requested_eta_observed_at", "deadline_result", "deadline_delta_seconds",
                   "quality_labels", "client_revision_events", "exclusions", "flags", "evidence_event_ids",
@@ -116,14 +119,16 @@ def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
                "deadline_result": row["deadline_result"], "deadline_delta_seconds": row["deadline_delta_seconds"],
                "cohort_labels": list(row["cohort_labels"]), "client_revision_events": row["client_revision_events"]}
               for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]]
+    taxonomy = capabilities(profile["executable_contract_version"]).label_taxonomy
     for occurrence in profile["quality"]["occurrences"]:
         timestamps = occurrence["evidence"].get("source_timestamps") or []
-        label_class = str((occurrence["evidence"].get("source_values") or {}).get("label_class") or "Negative").title()
-        kind = {"Positive": "positive_label", "Negative": "issue_label", "Context": "context_label"}.get(label_class, "context_label")
-        events.append({"kind": kind, "label_class": label_class, "at": timestamps[0] if timestamps else None,
-                       "monday_item_id": occurrence["evidence"]["monday_item_id"], "label": occurrence["performance_label"],
-                       "column_id": occurrence.get("label_column_id"),
-                       "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
+        event = {"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
+                 "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])}
+        if taxonomy:
+            # Every occurrence carries its registry class under a taxonomy contract; a missing class is a defect, not Negative.
+            label_class = occurrence["evidence"]["source_values"]["label_class"]
+            event.update({"kind": LABEL_EVENT_KINDS[label_class], "label_class": label_class, "column_id": occurrence["label_column_id"]})
+        events.append(event)
     return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
 
 
@@ -235,7 +240,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
     coverage = profile["coverage"]
     speed, deadline, quality = _speed(profile), _deadline(profile), _quality(profile)
     workload, monthly = _workload(profile), _monthly(profile)
-    intelligence = editor_intelligence(profile)
+    intelligence = editor_intelligence(profile["executable_contract_version"])
     return {
         "editor_id": editor["editor_id"], "display_name": editor["display_name"], "monday_label": editor["monday_person_id"],
         "mapping_version": editor.get("mapping_version"), "profile_ref": profile_ref,
@@ -249,7 +254,7 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
     }
 
 
-def _team(summaries: list[dict[str, Any]]) -> dict[str, Any]:
+def _team(summaries: list[dict[str, Any]], contract_version: str | None) -> dict[str, Any]:
     labels: dict[str, dict[str, int]] = {}
     labels_by_class: dict[str, dict[str, dict[str, int]]] = {name: {} for name in ("negative", "positive", "context")}
     for summary in summaries:
@@ -263,20 +268,40 @@ def _team(summaries: list[dict[str, Any]]) -> dict[str, Any]:
                 class_labels.setdefault(row["label"], {})[summary["editor_id"]] = row["occurrences"]
     statuses = sorted({status for s in summaries for status in s["current_workload"]["by_current_status"]})
     months = sorted({m["month"] for s in summaries for m in s["monthly"] if m["deadline"]}, reverse=True)
+    taxonomy = {"quality_labels_by_class": {
+        class_name: [{"label": label, "editors": counts, "editor_count": len(counts)}
+                     for label, counts in sorted(class_labels.items(), key=lambda pair: (-len(pair[1]), pair[0]))]
+        for class_name, class_labels in labels_by_class.items()
+    }} if capabilities(contract_version).label_taxonomy else {}
     return {
         "issue_labels_by_editor": [{"label": label, "editors": counts, "editor_count": len(counts)}
                                    for label, counts in sorted(labels.items(), key=lambda p: (-len(p[1]), p[0]))],
-        "quality_labels_by_class": {
-            class_name: [{"label": label, "editors": counts, "editor_count": len(counts)}
-                         for label, counts in sorted(class_labels.items(), key=lambda pair: (-len(pair[1]), pair[0]))]
-            for class_name, class_labels in labels_by_class.items()
-        },
+        **taxonomy,
         "workload_by_editor": {"statuses": statuses,
                                "rows": {s["editor_id"]: s["current_workload"]["by_current_status"] for s in summaries}},
         "deadline_by_editor_month": {"months": [{"month": month, "month_name": month_name(month)} for month in months],
                                      "rows": {s["editor_id"]: {m["month"]: m["deadline"] for m in s["monthly"] if m["deadline"]} for s in summaries}},
-        "intelligence": team_intelligence(),
+        "intelligence": team_intelligence(contract_version),
     }
+
+
+def editors_without_data(mapped_editors: Iterable[Mapping[str, Any]], profiled: set[str], contract_version: str | None) -> list[dict[str, Any]]:
+    """Mapped Editors without a profile, one row per canonical Editor.
+
+    Under contract 1.5 several historical ``(source_label_id, logged_name)`` tuples can map to one canonical Editor (D49
+    merges); the canonical ``editor_id`` is the presentation identity, so such an Editor is listed once, under its first
+    (canonical) mapping entry, with every Monday label that maps to it. A label ID alone is never shown as the Editor's."""
+    rows: dict[str, dict[str, Any]] = {}
+    for entry in mapped_editors:
+        editor_id = entry["editor_id"]
+        if editor_id in profiled:
+            continue
+        row = rows.setdefault(editor_id, {"editor_id": editor_id, "display_name": entry["display_name"], "monday_label": entry["monday_person_id"],
+                                          "_labels": []})
+        row["_labels"].append({"source_label_id": entry.get("source_label_id", entry["monday_person_id"]), "logged_name": entry.get("logged_name")})
+    all_labels = capabilities(contract_version).editor_intelligence
+    return [{key: value for key, value in row.items() if key != "_labels"} | ({"monday_labels": row["_labels"]} if all_labels else {})
+            for row in rows.values()]
 
 
 def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *, mapped_editors: Iterable[Mapping[str, Any]] = (),
@@ -298,13 +323,12 @@ def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *,
     return {
         "dashboard_version": DASHBOARD_VERSION,
         "generated_at": generated_at,
-        "publication": dict(publication) if publication else None,
+        **({"publication": dict(publication)} if publication is not None else {}),
         "source": {"retrieved_at": retrieved_at, "executable_contract_version": contract_version,
                    "activity_log_window": profiles[0]["source"]["history_coverage"].get("activity_log_window") if profiles else None,
                    "statement": "Summary of Atlas Editor Profiles built from one Monday snapshot; the profiles and their Monday evidence are the source of every figure."},
         "editors": summaries,
-        "editors_without_attributable_data": [{"editor_id": e["editor_id"], "display_name": e["display_name"], "monday_label": e["monday_person_id"]}
-                                              for e in mapped_editors if e["editor_id"] not in profiled],
+        "editors_without_attributable_data": editors_without_data(mapped_editors, profiled, contract_version),
         "attribution_coverage": dict(attribution_coverage) if attribution_coverage else None,
-        "team": _team(summaries),
+        "team": _team(summaries, contract_version),
     }

@@ -51,8 +51,7 @@ PROFILE_CONTRACTS = {
 }
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
-POSITIVE_NOTE = ("Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do "
-                 "not affect the Quality component, and no automatic recognition or reward judgement is made.")
+POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
 REVISION_NOTE = "Revision activity is context only. It does not imply Editor fault and never affects any metric or conclusion."
 ACTIVE_WORK_STATUSES = ("In Progress", "Revisions", "Internal Revisions")
 AWAITING_APPROVAL_STATUS = "Ready For Approval"

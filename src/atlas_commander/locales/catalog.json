@@ -1106,9 +1106,15 @@
    "notes": "English is the profile's note verbatim; confirm the Arabic summary is equivalent."
   },
   "note.positive": {
-    "en": "Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made.",
-    "ar": "تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة.",
+   "en": "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality.",
+   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط ولا تؤثر على الجودة.",
    "context": "Profile note (positive signals)",
+   "status": "Implemented conservatively"
+  },
+  "note.positive_v15": {
+   "en": "Positive and context labels are shown from Monday as separate factual evidence. Deadline labels remain visible but do not affect the Quality component, and no automatic recognition or reward judgement is made.",
+   "ar": "تُعرض العلامات الإيجابية وعلامات السياق من Monday كأدلة واقعية منفصلة. وتظل علامات الموعد النهائي ظاهرة لكنها لا تؤثر في مكوّن الجودة، ولا ينتج عنها حكم تلقائي بالتقدير أو المكافأة.",
+   "context": "Profile note (positive signals), contract 1.5",
    "status": "Implemented conservatively"
   },
   "note.revisions": {
@@ -1391,9 +1397,15 @@
    "status": "Implemented conservatively"
   },
   "pending.positive_signals.reason": {
-    "en": "Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved.",
-    "ar": "تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير.",
+   "en": "No approved positive quality signal exists in V1; For Bonus is context only (D10).",
+   "ar": "لا يوجد مؤشر جودة إيجابي معتمد في V1؛ وعلامة For Bonus للسياق فقط (D10).",
    "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending_v15.positive_signals.reason": {
+   "en": "Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved.",
+   "ar": "تُعرض علامات Monday الإيجابية كأدلة واقعية؛ ولا توجد عتبة معتمدة لنقاط القوة أو التقدير.",
+   "context": "Why the rule is not evaluated (contract 1.5)",
    "status": "Implemented conservatively"
   },
   "pending.reward_recommendation.label": {
@@ -1403,9 +1415,15 @@
    "status": "Implemented conservatively"
   },
   "pending.reward_recommendation.reason": {
-    "en": "No reward rule is approved; positive labels are evidence and never an automatic reward recommendation.",
-    "ar": "لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة.",
+   "en": "No reward rule is approved; For Bonus labels are context only (D10).",
+   "ar": "لا توجد قاعدة مكافآت معتمدة؛ وعلامات For Bonus للسياق فقط (D10).",
    "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending_v15.reward_recommendation.reason": {
+   "en": "No reward rule is approved; positive labels are evidence and never an automatic reward recommendation.",
+   "ar": "لا توجد قاعدة مكافآت معتمدة؛ فالعلامات الإيجابية أدلة وليست توصية تلقائية بالمكافأة.",
+   "context": "Why the rule is not evaluated (contract 1.5)",
    "status": "Implemented conservatively"
   },
   "pending.team_patterns.label": {
@@ -1439,9 +1457,21 @@
    "status": "Implemented conservatively"
   },
   "pending.workload_capacity.reason": {
-    "en": "Active Work statuses are approved; no capacity threshold or capacity judgement is approved.",
-    "ar": "حالات العمل النشط معتمدة؛ ولا توجد عتبة سعة أو حكم سعة معتمد.",
+   "en": "Which current statuses count as active workload is an open decision (DECISIONS.md, open decision 5).",
+   "ar": "لم يتم بعد تحديد الحالات التي تُحسب ضمن عبء العمل الفعلي (DECISIONS.md، القرار المفتوح 5).",
    "context": "Why the rule is not evaluated",
+   "status": "Implemented conservatively"
+  },
+  "pending_v15.trend_direction.reason": {
+   "en": "Recent Change is shown as a fact with both windows and samples; no Trend materiality threshold is approved.",
+   "ar": "يُعرض التغيّر الأخير كحقيقة مع الفترتين وحجم العينة؛ ولا توجد عتبة معتمدة لأهمية تغيّر الاتجاه.",
+   "context": "Why the rule is not evaluated (contract 1.5)",
+   "status": "Implemented conservatively"
+  },
+  "pending_v15.workload_capacity.reason": {
+   "en": "Active Work statuses are approved; no capacity threshold or capacity judgement is approved.",
+   "ar": "حالات العمل النشط معتمدة؛ ولا توجد عتبة سعة أو حكم سعة معتمد.",
+   "context": "Why the rule is not evaluated (contract 1.5)",
    "status": "Implemented conservatively"
   },
   "profile.data_updated": {
@@ -2792,12 +2822,6 @@
    "context": "Compact visible publication identifier",
    "status": "Implemented conservatively"
   },
-  "revisions.internal_events": {
-   "en": "Internal revision events",
-   "ar": "مرات التعديلات الداخلية",
-   "context": "Non-scoring revision context tile",
-   "status": "Implemented conservatively"
-  },
   "workload.active_work": {
    "en": "Active Work",
    "ar": "العمل النشط",
@@ -2808,6 +2832,24 @@
    "en": "Awaiting Approval",
    "ar": "بانتظار الاعتماد",
    "context": "Ready For Approval projects, separate from Active Work",
+   "status": "Implemented conservatively"
+  },
+  "quality.context_title": {
+   "en": "Context labels",
+   "ar": "علامات السياق",
+   "context": "Contract 1.5 Context label class (High Workload, Additional Revisions); visible, never scored",
+   "status": "Implemented conservatively"
+  },
+  "quality.context_none": {
+   "en": "No context labels on these projects.",
+   "ar": "لا توجد علامات سياق على هذه المشاريع.",
+   "context": "Contract 1.5 empty Context label list",
+   "status": "Implemented conservatively"
+  },
+  "quality.positive_detail_v15": {
+   "en": "No positive Monday labels on these projects.",
+   "ar": "لا توجد علامات Monday إيجابية على هذه المشاريع.",
+   "context": "Contract 1.5 empty Positive label list",
    "status": "Implemented conservatively"
   },
   "workload.footer": {
