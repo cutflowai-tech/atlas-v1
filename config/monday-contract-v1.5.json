@@ -15,7 +15,7 @@
   },
   "rule_versions": {
     "windowing": "cairo-completed-days-v1.0",
-    "identity": "monday-editor-v1.2",
+    "identity": "monday-editor-v1.3",
     "quality_labels": "monday-quality-labels-v1.0",
     "quality_component": "quality-component-v1.0",
     "speed_benchmark": "speed-benchmark-v1.3",
@@ -87,7 +87,7 @@
   "editor_attribution": {
     "authoritative_field": "Editor Name",
     "activity_log_user_id": "audit-metadata-only",
-    "mapping_version": "monday-editor-v1.2",
+    "mapping_version": "monday-editor-v1.3",
     "identity_key": ["source_label_id", "logged_name"],
     "new_name_policy": "unresolved-never-inherit-a-mapping-from-the-source-label-id",
     "entries": [
@@ -219,20 +219,149 @@
         "label_names": [
           "Mohamed Mansour (Office)"
         ]
+      },
+      {
+        "monday_person_id": "4",
+        "source_label_id": "4",
+        "logged_name": "Mario",
+        "editor_id": "editor-label-4",
+        "display_name": "Mario",
+        "canonical_editor_name": "Mario",
+        "role": "editor",
+        "first_observed_at": "2026-03-14T00:44:34.286658Z",
+        "last_observed_at": "2026-09-28T23:40:30.586199Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Mario"]
+      },
+      {
+        "monday_person_id": "5",
+        "source_label_id": "5",
+        "logged_name": "Anas",
+        "editor_id": "editor-label-5",
+        "display_name": "Anas",
+        "canonical_editor_name": "Anas",
+        "role": "editor",
+        "first_observed_at": "2026-05-18T21:18:49.066589Z",
+        "last_observed_at": "2026-09-28T23:53:06.778508Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Anas"]
+      },
+      {
+        "monday_person_id": "7",
+        "source_label_id": "7",
+        "logged_name": "Martin",
+        "editor_id": "editor-label-7",
+        "display_name": "Martin",
+        "canonical_editor_name": "Martin",
+        "role": "editor",
+        "first_observed_at": "2026-05-12T16:18:07.005690Z",
+        "last_observed_at": "2026-09-28T23:46:48.811226Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Martin"]
+      },
+      {
+        "monday_person_id": "8",
+        "source_label_id": "8",
+        "logged_name": "Samra",
+        "editor_id": "editor-label-8",
+        "display_name": "Samra",
+        "canonical_editor_name": "Samra",
+        "role": "editor",
+        "first_observed_at": "2026-03-14T06:03:43.139996Z",
+        "last_observed_at": "2026-08-11T21:21:19.738906Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Samra"]
+      },
+      {
+        "monday_person_id": "9",
+        "source_label_id": "9",
+        "logged_name": "Ibrahim",
+        "editor_id": "editor-label-9",
+        "display_name": "Ibrahim",
+        "canonical_editor_name": "Ibrahim",
+        "role": "editor",
+        "first_observed_at": "2026-05-03T14:10:25.391996Z",
+        "last_observed_at": "2026-09-29T11:28:22.791445Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Ibrahim"]
+      },
+      {
+        "monday_person_id": "10",
+        "source_label_id": "10",
+        "logged_name": "Amir",
+        "editor_id": "editor-label-10",
+        "display_name": "Amir",
+        "canonical_editor_name": "Amir",
+        "role": "editor",
+        "first_observed_at": "2026-04-22T16:43:52.478289Z",
+        "last_observed_at": "2026-09-28T23:50:05.196143Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Amir"]
+      },
+      {
+        "monday_person_id": "11",
+        "source_label_id": "11",
+        "logged_name": "Refaat",
+        "editor_id": "editor-label-11",
+        "display_name": "Refaat",
+        "canonical_editor_name": "Refaat",
+        "role": "editor",
+        "first_observed_at": "2026-06-29T01:31:10.174360Z",
+        "last_observed_at": "2026-09-28T23:51:39.316328Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Refaat"]
+      },
+      {
+        "monday_person_id": "5",
+        "source_label_id": "5",
+        "logged_name": "Ahmed",
+        "editor_id": "editor-label-12",
+        "display_name": "Ahmed",
+        "canonical_editor_name": "Ahmed",
+        "role": "editor",
+        "first_observed_at": "2026-03-14T05:58:12.013277Z",
+        "last_observed_at": "2026-05-04T10:50:59.999145Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Ahmed"]
+      },
+      {
+        "monday_person_id": "7",
+        "source_label_id": "7",
+        "logged_name": "Mans",
+        "editor_id": "editor-label-14",
+        "display_name": "Mansour",
+        "canonical_editor_name": "Mansour",
+        "role": "editor",
+        "first_observed_at": "2026-03-14T06:03:36.639229Z",
+        "last_observed_at": "2026-05-06T08:13:45.547424Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Mans"]
+      },
+      {
+        "monday_person_id": "9",
+        "source_label_id": "9",
+        "logged_name": "Michael",
+        "editor_id": "editor-label-13",
+        "display_name": "Michael",
+        "canonical_editor_name": "Michael",
+        "role": "editor",
+        "first_observed_at": "2026-03-14T06:03:49.632351Z",
+        "last_observed_at": "2026-05-02T20:03:48.180209Z",
+        "attestation_source": "Waset management attestation recorded 2026-09-29 in docs/evidence/IDENTITY-ATTESTATION-REQUEST.md",
+        "decision_id": "D49",
+        "label_names": ["Michael"]
       }
     ],
-    "named_unresolved_identities": [
-      {"source_label_id": "4", "logged_name": "Mario", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "5", "logged_name": "Anas", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "7", "logged_name": "Martin", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "8", "logged_name": "Samra", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "9", "logged_name": "Ibrahim", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "10", "logged_name": "Amir", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "11", "logged_name": "Refaat", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "5", "logged_name": "Ahmed", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "7", "logged_name": "Mans", "reason": "UNMAPPED_EDITOR"},
-      {"source_label_id": "9", "logged_name": "Michael", "reason": "UNMAPPED_EDITOR"}
-    ],
+    "named_unresolved_identities": [],
     "quarantine_reasons": [
       {"source_label_id": "11", "logged_name": "New", "code": "invalid_identity_value", "decision_id": "D50"},
       {"source_label_id": "2", "logged_name": "Done", "code": "invalid_identity_value", "decision_id": "D50"},
@@ -243,8 +372,8 @@
       "99154021"
     ],
     "label_name_guard": "resolution uses the exact tuple (source_label_id, logged_name); no ID-only fallback exists",
-    "changes_from_v1_1": "the mapping key is now (source_label_id, logged_name); no person is newly attested or mapped",
-    "unverified_labels": "Named unresolved identities listed above remain unmapped until management attests both identity and Editor role for the observed range",
+    "changes_from_v1_2": "D49 management attestation maps the seven confirmed Editors over their documented ranges and merges three historical tuples into their attested canonical Editor IDs; the tuple key and D50 quarantines are unchanged",
+    "unverified_labels": "No D49 identity remains unresolved; D50 values retain their explicit quarantine reasons and never enter Editor metrics",
     "historical_coverage": "projects without an Editor Name observation at or before Ready For Approval (the column logs from 2026-03-14) stay excluded; the current value is never applied retroactively (approved 2026-09-28)"
   },
   "video_type_cohorts": {
@@ -573,12 +702,12 @@
     }
   },
   "threshold_governance": {
-    "status": "blocked_unresolved_identities",
-    "blocking_decision": "D44",
-    "blocking_identity_keys": [
-      ["4", "Mario"], ["5", "Anas"], ["7", "Martin"], ["8", "Samra"], ["9", "Ibrahim"], ["10", "Amir"], ["11", "Refaat"]
-    ],
+    "status": "identity_gate_satisfied_thresholds_unapproved",
+    "governing_decision": "D44",
+    "blocking_identity_keys": [],
     "required_order": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision", "rerun_production_distributions", "propose_threshold_values"],
+    "completed_steps": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"],
+    "threshold_approval_status": "rule_not_approved",
     "pre_resolution_calibration_approved": false,
     "unresolved_projects_enter_calibration": false
   },

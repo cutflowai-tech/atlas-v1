@@ -34,7 +34,7 @@ from atlas_commander.runtime import (
 )
 
 
-def observation(source_label_id: str, logged_name: str) -> EditorObservation:
+def observation(source_label_id: str, logged_name: str, observed_at: str = "2026-09-01T09:00:00Z") -> EditorObservation:
     return EditorObservation(
         monday_board_id="5091110326",
         monday_item_id="item-1",
@@ -42,7 +42,7 @@ def observation(source_label_id: str, logged_name: str) -> EditorObservation:
         person_ids=(source_label_id,),
         source="editor_column_event",
         event_id="event-1",
-        observed_at="2026-09-01T09:00:00Z",
+        observed_at=observed_at,
         label_names=(logged_name,),
     )
 
@@ -88,7 +88,12 @@ class ContractV15ConfigTests(unittest.TestCase):
         self.assertEqual(self.contract["active_work"]["active_statuses"], ["In Progress", "Revisions", "Internal Revisions"])
         self.assertEqual(self.contract["active_work"]["awaiting_approval_statuses"], ["Ready For Approval"])
         self.assertFalse(self.contract["revision_context"]["scored"])
-        self.assertEqual(self.contract["threshold_governance"]["status"], "blocked_unresolved_identities")
+        self.assertEqual(self.contract["threshold_governance"]["status"], "identity_gate_satisfied_thresholds_unapproved")
+        self.assertEqual(self.contract["threshold_governance"]["governing_decision"], "D44")
+        self.assertEqual(self.contract["threshold_governance"]["blocking_identity_keys"], [])
+        self.assertEqual(self.contract["threshold_governance"]["completed_steps"],
+                         ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"])
+        self.assertEqual(self.contract["threshold_governance"]["threshold_approval_status"], "rule_not_approved")
         self.assertFalse(self.contract["threshold_governance"]["pre_resolution_calibration_approved"])
         self.assertEqual(self.contract["deadline"]["team_wide_lateness"], "process-diagnostic-only-never-an-editor-scoring-input")
         self.assertTrue(self.contract["evidence_requirements"]["raw_identity_evidence_retained_on_quarantine"])
@@ -121,6 +126,17 @@ class ContractV15ConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ContractConfigError, "not of type 'null'"):
                 load_contract(path)
 
+    def test_loader_rejects_tampered_d49_canonical_identity(self):
+        invalid = copy.deepcopy(self.contract)
+        michael = next(entry for entry in invalid["editor_attribution"]["entries"]
+                       if (entry.get("source_label_id"), entry.get("logged_name")) == ("9", "Michael"))
+        michael["editor_id"] = "editor-label-12"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "contract.json"
+            path.write_text(json.dumps(invalid))
+            with self.assertRaisesRegex(ContractConfigError, "D49 identity attestations"):
+                load_contract(path)
+
 
 class ContractV15IdentityTests(unittest.TestCase):
     @classmethod
@@ -142,17 +158,47 @@ class ContractV15IdentityTests(unittest.TestCase):
         result = resolve_contract_editor(observation("6", "Will"), self.contract)
         self.assertTrue(result.resolved)
         assert result.identity is not None
-        self.assertEqual((result.identity["editor_id"], result.identity["mapping_version"]), ("editor-label-6", "monday-editor-v1.2"))
+        self.assertEqual((result.identity["editor_id"], result.identity["mapping_version"]), ("editor-label-6", "monday-editor-v1.3"))
 
     def test_new_name_under_known_source_label_never_inherits_mapping(self):
         self.assertQuarantined("6", "Another Will", UNMAPPED_EDITOR)
         self.assertQuarantined("12", "Anas", UNMAPPED_EDITOR)
 
-    def test_same_name_under_another_source_label_does_not_merge(self):
-        self.assertQuarantined("9", "Michael", UNMAPPED_EDITOR)
-        self.assertTrue(resolve_contract_editor(observation("13", "Michael"), self.contract).resolved)
+    def test_historical_reused_names_merge_only_to_the_attested_canonical_ids(self):
+        cases = [
+            ("5", "Ahmed", "2026-04-01T10:00:00Z", "editor-label-12"),
+            ("7", "Mans", "2026-04-01T10:00:00Z", "editor-label-14"),
+            ("9", "Michael", "2026-04-01T10:00:00Z", "editor-label-13"),
+        ]
+        for source_label_id, logged_name, observed_at, canonical_id in cases:
+            with self.subTest(identity=(source_label_id, logged_name)):
+                result = resolve_contract_editor(observation(source_label_id, logged_name, observed_at), self.contract)
+                self.assertTrue(result.resolved)
+                self.assertEqual(result.identity["editor_id"], canonical_id)
 
-    def test_observed_dates_validate_but_do_not_replace_the_tuple_key(self):
+    def test_attested_editors_resolve_at_exact_observed_timestamp_bounds(self):
+        cases = [
+            ("4", "Mario", "2026-03-14T00:44:34.286658Z", "2026-09-28T23:40:30.586199Z", "editor-label-4"),
+            ("5", "Anas", "2026-05-18T21:18:49.066589Z", "2026-09-28T23:53:06.778508Z", "editor-label-5"),
+            ("7", "Martin", "2026-05-12T16:18:07.005690Z", "2026-09-28T23:46:48.811226Z", "editor-label-7"),
+            ("8", "Samra", "2026-03-14T06:03:43.139996Z", "2026-08-11T21:21:19.738906Z", "editor-label-8"),
+            ("9", "Ibrahim", "2026-05-03T14:10:25.391996Z", "2026-09-29T11:28:22.791445Z", "editor-label-9"),
+            ("10", "Amir", "2026-04-22T16:43:52.478289Z", "2026-09-28T23:50:05.196143Z", "editor-label-10"),
+            ("11", "Refaat", "2026-06-29T01:31:10.174360Z", "2026-09-28T23:51:39.316328Z", "editor-label-11"),
+            ("5", "Ahmed", "2026-03-14T05:58:12.013277Z", "2026-05-04T10:50:59.999145Z", "editor-label-12"),
+            ("7", "Mans", "2026-03-14T06:03:36.639229Z", "2026-05-06T08:13:45.547424Z", "editor-label-14"),
+            ("9", "Michael", "2026-03-14T06:03:49.632351Z", "2026-05-02T20:03:48.180209Z", "editor-label-13"),
+        ]
+        for source_label_id, logged_name, first, last, canonical_id in cases:
+            with self.subTest(identity=(source_label_id, logged_name)):
+                for observed_at in (first, last):
+                    result = resolve_contract_editor(observation(source_label_id, logged_name, observed_at), self.contract)
+                    self.assertTrue(result.resolved)
+                    self.assertEqual(result.identity["editor_id"], canonical_id)
+        outside = resolve_contract_editor(observation("8", "Samra", "2026-08-11T21:21:19.738907Z"), self.contract)
+        self.assertEqual(outside.exception.code, EDITOR_IDENTITY_OUTSIDE_OBSERVED_RANGE)
+
+    def test_observed_timestamps_validate_but_do_not_replace_the_tuple_key(self):
         mapping = IdentityMapping.from_dict({
             "mapping_version": "bounded-v1",
             "identity_key": ["source_label_id", "logged_name"],
@@ -168,13 +214,6 @@ class ContractV15IdentityTests(unittest.TestCase):
         self.assertEqual(resolve_editor(observation("6", "Other"), mapping).exception.code, UNMAPPED_EDITOR)
         invalid_time = replace(observation("6", "Will"), observed_at="not-a-timestamp")
         self.assertEqual(resolve_editor(invalid_time, mapping).exception.code, "MISSING_EVIDENCE")
-
-    def test_named_unresolved_identities_remain_unresolved(self):
-        pairs = [("4", "Mario"), ("5", "Anas"), ("7", "Martin"), ("8", "Samra"), ("9", "Ibrahim"),
-                 ("10", "Amir"), ("11", "Refaat"), ("5", "Ahmed"), ("7", "Mans"), ("9", "Michael")]
-        for source_label_id, logged_name in pairs:
-            with self.subTest(identity=(source_label_id, logged_name)):
-                self.assertQuarantined(source_label_id, logged_name, UNMAPPED_EDITOR)
 
     def test_d50_reasons_are_exact_and_retain_raw_evidence(self):
         self.assertQuarantined("11", "New", INVALID_IDENTITY_VALUE)
@@ -208,13 +247,14 @@ class ContractV15IdentityTests(unittest.TestCase):
         self.assertIsNone(cycle.editor_id)
         self.assertIn(EDITOR_CHANGED_WITHIN_CYCLE, cycle.exclusions)
 
-    def test_no_unresolved_or_d50_identity_was_attested(self):
+    def test_no_named_d49_identity_remains_unresolved_and_d50_is_not_mapped(self):
         mapped = {(entry["source_label_id"], entry["logged_name"]) for entry in self.contract["editor_attribution"]["entries"]}
-        unresolved = {(entry["source_label_id"], entry["logged_name"])
-                      for entry in self.contract["editor_attribution"]["named_unresolved_identities"]}
+        self.assertEqual(self.contract["editor_attribution"]["named_unresolved_identities"], [])
+        attested = {("4", "Mario"), ("5", "Anas"), ("7", "Martin"), ("8", "Samra"), ("9", "Ibrahim"),
+                    ("10", "Amir"), ("11", "Refaat"), ("5", "Ahmed"), ("7", "Mans"), ("9", "Michael")}
         quarantined = {(entry["source_label_id"], entry["logged_name"])
                        for entry in self.contract["editor_attribution"]["quarantine_reasons"]}
-        self.assertFalse(mapped & unresolved)
+        self.assertTrue(attested <= mapped)
         self.assertFalse(mapped & quarantined)
 
 

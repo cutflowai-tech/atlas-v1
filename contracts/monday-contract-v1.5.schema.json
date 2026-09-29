@@ -50,7 +50,7 @@
       "type": "object",
       "required": ["mapping_version", "identity_key", "new_name_policy", "entries", "named_unresolved_identities", "quarantine_reasons"],
       "properties": {
-        "mapping_version": {"const": "monday-editor-v1.2"},
+        "mapping_version": {"const": "monday-editor-v1.3"},
         "identity_key": {"const": ["source_label_id", "logged_name"]},
         "new_name_policy": {"const": "unresolved-never-inherit-a-mapping-from-the-source-label-id"},
         "entries": {
@@ -198,11 +198,13 @@
     },
     "threshold_governance": {
       "type": "object",
-      "required": ["status", "blocking_decision", "blocking_identity_keys", "required_order", "pre_resolution_calibration_approved", "unresolved_projects_enter_calibration"],
+      "required": ["status", "governing_decision", "blocking_identity_keys", "required_order", "completed_steps", "threshold_approval_status", "pre_resolution_calibration_approved", "unresolved_projects_enter_calibration"],
       "properties": {
-        "status": {"const": "blocked_unresolved_identities"},
-        "blocking_decision": {"const": "D44"},
-        "blocking_identity_keys": {"type": "array", "minItems": 7, "maxItems": 7, "uniqueItems": true},
+        "status": {"const": "identity_gate_satisfied_thresholds_unapproved"},
+        "governing_decision": {"const": "D44"},
+        "blocking_identity_keys": {"type": "array", "maxItems": 0},
+        "completed_steps": {"const": ["approve_identity_mappings", "update_identity_mapping", "record_identity_decision"]},
+        "threshold_approval_status": {"const": "rule_not_approved"},
         "pre_resolution_calibration_approved": {"const": false},
         "unresolved_projects_enter_calibration": {"const": false}
       }
