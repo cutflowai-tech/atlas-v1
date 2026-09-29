@@ -175,7 +175,9 @@ or alert state manually. Never publish “the newest” directory without an exp
 
 Normal production is `timer -> scheduled-run`, which syncs, validates, and atomically publishes one
 exact attempt. `run-once` is manual staging only. `publish ATTEMPT_ID` is a separate explicit switch,
-and `rollback [ATTEMPT_ID]` is an explicit operator recovery action.
+and `rollback [ATTEMPT_ID]` is an explicit operator recovery action while that publication remains
+inside the retention horizon. The current and default previous rollback publication are pinned
+regardless of age.
 
 ## 7. Failure response
 
@@ -270,7 +272,8 @@ missed interval produces at most one activation, not one activation per missed h
 - Monitor `df -h /var/lib/waset-atlas`, `df -i /var/lib/waset-atlas`, and
   `du -sh /var/lib/waset-atlas/*`. Atlas applies conservative 96-hour bounded retention only after
   a successful scheduled publication/status cycle and under the production lock. Preview exact
-  decisions with `atlas_sync retention --dry-run --json`. Never improvise deletion of raw evidence,
+  decisions with `atlas_sync retention --json` (dry-run is the default); apply only after review with
+  `atlas_sync retention --apply --json`. Never improvise deletion of raw evidence,
   builds, publication history, scheduled cycles, or alert history; investigate `blocked`/`partial`
   reports instead.
 - Before a backup, stop the timer and confirm the service is inactive. Back up

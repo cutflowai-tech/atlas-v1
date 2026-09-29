@@ -84,9 +84,9 @@ does not delete, replace, or invalidate the last-good dashboard before the atomi
 
 ## Bounded retention
 
-`python -m atlas_sync retention --dry-run --json` takes the production lock and emits the
-exact deterministic decisions without deleting or writing the latest report. The non-dry
-command is available for controlled operator use; normal cleanup is the post-success step of
+`python -m atlas_sync retention --json` takes the production lock and emits the default dry-run's
+exact deterministic decisions without deleting or writing the latest report. `--apply` is
+available for controlled operator use; normal cleanup is the post-success step of
 `scheduled-run`.
 
 Retention considers only exact Atlas run IDs and publication/cycle filenames directly under
@@ -97,6 +97,11 @@ successful publication still inside the retention window, and all of their attem
 provenance are retained transitively. The exact 96-hour boundary is retained; an object must
 be strictly older than the cutoff to be eligible. Terminal failed attempts may expire, while
 running/incomplete artifacts and orphaned cycle starts remain protected.
+
+Explicit rollback is bounded to publications whose authorization history is still retained. The
+current publication and the most recent distinct previous publication remain rollbackable even
+when older than the window; older explicit targets age out with their evidence. Review dry-run
+output from the same release and configuration before using `--apply`.
 
 The JSON report includes per-object kind/name/action/reason/bytes plus deleted, retained, and
 dry-run-would-delete counts and bytes. A clean report also contains aggregate retained storage

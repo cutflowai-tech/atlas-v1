@@ -18,17 +18,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_commander.ingest import RUN_ID_PATTERN, utc_now
+from atlas_commander.ingest import INGEST_VERSION, RUN_ID_PATTERN, utc_now
 
 from .config import ConfigError, SyncConfig, load_sync_config
 from .lock import LockError, OperationLocked, production_lock
-from .publish import HISTORY_PATTERN, PublishRejected, live_attempt
+from .publish import HISTORY_PATTERN, PUBLICATION_VERSION, PublishRejected, live_attempt
 from .run import BUILD_METADATA_NAME, COMPLETE_NAME, FAILED_NAME
 
 RETENTION_VERSION = "atlas-retention-v1"
 REPORT_DIR = "retention"
 REPORT_NAME = "latest.json"
 _CYCLE_FILE = re.compile(r"^(\d{8}T\d{6}Z-[0-9a-f]{12})(?:\.(started|outcome))?\.json$")
+_PUBLICATION_STATUSES = {"published", "rejected", "switch_failed", "published_metadata_inconsistent"}
+_SCHEDULED_VERSION = "atlas-scheduled-cycle-v1"
 
 
 @dataclass
@@ -96,18 +98,53 @@ def _tree_size(path: Path) -> tuple[int, bool]:
         return 0, True
 
 
-def _old(path: Path, cutoff: datetime) -> bool:
+def _id_time(value: str) -> datetime | None:
     try:
-        modified = datetime.fromtimestamp(path.lstat().st_mtime, timezone.utc)
-    except OSError:
-        return False
+        if RUN_ID_PATTERN.fullmatch(value) is None:
+            return None
+        return datetime.strptime(value[:16], "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _old_id(value: str, cutoff: datetime) -> bool:
+    moment = _id_time(value)
     # Exact-boundary evidence is retained: deletion requires strictly older.
-    return modified < cutoff
+    return moment is not None and moment < cutoff
+
+
+def _unsafe_roots(paths: tuple[Path, ...]) -> bool:
+    """Reject symlinks at/below the configured roots' common data ancestor.
+
+    Platform ancestors such as macOS ``/var -> /private/var`` are outside Atlas' configured
+    namespace and are intentionally canonicalized. A symlink used as the data root or one of its
+    managed descendants is rejected.
+    """
+    if not paths:
+        return False
+    common = Path(os.path.commonpath([str(path) for path in paths]))
+    for target in paths:
+        current = common
+        candidates = [common]
+        try:
+            relative = target.relative_to(common)
+        except ValueError:
+            return True
+        for part in relative.parts:
+            current /= part
+            candidates.append(current)
+        try:
+            if any(candidate.is_symlink() for candidate in candidates):
+                return True
+        except OSError:
+            return True
+    return False
 
 
 def _safe_child(root: Path, path: Path) -> bool:
     try:
-        return path.parent == root and root.is_absolute() and path.name not in {"", ".", ".."}
+        return (path.parent == root and root.is_absolute() and path.name not in {"", ".", ".."}
+                and not root.is_symlink() and not path.is_symlink())
     except OSError:
         return False
 
@@ -129,6 +166,74 @@ def _source(build: Path, raw_root: Path) -> tuple[str | None, bool]:
     valid = (isinstance(run_id, str) and RUN_ID_PATTERN.match(run_id) is not None
              and isinstance(raw_dir, str) and raw_dir == str(raw_root / run_id))
     return (run_id if valid else None), valid
+
+
+def _valid_attempt(path: Path, raw_root: Path) -> tuple[dict[str, Any] | None, bool]:
+    document = _object(path)
+    attempt_id = path.stem
+    valid = (document is not None and document.get("attempt_id") == attempt_id
+             and document.get("status") in {"success", "failed", "running", "locked"})
+    source_id = document.get("source_run_id") if document else None
+    raw_dir = document.get("raw_run_dir") if document else None
+    if source_id is not None:
+        valid = (valid and isinstance(source_id, str) and RUN_ID_PATTERN.fullmatch(source_id) is not None
+                 and isinstance(raw_dir, str) and raw_dir == str(raw_root / source_id))
+    return document, bool(valid)
+
+
+def _valid_raw_run(path: Path) -> tuple[bool, str]:
+    manifest_path, failed_path = path / "manifest.json", path / FAILED_NAME
+    manifest, failed = _object(manifest_path), _object(failed_path)
+    if manifest_path.exists() == failed_path.exists():
+        return False, "corrupt_reference"
+    if manifest is not None:
+        valid = (manifest.get("ingest_version") == INGEST_VERSION and manifest.get("status") == "complete"
+                 and (manifest.get("run") or {}).get("run_id") == path.name)
+        return valid, "complete" if valid else "corrupt_reference"
+    if failed is not None:
+        valid = (failed.get("ingest_version") == INGEST_VERSION and failed.get("status") == "failed"
+                 and (failed.get("run") or {}).get("run_id") == path.name)
+        return valid, "failed" if valid else "corrupt_reference"
+    return False, "corrupt_reference"
+
+
+def _valid_build(path: Path, raw_root: Path, attempt_doc: dict[str, Any] | None) -> tuple[bool, str | None, str]:
+    complete_path, failed_path = path / COMPLETE_NAME, path / FAILED_NAME
+    complete, failed = _object(complete_path), _object(failed_path)
+    if complete_path.exists() == failed_path.exists():
+        return False, None, "active_or_incomplete" if not complete_path.exists() else "corrupt_reference"
+    source_id, source_valid = _source(path, raw_root)
+    if complete is not None:
+        marker_valid = (complete.get("status") == "complete" and complete.get("attempt_id") == path.name
+                        and complete.get("source_run_id") == source_id)
+        return bool(marker_valid and source_valid), source_id, "complete" if marker_valid and source_valid else "corrupt_reference"
+    if failed is not None:
+        marker_valid = failed.get("status") == "failed" and failed.get("attempt_id") == path.name
+        if not source_valid and attempt_doc is not None:
+            fallback = attempt_doc.get("source_run_id")
+            fallback_path = attempt_doc.get("raw_run_dir")
+            if (isinstance(fallback, str) and RUN_ID_PATTERN.fullmatch(fallback)
+                    and fallback_path == str(raw_root / fallback)):
+                source_id, source_valid = fallback, True
+        # A build can fail before build.json exists. The self-identifying failed marker is terminal;
+        # a known source, when present, is still retained transitively.
+        return bool(marker_valid), source_id if source_valid else None, "failed" if marker_valid else "corrupt_reference"
+    return False, None, "corrupt_reference"
+
+
+def _valid_history(path: Path) -> tuple[dict[str, Any] | None, bool]:
+    match = HISTORY_PATTERN.fullmatch(path.name)
+    document = _object(path) if match and path.is_file() and not path.is_symlink() else None
+    if match is None or document is None:
+        return document, False
+    attempt_id = document.get("attempt_id")
+    valid_attempt = attempt_id is None or (isinstance(attempt_id, str) and RUN_ID_PATTERN.fullmatch(attempt_id) is not None)
+    valid = (document.get("publication_version") == PUBLICATION_VERSION
+             and document.get("sequence") == int(match.group(1))
+             and document.get("publication_id") == match.group(2)
+             and document.get("status") in _PUBLICATION_STATUSES
+             and isinstance(document.get("switched"), bool) and valid_attempt)
+    return document, bool(valid)
 
 
 def _record(report: RetentionReport, kind: str, path: Path, action: str, reason: str, size: int) -> None:
@@ -165,19 +270,23 @@ def _write_report(config: SyncConfig, report: RetentionReport) -> None:
             temporary.unlink()
 
 
-def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
+def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                     clock: Callable[[], datetime] = utc_now) -> RetentionReport:
     """Apply retention while the caller holds the production lock."""
     now = clock().astimezone(timezone.utc)
     cutoff = now - timedelta(seconds=config.retention_seconds)
     report = RetentionReport(_iso(now), _iso(cutoff), config.retention_seconds, dry_run)
-    configured_roots = (config.raw_dir.expanduser(), config.build_dir.expanduser(), config.publish_dir.expanduser())
-    raw_root, build_root, publish_root = (path.resolve() for path in configured_roots)
-    cycle_root = config.lock_dir.resolve() / "scheduled-cycles" if config.lock_dir else None
-    if any(root.is_symlink() for root in configured_roots) or (config.lock_dir and config.lock_dir.is_symlink()):
+    configured_roots = tuple(path.expanduser().absolute() for path in
+                             (config.raw_dir, config.build_dir, config.publish_dir))
+    lock_root = config.lock_dir.expanduser().absolute() if config.lock_dir else None
+    all_roots = configured_roots + ((lock_root,) if lock_root else ())
+    if _unsafe_roots(all_roots):
         report.status, report.failure_category = "blocked", "unsafe_root"
         report.storage = None
         return report
+    raw_root, build_root, publish_root = (root.resolve() for root in configured_roots)
+    canonical_lock_root = lock_root.resolve() if lock_root else None
+    cycle_root = canonical_lock_root / "scheduled-cycles" if canonical_lock_root else None
 
     ambiguous = False
     protected_attempts: set[str] = set()
@@ -191,17 +300,18 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
 
     history_root = publish_root / "history"
     histories: list[tuple[Path, dict[str, Any]]] = []
-    if history_root.is_dir() and not history_root.is_symlink():
+    if history_root.is_symlink():
+        ambiguous = True
+        _record(report, "publication_history", history_root, "retained", "unknown_or_unsafe", _tree_size(history_root)[0])
+    elif history_root.is_dir():
         for path in sorted(history_root.iterdir()):
-            if path.is_symlink() or not path.is_file() or HISTORY_PATTERN.match(path.name) is None:
+            doc, valid = _valid_history(path)
+            if not valid:
+                ambiguous = True
                 _record(report, "publication_history", path, "retained", "unknown_or_unsafe", _tree_size(path)[0])
                 continue
-            doc = _object(path)
-            if doc is None:
-                ambiguous = True
-                _record(report, "publication_history", path, "retained", "corrupt_reference", _tree_size(path)[0])
-            else:
-                histories.append((path, doc))
+            assert doc is not None
+            histories.append((path, doc))
     elif history_root.exists():
         ambiguous = True
 
@@ -218,7 +328,14 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
         reference = current_doc.get("history_record")
         if isinstance(reference, str):
             candidate = Path(reference)
-            if candidate.is_absolute() and candidate.parent == history_root:
+            try:
+                canonical_candidate = candidate.resolve(strict=True)
+            except (OSError, RuntimeError):
+                canonical_candidate = Path("/")
+            matching = [(path, doc) for path, doc in histories if path == canonical_candidate]
+            if (candidate.is_absolute() and canonical_candidate.parent == history_root and len(matching) == 1
+                    and matching[0][1].get("publication_id") == current_doc.get("publication_id")
+                    and matching[0][1].get("attempt_id") == current):
                 protected_history.add(candidate.name)
             else:
                 ambiguous = True
@@ -237,16 +354,19 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
     attempts_root = build_root / "attempts"
     attempt_documents: dict[str, dict[str, Any]] = {}
     attempt_paths: list[Path] = []
-    if attempts_root.is_dir() and not attempts_root.is_symlink():
+    if attempts_root.is_symlink():
+        _record(report, "attempt_record", attempts_root, "retained", "unknown_or_unsafe", _tree_size(attempts_root)[0])
+        ambiguous = True
+    elif attempts_root.is_dir():
         attempt_paths = sorted(attempts_root.iterdir())
         for path in attempt_paths:
             match = path.suffix == ".json" and RUN_ID_PATTERN.match(path.stem)
-            doc = _object(path) if match and not path.is_symlink() and path.is_file() else None
-            if match and doc is not None and doc.get("attempt_id") == path.stem:
+            doc, valid = _valid_attempt(path, raw_root) if match and not path.is_symlink() and path.is_file() else (None, False)
+            if match and valid and doc is not None:
                 attempt_documents[path.stem] = doc
-            elif match:
+            else:
                 ambiguous = True
-    elif attempts_root.exists() or attempts_root.is_symlink():
+    elif attempts_root.exists():
         _record(report, "attempt_record", attempts_root, "retained", "unknown_or_unsafe", _tree_size(attempts_root)[0])
         ambiguous = True
 
@@ -263,7 +383,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
             _record(report, "publication_history", path, "retained", "publication_or_rollback_required", size)
             if doc.get("switched") is True and isinstance(doc.get("attempt_id"), str):
                 retained_history_attempts.add(doc["attempt_id"])
-        elif not _old(path, cutoff):
+        elif not _old_id(str(doc["publication_id"]), cutoff):
             _record(report, "publication_history", path, "retained", "within_retention", size)
             if doc.get("switched") is True and isinstance(doc.get("attempt_id"), str):
                 retained_history_attempts.add(doc["attempt_id"])
@@ -289,23 +409,19 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
                 _record(report, "build", path, "retained", "unknown_or_unsafe", _tree_size(path)[0])
                 continue
             size, unsafe = _tree_size(path)
-            complete = (path / COMPLETE_NAME).is_file() and not (path / FAILED_NAME).exists()
-            failed = (path / FAILED_NAME).is_file() and not (path / COMPLETE_NAME).exists()
-            source_id, source_valid = _source(path, raw_root)
-            if failed and not source_valid:
-                fallback = attempt_documents.get(path.name, {}).get("source_run_id")
-                if isinstance(fallback, str) and RUN_ID_PATTERN.match(fallback):
-                    source_id, source_valid = fallback, True
-            if not source_valid:
+            terminal, source_id, terminal_state = _valid_build(path, raw_root, attempt_documents.get(path.name))
+            if terminal and terminal_state == "complete" and source_id is None:
                 raw_ambiguous = True
-            protect = ambiguous or path.name in protected_attempts or not (complete or failed) or unsafe or not source_valid
+            if not terminal and terminal_state == "corrupt_reference":
+                raw_ambiguous = True
+            protect = ambiguous or path.name in protected_attempts or not terminal or unsafe
             if protect:
                 reason = ("ambiguous_reference" if ambiguous else "publication_or_rollback_required" if path.name in protected_attempts
-                          else "active_or_incomplete" if not (complete or failed) else "unknown_or_unsafe" if unsafe else "corrupt_reference")
+                          else "unknown_or_unsafe" if unsafe else terminal_state)
                 _record(report, "build", path, "retained", reason, size)
                 protected_attempts.add(path.name)
                 if source_id: preserved_sources.add(source_id)
-            elif not _old(path, cutoff):
+            elif not _old_id(path.name, cutoff):
                 _record(report, "build", path, "retained", "within_retention", size)
                 protected_attempts.add(path.name)
                 if source_id: preserved_sources.add(source_id)
@@ -323,17 +439,19 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
         for path in attempt_paths:
             size, unsafe = _tree_size(path)
             match = path.suffix == ".json" and RUN_ID_PATTERN.match(path.stem)
-            doc = _object(path) if match and not path.is_symlink() else None
-            if not match or unsafe or doc is None or doc.get("attempt_id") != path.stem:
+            doc, valid = _valid_attempt(path, raw_root) if match and not path.is_symlink() else (None, False)
+            if not match or unsafe or not valid or doc is None:
+                ambiguous = True
                 _record(report, "attempt_record", path, "retained", "unknown_or_unsafe" if not match or unsafe else "corrupt_reference", size)
                 continue
             active = doc.get("status") not in {"success", "failed"}
             if ambiguous or path.stem in protected_attempts or active:
-                reason = "ambiguous_reference" if ambiguous else "build_evidence_required" if path.stem in protected_attempts else "active_or_incomplete"
+                reason = ("ambiguous_reference" if ambiguous else "build_evidence_required"
+                          if path.stem in protected_attempts else "active_or_incomplete")
                 _record(report, "attempt_record", path, "retained", reason, size)
                 source_id = doc.get("source_run_id")
                 if isinstance(source_id, str) and RUN_ID_PATTERN.match(source_id): preserved_sources.add(source_id)
-            elif not _old(path, cutoff):
+            elif not _old_id(path.stem, cutoff):
                 _record(report, "attempt_record", path, "retained", "within_retention", size)
                 source_id = doc.get("source_run_id")
                 if isinstance(source_id, str) and RUN_ID_PATTERN.match(source_id): preserved_sources.add(source_id)
@@ -348,13 +466,22 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
                     if isinstance(source_id, str) and RUN_ID_PATTERN.match(source_id): preserved_sources.add(source_id)
 
     if raw_root.is_dir():
-        for path in sorted(raw_root.iterdir()):
+        raw_paths = sorted(raw_root.iterdir())
+        raw_validation = {path: (_valid_raw_run(path) if path.is_dir() and not path.is_symlink()
+                                 and RUN_ID_PATTERN.fullmatch(path.name) else (False, "corrupt_reference"))
+                          for path in raw_paths}
+        if any(RUN_ID_PATTERN.fullmatch(path.name) and not valid for path, (valid, _) in raw_validation.items()):
+            raw_ambiguous = True
+        for path in raw_paths:
             size, unsafe = _tree_size(path)
+            valid_raw, raw_state = raw_validation[path]
             if RUN_ID_PATTERN.match(path.name) is None or path.is_symlink() or not path.is_dir() or unsafe:
                 _record(report, "raw_run", path, "retained", "unknown_or_unsafe", size)
+            elif not valid_raw:
+                _record(report, "raw_run", path, "retained", raw_state, size)
             elif ambiguous or raw_ambiguous or path.name in preserved_sources:
                 _record(report, "raw_run", path, "retained", "ambiguous_reference" if ambiguous or raw_ambiguous else "source_evidence_required", size)
-            elif not _old(path, cutoff):
+            elif not _old_id(path.name, cutoff):
                 _record(report, "raw_run", path, "retained", "within_retention", size)
             elif dry_run:
                 _record(report, "raw_run", path, "would_delete", "expired", size)
@@ -375,8 +502,13 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
         for cycle_id, paths in groups.items():
             docs = [_object(path) for path in paths]
             terminal = any(path.name == f"{cycle_id}.json" or path.name == f"{cycle_id}.outcome.json" for path in paths)
-            safe = all(doc is not None and doc.get("cycle_id") == cycle_id for doc in docs)
-            old = all(_old(path, cutoff) for path in paths)
+            expected_phases = {path.name: ("started" if path.name.endswith(".started.json") else
+                                           "outcome" if path.name.endswith(".outcome.json") else "final") for path in paths}
+            safe = all(doc is not None and doc.get("cycle_id") == cycle_id
+                       and doc.get("scheduled_cycle_version") == _SCHEDULED_VERSION
+                       and doc.get("record_phase") == expected_phases[path.name]
+                       for path, doc in zip(paths, docs))
+            old = _old_id(cycle_id, cutoff)
             for path in paths:
                 size, unsafe = _tree_size(path)
                 if unsafe or not safe:
@@ -416,7 +548,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = False,
 
 
 def cleanup(environ: Mapping[str, str] | None = None, *, config: SyncConfig | None = None,
-            dry_run: bool = False, clock: Callable[[], datetime] = utc_now) -> RetentionReport:
+            dry_run: bool = True, clock: Callable[[], datetime] = utc_now) -> RetentionReport:
     now = clock()
     try:
         cfg = config or load_sync_config(environ, now=now)

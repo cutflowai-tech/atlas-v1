@@ -202,7 +202,7 @@ def _complete(result: ScheduledResult, config: SyncConfig, clock: Clock, *, eval
     # publication failure.
     if result.status == PUBLISHED and snapshot is not None:
         try:
-            cleanup = retention._cleanup_locked(config=config, clock=clock)
+            cleanup = retention._cleanup_locked(config=config, dry_run=False, clock=clock)
             result.retention_status = cleanup.status
             result.retention_deleted_count = cleanup.deleted_count
             result.retention_deleted_bytes = cleanup.deleted_bytes

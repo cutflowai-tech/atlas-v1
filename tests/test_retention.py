@@ -36,19 +36,28 @@ class RetentionTests(unittest.TestCase):
     def artifact(self, attempt, source, *, status="complete", hours=97):
         raw = self.config.raw_dir / source
         raw.mkdir(); (raw / "evidence").write_text("raw")
+        raw_marker = ({"ingest_version": "atlas-ingest-v2", "status": "complete", "run": {"run_id": source}}
+                      if status == "complete" else
+                      {"ingest_version": "atlas-ingest-v2", "status": "failed", "run": {"run_id": source}})
+        (raw / ("manifest.json" if status == "complete" else "FAILED.json")).write_text(json.dumps(raw_marker))
         build = self.config.build_dir / attempt
         build.mkdir()
-        (build / "build.json").write_text(json.dumps({"source": {"run_id": source, "raw_run_dir": str(raw.resolve())}}))
-        (build / ("COMPLETE.json" if status == "complete" else "FAILED.json")).write_text("{}")
+        (build / "build.json").write_text(json.dumps({"attempt": {"attempt_id": attempt},
+                                                       "source": {"run_id": source, "raw_run_dir": str(raw.resolve())}}))
+        marker = ({"status": "complete", "attempt_id": attempt, "source_run_id": source}
+                  if status == "complete" else {"status": "failed", "attempt_id": attempt})
+        (build / ("COMPLETE.json" if status == "complete" else "FAILED.json")).write_text(json.dumps(marker))
         record = self.config.build_dir / "attempts" / f"{attempt}.json"
         record.write_text(json.dumps({"attempt_id": attempt, "source_run_id": source,
+                                      "raw_run_dir": str(raw.resolve()),
                                       "status": "success" if status == "complete" else "failed"}))
         for path in (raw, build, record): self.age(path, hours)
         return raw, build, record
 
     def history(self, seq, publication, attempt, *, hours=97):
         path = self.config.publish_dir / "history" / f"{seq:06d}-{publication}.json"
-        path.write_text(json.dumps({"publication_id": publication, "attempt_id": attempt,
+        path.write_text(json.dumps({"publication_version": "atlas-publication-v1", "sequence": seq,
+                                    "publication_id": publication, "attempt_id": attempt,
                                     "switched": True, "status": "published"}))
         self.age(path, hours)
         return path
@@ -78,7 +87,9 @@ class RetentionTests(unittest.TestCase):
         h2 = self.history(2, "20260902T020000Z-bbbbbbbbbbbb", prior)
         h3 = self.history(3, "20260903T020000Z-cccccccccccc", current)
         os.symlink(f"../builds/{current}/site", self.config.publish_dir / "current")
-        (self.config.publish_dir / "CURRENT.json").write_text(json.dumps({"history_record": str(h3.resolve())}))
+        (self.config.publish_dir / "CURRENT.json").write_text(json.dumps({"history_record": str(h3.resolve()),
+                                                                           "publication_id": "20260903T020000Z-cccccccccccc",
+                                                                           "attempt_id": current}))
         report = self.cleanup()
         self.assertFalse(artifacts[oldest][1].exists()); self.assertFalse(h1.exists())
         for attempt in (prior, current):
@@ -143,9 +154,12 @@ class RetentionTests(unittest.TestCase):
         for suffix in ("started", "outcome", None):
             name = f"{terminal}.{suffix}.json" if suffix else f"{terminal}.json"
             path = self.config.lock_dir / "scheduled-cycles" / name
-            path.write_text(json.dumps({"cycle_id": terminal})); self.age(path)
+            phase = suffix or "final"
+            path.write_text(json.dumps({"scheduled_cycle_version": "atlas-scheduled-cycle-v1",
+                                        "record_phase": phase, "cycle_id": terminal})); self.age(path)
         started = self.config.lock_dir / "scheduled-cycles" / f"{active}.started.json"
-        started.write_text(json.dumps({"cycle_id": active})); self.age(started)
+        started.write_text(json.dumps({"scheduled_cycle_version": "atlas-scheduled-cycle-v1",
+                                       "record_phase": "started", "cycle_id": active})); self.age(started)
         self.cleanup()
         self.assertFalse(any((self.config.lock_dir / "scheduled-cycles").glob(f"{terminal}*")))
         self.assertTrue(started.exists())
@@ -174,14 +188,85 @@ class RetentionTests(unittest.TestCase):
         self.assertIsNone(other.retention)
 
     def test_cli_dry_run_json_is_structured(self):
-        report = self.cleanup(dry_run=True)
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        _, build, _ = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
         output = io.StringIO()
-        with mock.patch.object(cli, "retention_cleanup", return_value=report), redirect_stdout(output):
-            code = cli.main(["retention", "--dry-run", "--json"])
+        with mock.patch.object(cli, "retention_cleanup", wraps=lambda **kwargs: retention.cleanup(
+                config=self.config, clock=lambda: NOW, **kwargs)), redirect_stdout(output):
+            code = cli.main(["retention", "--json"])
         document = json.loads(output.getvalue())
         self.assertEqual(code, 0)
         self.assertTrue(document["dry_run"])
         self.assertIn("would_delete_bytes", document)
+        self.assertTrue(build.exists())
+
+    def test_nested_root_symlink_never_traverses_or_deletes_external_data(self):
+        shutil.rmtree(self.config.build_dir / "attempts")
+        outside = self.data / "outside-attempts"
+        outside.mkdir()
+        old = "20260901T000000Z-aaaaaaaaaaaa"
+        external = outside / f"{old}.json"
+        external.write_text(json.dumps({"attempt_id": old, "status": "failed"}))
+        (self.config.build_dir / "attempts").symlink_to(outside, target_is_directory=True)
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(external.exists())
+
+    def test_retained_build_transitively_keeps_older_source(self):
+        source = "20260901T000000Z-aaaaaaaaaaaa"
+        recent = "20260929T110000Z-bbbbbbbbbbbb"
+        raw, build, _ = self.artifact(recent, source)
+        report = self.cleanup()
+        self.assertTrue(build.exists())
+        self.assertTrue(raw.exists())
+        self.assertIn("source_evidence_required", report.reasons)
+
+    def test_corrupt_markers_and_unknown_history_fail_closed(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, _ = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        (build / "COMPLETE.json").write_text("{")
+        (raw / "manifest.json").write_text("{")
+        legacy = self.config.publish_dir / "history" / "legacy.json"
+        legacy.write_text(json.dumps({"attempt_id": attempt, "switched": True}))
+        report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue(build.exists())
+        self.assertTrue(raw.exists())
+        self.assertTrue(legacy.exists())
+        self.assertIn("corrupt_reference", report.reasons)
+
+    def test_real_failed_raw_and_early_failed_build_can_expire(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        source = "20260901T010000Z-bbbbbbbbbbbb"
+        raw, build, record = self.artifact(attempt, source, status="failed")
+        (build / "build.json").unlink()
+        report = self.cleanup()
+        self.assertEqual(report.status, "complete")
+        self.assertFalse(raw.exists())
+        self.assertFalse(build.exists())
+        self.assertFalse(record.exists())
+
+    def test_expired_explicit_rollback_history_is_bounded_but_default_is_kept(self):
+        oldest, previous, current = (
+            "20260901T000000Z-111111111111", "20260902T000000Z-222222222222", "20260903T000000Z-333333333333")
+        for index, attempt in enumerate((oldest, previous, current), 1):
+            self.artifact(attempt, f"2026090{index}T010000Z-{str(index) * 12}")
+        old_history = self.history(1, "20260901T020000Z-aaaaaaaaaaaa", oldest)
+        previous_history = self.history(2, "20260902T020000Z-bbbbbbbbbbbb", previous)
+        current_history = self.history(3, "20260903T020000Z-cccccccccccc", current)
+        (self.config.build_dir / current / "site").mkdir()
+        (self.config.publish_dir / "current").symlink_to(f"../builds/{current}/site")
+        (self.config.publish_dir / "CURRENT.json").write_text(json.dumps({
+            "attempt_id": current, "publication_id": "20260903T020000Z-cccccccccccc",
+            "history_record": str(current_history),
+        }))
+        first = self.cleanup()
+        self.assertFalse(old_history.exists())
+        self.assertFalse((self.config.build_dir / oldest).exists())
+        self.assertTrue(previous_history.exists())
+        self.assertTrue((self.config.build_dir / previous).exists())
+        self.assertTrue(current_history.exists())
+        self.assertEqual(first.status, "complete")
 
 
 if __name__ == "__main__":
