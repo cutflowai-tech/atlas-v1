@@ -27,6 +27,7 @@ from atlas_commander.dashboard import build_dashboard
 from atlas_commander.dashboard_html import render_dashboard_html
 from atlas_commander.i18n import EN, Loc, locales
 from atlas_commander.identity import AMBIGUOUS_EDITOR, EDITOR_LABEL_NAME_MISMATCH, EDITOR_LABEL_NAME_UNVERIFIED, MISSING_EDITOR, UNMAPPED_EDITOR
+from atlas_commander.investigation.site import write_site_intelligence
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
@@ -137,7 +138,9 @@ def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, 
               status_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
     """Every Editor Profile and the CEO Dashboard, as the bilingual site described in ``atlas_commander.site_layout``."""
     profiles, pages = build_profiles(result, contract, out, generated_at, monday_item_url)
-    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url, status_snapshot)
+    dashboard = build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url, status_snapshot)
+    write_site_intelligence(result, contract, out, generated_at, profiles)   # only when config/intelligence-v2.json enables it
+    return dashboard
 
 
 def main(argv: list[str] | None = None) -> int:
