@@ -370,24 +370,26 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
         protected_attempts.add(current)
 
     history_root = publish_root / "history"
-    histories: list[tuple[Path, dict[str, Any]]] = []
+    histories: list[tuple[Path, dict[str, Any], tuple[int, int]]] = []
     if history_root.is_symlink():
         ambiguous = True
         _record(report, "publication_history", history_root, "retained", "unknown_or_unsafe", _tree_size(history_root)[0])
     elif history_root.is_dir():
         for path in sorted(history_root.iterdir()):
+            identity = _identity(path)
             doc, valid = _valid_history(path)
-            if not valid:
+            if not valid or identity is None or _identity(path) != identity:
                 ambiguous = True
                 _record(report, "publication_history", path, "retained", "unknown_or_unsafe", _tree_size(path)[0])
                 continue
             assert doc is not None
-            histories.append((path, doc))
+            histories.append((path, doc, identity))
     elif history_root.exists():
         ambiguous = True
 
-    successful = [(p, d) for p, d in histories if d.get("switched") is True and isinstance(d.get("attempt_id"), str)]
-    for path, doc in successful:
+    successful = [(p, d, identity) for p, d, identity in histories
+                  if d.get("switched") is True and isinstance(d.get("attempt_id"), str)]
+    for path, doc, _ in successful:
         attempt = doc.get("attempt_id")
         if not isinstance(attempt, str) or RUN_ID_PATTERN.match(attempt) is None:
             ambiguous = True
@@ -404,7 +406,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
                 canonical_candidate = candidate.resolve(strict=True)
             except (OSError, RuntimeError):
                 canonical_candidate = Path("/")
-            matching = [(path, doc) for path, doc in histories if path == canonical_candidate]
+            matching = [(path, doc) for path, doc, _ in histories if path == canonical_candidate]
             if (candidate.is_absolute() and canonical_candidate.parent == history_root and len(matching) == 1
                     and matching[0][1].get("publication_id") == current_doc.get("publication_id")
                     and matching[0][1].get("attempt_id") == current):
@@ -414,7 +416,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
         else:
             ambiguous = True
     if current:
-        for path, doc in reversed(successful):
+        for path, doc, _ in reversed(successful):
             attempt = doc.get("attempt_id")
             if attempt != current and RUN_ID_PATTERN.match(str(attempt)):
                 protected_attempts.add(str(attempt))
@@ -425,6 +427,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     # Atlas-named record could refer to either, so ambiguity blocks that graph.
     attempts_root = build_root / "attempts"
     attempt_documents: dict[str, dict[str, Any]] = {}
+    attempt_identities: dict[str, tuple[int, int]] = {}
     attempt_paths: list[Path] = []
     if attempts_root.is_symlink():
         _record(report, "attempt_record", attempts_root, "retained", "unknown_or_unsafe", _tree_size(attempts_root)[0])
@@ -433,9 +436,11 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
         attempt_paths = sorted(attempts_root.iterdir())
         for path in attempt_paths:
             match = path.suffix == ".json" and RUN_ID_PATTERN.match(path.stem)
+            identity = _identity(path)
             doc, valid = _valid_attempt(path, raw_root) if match and not path.is_symlink() and path.is_file() else (None, False)
-            if match and valid and doc is not None:
+            if match and valid and doc is not None and identity is not None and _identity(path) == identity:
                 attempt_documents[path.stem] = doc
+                attempt_identities[path.stem] = identity
             else:
                 ambiguous = True
     elif attempts_root.exists():
@@ -449,9 +454,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     # A corrupt publication reference may name any build, so keep the whole
     # provenance graph.  Clean old, non-required history remains bounded.
     retained_history_attempts: set[str] = set()
-    for path, doc in histories:
+    for path, doc, identity in histories:
         size, unsafe = _tree_size(path)
-        identity = _identity(path)
         if unsafe:
             _record(report, "publication_history", path, "retained", "unknown_or_unsafe", size)
         elif ambiguous:
@@ -479,11 +483,16 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
 
     preserved_sources: set[str] = set()
     raw_paths = sorted(raw_root.iterdir()) if raw_root.is_dir() else []
-    raw_validation = {path: (_valid_raw_run(path) if path.is_dir() and not path.is_symlink()
-                             and RUN_ID_PATTERN.fullmatch(path.name) else (False, "corrupt_reference"))
-                      for path in raw_paths}
+    raw_validation: dict[Path, tuple[bool, str, tuple[int, int] | None]] = {}
+    for path in raw_paths:
+        identity = _identity(path)
+        valid, state = (_valid_raw_run(path) if path.is_dir() and not path.is_symlink()
+                        and RUN_ID_PATTERN.fullmatch(path.name) else (False, "corrupt_reference"))
+        if identity is None or _identity(path) != identity:
+            valid, state, identity = False, "corrupt_reference", None
+        raw_validation[path] = valid, state, identity
     raw_ambiguous = any(RUN_ID_PATTERN.fullmatch(path.name) and not valid
-                        for path, (valid, _) in raw_validation.items())
+                        for path, (valid, _, _) in raw_validation.items())
     if build_root.is_dir():
         for path in sorted(build_root.iterdir()):
             if path.name == "attempts":
@@ -500,6 +509,8 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
             size, unsafe = _tree_size(path)
             identity = _identity(path)
             terminal, source_id, terminal_state = _valid_build(path, raw_root, attempt_documents.get(path.name))
+            if identity is None or _identity(path) != identity:
+                terminal, source_id, terminal_state = False, None, "corrupt_reference"
             if terminal and terminal_state == "complete" and source_id is None:
                 raw_ambiguous = True
             if not terminal and terminal_state == "corrupt_reference":
@@ -532,9 +543,11 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     if attempts_root.is_dir() and not attempts_root.is_symlink():
         for path in attempt_paths:
             size, unsafe = _tree_size(path)
-            identity = _identity(path)
+            identity = attempt_identities.get(path.stem)
             match = path.suffix == ".json" and RUN_ID_PATTERN.match(path.stem)
             doc, valid = _valid_attempt(path, raw_root) if match and not path.is_symlink() else (None, False)
+            if identity is None or _identity(path) != identity:
+                valid = False
             if not match or unsafe or not valid or doc is None:
                 ambiguous = True
                 _record(report, "attempt_record", path, "retained", "unknown_or_unsafe" if not match or unsafe else "corrupt_reference", size)
@@ -564,8 +577,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
     if raw_root.is_dir():
         for path in raw_paths:
             size, unsafe = _tree_size(path)
-            identity = _identity(path)
-            valid_raw, raw_state = raw_validation[path]
+            valid_raw, raw_state, identity = raw_validation[path]
             if RUN_ID_PATTERN.match(path.name) is None or path.is_symlink() or not path.is_dir() or unsafe:
                 _record(report, "raw_run", path, "retained", "unknown_or_unsafe", size)
             elif not valid_raw:
@@ -592,6 +604,7 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
             else:
                 groups.setdefault(match.group(1), []).append(path)
         for cycle_id, paths in groups.items():
+            identities = {path: _identity(path) for path in paths}
             docs = [_object(path) for path in paths]
             terminal = any(path.name == f"{cycle_id}.json" or path.name == f"{cycle_id}.outcome.json" for path in paths)
             expected_phases = {path.name: ("started" if path.name.endswith(".started.json") else
@@ -599,11 +612,12 @@ def _cleanup_locked(*, config: SyncConfig, dry_run: bool = True,
             safe = all(doc is not None and doc.get("cycle_id") == cycle_id
                        and doc.get("scheduled_cycle_version") == _SCHEDULED_VERSION
                        and doc.get("record_phase") == expected_phases[path.name]
+                       and identities[path] is not None and _identity(path) == identities[path]
                        for path, doc in zip(paths, docs))
             old = _old_id(cycle_id, cutoff)
             for path in paths:
                 size, unsafe = _tree_size(path)
-                identity = _identity(path)
+                identity = identities[path]
                 if unsafe or not safe:
                     _record(report, "scheduled_cycle", path, "retained", "corrupt_reference", size)
                 elif not terminal:

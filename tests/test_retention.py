@@ -446,6 +446,31 @@ class RetentionTests(unittest.TestCase):
         self.assertTrue(unknown.exists())
         self.assertTrue(raw.exists())
 
+    def test_raw_swap_during_validation_never_deletes_replacement(self):
+        attempt = "20260901T000000Z-aaaaaaaaaaaa"
+        raw, build, record = self.artifact(attempt, "20260901T010000Z-bbbbbbbbbbbb")
+        shutil.rmtree(build)
+        record.unlink()
+        moved = self.data / "moved-validated-raw"
+        real_validate = retention._valid_raw_run
+        swapped = False
+
+        def validate_then_swap(path):
+            nonlocal swapped
+            result = real_validate(path)
+            if path.name == raw.name and not swapped:
+                swapped = True
+                raw.rename(moved)
+                raw.mkdir()
+                (raw / "replacement").write_text("must survive")
+            return result
+
+        with mock.patch.object(retention, "_valid_raw_run", side_effect=validate_then_swap):
+            report = self.cleanup()
+        self.assertEqual(report.status, "blocked")
+        self.assertTrue((raw / "replacement").exists())
+        self.assertTrue((moved / "manifest.json").exists())
+
     def test_report_parent_swap_cannot_write_outside_opened_directory(self):
         directory = self.config.lock_dir / "retention"
         directory.mkdir()
