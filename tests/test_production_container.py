@@ -95,6 +95,12 @@ class ProductionAssetTests(unittest.TestCase):
         self.assertIn("no-new-privileges:true", compose)
         self.assertNotIn("MONDAY_API_TOKEN:", compose)
 
+    def test_long_running_web_container_log_is_bounded(self):
+        """The web container runs for months and its healthcheck makes a logged request every 15 s."""
+        web = self.text("compose.yaml").split("  atlas-runtime:", 1)[0]
+        self.assertRegex(web, r"logging:\n\s+driver: json-file\n\s+options:\n\s+max-size: \"\d+m\"\n\s+max-file: \"\d+\"")
+        self.assertIn("--interval=15s", self.text("Dockerfile.nginx"))
+
 
 @unittest.skipUnless(RUN_DOCKER, "set ATLAS_RUN_DOCKER_TESTS=1 with a Docker daemon for image/runtime tests")
 class DockerRuntimeTests(unittest.TestCase):
