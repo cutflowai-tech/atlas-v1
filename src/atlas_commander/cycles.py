@@ -295,6 +295,8 @@ def build_item_cycle(
         "context_only": True,
         "client_revision_events": sum(1 for event in revisions if event["to_status"] == CLIENT_REVISION_STATUS),
         "internal_revision_events": sum(1 for event in revisions if event["to_status"] == INTERNAL_REVISION_STATUS),
+        "client_revision_event_ids": [event["event_id"] for event in revisions if event["to_status"] == CLIENT_REVISION_STATUS],
+        "internal_revision_event_ids": [event["event_id"] for event in revisions if event["to_status"] == INTERNAL_REVISION_STATUS],
         "event_ids": [event["event_id"] for event in revisions],
     }
 

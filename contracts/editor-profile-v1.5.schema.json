@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/editor-profile-v1.5.schema.json",
+  "title": "EditorProfileV1_5",
+  "description": "Language-neutral Editor Profile P0 view model with explicit release identity, evidence coverage, revision context, and current-work semantics.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "subject_type", "editor", "generated_at", "executable_contract_version", "source", "publication",
+    "overall", "speed", "deadline", "quality", "revisions", "current_workload", "trend", "coverage", "projects", "ai_annotation"
+  ],
+  "properties": {
+    "contract_version": {"const": "1.5.0"},
+    "subject_type": {"const": "editor"},
+    "editor": {"$ref": "editor-identity.schema.json"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "executable_contract_version": {"const": "1.5.0"},
+    "source": {"type": "object"},
+    "publication": {
+      "type": "object",
+      "required": ["publication_view_version", "release_id", "snapshot_id", "routes"],
+      "properties": {
+        "publication_view_version": {"const": "atlas-publication-view-v1"},
+        "release_id": {"type": "string", "pattern": "^release-[0-9a-f]{20}$"},
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "routes": {"type": "object", "required": ["/", "/en", "/ar"]}
+      }
+    },
+    "overall": {"type": "object"},
+    "speed": {"type": "object"},
+    "deadline": {"type": "object"},
+    "quality": {"type": "object"},
+    "revisions": {
+      "type": "object",
+      "required": ["context_only", "client", "internal", "total_revision_activity", "note"],
+      "properties": {
+        "context_only": {"const": true},
+        "client": {"$ref": "#/$defs/revisionKind"},
+        "internal": {"$ref": "#/$defs/revisionKind"},
+        "total_revision_activity": {
+          "type": "object",
+          "required": ["projects", "events", "affects_scoring"],
+          "properties": {
+            "projects": {"type": "integer", "minimum": 0},
+            "events": {"type": "integer", "minimum": 0},
+            "affects_scoring": {"const": false}
+          }
+        },
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "current_workload": {
+      "type": "object",
+      "required": ["as_of", "basis", "by_current_status", "active_work", "awaiting_approval", "excluded_from_active", "capacity_classification", "note"],
+      "properties": {
+        "active_work": {
+          "type": "object",
+          "required": ["count", "by_status", "monday_item_ids", "evidence_refs"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0},
+            "by_status": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["In Progress", "Revisions", "Internal Revisions"],
+              "properties": {
+                "In Progress": {"$ref": "#/$defs/itemIds"},
+                "Revisions": {"$ref": "#/$defs/itemIds"},
+                "Internal Revisions": {"$ref": "#/$defs/itemIds"}
+              }
+            },
+            "monday_item_ids": {"$ref": "#/$defs/itemIds"},
+            "evidence_refs": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "awaiting_approval": {
+          "type": "object",
+          "required": ["count", "status", "monday_item_ids", "evidence_refs"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0},
+            "status": {"const": "Ready For Approval"},
+            "monday_item_ids": {"$ref": "#/$defs/itemIds"},
+            "evidence_refs": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "excluded_from_active": {
+          "type": "object",
+          "required": ["count", "by_status", "approved_non_active_statuses", "reason"]
+        },
+        "capacity_classification": {
+          "type": "object",
+          "required": ["value", "availability", "reason"],
+          "properties": {"value": {"type": "null"}, "availability": {"const": "rule_not_approved"}, "reason": {"type": "string"}}
+        }
+      }
+    },
+    "trend": {"type": "object"},
+    "coverage": {
+      "type": "object",
+      "required": ["completed_projects", "speed_eligible_projects", "exclusions_by_reason", "states", "metrics"],
+      "properties": {
+        "metrics": {
+          "type": "object",
+          "required": ["speed", "deadline", "quality", "classification", "rule_versions"],
+          "properties": {
+            "speed": {"$ref": "#/$defs/metricCoverage"},
+            "deadline": {"$ref": "#/$defs/metricCoverage"},
+            "quality": {"type": "object", "required": ["availability", "reason"]},
+            "classification": {"type": "object"},
+            "rule_versions": {"type": "object"}
+          }
+        }
+      }
+    },
+    "projects": {"type": "array", "items": {"type": "object"}},
+    "ai_annotation": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "itemIds": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "revisionKind": {
+      "type": "object",
+      "required": ["projects", "events", "monday_item_ids", "evidence_event_ids", "affects_scoring"],
+      "properties": {
+        "projects": {"type": "integer", "minimum": 0},
+        "events": {"type": "integer", "minimum": 0},
+        "monday_item_ids": {"$ref": "#/$defs/itemIds"},
+        "evidence_event_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "affects_scoring": {"const": false}
+      }
+    },
+    "metricCoverage": {
+      "type": "object",
+      "required": ["eligible_records", "included_records", "excluded_records", "exclusion_reasons", "coverage_ratio"],
+      "properties": {
+        "eligible_records": {"type": "integer", "minimum": 0},
+        "included_records": {"type": "integer", "minimum": 0},
+        "excluded_records": {"type": "integer", "minimum": 0},
+        "exclusion_reasons": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "coverage_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
+  },
+  "x-atlas-invariants": [
+    "Active Work contains only In Progress, Revisions and Internal Revisions",
+    "Ready For Approval is Awaiting Approval and is never Active Work",
+    "client and internal revision activity are separate context and never scored",
+    "Arabic and English render this same language-neutral document",
+    "every public route identifies the same release and source snapshot"
+  ]
+}

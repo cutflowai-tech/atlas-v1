@@ -120,7 +120,7 @@ class SyncRunTests(unittest.TestCase):
         self.assertEqual(sorted(tree(build / "site")), [                  # one dataset, both languages (atlas_commander.site_layout)
             "ar/dashboard.html", "ar/index.html", "ar/profiles/editor-label-12.html", "ar/profiles/editor-label-6.html",
             "dashboard.json", "en/dashboard.html", "en/index.html", "en/profiles/editor-label-12.html", "en/profiles/editor-label-6.html",
-            "index.html", "profiles/editor-label-12.json", "profiles/editor-label-6.json"])
+            "index.html", "profiles/editor-label-12.json", "profiles/editor-label-6.json", "publication.json"])
         marker = json.loads((build / "COMPLETE.json").read_text())
         self.assertEqual((marker["status"], marker["attempt_id"], marker["source_run_id"], marker["published"]),
                          ("complete", result.attempt_id, result.source_run_id, False))

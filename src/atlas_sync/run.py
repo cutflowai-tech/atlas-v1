@@ -62,7 +62,7 @@ FAILED_NAME = "FAILED.json"             # present only in a build directory whos
 ATTEMPTS_DIR = "attempts"               # <build root>/attempts/<attempt_id>.json: one safe result per attempt
 STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
           "validation", "metadata", "completion")
-PROFILE_SCHEMAS = {version: schema for version, schema in PROFILE_CONTRACTS.values()}
+PROFILE_SCHEMAS = dict(PROFILE_CONTRACTS)
 STAGED_NOTE = "Staged build only: it has not been published, and the published dashboard was not modified."
 
 
@@ -226,6 +226,29 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
     if token:
         problems += [f"artifact {name} contains the Monday token" for name, path in files.items() if token in path.read_bytes()]
 
+    publication: dict[str, Any] = {}
+    publication_path = files.get(site_layout.PUBLICATION_JSON)
+    if publication_path is not None:
+        try:
+            publication = json.loads(publication_path.read_text())
+        except ValueError:
+            problems.append(f"{site_layout.PUBLICATION_JSON} is not valid JSON")
+        else:
+            release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
+            routes = publication.get("routes") or {}
+            route_states = {(row or {}).get("release_id") for row in routes.values()}, {(row or {}).get("snapshot_id") for row in routes.values()}
+            if set(routes) != {"/", "/en", "/ar"} or route_states != ({release_id}, {snapshot_id}):
+                problems.append("root, /en and /ar do not resolve to one release and source snapshot")
+            if (publication.get("executable_contract_version") != contract["contract_version"]
+                    or (publication.get("source") or {}).get("retrieved_at") != extract.get("retrieved_at")):
+                problems.append("publication.json does not identify this build's source snapshot and contract")
+            for name in site_layout.html_files(editors) | {site_layout.ROOT_ENTRY: site_layout.DEFAULT_LOCALE}:
+                path = files.get(name)
+                text = path.read_text(encoding="utf-8") if path is not None else ""
+                if (f'<meta name="atlas-release-id" content="{release_id}">' not in text
+                        or f'<meta name="atlas-snapshot-id" content="{snapshot_id}">' not in text):
+                    problems.append(f"{name} does not identify publication {release_id} / snapshot {snapshot_id}")
+
     for name, locale in site_layout.html_files(editors).items():
         path = files.get(name)
         if path is not None and not path.read_text(encoding="utf-8").startswith(site_layout.document_opening(locale)):
@@ -254,6 +277,8 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
             problems.append(f"profiles/{editor}.json does not come from source run {manifest['run']['run_id']}")
         if profile.get("executable_contract_version") != contract["contract_version"]:
             problems.append(f"profiles/{editor}.json was built with another contract")
+        if profile.get("contract_version") == "1.5.0" and profile.get("publication") != publication:
+            problems.append(f"profiles/{editor}.json does not identify the site's publication")
 
     path = files.get(site_layout.DASHBOARD_JSON)
     if path is not None and path.stat().st_size:
@@ -265,6 +290,8 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
             source = dashboard.get("source") or {}
             if source.get("retrieved_at") != retrieved_at or source.get("executable_contract_version") != (contract["contract_version"] if editors else None):
                 problems.append("dashboard.json does not come from the source run and contract")
+            if dashboard.get("publication") != publication:
+                problems.append("dashboard.json does not identify the site's publication")
             summaries = dashboard.get("editors")
             if not isinstance(summaries, list) or sorted(s.get("editor_id") for s in summaries) != sorted(editors):
                 problems.append("dashboard.json does not list exactly the built Editors")

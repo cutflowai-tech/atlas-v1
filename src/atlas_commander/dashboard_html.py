@@ -492,12 +492,14 @@ def _issue_line(s: dict[str, Any], loc: Loc = EN) -> str:
 
 def workload_chips(w: dict[str, Any], limit: int | None = None, loc: Loc = EN) -> str:
     items = list(w["by_current_status"].items())
-    if not items:
+    if not items and not w.get("awaiting_approval_count"):
         return f'<span class="soft">{loc.t("workload.none")}</span>'
     shown = items[:limit] if limit else items
     chips = "".join(f'<span class="chip{" context" if "revision" in status.lower() else ""}"><b>{loc.num(n)}</b> {loc.src(status)}</span>' for status, n in shown)
     rest = len(items) - len(shown)
-    return f'<div class="chips">{chips}{f"<span class=chip>+{loc.num(rest)}</span>" if rest > 0 else ""}</div>'
+    awaiting = (f'<span class="chip context"><b>{loc.num(w["awaiting_approval_count"])}</b> {loc.t("workload.awaiting_approval")}</span>'
+                if w.get("awaiting_approval_count") else "")
+    return f'<div class="chips">{chips}{awaiting}{f"<span class=chip>+{loc.num(rest)}</span>" if rest > 0 else ""}</div>'
 
 
 def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
@@ -1158,13 +1160,16 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     """Render the dashboard in ``loc``. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML (same language), embedded
     unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
+    publication = doc.get("publication") or {}
+    release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     retrieved = source.get("retrieved_at")
     month = str(retrieved)[:7] if retrieved else None
     blob = json.dumps(profile_pages).replace("</", "<\\/")
     editors = doc["editors"]
     cards = "".join(editor_card(s, loc) for s in editors) or empty_state(loc.t("home.no_editors"))
     meta = ((f'<span><b>{escape(loc.month(month))}</b> · {loc.t("common.month_in_progress")}</span>' if month else "")
-            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>')
+            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>'
+            + (f'<span>{loc.t("publication.release", release=loc.tech(release_id))}</span>' if release_id else ""))
     greeting = " ".join(f'data-{part}="{_attr(loc.text("home.greeting." + part))}"' for part in ("morning", "afternoon", "evening"))
     home = (f'<div data-view="team"><div class="hello"><div><span class="eyebrow">Atlas</span><h1 id="greeting" {greeting}>{loc.t("home.title")}</h1>'
             f'<p>{loc.t("home.sub")}</p></div><div class="meta">{meta}</div></div>'
@@ -1180,8 +1185,12 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     # The home view and each profile view declare their own speed/deadline drawers; keep one copy of each id.
     body = _dedupe_templates(home + profiles)
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
+    publication_meta = (f'<meta name="atlas-release-id" content="{escape(release_id)}"><meta name="atlas-snapshot-id" content="{escape(snapshot_id)}">'
+                        if release_id and snapshot_id else "")
+    publication_attrs = (f' data-atlas-release-id="{escape(release_id)}" data-atlas-snapshot-id="{escape(snapshot_id)}"'
+                         if release_id and snapshot_id else "")
     return (f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f"<title>{loc.t('page.dashboard_title')}</title><style>{CSS}</style></head><body><div class=\"shell\">"
+            f'{publication_meta}<title>{loc.t("page.dashboard_title")}</title><style>{CSS}</style></head><body{publication_attrs}><div class="shell">'
             f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><div class="topnav"><nav class="nav" aria-label="{_attr(loc.text("nav.main_label"))}">'
             f'<a href="#/" data-nav="team" aria-current="page">{loc.t("nav.team")}</a><a href="#/system" data-nav="system">{loc.t("nav.system")}</a></nav>{switch}</div></header>'
             f'<main>{body}{data_system(doc, loc, status_snapshot)}</main></div>'

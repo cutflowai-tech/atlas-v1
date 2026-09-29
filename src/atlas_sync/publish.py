@@ -235,6 +235,26 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
         problems += [f"artifact contains the Monday token: {name}" for name, path in files.items() if token in path.read_bytes()]
         if token in metadata_bytes:
             problems.append("build.json contains the Monday token")
+    publication: dict[str, Any] = {}
+    try:
+        publication = json.loads(files[site_layout.PUBLICATION_JSON].read_bytes())
+    except (KeyError, OSError, ValueError):
+        problems.append(f"{site_layout.PUBLICATION_JSON} is missing or invalid")
+    else:
+        release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
+        routes = publication.get("routes") or {}
+        route_release_ids = {(row or {}).get("release_id") for row in routes.values()}
+        route_snapshot_ids = {(row or {}).get("snapshot_id") for row in routes.values()}
+        if set(routes) != {"/", "/en", "/ar"} or route_release_ids != {release_id} or route_snapshot_ids != {snapshot_id}:
+            problems.append("root, /en and /ar do not identify one release and source snapshot")
+        if (publication.get("executable_contract_version") != contract_version
+                or (publication.get("source") or {}).get("retrieved_at") != manifest.get("retrieved_at")):
+            problems.append("publication.json does not identify this build's source snapshot and contract")
+        for name in site_layout.html_files(editors) | {site_layout.ROOT_ENTRY: site_layout.DEFAULT_LOCALE}:
+            text = files[name].read_text(encoding="utf-8") if name in files else ""
+            if (f'<meta name="atlas-release-id" content="{release_id}">' not in text
+                    or f'<meta name="atlas-snapshot-id" content="{snapshot_id}">' not in text):
+                problems.append(f"{name} does not identify publication {release_id} / snapshot {snapshot_id}")
     if problems:
         raise PublishRejected("build_tampered", problems[:MAX_PROBLEMS])
 
@@ -248,6 +268,16 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
                 or profile_source.get("retrieved_at") != manifest.get("retrieved_at") \
                 or (profile_source.get("history_coverage") or {}).get("activity_log_window") != manifest.get("window"):
             problems.append(f"profiles/{editor}.json does not come from this build's source run and contract")
+        if profile.get("contract_version") == "1.5.0" and profile.get("publication") != publication:
+            problems.append(f"profiles/{editor}.json does not identify the site's publication")
+
+    try:
+        dashboard = json.loads(files[site_layout.DASHBOARD_JSON].read_bytes())
+    except (KeyError, OSError, ValueError):
+        problems.append("dashboard.json is missing or invalid")
+    else:
+        if dashboard.get("publication") != publication:
+            problems.append("dashboard.json does not identify the site's publication")
     for name, locale in site_layout.html_files(editors).items():
         if not files[name].read_text(encoding="utf-8").startswith(site_layout.document_opening(locale)):
             problems.append(f"{name} does not declare lang={locale} and its direction")

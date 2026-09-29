@@ -45,7 +45,7 @@ def _n(value: Any, loc: Loc) -> Html:
 
 
 def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = None, loc: Loc = EN, *, dashboard_href: str | None = None,
-                        switch_href: str | None = None) -> str:
+                        switch_href: str | None = None, publication: dict[str, Any] | None = None) -> str:
     """Render the profile in ``loc``. ``monday_item_url`` may contain ``{item_id}`` to link each project to Monday.
 
     ``dashboard_href`` and ``switch_href`` add a page header with a link back to the dashboard and to the same profile in the
@@ -54,8 +54,14 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     editor = profile["editor"]
     speed, deadline, quality, revisions, coverage = profile["speed"], profile["deadline"], profile["quality"], profile["revisions"], profile["coverage"]
     summary = deadline["summary"]
+    publication = publication or profile.get("publication")
+    release_meta = (f'<meta name="atlas-release-id" content="{escape(publication["release_id"])}">'
+                    f'<meta name="atlas-snapshot-id" content="{escape(publication["snapshot_id"])}">') if publication else ""
+    body_identity = (f' data-atlas-release-id="{escape(publication["release_id"])}"'
+                     f' data-atlas-snapshot-id="{escape(publication["snapshot_id"])}"') if publication else ""
     parts = [(f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-              f"<title>{escape(loc.text('report.page_title', name=editor['display_name']))}</title><style>{CSS}</style></head><body><main>")]
+              f'{release_meta}<title>{escape(loc.text("report.page_title", name=editor["display_name"]))}</title><style>{CSS}</style></head>'
+              f'<body{body_identity}><main>')]
     if dashboard_href or switch_href:
         other = loc.other()
         back = f'<a href="{escape(dashboard_href)}">{t("report.back")}</a>' if dashboard_href else "<span></span>"
@@ -67,6 +73,8 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                      mapping=loc.tech(editor["mapping_version"]), contract=loc.tech(profile["executable_contract_version"]),
                      retrieved=loc.tech(profile["source"].get("retrieved_at")), generated=loc.tech(profile["generated_at"]))
                  + "</div>")
+    if publication:
+        parts.append(f'<div class="sub">{t("publication.identity", release=loc.tech(publication["release_id"]), snapshot=loc.tech(publication["snapshot_id"]))}</div>')
 
     def tile(value: Any, label: str) -> str:
         return f'<div class="tile"><b>{value}</b><span>{label}</span></div>'
@@ -86,7 +94,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         shown_pct = cohort.get("editor_vs_team_median_pct") if cohort["comparison_status"] != "no_other_editors_in_cohort" else None
         conclusion = cohort["conclusion"]
         rng = cohort.get("team_typical_range_seconds") or {}
-        rows.append(f"<tr><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
+        rows.append(f"<tr data-classification=\"{escape(conclusion)}\" data-comparison-status=\"{escape(cohort['comparison_status'])}\"><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
                     f"<td>{loc.hours(cohort['editor_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=loc.num(cohort['editor_sample_size']))}</span></td>"
                     f"<td>{loc.hours(cohort['team_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=_n(cohort['team_sample_size'], loc))}</span></td>"
                     f"<td>{loc.pct_value(shown_pct, signed=True)}</td>"
@@ -122,19 +130,25 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  f"<th scope=col>{t('common.projects')}</th></tr></thead><tbody>{labels or no_labels}</tbody></table></div>"
                  f"<p class=\"note\">{t('report.quality_note')} {t('note.positive')}</p></section>")
 
-    parts.append(f"<section class=\"card\"><h2>{t('report.revisions_title')}</h2><div class=\"tiles\">"
-                 + tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
-                 + tile(loc.num(revisions["projects_with_client_revisions"]), t("report.tile.projects_with_revisions", total=loc.num(revisions["completed_projects"])))
-                 + tile(loc.pct(revisions["client_revision_rate"]), t("report.tile.revision_rate"))
+    revision_tiles = tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
+    if "internal" in revisions:
+        revision_tiles += tile(loc.num(revisions["internal"]["events"]), t("revisions.internal_events"))
+    revision_tiles += tile(loc.num(revisions["projects_with_client_revisions"]), t("report.tile.projects_with_revisions", total=loc.num(revisions["completed_projects"])))
+    revision_tiles += tile(loc.pct(revisions["client_revision_rate"]), t("report.tile.revision_rate"))
+    parts.append(f"<section class=\"card\"><h2>{t('report.revisions_title')}</h2><div class=\"tiles\">{revision_tiles}"
                  + f"</div><p class=\"note\">{t('note.revisions')}</p></section>")
 
     workload = profile["current_workload"]
     workload_rows = "".join(f"<tr><td>{loc.src(status)}</td><td>{loc.num(len(items))}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in items)}</td></tr>"
                             for status, items in sorted(workload["by_current_status"].items(), key=lambda pair: -len(pair[1])))
     none_row = f"<tr><td colspan=3>{t('common.none')}</td></tr>"
-    parts.append(f"<section class=\"card\"><h2>{t('report.current_title', date=loc.tech(workload['as_of']))}</h2><div class=\"scroll\"><table><thead><tr>"
+    workload_summary = ""
+    if "active_work" in workload:
+        workload_summary = (f'<div class="tiles">{tile(loc.num(workload["active_work"]["count"]), t("workload.active_work"))}'
+                            f'{tile(loc.num(workload["awaiting_approval"]["count"]), t("workload.awaiting_approval"))}</div>')
+    parts.append(f"<section class=\"card\"><h2>{t('report.current_title', date=loc.tech(workload['as_of']))}</h2>{workload_summary}<div class=\"scroll\"><table><thead><tr>"
                  f"<th scope=col>{t('report.head.current_status')}</th><th scope=col>{t('report.head.items')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
-                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload')}</p></section>")
+                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload_v15' if 'active_work' in workload else 'note.workload')}</p></section>")
 
     trend = profile["trend"]
     speed_rows = "".join(f"<tr><td>{loc.tech(row['cohort_key'])}</td><td>{escape(loc.month(row['month']))}</td><td>{loc.num(row['projects'])}</td><td>{loc.hours(row['median_seconds'])}</td></tr>"
@@ -164,7 +178,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         project_rows.append(
             f"<tr><td>{_item(row['monday_item_id'], monday_item_url, loc)}</td><td>{loc.tech(row['ready_for_approval_at'] or '—')}</td>"
             f"<td>{loc.hours(row['duration_seconds'])}</td><td>{loc.labels(row['cohort_labels'])}</td>"
-            f"<td class=\"{escape(result or '')}\">{deadline_cell}</td>"
+            f"<td class=\"{escape(result or '')}\" data-classification=\"{escape(result or 'not_classifiable')}\">{deadline_cell}</td>"
             f"<td>{loc.comma().join(loc.src(label) for label in row['quality_labels']) or '—'}</td><td>{loc.num(row['client_revision_events'])}</td>"
             f"<td>{loc.comma().join(loc.tech(reason) for reason in row['exclusions']) or t('evidence.included_lower')}</td>"
             f"<td>{loc.tech(ids['in_progress'])}<br>{loc.tech(ids['ready_for_approval'])}</td></tr>")

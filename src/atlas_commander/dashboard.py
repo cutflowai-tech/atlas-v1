@@ -108,9 +108,17 @@ def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 def _workload(profile: Mapping[str, Any]) -> dict[str, Any]:
     workload = profile["current_workload"]
-    return {"source": "current_workload.by_current_status", "as_of": workload["as_of"],
+    summary = {"source": "current_workload.by_current_status", "as_of": workload["as_of"],
             "by_current_status": {status: len(items) for status, items in sorted(workload["by_current_status"].items(), key=lambda p: (-len(p[1]), p[0]))},
             "note": workload["note"]}
+    if "active_work" in workload:
+        summary.update({
+            "active_work_count": workload["active_work"]["count"],
+            "awaiting_approval_count": workload["awaiting_approval"]["count"],
+            "awaiting_approval_status": workload["awaiting_approval"]["status"],
+            "capacity_classification": dict(workload["capacity_classification"]),
+        })
+    return summary
 
 
 def _monthly(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -230,7 +238,8 @@ def _team(summaries: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *, mapped_editors: Iterable[Mapping[str, Any]] = (),
-                    attribution_coverage: Mapping[str, Any] | None = None, profile_refs: Mapping[str, str] | None = None) -> dict[str, Any]:
+                    attribution_coverage: Mapping[str, Any] | None = None, profile_refs: Mapping[str, str] | None = None,
+                    publication: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Dashboard document for a set of Editor Profiles built from one dataset snapshot.
 
     ``mapped_editors`` are the contract's Editor mapping entries; the ones without a profile are
@@ -247,6 +256,7 @@ def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *,
     return {
         "dashboard_version": DASHBOARD_VERSION,
         "generated_at": generated_at,
+        "publication": dict(publication) if publication else None,
         "source": {"retrieved_at": retrieved_at, "executable_contract_version": contract_version,
                    "activity_log_window": profiles[0]["source"]["history_coverage"].get("activity_log_window") if profiles else None,
                    "statement": "Summary of Atlas Editor Profiles built from one Monday snapshot; the profiles and their Monday evidence are the source of every figure."},

@@ -1129,6 +1129,12 @@
    "context": "Profile note (workload)",
    "status": "Implemented conservatively"
   },
+  "note.workload_v15": {
+   "en": "Active Work includes only In Progress, Revisions and Internal Revisions. Ready For Approval is shown separately as Awaiting Approval. No capacity judgement is made.",
+   "ar": "يشمل العمل النشط فقط حالات In Progress وRevisions وInternal Revisions. وتظهر Ready For Approval منفصلة بصفتها بانتظار الاعتماد. لا يصدر أي حكم على الطاقة الاستيعابية.",
+   "context": "Contract 1.5 current-work semantics",
+   "status": "Implemented conservatively"
+  },
   "noun.classified_delivery": {
    "en": {
     "one": "{n} classified delivery",
@@ -2772,6 +2778,36 @@
    "en": "Only {n} completed projects; the approved minimum for a speed conclusion is {min} per Video Type.",
    "ar": "{completed} فقط؛ الحد الأدنى المعتمد لاستنتاج السرعة هو {min} لكل Video Type.",
    "context": "Data-confidence note",
+   "status": "Implemented conservatively"
+  },
+  "publication.identity": {
+   "en": "Release {release} · source snapshot {snapshot}",
+   "ar": "الإصدار {release} · لقطة المصدر {snapshot}",
+   "context": "Visible publication and source snapshot identifiers",
+   "status": "Implemented conservatively"
+  },
+  "publication.release": {
+   "en": "Release {release}",
+   "ar": "الإصدار {release}",
+   "context": "Compact visible publication identifier",
+   "status": "Implemented conservatively"
+  },
+  "revisions.internal_events": {
+   "en": "Internal revision events",
+   "ar": "مرات التعديلات الداخلية",
+   "context": "Non-scoring revision context tile",
+   "status": "Implemented conservatively"
+  },
+  "workload.active_work": {
+   "en": "Active Work",
+   "ar": "العمل النشط",
+   "context": "Count of In Progress, Client Revision and Internal Revision projects",
+   "status": "Implemented conservatively"
+  },
+  "workload.awaiting_approval": {
+   "en": "Awaiting Approval",
+   "ar": "بانتظار الاعتماد",
+   "context": "Ready For Approval projects, separate from Active Work",
    "status": "Implemented conservatively"
   },
   "workload.footer": {

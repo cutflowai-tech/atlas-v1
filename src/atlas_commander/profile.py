@@ -26,16 +26,27 @@ from atlas_commander.metrics import (
 )
 from atlas_commander.monday_source import dropdown_value_ids
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_quality
+from atlas_commander.publication import build_publication_view
 from atlas_commander.quality import quality_summary, revision_context_summary
 
 CONTRACT_VERSION = "1.4.0"
 SCHEMA = "editor-profile-v1.4.schema.json"
 # Profile contract per Requested ETA selection rule, so an earlier executable contract reproduces its original profile.
-PROFILE_CONTRACTS = {LATEST_ETA: ("1.3.0", "editor-profile-v1.3.schema.json"), ETA_AT_READY_FOR_APPROVAL: (CONTRACT_VERSION, SCHEMA)}
+PROFILE_CONTRACTS = {
+    "1.3.0": "editor-profile-v1.3.schema.json",
+    "1.4.0": SCHEMA,
+    "1.5.0": "editor-profile-v1.5.schema.json",
+}
 OVERALL_NOTE = ("No overall performance status rule is approved for Atlas V1. The Editor's picture is the speed, deadline "
                 "and quality sections below, each with its own sample size and Monday evidence.")
 POSITIVE_NOTE = "No approved positive quality signal exists in V1; For Bonus is context only and does not affect quality."
 REVISION_NOTE = "Revision activity is context only. It does not imply Editor fault and never affects any metric or conclusion."
+ACTIVE_WORK_STATUSES = ("In Progress", "Revisions", "Internal Revisions")
+AWAITING_APPROVAL_STATUS = "Ready For Approval"
+NON_ACTIVE_STATUSES = (
+    "Waiting", "Create File", "Captions In Progress", "Captions Revisions", "Waiting For Captions", "Captions Done",
+    "TOPAZ", "Ready To Send", "Sent", "Done",
+)
 
 
 class ProfileError(ValueError):
@@ -69,20 +80,135 @@ def _current_editor(snapshot: Mapping[str, Any] | None, policy: CyclePolicy) -> 
     return entry.editor_id
 
 
-def _current_workload(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str) -> dict[str, Any]:
+def _current_workload(result: CycleReconstruction, contract: Mapping[str, Any], editor_id: str, *, v15: bool = False) -> dict[str, Any]:
     board = contract["source_board"]
     policy = CyclePolicy.from_contract(contract)
     editors = result.item_snapshots.get(board["editor_column_id"], {})
     statuses = result.item_snapshots.get(board["status_column_id"], {})
     by_status: dict[str, list[str]] = {}
+    status_evidence: dict[str, str] = {}
     for item_id, snapshot in sorted(editors.items()):
         if _current_editor(snapshot, policy) != editor_id:
             continue
-        label = str((statuses.get(item_id) or {}).get("text") or "(no status)")
+        status_snapshot = statuses.get(item_id) or {}
+        label = str(status_snapshot.get("text") or "(no status)")
         by_status.setdefault(label, []).append(item_id)
-    return {"as_of": result.ingestion.get("retrieved_at"), "basis": "current Monday Editor Name and Status values of each item",
-            "by_current_status": by_status,
-            "note": "Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made."}
+        if status_snapshot.get("evidence_id"):
+            status_evidence[item_id] = str(status_snapshot["evidence_id"])
+    if not v15:
+        return {"as_of": result.ingestion.get("retrieved_at"), "basis": "current Monday Editor Name and Status values of each item",
+                "by_current_status": by_status,
+                "note": "Descriptive only. Which statuses count as the Editor's active workload is not defined in V1, so no capacity judgement is made."}
+
+    active = {status: list(by_status.get(status, [])) for status in ACTIVE_WORK_STATUSES}
+    awaiting = list(by_status.get(AWAITING_APPROVAL_STATUS, []))
+    excluded = {status: list(items) for status, items in sorted(by_status.items())
+                if status not in ACTIVE_WORK_STATUSES and status != AWAITING_APPROVAL_STATUS}
+    active_ids = sorted(item for items in active.values() for item in items)
+    return {
+        "as_of": result.ingestion.get("retrieved_at"),
+        "basis": "current Monday Editor Name and exact Status values of each item",
+        # Compatibility summary for existing dashboard consumers. In 1.5 this contains Active Work only.
+        "by_current_status": active,
+        "active_work": {
+            "count": len(active_ids), "by_status": active, "monday_item_ids": active_ids,
+            "evidence_refs": [status_evidence[item_id] for item_id in active_ids if item_id in status_evidence],
+        },
+        "awaiting_approval": {
+            "count": len(awaiting), "status": AWAITING_APPROVAL_STATUS, "monday_item_ids": awaiting,
+            "evidence_refs": [status_evidence[item_id] for item_id in awaiting if item_id in status_evidence],
+        },
+        "excluded_from_active": {
+            "count": sum(len(items) for items in excluded.values()), "by_status": excluded,
+            "approved_non_active_statuses": list(NON_ACTIVE_STATUSES),
+            "reason": "current status is not approved as Active Work",
+        },
+        "capacity_classification": {
+            "value": None, "availability": "rule_not_approved",
+            "reason": "No capacity threshold is approved; only factual project counts are shown.",
+        },
+        "note": ("Active Work is limited to In Progress, Revisions and Internal Revisions. Ready For Approval is Awaiting Approval. "
+                 "All other statuses are excluded, and no capacity judgement is made."),
+    }
+
+
+def _revision_context(editor_id: str, cycles: list[CycleRecord], *, v15: bool) -> dict[str, Any]:
+    summary = revision_context_summary(editor_id, cycles)
+    if not v15:
+        return {**summary, "note": REVISION_NOTE}
+    mine = [cycle for cycle in cycles if cycle.state == COMPLETED and cycle.editor_id == editor_id]
+
+    def kind(name: str) -> dict[str, Any]:
+        count_key = f"{name}_revision_events"
+        selected = [cycle for cycle in mine if cycle.revision_context.get(count_key, 0)]
+        event_ids = sorted(event_id for cycle in selected for event_id in cycle.revision_context.get(f"{name}_revision_event_ids", []))
+        return {
+            "projects": len(selected),
+            "events": sum(cycle.revision_context.get(count_key, 0) for cycle in selected),
+            "monday_item_ids": sorted(cycle.monday_item_id for cycle in selected),
+            "evidence_event_ids": event_ids,
+            "affects_scoring": False,
+        }
+
+    client, internal = kind("client"), kind("internal")
+    return {
+        **summary,
+        "client": client,
+        "internal": internal,
+        "total_revision_activity": {
+            "projects": len(set(client["monday_item_ids"]) | set(internal["monday_item_ids"])),
+            "events": client["events"] + internal["events"],
+            "affects_scoring": False,
+        },
+        "note": REVISION_NOTE,
+    }
+
+
+def _metric_coverage(completed: list[CycleRecord], deadline_results: list[dict[str, Any]], policy: MetricPolicy) -> dict[str, Any]:
+    speed_included = [cycle for cycle in completed if speed_eligible(cycle)]
+    speed_reasons = Counter(reason for cycle in completed if not speed_eligible(cycle) for reason in (cycle.exclusions or ["NOT_SPEED_ELIGIBLE"]))
+    deadline_included = {result["cycle_id"] for result in deadline_results}
+    deadline_reasons: Counter[str] = Counter()
+    for cycle in completed:
+        if cycle.cycle_id in deadline_included:
+            continue
+        reasons = list(cycle.exclusions)
+        if cycle.requested_eta_issue:
+            reasons.append(cycle.requested_eta_issue)
+        for reason in reasons or ["NOT_DEADLINE_CLASSIFIABLE"]:
+            deadline_reasons[reason] += 1
+
+    def block(included: int, reasons: Counter[str]) -> dict[str, Any]:
+        eligible = len(completed)
+        return {
+            "eligible_records": eligible,
+            "included_records": included,
+            "excluded_records": eligible - included,
+            "exclusion_reasons": dict(sorted(reasons.items())),
+            "coverage_ratio": round(included / eligible, 4) if eligible else None,
+        }
+
+    return {
+        "speed": block(len(speed_included), speed_reasons),
+        "deadline": block(len(deadline_results), deadline_reasons),
+        "quality": {
+            "eligible_records": len(completed),
+            "included_records": None,
+            "excluded_records": None,
+            "exclusion_reasons": {},
+            "coverage_ratio": None,
+            "availability": "unavailable",
+            "reason": "Per-project Performance Issues column coverage is not preserved by the current reconstruction.",
+        },
+        "classification": {
+            "overall_status": {
+                "value": None,
+                "availability": "rule_not_approved",
+                "reason": "Contract 1.5 thresholds remain unapproved; factual component results stay visible.",
+            }
+        },
+        "rule_versions": {"speed": policy.speed_rule_version, "deadline": policy.deadline_rule_version},
+    }
 
 
 def _share(count: int, total: int) -> float | None:
@@ -126,7 +252,12 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
     earlier latest-ETA rule, so contract 1.3.0 still reproduces its original output."""
     policy = MetricPolicy.from_contract(contract)
     frozen = policy.requested_eta_selection == ETA_AT_READY_FOR_APPROVAL
-    profile_version, profile_schema = PROFILE_CONTRACTS[policy.requested_eta_selection]
+    if contract["contract_version"] == "1.5.0":
+        profile_version = "1.5.0"
+    else:
+        profile_version = "1.3.0" if policy.requested_eta_selection == LATEST_ETA else CONTRACT_VERSION
+    profile_schema = PROFILE_CONTRACTS[profile_version]
+    v15 = profile_version == "1.5.0"
     cycles = _editor_cycles(result.cycles, editor_id)
     if not cycles:
         raise ProfileError(f"no cycle is attributed to {editor_id}; unresolved Editors have no profile")
@@ -199,8 +330,8 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
                     "positive": {"source": None, "count": 0, "note": POSITIVE_NOTE},
                     "for_bonus_context": _for_bonus_context(result, contract, {cycle.monday_item_id for cycle in completed}),
                     "occurrences": [m for m in quality.occurrences if m["editor_id"] == editor_id]},
-        "revisions": {**revision_context_summary(editor_id, result.cycles), "note": REVISION_NOTE},
-        "current_workload": _current_workload(result, contract, editor_id),
+        "revisions": _revision_context(editor_id, result.cycles, v15=v15),
+        "current_workload": _current_workload(result, contract, editor_id, v15=v15),
         "trend": _trend(completed, deadline_results, policy),
         "coverage": {
             "completed_projects": len(completed),
@@ -214,6 +345,9 @@ def build_editor_profile(result: CycleReconstruction, contract: Mapping[str, Any
         "projects": projects,
         "ai_annotation": None,
     }
+    if v15:
+        profile["publication"] = build_publication_view(result, contract, generated_at)
+        profile["coverage"]["metrics"] = _metric_coverage(completed, deadline_results, policy)
     errors = validate(profile, profile_schema)
     if errors:
         raise ProfileError(f"profile violates {profile_schema}: {errors}")

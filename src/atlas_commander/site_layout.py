@@ -1,6 +1,7 @@
 """The file layout of a generated Atlas site: one analytical dataset, two presentation languages.
 
     index.html                     root entry: sends visitors to en/dashboard.html (English is the default)
+    publication.json               shared release/snapshot identity for every public route
     dashboard.json                 language-neutral CEO Dashboard document
     profiles/<editor_id>.json      language-neutral Editor Profiles (the analytical source of every page)
     en/index.html, ar/index.html   /en/ and /ar/ entries, each sending visitors to that language's dashboard
@@ -21,6 +22,7 @@ from collections.abc import Iterable
 from atlas_commander.i18n import DIRECTION, LOCALES
 
 ROOT_ENTRY = "index.html"
+PUBLICATION_JSON = "publication.json"
 DASHBOARD_JSON = "dashboard.json"
 DEFAULT_LOCALE = "en"
 # The page whose hash is re-checked through the live pointer after a publication.
@@ -57,7 +59,7 @@ def html_files(editor_ids: Iterable[str]) -> dict[str, str]:
 def required_files(editor_ids: Iterable[str]) -> list[str]:
     """Exactly the files a complete site contains."""
     editors = list(editor_ids)
-    return [ROOT_ENTRY, DASHBOARD_JSON, *(profile_json(editor) for editor in editors), *html_files(editors)]
+    return [ROOT_ENTRY, PUBLICATION_JSON, DASHBOARD_JSON, *(profile_json(editor) for editor in editors), *html_files(editors)]
 
 
 def document_opening(locale: str) -> str:
