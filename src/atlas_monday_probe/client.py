@@ -24,9 +24,9 @@ _API_VERSION = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 Transport = Callable[[str, dict[str, Any]], bytes]
 
-_COMMENT = re.compile(r"#[^\n]*")
-_STRING = re.compile(r'"""[\s\S]*?"""|"(?:\\.|[^"\\])*"')
-_WRITE_OPERATION = re.compile(r"\b(mutation|subscription)\b", re.IGNORECASE)
+_NAME = re.compile(r"[_A-Za-z][_0-9A-Za-z]*")
+# Matched case-insensitively: stricter than GraphQL (whose keywords are lower-case) and never looser.
+_WRITE_OPERATIONS = frozenset({"mutation", "subscription"})
 
 
 class ReadOnlyViolation(ValueError):
@@ -175,10 +175,45 @@ def token_from_environment(environ: Mapping[str, str]) -> str:
     return token
 
 
+def _graphql_names(query: str) -> list[str]:
+    """The Name tokens of a GraphQL document, read left to right as the GraphQL lexer does.
+
+    Comments, strings and block strings are skipped in document order, so a quote inside a comment or a
+    ``#`` inside a string cannot hide a token. A string that is not closed is refused rather than guessed at."""
+    names: list[str] = []
+    index, length = 0, len(query)
+    while index < length:
+        char = query[index]
+        if char == "#":   # a comment runs to the end of the line
+            while index < length and query[index] not in "\r\n":
+                index += 1
+        elif query.startswith('"""', index):   # block string; only \""" escapes a closing quote
+            index += 3
+            while not query.startswith('"""', index):
+                if index >= length:
+                    raise ReadOnlyViolation("GraphQL block string is not terminated")
+                index += 4 if query.startswith('\\"""', index) else 1
+            index += 3
+        elif char == '"':   # string; may not span lines
+            index += 1
+            while index < length and query[index] != '"':
+                if query[index] in "\r\n" or query.startswith(("\\\r", "\\\n"), index):
+                    break
+                index += 2 if query[index] == "\\" else 1
+            if index >= length or query[index] != '"':
+                raise ReadOnlyViolation("GraphQL string is not terminated")
+            index += 1
+        elif (match := _NAME.match(query, index)) is not None:
+            names.append(match.group())
+            index = match.end()
+        else:
+            index += 1
+    return names
+
+
 def assert_read_only(query: str) -> None:
     """Reject anything that is not a plain GraphQL query before it can leave the process."""
-    stripped = _COMMENT.sub("", _STRING.sub('""', query))
-    if _WRITE_OPERATION.search(stripped):
+    if any(name.lower() in _WRITE_OPERATIONS for name in _graphql_names(query)):
         raise ReadOnlyViolation("Monday probe only issues read-only GraphQL queries")
 
 

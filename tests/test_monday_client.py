@@ -193,6 +193,30 @@ class RetryTests(unittest.TestCase):
                 real.query("mutation { archive_board(board_id: 1) { id } }", {})
             sent.assert_not_called()
 
+    def test_13b_writes_hidden_by_comment_or_string_tricks_are_blocked_before_the_network(self):
+        # A quote inside a comment is not a string: GraphQL would still run the mutation on the next line.
+        for operation in ('# "\nmutation { delete_item(item_id: 1) { id } } # "',
+                          '# """\nmutation { archive_item(item_id: 1) { id } }\n# """',
+                          'query { a(x: "unterminated) }\nmutation { delete_item(item_id: 1) { id } }',
+                          'query { a(x: "line\\\nmutation { delete_item(item_id: 1) { id } }")}',
+                          'query { a(x: """never closed\nmutation { x } ) }',
+                          '{ a }\r# "\rsubscription { item_created { id } }'):
+            c, transport, sleeps = client(OK)
+            with self.subTest(operation=operation), self.assertRaises(ReadOnlyViolation):
+                c.query(operation, {})
+            self.assertEqual((transport.calls, c.stats.requests, sleeps), (0, 0, []))
+
+    def test_13c_mutation_words_inside_strings_and_comments_stay_readable(self):
+        for operation in ('query { items(ids: [1]) { name } } # mutation { x }',
+                          'query { a(x: "mutation { delete_item(item_id: 1) }") }',
+                          'query { a(x: "escaped \\" mutation") }',
+                          'query { a(x: """block "mutation" \\""" subscription""") }',
+                          'query { mutation_log: items { id } }'):
+            c, transport, _ = client(OK)
+            with self.subTest(operation=operation):
+                self.assertEqual(c.query(operation, {}), OK)
+                self.assertEqual(transport.calls, 1)
+
     def test_15_token_never_in_errors_or_metadata(self):
         echo = body({"message": f"Invalid token {TOKEN}", "extensions": {"code": "UNAUTHENTICATED"}})
         real = ReadOnlyMondayClient.from_token(TOKEN, sleep=lambda s: None)
