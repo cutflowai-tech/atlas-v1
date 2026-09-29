@@ -110,6 +110,7 @@ test: lint typecheck unit contract integration e2e runtime normalization identit
 runtime-health:
 	./scripts/runtime-health
 
-# Local dashboard on synthetic Monday-shaped data (no token, no network): http://127.0.0.1:8000
+# Local dashboard on synthetic Monday-shaped data (no token, no network): http://127.0.0.1:$(DEMO_PORT)
+DEMO_PORT ?= 8000
 demo:
-	PYTHONPATH=src python3 -m atlas_commander.demo serve --out out/demo
+	PYTHONPATH=src python3 -m atlas_commander.demo serve --out out/demo --port $(DEMO_PORT)

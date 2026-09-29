@@ -22,7 +22,7 @@ Read [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), [CONTRACTS.md](CONT
 make demo
 ```
 
-This builds every Editor Profile and the bilingual CEO Dashboard from synthetic, Monday-shaped data with the same builders production uses, then serves `out/demo` at <http://127.0.0.1:8000> (`/en/` and `/ar/`). It needs no Monday token and makes no network request. `python3 -m atlas_commander.demo build --out <dir>` only writes the files. The production path (read-only sync, staged build, atomic publish, status) is `python3 -m atlas_sync`; see `docs/PRODUCTION-RUNBOOK.md`.
+This builds every Editor Profile and the bilingual CEO Dashboard from synthetic, Monday-shaped data with the same builders production uses, then serves `out/demo` at <http://127.0.0.1:8000> (`/en/` and `/ar/`; `make demo DEMO_PORT=8765` if 8000 is taken). It needs no Monday token and makes no network request. `python3 -m atlas_commander.demo build --out <dir>` only writes the files. The production path (read-only sync, staged build, atomic publish, status) is `python3 -m atlas_sync`; see `docs/PRODUCTION-RUNBOOK.md`.
 
 ## Launch the first real Atlas vertical slice
 
