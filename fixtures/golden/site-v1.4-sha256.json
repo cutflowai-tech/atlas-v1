@@ -1,0 +1,19 @@
+{
+ "description": "SHA-256 of every file of the bilingual site built from tests/test_profile.py dataset() at 2026-09-28T00:00:00Z under contract 1.4.0 by the code at f9e7571 (before contract 1.5). Contract 1.5 code must reproduce these bytes exactly.",
+ "generated_by_commit": "f9e7571",
+ "contract_version": "1.4.0",
+ "files": {
+  "ar/dashboard.html": "8bc9b25945c266602f506ae26c3ac8ce455803e6d7c26c2277b78ea9e4973a30",
+  "ar/index.html": "67db8ee3e68dcaf50e180db10f8cad3fe509857ff7293a506adc768227224336",
+  "ar/profiles/editor-label-12.html": "0252ba7a2b82431004fbd47667427f29a39ec8106a1b8f998684bf9f87558307",
+  "ar/profiles/editor-label-6.html": "713134b8359d553198f79489a272ba42af4139fded6befeec1978b1f0fe23b12",
+  "dashboard.json": "193dba48157cf94acf33bc6a0750893a840fe595e21ba4c24c03515c9e381077",
+  "en/dashboard.html": "10bcbd483ea47ba37e0ae6528b03a50b75bfd187cb354f2d7783d510a2a72cd2",
+  "en/index.html": "5fff75db5fef1480abd29868371cfb7f08b0522b13292bf02e827eee854072b2",
+  "en/profiles/editor-label-12.html": "0da9459e6e1ec4a86524b9242b7dcfe64c17192b11f7dd6145d8f097031bfcad",
+  "en/profiles/editor-label-6.html": "a8b516953e625fe2e4f2054f415538c989c6a824b52faea3b63a4cfccae0df4a",
+  "index.html": "ea4ab4bed873e744d109f93a2c02ee7a10bdba985a37b82b4a2862878b0dcc5b",
+  "profiles/editor-label-12.json": "a2a8cdc3db9255caf6f0e6f00e89f8461ee2959d5bc1fbd411ac00e153fd584c",
+  "profiles/editor-label-6.json": "33ee1dd08445f6d472750c17e269b2250298273eccf1ba3e658a4d8a7af5f09c"
+ }
+}

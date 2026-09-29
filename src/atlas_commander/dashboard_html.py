@@ -33,8 +33,12 @@ from datetime import datetime
 from html import escape
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
 from atlas_commander.i18n import EN, Html, Loc
-from atlas_commander.management import PENDING_RULES
+from atlas_commander.intelligence import CAIRO
+from atlas_commander.interpretation_html import CSS as IA_CSS
+from atlas_commander.interpretation_html import interpretation_section, overall_badge, window_caption
+from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 
 SPEED_WORD = {"faster_than_team_median": "faster", "slower_than_team_median": "slower", "equal_to_team_median": "level"}
 RESULTS = ("early", "on_time", "late")
@@ -323,6 +327,11 @@ def overall_placeholder(loc: Loc = EN) -> str:
             f'<b aria-label="{_attr(loc.text("overall.aria"))}">—</b><span>{not_evaluated}</span></div>')
 
 
+def _overall(s: dict[str, Any], loc: Loc) -> str:
+    """Contract 1.5 shows the real Overall Status (or the reason there is none); earlier contracts keep the placeholder."""
+    return overall_badge(s["interpretation"], loc) if "interpretation" in s else overall_placeholder(loc)
+
+
 def deadline_strip(d: dict[str, Any], large: bool = False, loc: Loc = EN) -> str:
     total = (d.get("early") or 0) + (d.get("on_time") or 0) + (d.get("late") or 0)
     if not total:
@@ -492,12 +501,14 @@ def _issue_line(s: dict[str, Any], loc: Loc = EN) -> str:
 
 def workload_chips(w: dict[str, Any], limit: int | None = None, loc: Loc = EN) -> str:
     items = list(w["by_current_status"].items())
-    if not items:
+    if not items and not w.get("awaiting_approval_count"):
         return f'<span class="soft">{loc.t("workload.none")}</span>'
     shown = items[:limit] if limit else items
     chips = "".join(f'<span class="chip{" context" if "revision" in status.lower() else ""}"><b>{loc.num(n)}</b> {loc.src(status)}</span>' for status, n in shown)
     rest = len(items) - len(shown)
-    return f'<div class="chips">{chips}{f"<span class=chip>+{loc.num(rest)}</span>" if rest > 0 else ""}</div>'
+    awaiting = (f'<span class="chip context"><b>{loc.num(w["awaiting_approval_count"])}</b> {loc.t("workload.awaiting_approval")}</span>'
+                if w.get("awaiting_approval_count") else "")
+    return f'<div class="chips">{chips}{awaiting}{f"<span class=chip>+{loc.num(rest)}</span>" if rest > 0 else ""}</div>'
 
 
 def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
@@ -512,20 +523,29 @@ def editor_card(s: dict[str, Any], loc: Loc = EN) -> str:
     if kind != "deadline":
         lines.append(("clock", loc.t("common.deadlines"), _deadline_line(s, loc)))
     lines.append(("alert", loc.t("common.issue_signals"), _issue_line(s, loc)))
-    lines.append(("spark", loc.t("card.positive"), f'<span class="quiet">— {loc.t("common.no_signal")}</span>'))
+    positive_count = (s["quality"].get("positive") or {}).get("total_occurrences", 0)
+    positive = (f'<span class="small">{loc.num(positive_count)} · {loc.t("quality.positive_title")}</span>' if positive_count
+                else f'<span class="quiet">— {loc.t("common.no_signal")}</span>')
+    lines.append(("spark", loc.t("card.positive"), positive))
     lines.append(("stack", loc.t("common.current_work"), workload_chips(s["current_workload"], 3, loc)))
     body = "".join(f'<div class="line"><span class="k">{icon(ic, 13)}{k}</span><div>{v}</div></div>' for ic, k, v in lines)
+    completed = loc.count("noun.completed_project", s["sample"]["completed_projects"])
+    scope = ""
+    if "interpretation" in s:
+        # Contract 1.5: the project count covers all history; every line below it is the current Cairo window (D24, D42).
+        completed = Html(f'{completed} · {loc.t("interp.all_history")}')
+        scope = f'<p class="tiny quiet" data-scope="current-window">{window_caption(s["interpretation"], loc)}</p>'
     return (f'<article class="card ed" aria-label="{_attr(s["display_name"])}">'
             f'<div class="who">{avatar(s["display_name"])}<div><h3>{loc.src(s["display_name"])}</h3>'
-            f'<span class="small quiet">{loc.count("noun.completed_project", s["sample"]["completed_projects"])}</span></div>{overall_placeholder(loc)}</div>'
-            f'{hero}{body}'
+            f'<span class="small quiet">{completed}</span></div>{_overall(s, loc)}</div>'
+            f'{scope}{hero}{body}'
             f'<a class="cta stretch" href="#/editor/{escape(s["editor_id"])}">{loc.t("card.view_profile")} {icon("arrow", 15)}</a></article>')
 
 
 # ---------------------------------------------------------------- timelines (Team Pulse and Editor Performance Timeline)
 
 def _event_month(event: dict[str, Any]) -> str:
-    return str(event["at"])[:7]
+    return str(event.get("month") or str(event["at"])[:7])   # contract 1.5 events carry their Cairo month
 
 
 def _position(at: str, month: str) -> float:
@@ -539,6 +559,10 @@ def _marker_class(event: dict[str, Any], loc: Loc = EN) -> tuple[str, str]:
     """Marker style and its plain-text label (for aria-label/title)."""
     if event["kind"] == "issue_label":
         return "issue", loc.text("timeline.issue_marker", label=event["label"])
+    if event["kind"] == "positive_label":
+        return "early", str(event["label"])
+    if event["kind"] == "context_label":
+        return "unclassified", str(event["label"])
     result = event["deadline_result"]
     if result:
         return result, loc.text(f"timeline.delivery.{result}")
@@ -550,15 +574,16 @@ def _event_tid(editor_id: str, index: int) -> str:
 
 
 def _event_templates(s: dict[str, Any], loc: Loc) -> str:
-    """Drawer content for issue-label events (deliveries open their project's evidence)."""
+    """Drawer content for quality-label events (deliveries open their project's evidence)."""
     out = []
     for index, event in enumerate(s["events"]):
-        if event["kind"] != "issue_label":
+        if not event["kind"].endswith("_label"):
             continue
         ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], _dl([
             (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
-            (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])), (loc.t("field.source"), loc.t("quality.source_column"))])
+            (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])),
+            (loc.t("field.source"), loc.tech(event["column_id"]) if "column_id" in event else loc.t("quality.source_column"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
             + f'<p><button type="button" class="ghost" data-drawer="{escape(_project_tid(s["editor_id"], event["monday_item_id"]))}">{loc.t("evidence.open_project")}</button></p>'))
     return "".join(out)
@@ -569,7 +594,7 @@ def _lane(s: dict[str, Any], month: str, retrieved: str | None, show_name: bool,
     rows_last: dict[int, float] = {}
     events = [(i, e) for i, e in enumerate(s["events"]) if _event_month(e) == month]
     for index, event in events:
-        pos = _position(event["at"], month)
+        pos = _position(event.get("local_at") or event["at"], month)
         row = 0
         while row in rows_last and pos - rows_last[row] < 1.3:
             row += 1
@@ -605,6 +630,9 @@ def legend(loc: Loc = EN) -> str:
 
 
 def timeline(summaries: list[dict[str, Any]], retrieved: str | None, prefix: str, show_names: bool = True, loc: Loc = EN) -> str:
+    if retrieved and any("interpretation" in s for s in summaries):
+        # Contract 1.5: the "updated" marker sits on the Cairo day, like the events (displayed dates stay UTC-labelled).
+        retrieved = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).isoformat()
     months = sorted({_event_month(e) for s in summaries for e in s["events"]}, reverse=True)
     if not months:
         return empty_state(loc.t("timeline.no_events"))
@@ -732,7 +760,11 @@ def _speed_drawer(s: dict[str, Any], loc: Loc = EN) -> str:
             (loc.t("common.editor_median"), loc.t("speed.editor_value", median=loc.hours(c["editor_median_seconds"]), n=loc.num(c["editor_sample_size"]))),
             (loc.t("common.team_median"), team),
             (loc.t("common.result"), _verdict(c, loc)), (loc.t("common.why"), _status(c["comparison_status"], loc))]))
-    intro = f'<p>{loc.t("speed.drawer_intro", stat=loc.t("stat." + speed["benchmark_statistic"]), min=loc.num(speed["minimum_editor_sample_size"]), min_projects=loc.count("noun.project", speed["minimum_editor_sample_size"]))}</p>'
+    minimum = speed.get("minimum_editor_sample_size")
+    intro_text = (loc.t("common.not_evaluated") if minimum is None
+                  else loc.t("speed.drawer_intro", stat=loc.t("stat." + speed["benchmark_statistic"]),
+                             min=loc.num(minimum), min_projects=loc.count("noun.project", minimum)))
+    intro = f"<p>{intro_text}</p>"
     return template(f"speed-{s['editor_id']}", loc.text("speed.drawer_title", name=s["display_name"]),
                     intro + ("".join(rows) or f'<p class="quiet">{loc.t("speed.no_measurable")}</p>'))
 
@@ -894,10 +926,31 @@ def _quality_panel(s: dict[str, Any], loc: Loc = EN) -> str:
                 f'{loc.t("quality.affected", affected=loc.num(q["projects_with_issues"]), total=loc.num(q["completed_projects_attributed"]))}</p></div>')
     else:
         body = f'<div class="card">{empty_state(loc.t("quality.none_recorded_sentence"), " " + loc.t("quality.empty_detail"))}</div>'
+    if not q.get("taxonomy_enabled"):
+        # Contracts through 1.4: no positive signal exists and For Bonus is context only (D10).
+        return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
+                f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
+                f'{empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail"))}'
+                f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p></div></div>')
+    positive, context = q["positive"], q["context"]
+
+    def label_rows(block: dict[str, Any]) -> str:
+        return "".join(
+            f'<div><span>{loc.src(row["label"])}</span><b>{loc.num(row["occurrences"])}</b></div>'
+            for row in block["by_label"]
+        )
+
+    positive_rows = label_rows(positive)
+    context_rows = label_rows(context)
+    positive_body = (f'<div class="rowlist">{positive_rows}</div>' if positive_rows
+                     else empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail_v15")))
+    context_body = (f'<div class="rowlist">{context_rows}</div>' if context_rows
+                    else f'<p class="tiny quiet">{loc.t("quality.context_none")}</p>')
+    taxonomy = (f'<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
+                f'{positive_body}<h3 style="margin:16px 0 6px;font-weight:500;font-size:16px">{loc.t("quality.context_title")}</h3>'
+                f'{context_body}</div>')
     return (f'<div class="sh"><div><h2>{loc.t("quality.panel_title")}</h2><p>{loc.t("quality.intro")}</p></div></div>'
-            f'<div class="two">{body}<div class="card"><h3 style="margin:0 0 6px;font-weight:500;font-size:16px">{loc.t("quality.positive_title")}</h3>'
-            f'{empty_state(loc.t("common.no_signal"), " " + loc.t("quality.positive_detail"))}'
-            f'<p class="tiny quiet" style="margin:14px 0 0">{loc.t("quality.for_bonus", projects=loc.count("noun.project", q["for_bonus_context_projects"], case="gen"))}</p></div></div>')
+            f'<div class="two">{body}{taxonomy}</div>')
 
 
 def _quality_label_drawers(s: dict[str, Any], loc: Loc = EN) -> str:
@@ -942,8 +995,9 @@ def fact_text(fact: dict[str, Any], loc: Loc = EN) -> Html:
     return loc.t(f"fact.{kind}")
 
 
-def pending_label(slot: str, loc: Loc = EN) -> Html:
-    return loc.t(f"pending.{slot}.label")
+def pending_label(slot: str, loc: Loc = EN, v15: bool = False) -> Html:
+    # Contract 1.5 uses the glossary's "Needs Attention Now" (a change-based concept), never "Needs attention" as a status.
+    return loc.t(f"pending_v15.{slot}.label" if v15 and loc.has(f"pending_v15.{slot}.label") else f"pending.{slot}.label")
 
 
 def _snapshot(s: dict[str, Any], loc: Loc = EN) -> str:
@@ -951,7 +1005,7 @@ def _snapshot(s: dict[str, Any], loc: Loc = EN) -> str:
     for block in s["snapshot"]:
         facts = block.get("fact_data") or []
         items = "".join(f"<li>{fact_text(f, loc)}</li>" for f in facts) or f'<li class="quiet" style="list-style:none;margin-inline-start:-18px">{loc.t("common.no_signal")}</li>'
-        judged = (f'<div class="j">{pending_label(block["judgement"]["slot"], loc)}: {loc.t("common.not_evaluated")}</div>' if block["judgement"]
+        judged = (f'<div class="j">{pending_label(block["judgement"]["slot"], loc, "interpretation" in s)}: {loc.t("common.not_evaluated")}</div>' if block["judgement"]
                   else '<div class="j">&nbsp;</div>')
         out.append(f'<div class="card"><h3>{loc.t("snapshot.head." + block["key"])}</h3>{judged}<ul>{items}</ul></div>')
     return f'<div class="qa">{"".join(out)}</div>'
@@ -965,7 +1019,8 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
     pills = "".join(f'<button type="button" class="pill" role="tab" data-pill="t-{eid}-{k}" aria-selected="{"true" if i == 0 else "false"}">{loc.t("tab." + k)}</button>'
                     for i, k in enumerate(TABS))
     name = loc.src(s["display_name"])
-    overview = (f'<div class="sh"><div><h2>{loc.t("profile.timeline_title")}</h2><p>{loc.t("profile.timeline_sub")}</p></div></div>'
+    interpretation = interpretation_section(s["interpretation"], loc) + '<div style="margin-top:32px"></div>' if "interpretation" in s else ""
+    overview = (f'{interpretation}<div class="sh"><div><h2>{loc.t("profile.timeline_title")}</h2><p>{loc.t("profile.timeline_sub")}</p></div></div>'
                 f'<div class="card pulse">{timeline([s], retrieved, f"pt-{eid}", False, loc)}</div>'
                 f'<section style="margin-top:32px"><div class="sh"><div><h2>{loc.t("profile.snapshot_title")}</h2><p>{loc.t("profile.snapshot_sub")}</p></div></div>{_snapshot(s, loc)}</section>'
                 f'<section style="margin-top:32px"><div class="card" style="display:flex;gap:16px;align-items:center">{icon("spark", 22)}<div><b style="font-weight:500">{loc.t("profile.suggested_action")}</b>'
@@ -981,7 +1036,7 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
               f'<div class="facts" style="margin-top:12px"><div><span>{loc.t("common.current_work")}</span>{workload_chips(s["current_workload"], 4, loc)}</div>'
               f'<div><span>{loc.t("profile.period")}</span><b>{escape(loc.month(last_month)) if last_month else "—"}</b></div>'
               f'<div><span>{loc.t("profile.data_updated")}</span><b>{escape(loc.date(retrieved, False))}</b></div></div></div>'
-              f'{overall_placeholder(loc)}</div>')
+              f'{_overall(s, loc)}</div>')
     report = template(f"report-{eid}", loc.text("profile.report_title", name=s["display_name"]),
                       f'<p>{loc.t("profile.report_intro")}</p>'
                       f'<iframe title="{_attr(loc.text("profile.report_button"))}" data-report="{escape(eid)}"></iframe>')
@@ -1094,14 +1149,19 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
     first = doc["editors"][0] if doc["editors"] else None
     approved = ""
     if first:
-        rules = [("common.speed", loc.t("system.rule.speed", stat=loc.t("stat." + first["speed"]["benchmark_statistic"]),
-                                         min=loc.num(first["speed"]["minimum_editor_sample_size"]),
-                                         min_projects=loc.count("noun.project", first["speed"]["minimum_editor_sample_size"]))),
+        speed_minimum = first["speed"].get("minimum_editor_sample_size")
+        speed_rule = (loc.t("common.not_evaluated") if speed_minimum is None
+                      else loc.t("system.rule.speed", stat=loc.t("stat." + first["speed"]["benchmark_statistic"]),
+                                 min=loc.num(speed_minimum), min_projects=loc.count("noun.project", speed_minimum)))
+        rules = [("common.speed", speed_rule),
                  ("common.deadlines", loc.t("system.rule.deadlines", rule=loc.tech(first["deadline"]["rule_version"]))),
                  ("common.quality", loc.t("system.rule.quality")), ("common.revisions", loc.t("system.rule.revisions"))]
         approved = "<ul>" + "".join(f"<li><b>{loc.t(name)}</b> — {text}</li>" for name, text in rules) + "</ul>"
-    pending = "".join(f'<tr><td>{pending_label(slot, loc)}</td><td>{loc.t("common.not_evaluated")}</td><td>{loc.t(f"pending.{slot}.reason")}</td></tr>'
-                      for slot in PENDING_RULES)
+    v15 = capabilities(doc["source"]["executable_contract_version"]).editor_intelligence
+    slots = [slot for slot in PENDING_RULES if not (v15 and slot not in V15_PENDING_SLOTS)]
+    pending = "".join(f'<tr><td>{pending_label(slot, loc, v15)}</td><td>{loc.t("common.not_evaluated")}</td>'
+                      f'<td>{loc.t(f"pending_v15.{slot}.reason" if v15 and slot in V15_REASONS else f"pending.{slot}.reason")}</td></tr>'
+                      for slot in slots)
     editors = "".join(f'<tr><td>{loc.src(s["display_name"])}</td><td>{loc.tech(s["editor_id"])}</td><td>{loc.src(s["monday_label"])}</td>'
                       f'<td>{loc.tech(s["mapping_version"])}</td><td>{loc.tech(s["profile_contract_version"])}</td>'
                       f'<td>{loc.num(s["sample"]["completed_projects"])}</td></tr>' for s in doc["editors"])
@@ -1121,8 +1181,9 @@ def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, A
                f'<table><thead><tr><th>{loc.t("system.head.reason_not_attributed")}</th><th>{loc.t("common.projects")}</th></tr></thead><tbody>{reasons}</tbody></table></div>')
     missing = "".join(f'<tr><td>{loc.src(e["display_name"])}</td><td>{loc.tech(e["editor_id"])}</td><td>{loc.src(e["monday_label"])}</td></tr>'
                       for e in doc["editors_without_attributable_data"])
+    months_note = "system.presentation.months_v15" if v15 else "system.presentation.months"
     presentation = "<ul>" + "".join(f"<li>{loc.t(k)}</li>" for k in ("system.presentation.headline", "system.presentation.timeline",
-                                                                     "system.presentation.months", "system.presentation.languages")) + "</ul>"
+                                                                     months_note, "system.presentation.languages")) + "</ul>"
 
     none_row = f'<tr><td colspan=9 class=quiet>{loc.t("common.none")}</td></tr>'
 
@@ -1158,13 +1219,19 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     """Render the dashboard in ``loc``. ``profile_pages`` maps editor_id -> the full Editor Profile report HTML (same language), embedded
     unchanged as the audit view. ``switch_href`` links to the same dashboard in the other language (omitted: no language switch)."""
     source = doc["source"]
+    v15 = capabilities(source["executable_contract_version"]).editor_intelligence
+    publication = doc.get("publication") or {}
+    release_id, snapshot_id = publication.get("release_id"), publication.get("snapshot_id")
     retrieved = source.get("retrieved_at")
     month = str(retrieved)[:7] if retrieved else None
+    if v15 and retrieved:
+        month = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).strftime("%Y-%m")
     blob = json.dumps(profile_pages).replace("</", "<\\/")
     editors = doc["editors"]
     cards = "".join(editor_card(s, loc) for s in editors) or empty_state(loc.t("home.no_editors"))
     meta = ((f'<span><b>{escape(loc.month(month))}</b> · {loc.t("common.month_in_progress")}</span>' if month else "")
-            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>')
+            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>'
+            + (f'<span>{loc.t("publication.release", release=loc.tech(release_id))}</span>' if release_id else ""))
     greeting = " ".join(f'data-{part}="{_attr(loc.text("home.greeting." + part))}"' for part in ("morning", "afternoon", "evening"))
     home = (f'<div data-view="team"><div class="hello"><div><span class="eyebrow">Atlas</span><h1 id="greeting" {greeting}>{loc.t("home.title")}</h1>'
             f'<p>{loc.t("home.sub")}</p></div><div class="meta">{meta}</div></div>'
@@ -1180,8 +1247,12 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     # The home view and each profile view declare their own speed/deadline drawers; keep one copy of each id.
     body = _dedupe_templates(home + profiles)
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
+    publication_meta = (f'<meta name="atlas-release-id" content="{escape(release_id)}"><meta name="atlas-snapshot-id" content="{escape(snapshot_id)}">'
+                        if release_id and snapshot_id else "")
+    publication_attrs = (f' data-atlas-release-id="{escape(release_id)}" data-atlas-snapshot-id="{escape(snapshot_id)}"'
+                         if release_id and snapshot_id else "")
     return (f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f"<title>{loc.t('page.dashboard_title')}</title><style>{CSS}</style></head><body><div class=\"shell\">"
+            f'{publication_meta}<title>{loc.t("page.dashboard_title")}</title><style>{CSS}{IA_CSS if v15 else ""}</style></head><body{publication_attrs}><div class="shell">'
             f'<header class="topbar"><a class="brand" href="#/"><i></i>Atlas</a><div class="topnav"><nav class="nav" aria-label="{_attr(loc.text("nav.main_label"))}">'
             f'<a href="#/" data-nav="team" aria-current="page">{loc.t("nav.team")}</a><a href="#/system" data-nav="system">{loc.t("nav.system")}</a></nav>{switch}</div></header>'
             f'<main>{body}{data_system(doc, loc, status_snapshot)}</main></div>'

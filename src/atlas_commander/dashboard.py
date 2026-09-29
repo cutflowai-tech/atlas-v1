@@ -13,6 +13,9 @@ import calendar
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
+from atlas_commander.cycles import parse_time
+from atlas_commander.intelligence import CAIRO
 from atlas_commander.management import editor_intelligence, team_intelligence
 
 DASHBOARD_VERSION = "ceo-dashboard-v0.1"
@@ -50,7 +53,10 @@ def _speed(profile: Mapping[str, Any]) -> dict[str, Any]:
         status_counts[cohort["comparison_status"]] = status_counts.get(cohort["comparison_status"], 0) + 1
     return {"source": "speed.cohorts", "benchmark_statistic": speed["benchmark_statistic"],
             "minimum_editor_sample_size": speed["minimum_editor_sample_size"], "cohorts": cohorts,
-            "compared_cohorts": [c for c in cohorts if c["conclusion"] in COMPARED], "comparison_status_counts": status_counts}
+            "compared_cohorts": [c for c in cohorts if c["conclusion"] in COMPARED], "comparison_status_counts": status_counts,
+            **({"leave_one_out": speed.get("leave_one_out"),
+                "minimum_comparator_sample_size": speed.get("minimum_comparator_sample_size"),
+                "component": speed.get("component")} if capabilities(profile["executable_contract_version"]).editor_intelligence else {})}
 
 
 def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
@@ -62,13 +68,39 @@ def _deadline(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _quality(profile: Mapping[str, Any]) -> dict[str, Any]:
-    negative = profile["quality"]["negative"]
-    return {"source": "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
+    quality = profile["quality"]
+    negative = quality["negative"]
+    taxonomy = capabilities(profile["executable_contract_version"]).label_taxonomy
+    result = {"source": "quality" if taxonomy else "quality.negative", "total_occurrences": negative["total_occurrences"], "projects_with_issues": negative["projects_with_issues"],
             "completed_projects_attributed": negative["completed_projects_attributed"],
             "by_label": [{"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
                          for row in negative["by_label"]],
-            "for_bonus_context_projects": len(profile["quality"]["for_bonus_context"]["projects"])}
+            "for_bonus_context_projects": len(quality["for_bonus_context"]["projects"])}
+    if taxonomy:
+        def block(name: str) -> dict[str, Any]:
+            value = quality[name]
+            return {
+                "total_occurrences": value["total_occurrences"],
+                "projects_with_labels": value["projects_with_issues"],
+                "completed_projects_attributed": value["completed_projects_attributed"],
+                "by_label": [
+                    {"label": row["label"], "occurrences": row["occurrences"], "monday_item_ids": list(row["monday_item_ids"])}
+                    for row in value["by_label"]
+                ],
+            }
 
+        result.update({
+            "taxonomy_enabled": True,
+            "negative": block("negative"),
+            "positive": block("positive"),
+            "context": block("context"),
+            "rates": quality.get("rates"),
+            "component": quality.get("component"),
+        })
+    return result
+
+
+LABEL_EVENT_KINDS = {"Positive": "positive_label", "Negative": "issue_label", "Context": "context_label"}
 
 PROJECT_FIELDS = ("monday_item_id", "state", "in_progress_at", "ready_for_approval_at", "duration_seconds", "cohort_key", "cohort_labels",
                   "speed_eligible", "requested_eta", "requested_eta_issue", "requested_eta_observed_at", "deadline_result", "deadline_delta_seconds",
@@ -90,11 +122,29 @@ def _events(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
                "deadline_result": row["deadline_result"], "deadline_delta_seconds": row["deadline_delta_seconds"],
                "cohort_labels": list(row["cohort_labels"]), "client_revision_events": row["client_revision_events"]}
               for row in profile["projects"] if row["state"] == "completed" and row["ready_for_approval_at"]]
+    taxonomy = capabilities(profile["executable_contract_version"]).label_taxonomy
     for occurrence in profile["quality"]["occurrences"]:
         timestamps = occurrence["evidence"].get("source_timestamps") or []
-        events.append({"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
-                       "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])})
+        event = {"kind": "issue_label", "at": timestamps[0] if timestamps else None, "monday_item_id": occurrence["evidence"]["monday_item_id"],
+                 "label": occurrence["performance_label"], "event_ids": list(occurrence["evidence"].get("event_ids") or [])}
+        if taxonomy:
+            # Every occurrence carries its registry class under a taxonomy contract; a missing class is a defect, not Negative.
+            label_class = occurrence["evidence"]["source_values"]["label_class"]
+            event.update({"kind": LABEL_EVENT_KINDS[label_class], "label_class": label_class, "column_id": occurrence["label_column_id"]})
+        events.append(event)
+    if taxonomy:
+        # Contract 1.5 groups and places timeline events by their Cairo date (D24); earlier contracts keep UTC months.
+        for event in events:
+            if event["at"]:
+                event.update(_cairo_time(event["at"]))
     return sorted((event for event in events if event["at"]), key=lambda event: (event["at"], event["kind"], event["monday_item_id"]))
+
+
+def _cairo_time(at: str | None) -> dict[str, Any]:
+    if not at:
+        return {}
+    local = parse_time(at).astimezone(CAIRO)
+    return {"local_at": local.isoformat(), "month": local.strftime("%Y-%m")}
 
 
 def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
@@ -108,9 +158,17 @@ def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
 
 def _workload(profile: Mapping[str, Any]) -> dict[str, Any]:
     workload = profile["current_workload"]
-    return {"source": "current_workload.by_current_status", "as_of": workload["as_of"],
+    summary = {"source": "current_workload.by_current_status", "as_of": workload["as_of"],
             "by_current_status": {status: len(items) for status, items in sorted(workload["by_current_status"].items(), key=lambda p: (-len(p[1]), p[0]))},
             "note": workload["note"]}
+    if capabilities(profile["executable_contract_version"]).editor_intelligence:
+        summary.update({
+            "active_work_count": workload["active_work"]["count"],
+            "awaiting_approval_count": workload["awaiting_approval"]["count"],
+            "awaiting_approval_status": workload["awaiting_approval"]["status"],
+            "capacity_classification": dict(workload["capacity_classification"]),
+        })
+    return summary
 
 
 def _monthly(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -122,7 +180,11 @@ def _monthly(profile: Mapping[str, Any]) -> list[dict[str, Any]]:
     for row in trend["speed_by_cohort_month"]:
         months.setdefault(row["month"], {"speed_by_cohort": []})["speed_by_cohort"].append(
             {"cohort_key": row["cohort_key"], "labels": labels.get(row["cohort_key"], []), "projects": row["projects"], "median_seconds": row["median_seconds"]})
-    retrieved = str(profile["source"].get("retrieved_at") or "")[:7]
+    retrieved_at = profile["source"].get("retrieved_at")
+    if capabilities(profile["executable_contract_version"]).editor_intelligence and retrieved_at:
+        retrieved = parse_time(retrieved_at).astimezone(CAIRO).strftime("%Y-%m")   # D24: the partial month is Cairo's
+    else:
+        retrieved = str(retrieved_at or "")[:7]
     return [{"month": month, "month_name": month_name(month), "partial": month == retrieved, "deadline": data.get("deadline"),
              "speed_by_cohort": data["speed_by_cohort"]} for month, data in sorted(months.items(), reverse=True)]  # most recent first
 
@@ -191,13 +253,68 @@ def _snapshot(speed: Mapping[str, Any], deadline: Mapping[str, Any], quality: Ma
     return blocks
 
 
+def _evidence_summary(evidence: Mapping[str, Any]) -> dict[str, Any]:
+    return {"records": len(evidence["records"]), "rule_version": evidence["rule_version"], "calculated_at": evidence["calculated_at"],
+            "date_range": evidence["date_range"], "monday_item_ids": sorted({record["monday_item_id"] for record in evidence["records"]})}
+
+
+def interpretation_view(profile: Mapping[str, Any]) -> dict[str, Any]:
+    """The contract 1.5 interpretation layer as one language-neutral view model (D23--D47).
+
+    English and Arabic render exactly this document; nothing here is recomputed or re-decided, it only selects what the
+    Overview and Profile show from the profile's own results and evidence."""
+    quality, speed, deadline, overall = profile["quality"], profile["speed"], profile["deadline"], profile["overall"]
+    trend = profile["trend"]
+
+    def component(block: Mapping[str, Any]) -> dict[str, Any]:
+        return {"state": block["state"], "reason": block["reason"], "rule_status": block["rule"]["status"], "facts": dict(block["facts"]),
+                "evidence": _evidence_summary(block["evidence"])}
+
+    excluded: dict[str, int] = {}
+    for row in quality["rates"]["scoring_exclusions"]:
+        excluded[row["reason"]] = excluded.get(row["reason"], 0) + 1
+    changes = [{"measurement": name, "cohort_key": None, "cohort_labels": [], **_change(trend["recent_change"][name])}
+               for name in ("positive_quality_rate", "negative_quality_rate", "late_rate")]
+    labels = {row["cohort_key"]: row["cohort_labels"] for row in speed["cohorts"]}
+    changes += [{"measurement": "median_speed_seconds", "cohort_key": row["cohort_key"], "cohort_labels": labels.get(row["cohort_key"], []),
+                 **_change(row["change"])} for row in trend["recent_change"]["speed_by_video_type"]]
+    editor_window = profile["coverage"]["editor_window"]
+    return {
+        "window": {"current": trend["window"]["current"], "comparison": trend["window"]["comparison"]},
+        "overall": {key: overall[key] for key in ("status", "status_label", "status_state", "reason", "component_states", "classifiable_components",
+                                                  "minimum_classifiable_components", "why")} | {"rule_status": overall["rule"]["status"]},
+        "components": {
+            "quality": {**component(quality["component"]), "scoring_exclusions": dict(sorted(excluded.items()))},
+            "speed": {**component(speed["component"]),
+                      "video_types": [{"cohort_key": row["cohort_key"], "cohort_labels": row["cohort_labels"], "verdict": row["verdict"],
+                                       "reason": None if row["comparison_status"] == "comparable" else row["comparison_status"],
+                                       "editor_projects": row["editor_sample_size"], "editor_median_seconds": row["editor_median_seconds"],
+                                       "comparator_projects": row["team_sample_size"], "comparator_editor_count": row["team_editor_count"],
+                                       "comparator_median_seconds": row["team_median_seconds"], "editor_vs_comparator_pct": row["editor_vs_team_median_pct"]}
+                                      for row in speed["cohorts"]]},
+            "deadline": component(deadline["component"]),
+        },
+        "recent_change": changes,
+        "trend_rule_status": trend["trend_rule"]["status"],
+        "coverage": {"current_projects": editor_window["current_projects"], "comparison_projects": editor_window["comparison_projects"],
+                     "excluded_projects": editor_window["excluded_projects"], "exclusion_reasons": dict(editor_window["exclusion_reasons"]),
+                     "history_completed_projects": profile["coverage"]["history_scope"]["completed_projects"]},
+    }
+
+
+def _change(change: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: change[key] for key in ("direction", "current", "comparison", "difference", "current_sample", "comparison_sample", "trend", "trend_reason")}
+
+
 def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -> dict[str, Any]:
     """One Editor's dashboard summary, copied from their Editor Profile."""
     editor = profile["editor"]
     coverage = profile["coverage"]
     speed, deadline, quality = _speed(profile), _deadline(profile), _quality(profile)
     workload, monthly = _workload(profile), _monthly(profile)
-    intelligence = editor_intelligence()
+    intelligence = editor_intelligence(profile["executable_contract_version"])
+    interpretation = ({"interpretation": interpretation_view(profile)}
+                      if capabilities(profile["executable_contract_version"]).editor_intelligence else {})
     return {
         "editor_id": editor["editor_id"], "display_name": editor["display_name"], "monday_label": editor["monday_person_id"],
         "mapping_version": editor.get("mapping_version"), "profile_ref": profile_ref,
@@ -205,32 +322,65 @@ def editor_summary(profile: Mapping[str, Any], profile_ref: str | None = None) -
         "sample": {"source": "coverage", "completed_projects": coverage["completed_projects"], "open_projects": coverage["open_projects"],
                    "speed_eligible_projects": coverage["speed_eligible_projects"], "exclusions_by_reason": dict(coverage["exclusions_by_reason"])},
         "speed": speed, "deadline": deadline, "quality": quality, "revisions": _revisions(profile), "current_workload": workload,
-        "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence,
+        "monthly": monthly, "warnings": _warnings(profile, speed, deadline, monthly), "intelligence": intelligence, **interpretation,
         "projects": _projects(profile), "events": _events(profile),
         "snapshot": _snapshot(speed, deadline, quality, workload, coverage, intelligence),
     }
 
 
-def _team(summaries: list[dict[str, Any]]) -> dict[str, Any]:
+def _team(summaries: list[dict[str, Any]], contract_version: str | None) -> dict[str, Any]:
     labels: dict[str, dict[str, int]] = {}
+    labels_by_class: dict[str, dict[str, dict[str, int]]] = {name: {} for name in ("negative", "positive", "context")}
     for summary in summaries:
         for row in summary["quality"]["by_label"]:
             labels.setdefault(row["label"], {})[summary["editor_id"]] = row["occurrences"]
+        for class_name, class_labels in labels_by_class.items():
+            block = summary["quality"].get(class_name)
+            if not isinstance(block, Mapping):
+                continue
+            for row in block.get("by_label") or []:
+                class_labels.setdefault(row["label"], {})[summary["editor_id"]] = row["occurrences"]
     statuses = sorted({status for s in summaries for status in s["current_workload"]["by_current_status"]})
     months = sorted({m["month"] for s in summaries for m in s["monthly"] if m["deadline"]}, reverse=True)
+    taxonomy = {"quality_labels_by_class": {
+        class_name: [{"label": label, "editors": counts, "editor_count": len(counts)}
+                     for label, counts in sorted(class_labels.items(), key=lambda pair: (-len(pair[1]), pair[0]))]
+        for class_name, class_labels in labels_by_class.items()
+    }} if capabilities(contract_version).label_taxonomy else {}
     return {
         "issue_labels_by_editor": [{"label": label, "editors": counts, "editor_count": len(counts)}
                                    for label, counts in sorted(labels.items(), key=lambda p: (-len(p[1]), p[0]))],
+        **taxonomy,
         "workload_by_editor": {"statuses": statuses,
                                "rows": {s["editor_id"]: s["current_workload"]["by_current_status"] for s in summaries}},
         "deadline_by_editor_month": {"months": [{"month": month, "month_name": month_name(month)} for month in months],
                                      "rows": {s["editor_id"]: {m["month"]: m["deadline"] for m in s["monthly"] if m["deadline"]} for s in summaries}},
-        "intelligence": team_intelligence(),
+        "intelligence": team_intelligence(contract_version),
     }
 
 
+def editors_without_data(mapped_editors: Iterable[Mapping[str, Any]], profiled: set[str], contract_version: str | None) -> list[dict[str, Any]]:
+    """Mapped Editors without a profile, one row per canonical Editor.
+
+    Under contract 1.5 several historical ``(source_label_id, logged_name)`` tuples can map to one canonical Editor (D49
+    merges); the canonical ``editor_id`` is the presentation identity, so such an Editor is listed once, under its first
+    (canonical) mapping entry, with every Monday label that maps to it. A label ID alone is never shown as the Editor's."""
+    rows: dict[str, dict[str, Any]] = {}
+    for entry in mapped_editors:
+        editor_id = entry["editor_id"]
+        if editor_id in profiled:
+            continue
+        row = rows.setdefault(editor_id, {"editor_id": editor_id, "display_name": entry["display_name"], "monday_label": entry["monday_person_id"],
+                                          "_labels": []})
+        row["_labels"].append({"source_label_id": entry.get("source_label_id", entry["monday_person_id"]), "logged_name": entry.get("logged_name")})
+    all_labels = capabilities(contract_version).editor_intelligence
+    return [{key: value for key, value in row.items() if key != "_labels"} | ({"monday_labels": row["_labels"]} if all_labels else {})
+            for row in rows.values()]
+
+
 def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *, mapped_editors: Iterable[Mapping[str, Any]] = (),
-                    attribution_coverage: Mapping[str, Any] | None = None, profile_refs: Mapping[str, str] | None = None) -> dict[str, Any]:
+                    attribution_coverage: Mapping[str, Any] | None = None, profile_refs: Mapping[str, str] | None = None,
+                    publication: Mapping[str, Any] | None = None, contract_version: str | None = None) -> dict[str, Any]:
     """Dashboard document for a set of Editor Profiles built from one dataset snapshot.
 
     ``mapped_editors`` are the contract's Editor mapping entries; the ones without a profile are
@@ -240,19 +390,22 @@ def build_dashboard(profiles: Iterable[Mapping[str, Any]], generated_at: str, *,
     sources = {(p["source"].get("retrieved_at"), p["executable_contract_version"]) for p in profiles}
     if len(sources) > 1:
         raise ValueError(f"profiles come from different snapshots or contracts: {sorted(map(str, sources))}")
-    retrieved_at, contract_version = next(iter(sources)) if sources else (None, None)
+    retrieved_at, profiled_contract = next(iter(sources)) if sources else (None, None)
+    if contract_version is not None and profiled_contract not in {None, contract_version}:
+        raise ValueError(f"profiles use contract {profiled_contract}, not {contract_version}")
+    features_contract = profiled_contract or contract_version
     summaries = [editor_summary(p, (profile_refs or {}).get(p["editor"]["editor_id"])) for p in profiles]
     summaries.sort(key=lambda s: (-s["sample"]["completed_projects"], s["display_name"]))  # display order only
     profiled = {s["editor_id"] for s in summaries}
     return {
         "dashboard_version": DASHBOARD_VERSION,
         "generated_at": generated_at,
-        "source": {"retrieved_at": retrieved_at, "executable_contract_version": contract_version,
+        **({"publication": dict(publication)} if publication is not None else {}),
+        "source": {"retrieved_at": retrieved_at, "executable_contract_version": profiled_contract,
                    "activity_log_window": profiles[0]["source"]["history_coverage"].get("activity_log_window") if profiles else None,
                    "statement": "Summary of Atlas Editor Profiles built from one Monday snapshot; the profiles and their Monday evidence are the source of every figure."},
         "editors": summaries,
-        "editors_without_attributable_data": [{"editor_id": e["editor_id"], "display_name": e["display_name"], "monday_label": e["monday_person_id"]}
-                                              for e in mapped_editors if e["editor_id"] not in profiled],
+        "editors_without_attributable_data": editors_without_data(mapped_editors, profiled, features_contract),
         "attribution_coverage": dict(attribution_coverage) if attribution_coverage else None,
-        "team": _team(summaries),
+        "team": _team(summaries, features_contract),
     }

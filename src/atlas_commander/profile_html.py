@@ -12,7 +12,11 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
+from atlas_commander.dashboard import interpretation_view
 from atlas_commander.i18n import EN, Html, Loc
+from atlas_commander.interpretation_html import CSS as IA_CSS
+from atlas_commander.interpretation_html import interpretation_section, window_caption
 
 CSS = """
 :root{--bg:#f7f7f5;--card:#fff;--ink:#1d1d1b;--muted:#5f5f5a;--line:#e3e2dc;--good:#1f7a4d;--warn:#9a6700;--bad:#b3261e;--accent:#2f5bb7}
@@ -45,7 +49,7 @@ def _n(value: Any, loc: Loc) -> Html:
 
 
 def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = None, loc: Loc = EN, *, dashboard_href: str | None = None,
-                        switch_href: str | None = None) -> str:
+                        switch_href: str | None = None, publication: dict[str, Any] | None = None) -> str:
     """Render the profile in ``loc``. ``monday_item_url`` may contain ``{item_id}`` to link each project to Monday.
 
     ``dashboard_href`` and ``switch_href`` add a page header with a link back to the dashboard and to the same profile in the
@@ -54,8 +58,15 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
     editor = profile["editor"]
     speed, deadline, quality, revisions, coverage = profile["speed"], profile["deadline"], profile["quality"], profile["revisions"], profile["coverage"]
     summary = deadline["summary"]
+    v15 = capabilities(profile["executable_contract_version"]).editor_intelligence
+    publication = publication or profile.get("publication")
+    release_meta = (f'<meta name="atlas-release-id" content="{escape(publication["release_id"])}">'
+                    f'<meta name="atlas-snapshot-id" content="{escape(publication["snapshot_id"])}">') if publication else ""
+    body_identity = (f' data-atlas-release-id="{escape(publication["release_id"])}"'
+                     f' data-atlas-snapshot-id="{escape(publication["snapshot_id"])}"') if publication else ""
     parts = [(f'<!doctype html><html lang="{loc.code}" dir="{loc.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-              f"<title>{escape(loc.text('report.page_title', name=editor['display_name']))}</title><style>{CSS}</style></head><body><main>")]
+              f'{release_meta}<title>{escape(loc.text("report.page_title", name=editor["display_name"]))}</title><style>{CSS}{IA_CSS if v15 else ""}</style></head>'
+              f'<body{body_identity}><main>')]
     if dashboard_href or switch_href:
         other = loc.other()
         back = f'<a href="{escape(dashboard_href)}">{t("report.back")}</a>' if dashboard_href else "<span></span>"
@@ -67,17 +78,35 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                      mapping=loc.tech(editor["mapping_version"]), contract=loc.tech(profile["executable_contract_version"]),
                      retrieved=loc.tech(profile["source"].get("retrieved_at")), generated=loc.tech(profile["generated_at"]))
                  + "</div>")
+    if publication:
+        parts.append(f'<div class="sub">{t("publication.identity", release=loc.tech(publication["release_id"]), snapshot=loc.tech(publication["snapshot_id"]))}</div>')
 
     def tile(value: Any, label: str) -> str:
         return f'<div class="tile"><b>{value}</b><span>{label}</span></div>'
 
-    parts.append(f"<section class=\"card\"><h2>{t('report.overall_title')}</h2><div class=\"tiles\">"
-                 + tile(loc.num(coverage["completed_projects"]), t("report.tile.completed"))
-                 + tile(loc.num(coverage["speed_eligible_projects"]), t("report.tile.measurable"))
-                 + tile(loc.pct(summary.get("early_rate")), t("report.tile.early_deliveries", n=loc.num(summary["early"]), total=loc.num(summary["evaluated"])))
-                 + tile(loc.pct(summary.get("late_rate")), t("report.tile.late_deliveries", n=loc.num(summary["late"]), total=loc.num(summary["evaluated"])))
-                 + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
-                 + f"</div><p class=\"note\">{t('note.overall')}</p></section>")
+    view = interpretation_view(profile) if v15 else None
+    if view is not None:
+        # Contract 1.5: the interpretation layer first; history-wide and window-scoped figures are captioned separately (D24).
+        parts.append(interpretation_section(view, loc, profile=profile, item_url=monday_item_url))
+        caption = window_caption(view, loc)
+        parts.append(f"<section class=\"card\"><h2>{t('report.overall_title')}</h2><p class=\"sub\">{t('interp.history_scope')}</p><div class=\"tiles\">"
+                     + tile(loc.num(coverage["completed_projects"]), t("report.tile.completed"))
+                     + tile(loc.num(coverage["speed_eligible_projects"]), t("report.tile.measurable"))
+                     + f"</div><p class=\"sub\">{caption}</p><div class=\"tiles\">"
+                     + tile(loc.pct(summary.get("early_rate")), t("report.tile.early_deliveries", n=loc.num(summary["early"]), total=loc.num(summary["evaluated"])))
+                     + tile(loc.pct(summary.get("late_rate")), t("report.tile.late_deliveries", n=loc.num(summary["late"]), total=loc.num(summary["evaluated"])))
+                     + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
+                     + "</div></section>")
+    else:
+        caption = Html("")
+        parts.append(f"<section class=\"card\"><h2>{t('report.overall_title')}</h2><div class=\"tiles\">"
+                     + tile(loc.num(coverage["completed_projects"]), t("report.tile.completed"))
+                     + tile(loc.num(coverage["speed_eligible_projects"]), t("report.tile.measurable"))
+                     + tile(loc.pct(summary.get("early_rate")), t("report.tile.early_deliveries", n=loc.num(summary["early"]), total=loc.num(summary["evaluated"])))
+                     + tile(loc.pct(summary.get("late_rate")), t("report.tile.late_deliveries", n=loc.num(summary["late"]), total=loc.num(summary["evaluated"])))
+                     + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
+                     + f"</div><p class=\"note\">{t('note.overall')}</p></section>")
+    scoped = f'<p class="sub">{caption}</p>' if v15 else ""
 
     rows = []
     # Display order only: largest Editor samples first.
@@ -86,7 +115,8 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         shown_pct = cohort.get("editor_vs_team_median_pct") if cohort["comparison_status"] != "no_other_editors_in_cohort" else None
         conclusion = cohort["conclusion"]
         rng = cohort.get("team_typical_range_seconds") or {}
-        rows.append(f"<tr><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
+        row_attrs = (f' data-classification="{escape(conclusion)}" data-comparison-status="{escape(cohort["comparison_status"])}"' if v15 else "")
+        rows.append(f"<tr{row_attrs}><td>{loc.labels(cohort['cohort_labels'])}<br>{loc.tech(cohort['cohort_key'])}</td>"
                     f"<td>{loc.hours(cohort['editor_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=loc.num(cohort['editor_sample_size']))}</span></td>"
                     f"<td>{loc.hours(cohort['team_median_seconds'])}<br><span class=\"sub\">{t('common.sample_n', n=_n(cohort['team_sample_size'], loc))}</span></td>"
                     f"<td>{loc.pct_value(shown_pct, signed=True)}</td>"
@@ -94,13 +124,17 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                     f"<td class=\"{escape(conclusion)}\">{t('conclusion.' + conclusion)}<br>"
                     f"<span class=\"sub\">{t('status.' + cohort['comparison_status'])}</span></td></tr>")
     empty = f"<tr><td colspan=6>{t('speed.no_measurable')}</td></tr>"
-    parts.append(f"<section class=\"card\"><h2>{t('report.speed_title')}</h2><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.cohort')}</th>"
+    speed_note = (t("common.not_evaluated") if speed.get("minimum_editor_sample_size") is None
+                  else t("report.speed_note", stat=t("stat." + speed["benchmark_statistic"]),
+                         min=loc.num(speed["minimum_editor_sample_size"]),
+                         min_projects=loc.count("noun.project", speed["minimum_editor_sample_size"])))
+    parts.append(f"<section class=\"card\"><h2>{t('report.speed_title')}</h2>{scoped}<div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.cohort')}</th>"
                  f"<th scope=col>{t('common.editor_median')}</th><th scope=col>{t('common.team_median')}</th><th scope=col>{t('report.head.difference')}</th>"
                  f"<th scope=col>{t('report.head.typical_range')}</th><th scope=col>{t('report.head.conclusion')}</th></tr></thead>"
                  f"<tbody>{''.join(rows) or empty}</tbody></table></div>"
-                 f"<p class=\"note\">{t('report.speed_note', stat=t('stat.' + speed['benchmark_statistic']), min=loc.num(speed['minimum_editor_sample_size']), min_projects=loc.count('noun.project', speed['minimum_editor_sample_size']))}</p></section>")
+                 f"<p class=\"note\">{speed_note}</p></section>")
 
-    parts.append(f"<section class=\"card\"><h2>{t('deadline.panel_title')}</h2><div class=\"tiles\">"
+    parts.append(f"<section class=\"card\"><h2>{t('deadline.panel_title')}</h2>{scoped}<div class=\"tiles\">"
                  f"<div class=\"tile\"><b class=\"early\">{loc.num(summary['early'])}</b><span>{t('report.tile.early_rate', pct=loc.pct(summary.get('early_rate')))}</span></div>"
                  + tile(loc.num(summary["on_time"]), t("report.tile.on_time_rate", pct=loc.pct(summary.get("on_time_rate"))))
                  + f"<div class=\"tile\"><b class=\"late\">{loc.num(summary['late'])}</b><span>{t('report.tile.late_rate', pct=loc.pct(summary.get('late_rate')))}</span></div>"
@@ -109,32 +143,57 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  + tile(loc.num(summary.get("not_classifiable_missing_eta", 0)), t("report.tile.no_eta"))
                  + f"</div><p class=\"note\">{_deadline_note(deadline, loc)}</p></section>")
 
-    labels = "".join(f"<tr><td>{loc.src(row['label'])}</td><td>{loc.num(row['occurrences'])}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in row['monday_item_ids'])}</td></tr>"
-                     for row in quality["negative"]["by_label"])
+    def quality_rows(name: str) -> str:
+        return "".join(
+            f"<tr><td>{loc.src(row['label'])}</td><td>{loc.num(row['occurrences'])}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in row['monday_item_ids'])}</td></tr>"
+            for row in quality[name]["by_label"]
+        )
+
+    labels = quality_rows("negative")
     bonus = quality["for_bonus_context"]
     no_labels = f"<tr><td colspan=3>{t('report.no_issue_labels')}</td></tr>"
-    parts.append(f"<section class=\"card\"><h2>{t('common.quality')}</h2><div class=\"tiles\">"
+    taxonomy_tables = ""
+    if v15:
+        positive_rows = quality_rows("positive")
+        context_rows = quality_rows("context")
+        taxonomy_tables = (
+            f"<h3>{t('quality.positive_title')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
+            f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
+            f"<tbody>{positive_rows or no_labels}</tbody></table></div>"
+            f"<h3>{t('quality.context_title')}</h3><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th>"
+            f"<th scope=col>{t('report.head.occurrences')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
+            f"<tbody>{context_rows or no_labels}</tbody></table></div>"
+        )
+    parts.append(f"<section class=\"card\"><h2>{t('common.quality')}</h2>{scoped}<div class=\"tiles\">"
                  + tile(loc.num(quality["negative"]["total_occurrences"]), t("report.tile.issue_labels"))
                  + tile(loc.num(quality["negative"]["projects_with_issues"]), t("report.tile.projects_with_issues", total=loc.num(quality["negative"]["completed_projects_attributed"])))
                  + tile(loc.num(quality["positive"]["count"]), t("report.tile.positive"))
-                 + tile(loc.num(len(bonus["projects"])), t("report.tile.for_bonus"))
+                 + (tile(loc.num(quality["context"]["total_occurrences"]), t("quality.context_title")) if v15
+                    else tile(loc.num(len(bonus["projects"])), t("report.tile.for_bonus")))
                  + f"</div><div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.label')}</th><th scope=col>{t('report.head.occurrences')}</th>"
                  f"<th scope=col>{t('common.projects')}</th></tr></thead><tbody>{labels or no_labels}</tbody></table></div>"
-                 f"<p class=\"note\">{t('report.quality_note')} {t('note.positive')}</p></section>")
+                 f"{taxonomy_tables}"
+                 f"<p class=\"note\">{t('report.quality_note')} {t('note.positive_v15' if v15 else 'note.positive')}</p></section>")
 
-    parts.append(f"<section class=\"card\"><h2>{t('report.revisions_title')}</h2><div class=\"tiles\">"
-                 + tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
-                 + tile(loc.num(revisions["projects_with_client_revisions"]), t("report.tile.projects_with_revisions", total=loc.num(revisions["completed_projects"])))
-                 + tile(loc.pct(revisions["client_revision_rate"]), t("report.tile.revision_rate"))
+    revision_tiles = tile(loc.num(revisions["client_revision_events"]), t("revisions.client_events"))
+    if v15:
+        revision_tiles += tile(loc.num(revisions["internal"]["events"]), t("revisions.internal_events"))
+    revision_tiles += tile(loc.num(revisions["projects_with_client_revisions"]), t("report.tile.projects_with_revisions", total=loc.num(revisions["completed_projects"])))
+    revision_tiles += tile(loc.pct(revisions["client_revision_rate"]), t("report.tile.revision_rate"))
+    parts.append(f"<section class=\"card\"><h2>{t('report.revisions_title')}</h2><div class=\"tiles\">{revision_tiles}"
                  + f"</div><p class=\"note\">{t('note.revisions')}</p></section>")
 
     workload = profile["current_workload"]
     workload_rows = "".join(f"<tr><td>{loc.src(status)}</td><td>{loc.num(len(items))}</td><td>{loc.comma().join(_item(i, monday_item_url, loc) for i in items)}</td></tr>"
                             for status, items in sorted(workload["by_current_status"].items(), key=lambda pair: -len(pair[1])))
     none_row = f"<tr><td colspan=3>{t('common.none')}</td></tr>"
-    parts.append(f"<section class=\"card\"><h2>{t('report.current_title', date=loc.tech(workload['as_of']))}</h2><div class=\"scroll\"><table><thead><tr>"
+    workload_summary = ""
+    if v15:
+        workload_summary = (f'<div class="tiles">{tile(loc.num(workload["active_work"]["count"]), t("workload.active_work"))}'
+                            f'{tile(loc.num(workload["awaiting_approval"]["count"]), t("workload.awaiting_approval"))}</div>')
+    parts.append(f"<section class=\"card\"><h2>{t('report.current_title', date=loc.tech(workload['as_of']))}</h2>{workload_summary}<div class=\"scroll\"><table><thead><tr>"
                  f"<th scope=col>{t('report.head.current_status')}</th><th scope=col>{t('report.head.items')}</th><th scope=col>{t('common.projects')}</th></tr></thead>"
-                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload')}</p></section>")
+                 f"<tbody>{workload_rows or none_row}</tbody></table></div><p class=\"note\">{t('note.workload_v15' if v15 else 'note.workload')}</p></section>")
 
     trend = profile["trend"]
     speed_rows = "".join(f"<tr><td>{loc.tech(row['cohort_key'])}</td><td>{escape(loc.month(row['month']))}</td><td>{loc.num(row['projects'])}</td><td>{loc.hours(row['median_seconds'])}</td></tr>"
@@ -147,11 +206,14 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
                  f"<div class=\"scroll\"><table><thead><tr><th scope=col>{t('report.head.month')}</th><th scope=col>{t('report.head.deadlines_evaluated')}</th>"
                  f"<th scope=col>{t('result.early')}</th><th scope=col>{t('result.on_time')}</th><th scope=col>{t('result.late')}</th>"
                  f"<th scope=col>{t('report.head.early_rate')}</th><th scope=col>{t('report.head.late_rate')}</th></tr></thead>"
-                 f"<tbody>{deadline_rows}</tbody></table></div></details><p class=\"note\">{t('note.trend')}</p></section>")
+                 f"<tbody>{deadline_rows}</tbody></table></div></details><p class=\"note\">{t('note.trend_v15' if v15 else 'note.trend')}</p></section>")
 
     reasons = "".join(f"<li>{loc.tech(reason)}: {loc.num(count)}</li>" for reason, count in coverage["exclusions_by_reason"].items()) or f"<li>{t('common.none')}</li>"
     states = "".join(f"<li>{loc.tech(state)}: {loc.num(count)}</li>" for state, count in coverage["states"].items() if count)
     parts.append(f"<section class=\"card\"><h2>{t('report.coverage_title')}</h2><ul>{reasons}</ul><ul>{states}</ul><p class=\"note\">{t('note.not_attributed')}</p></section>")
+
+    def deadline_attr(result: str | None) -> str:
+        return f' data-classification="{escape(result or "not_classifiable")}"' if v15 else ""
 
     project_rows = []
     for row in profile["projects"]:
@@ -164,7 +226,7 @@ def render_profile_html(profile: dict[str, Any], monday_item_url: str | None = N
         project_rows.append(
             f"<tr><td>{_item(row['monday_item_id'], monday_item_url, loc)}</td><td>{loc.tech(row['ready_for_approval_at'] or '—')}</td>"
             f"<td>{loc.hours(row['duration_seconds'])}</td><td>{loc.labels(row['cohort_labels'])}</td>"
-            f"<td class=\"{escape(result or '')}\">{deadline_cell}</td>"
+            f"<td class=\"{escape(result or '')}\"{deadline_attr(result)}>{deadline_cell}</td>"
             f"<td>{loc.comma().join(loc.src(label) for label in row['quality_labels']) or '—'}</td><td>{loc.num(row['client_revision_events'])}</td>"
             f"<td>{loc.comma().join(loc.tech(reason) for reason in row['exclusions']) or t('evidence.included_lower')}</td>"
             f"<td>{loc.tech(ids['in_progress'])}<br>{loc.tech(ids['ready_for_approval'])}</td></tr>")

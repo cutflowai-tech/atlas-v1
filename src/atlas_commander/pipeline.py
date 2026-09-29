@@ -46,7 +46,9 @@ class CycleReconstruction:
 def reconstruct_quality(result: CycleReconstruction, contract: Mapping[str, Any], calculated_at: str) -> QualityResult:
     """Quality occurrences for a reconstruction, using the current item values when they were ingested."""
     policy = QualityPolicy.from_contract(contract)
-    return quality_occurrences(result.cycles, result.column_changes, policy, calculated_at, result.item_snapshots.get(policy.column_id))
+    # Taxonomy contracts read several label columns, so they take every column's snapshots; earlier ones read Performance Issues only.
+    snapshots: Mapping[str, Any] = result.item_snapshots if policy.taxonomy_enabled else result.item_snapshots.get(policy.column_id, {})
+    return quality_occurrences(result.cycles, result.column_changes, policy, calculated_at, snapshots)
 
 
 def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[str, Any], items_payload: Mapping[str, Any] | None = None,

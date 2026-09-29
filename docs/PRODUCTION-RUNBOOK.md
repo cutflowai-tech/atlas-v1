@@ -285,6 +285,11 @@ missed interval produces at most one activation, not one activation per missed h
   Authorization headers, or tokens. Treat them as operationally sensitive anyway. Use the host's
   bounded journald retention/rotation policy; do not add unbounded container log files.
 
+## 10a. Contract 1.5.0 activation and rollback
+
+Production runs contract 1.4.0. Activating the contract 1.5.0 candidate, its fresh ingest, smoke test and rollback to 1.4.0 follow
+[`CONTRACT-1.5-ACTIVATION.md`](CONTRACT-1.5-ACTIVATION.md) and require the recorded approval described there.
+
 ## 11. Task 10 preparation — controlled live Monday validation, do not execute yet
 
 Before Task 10, approve the production host, reviewed image digests, read-only token scope, board ID,

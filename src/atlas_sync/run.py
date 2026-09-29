@@ -43,7 +43,7 @@ from atlas_commander.i18n import LOCALES
 from atlas_commander.ingest import EXTRACT_NAME, MANIFEST_NAME, Clock, failure_category, ingest_run, new_run_id, tracked_columns, utc_now
 from atlas_commander.ingest_verify import verify
 from atlas_commander.pipeline import CycleReconstruction
-from atlas_commander.profile import PROFILE_CONTRACTS, profiled_editors
+from atlas_commander.profile import PROFILE_CONTRACTS, evidence_consistency_errors, profiled_editors
 from atlas_commander.profile_cli import attribution_coverage, build_dashboard_files, build_profiles, reconstruct_extract
 from atlas_monday_probe.client import DEFAULT_API_VERSION, ReadOnlyMondayClient, assert_read_only
 from atlas_monday_probe.raw_store import inside_git_worktree, write_immutable_atomic
@@ -62,7 +62,7 @@ FAILED_NAME = "FAILED.json"             # present only in a build directory whos
 ATTEMPTS_DIR = "attempts"               # <build root>/attempts/<attempt_id>.json: one safe result per attempt
 STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
           "validation", "metadata", "completion")
-PROFILE_SCHEMAS = {version: schema for version, schema in PROFILE_CONTRACTS.values()}
+PROFILE_SCHEMAS = dict(PROFILE_CONTRACTS)
 STAGED_NOTE = "Staged build only: it has not been published, and the published dashboard was not modified."
 
 
@@ -218,13 +218,15 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
     performance rule is evaluated here."""
     problems: list[str] = []
     editors = [editor["editor_id"] for editor in profiled_editors(result)]
-    required = site_layout.required_files(editors)   # both languages: a build missing either one is incomplete
+    required = site_layout.required_files(editors, contract["contract_version"])   # both languages: a build missing either one is incomplete
     files = _files(site)
     problems += [f"missing required artifact {name}" for name in required if name not in files]
     problems += [f"unexpected artifact {name}" for name in files if name not in required]
     problems += [f"empty artifact {name}" for name, path in files.items() if path.stat().st_size == 0]
     if token:
         problems += [f"artifact {name} contains the Monday token" for name, path in files.items() if token in path.read_bytes()]
+
+    problems += site_layout.publication_problems(files, editors, contract["contract_version"], extract.get("retrieved_at"))
 
     for name, locale in site_layout.html_files(editors).items():
         path = files.get(name)
@@ -245,7 +247,7 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
         schema = PROFILE_SCHEMAS.get(profile.get("contract_version"))
         if schema is None:
             problems.append(f"profiles/{editor}.json has unknown profile contract {profile.get('contract_version')!r}")
-        elif errors := validate(profile, schema):
+        elif errors := validate(profile, schema) + evidence_consistency_errors(profile):
             problems.append(f"profiles/{editor}.json violates {schema}: {errors}")
         if (profile.get("editor") or {}).get("editor_id") != editor:
             problems.append(f"profiles/{editor}.json is for another Editor")

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from atlas_commander.capabilities import capabilities
+
 RULE_NOT_APPROVED = "rule_not_approved"
 
 PENDING_RULES: dict[str, dict[str, str]] = {
@@ -34,19 +36,34 @@ PENDING_RULES: dict[str, dict[str, str]] = {
                       "reason": "No rule defines a team or process pattern; label counts per Editor are shown as facts only."},
 }
 
+# Contract 1.5 (D20--D50) changes what is factual, so the reasons for the still-unapproved judgements change with it. The
+# Overall Status becomes a real deterministic result (the profile's ``overall``), and there is no Overall score at all (D37).
+V15_REASONS: dict[str, str] = {
+    "positive_signals": "Positive Monday labels are shown as factual evidence; no Strength or Recognition threshold is approved.",
+    "workload_capacity": "Active Work statuses are approved; no capacity threshold or capacity judgement is approved.",
+    "reward_recommendation": "No reward rule is approved; positive labels are evidence and never an automatic reward recommendation.",
+    "trend_direction": "Recent Change is shown as a fact with both windows and samples; no Trend materiality threshold is approved.",
+}
+
 EDITOR_SLOTS = ("overall_status", "overall_score", "needs_attention", "positive_signals", "trend_direction", "workload_capacity",
                 "management_recommendation", "reward_recommendation")
 TEAM_SLOTS = ("needs_attention", "positive_signals", "team_patterns", "trend_direction", "workload_capacity")
+V15_EDITOR_SLOTS = tuple(slot for slot in EDITOR_SLOTS if slot not in {"overall_status", "overall_score"})
+V15_PENDING_SLOTS = tuple(slot for slot in PENDING_RULES if slot not in {"overall_status", "overall_score"})
 
 
-def pending(slot: str) -> dict[str, Any]:
+def pending(slot: str, *, v15: bool = False) -> dict[str, Any]:
     rule = PENDING_RULES[slot]
-    return {"slot": slot, "label": rule["label"], "value": None, "state": RULE_NOT_APPROVED, "reason": rule["reason"]}
+    reason = V15_REASONS.get(slot, rule["reason"]) if v15 else rule["reason"]
+    return {"slot": slot, "label": rule["label"], "value": None, "state": RULE_NOT_APPROVED, "reason": reason}
 
 
-def editor_intelligence() -> dict[str, dict[str, Any]]:
-    return {slot: pending(slot) for slot in EDITOR_SLOTS}
+def editor_intelligence(contract_version: str | None = None) -> dict[str, dict[str, Any]]:
+    """Pending management judgements for one Editor under ``contract_version``."""
+    v15 = capabilities(contract_version).editor_intelligence
+    return {slot: pending(slot, v15=v15) for slot in (V15_EDITOR_SLOTS if v15 else EDITOR_SLOTS)}
 
 
-def team_intelligence() -> dict[str, dict[str, Any]]:
-    return {slot: pending(slot) for slot in TEAM_SLOTS}
+def team_intelligence(contract_version: str | None = None) -> dict[str, dict[str, Any]]:
+    v15 = capabilities(contract_version).editor_intelligence
+    return {slot: pending(slot, v15=v15) for slot in TEAM_SLOTS}
