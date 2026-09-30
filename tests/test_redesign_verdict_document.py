@@ -41,6 +41,12 @@ class VerdictDocumentTests(unittest.TestCase):
         self.assertTrue(schema_errors(broken, SCHEMA))
         self.assertTrue(schema_errors(json.loads(json.dumps(dict(document(VERDICTS_JSON), document_version="0.9"))), SCHEMA))
 
+    def test_the_redesigned_site_opens_in_arabic(self):
+        root = (site() / site_layout.ROOT_ENTRY).read_text(encoding="utf-8")                  # D54: Arabic default, with the switcher
+        self.assertTrue(root.startswith('<!doctype html><html lang="ar" dir="rtl">'))
+        self.assertIn('<meta http-equiv="refresh" content="0; url=ar/dashboard.html">', root)
+        self.assertIn('href="en/dashboard.html" hreflang="en"', root)
+
     def test_the_publication_gate_turns_the_document_off_without_breaking_the_build(self):
         contract = load_contract_version("1.5.0")
         out = Path(tempfile.mkdtemp(prefix="atlas-verdict-off-"))
@@ -49,6 +55,7 @@ class VerdictDocumentTests(unittest.TestCase):
             with mock.patch.object(verdict_site, "load_config", return_value=off):
                 doc = profile_cli.build_all(profile_cli.reconstruct_extract(showcase_extract(), contract), contract, out, GENERATED_AT)
             self.assertFalse((out / VERDICTS_JSON).exists())
+            self.assertIn('url=en/dashboard.html"', (out / site_layout.ROOT_ENTRY).read_text())   # without verdicts: English, as before
             editors = [s["editor_id"] for s in doc["editors"]]
             self.assertEqual([n for n in site_layout.required_files(editors, "1.5.0") if not (out / n).is_file()], [])
         finally:

@@ -136,9 +136,12 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
             dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}",
             status_snapshot=status_snapshot, intelligence=intelligence, verdicts=verdicts, photos=photos))
         _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html", publication))
-    ar = EN.other()
-    _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), publication,
-                                                    (ar, site_layout.dashboard_html(ar.code))))
+    # The root opens the default language: Arabic for the redesigned site (D54, "Language default: Arabic, with the existing switcher"),
+    # English otherwise (the pre-redesign sites, byte for byte).
+    first = EN.other() if verdicts is not None else EN
+    second = first.other()
+    _write(out, site_layout.ROOT_ENTRY, _entry_page(first, site_layout.dashboard_html(first.code), publication,
+                                                    (second, site_layout.dashboard_html(second.code))))
     return dashboard
 
 

@@ -327,3 +327,17 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Token changes for contrast.** Two light-theme text tokens of the existing design system were darkened (`--ink-3` and `--na`
   #7f7f74 → #5f5f55) because they fell below 4.5:1 on the light surfaces (4.05 on white, 3.52 on `--surface-2`). The dark theme is
   unchanged. The redesign's `--v-faint` stays as the handoff defines it but is used only for decoration, never for text.
+
+## R24. Arabic is the redesigned site's default language (D54)
+
+- The README's product defaults, approved as D54, set "Language default: Arabic, with the existing switcher". No numbered task covers
+  it, so it is implemented with the release preparation: when a build has `verdicts.json`, the site root (`/`, `index.html`) opens
+  `ar/dashboard.html` and offers the English page; without verdicts (the publication gate off, or contracts 1.3/1.4) it opens English
+  exactly as before. Both language trees stay reachable directly (`/en/`, `/ar/`) and every page keeps its language switch.
+
+## R25. Release (T6.4) waits for the owner
+
+- T6.4 depends on T6.3, whose "Done when" needs the owner's review and sign-off of the editor / tier / rank table, and on T5.1's real
+  photos for the people-first overview. The branch is not deployed and nothing is pushed to `main`: the work goes to a pull request into
+  `main`; once the owner signs off, the release follows `docs/PRODUCTION-RUNBOOK.md` (MAP.md "Deploy") and its release ID is recorded in
+  PROGRESS.md.

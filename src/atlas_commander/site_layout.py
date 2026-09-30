@@ -1,6 +1,6 @@
 """The file layout of a generated Atlas site: one analytical dataset, two presentation languages.
 
-    index.html                     root entry: sends visitors to en/dashboard.html (English is the default)
+    index.html                     root entry: sends visitors to the default language (Arabic when the site has verdicts, D54; English before)
     publication.json               shared release/snapshot identity for every public route (contract 1.5.0+ only)
     dashboard.json                 language-neutral CEO Dashboard document
     profiles/<editor_id>.json      language-neutral Editor Profiles (the analytical source of every page)
