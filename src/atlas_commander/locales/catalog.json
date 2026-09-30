@@ -4293,6 +4293,48 @@
    "ar": "{top} من أهم النتائج + {listed} أخرى · {grouped} مكررة مجمّعة تحت نتيجتها الرئيسية",
    "context": "Data & rules: value of the row that splits the published total (redesign T1.5).",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.best": {
+   "en": "Best",
+   "ar": "الأفضل",
+   "context": "Redesign tier label (Best: top of the ranked Editors, no dimension worse than the team)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.steady": {
+   "en": "Steady",
+   "ar": "مستقر",
+   "context": "Redesign tier label (Steady: no concern, not outstanding)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.watch": {
+   "en": "Watch",
+   "ar": "يحتاج متابعة",
+   "context": "Redesign tier label (Watch: later or slower than the team, or overdue work)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.weakest": {
+   "en": "Weakest",
+   "ar": "الأضعف",
+   "context": "Redesign tier label (Weakest: far later than the team, or much slower and later)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.low_activity": {
+   "en": "Low activity",
+   "ar": "نشاط منخفض",
+   "context": "Redesign tier label (Low activity: too few projects this window)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.avatar.tier": {
+   "en": "{name}, {tier}",
+   "ar": "{name}، {tier}",
+   "context": "Accessible name of an Editor avatar: name and tier",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.avatar.ranked": {
+   "en": "{name}, {tier}, rank {rank} of {of}",
+   "ar": "{name}، {tier}، الترتيب {rank} من {of}",
+   "context": "Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors",
+   "status": "Needs Arabic Review"
   }
  }
 }

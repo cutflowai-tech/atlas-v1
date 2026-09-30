@@ -140,11 +140,14 @@ make demo-showcase            # builds out/showcase and serves it on $(DEMO_PORT
 # 3. Review the verdicts of a build (T2.16): exits 1 unless verdicts.json is publishable and covers every Editor.
 PYTHONPATH=src python3 -m atlas_commander.verdict.review out/real
 
-# 4. Serve any build and open the app.
+# 4. The redesign's component page (development only, never published): every state of web/verdict_ui in EN and AR.
+PYTHONPATH=src python3 -m atlas_commander.web.components out/dev     # out/dev/components/{en,ar}.html
+
+# 5. Serve any build and open the app.
 python3 -m http.server 8766 --directory out --bind 127.0.0.1
 open http://127.0.0.1:8766/real/en/dashboard.html     # Arabic: /real/ar/dashboard.html
 
-# 5. Tests.
+# 6. Tests.
 make test                     # full gate
 make redesign                 # the redesign's own suites (test_redesign*.py)
 make ui-v15 i18n dashboard    # the suites the redesign touches most

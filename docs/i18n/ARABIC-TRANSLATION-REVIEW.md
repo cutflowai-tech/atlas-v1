@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-667 keys: 149 Approved from brief, 362 Implemented conservatively, 156 Needs Arabic Review.
+674 keys: 149 Approved from brief, 362 Implemented conservatively, 163 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -162,6 +162,13 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.timeline.legend_context` | Context label added | إضافة علامة سياق | Timeline legend | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.timeline.legend_positive` | Positive label added | إضافة علامة إيجابية | Timeline legend | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.timeline.positive_marker` | Positive label: {label} | علامة إيجابية: {label} | Timeline marker description | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
+| `ui.v.avatar.ranked` | {name}, {tier}, rank {rank} of {of} | {name}، {tier}، الترتيب {rank} من {of} | Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors | Needs Arabic Review |  |
+| `ui.v.avatar.tier` | {name}, {tier} | {name}، {tier} | Accessible name of an Editor avatar: name and tier | Needs Arabic Review |  |
+| `ui.v.tier.best` | Best | الأفضل | Redesign tier label (Best: top of the ranked Editors, no dimension worse than the team) | Needs Arabic Review |  |
+| `ui.v.tier.low_activity` | Low activity | نشاط منخفض | Redesign tier label (Low activity: too few projects this window) | Needs Arabic Review |  |
+| `ui.v.tier.steady` | Steady | مستقر | Redesign tier label (Steady: no concern, not outstanding) | Needs Arabic Review |  |
+| `ui.v.tier.watch` | Watch | يحتاج متابعة | Redesign tier label (Watch: later or slower than the team, or overdue work) | Needs Arabic Review |  |
+| `ui.v.tier.weakest` | Weakest | الأضعف | Redesign tier label (Weakest: far later than the team, or much slower and later) | Needs Arabic Review |  |
 | `ui.work.sub` | Items by their current Monday status, as of {date}. | العناصر حسب حالتها الحالية في Monday، حتى {date}. | Current work section subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `activity.empty_detail` | A missing label is not an assessment of quality. | غياب المؤشرات لا يُعد تقييمًا لجودة العمل. | Empty state detail | Implemented conservatively |  |
 | `activity.empty_title` | No issue labels added this month | لم تتم إضافة أي مؤشرات مشكلات هذا الشهر | Empty state | Implemented conservatively |  |
