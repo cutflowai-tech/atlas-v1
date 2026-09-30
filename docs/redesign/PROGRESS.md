@@ -12,7 +12,7 @@ States: `pending`, `in_progress`, `verified`, `blocked`.
 | T0.1 Repository map | verified | T2.13 Overdue list per editor | pending |
 | T0.2 Run it locally | verified | T2.14 Decisions generator | pending |
 | T0.3 Validate the handoff against the repo | verified | T2.15 Team verdict | pending |
-| T0.4 Baseline tests | pending | T2.16 Wire into the real snapshot build | pending |
+| T0.4 Baseline tests | verified | T2.16 Wire into the real snapshot build | pending |
 | T1.1 Reset scroll on route change | pending | T3.1 Tokens and fonts | pending |
 | T1.2 Close drawers on route change | pending | T3.2 Avatar | pending |
 | T1.3 Mobile tables become stacked records | pending | T3.3 LateBar | pending |
@@ -45,3 +45,4 @@ One line per task: ID, date, what changed, how it was verified.
 - T0.1, 2026-09-30: `docs/redesign/MAP.md` maps framework, routing, build, metrics/findings, schemas, UI, i18n, styling, tests, deploy. Verified: a script resolved all 68 relative links to existing paths.
 - T0.2, 2026-09-30: local dev loop documented in MAP.md (build from the real extract under contract 1.5.0, serve `out/`, test targets). Verified: site built from production run `20260929T210734Z-4cb4bfa25596` in 30 s and rendered locally; screenshot `screenshots/T0.2-editors-local-en.png`.
 - T0.3, 2026-09-30: `docs/redesign/DECISIONS.md` marks every §1 input "exists at …" or "missing, plan: …" (plus team inputs, project name, source link, photo), and records the governance and routing discrepancies. Verified against `out/real` (dashboard, profiles, intelligence-v2 documents).
+- T0.4, 2026-09-30: baseline `make test` on `b036834`: exit 0, 751 tests, 0 failures, 3 skipped (Docker runtime tests without `ATLAS_RUN_DOCKER`), ruff and mypy clean; no pre-existing failures. Added `tests/test_redesign_smoke.py` (the showcase snapshot builds through `profile_cli.build_all`, has Editors, and every required file exists in both languages) and the `make redesign` target, part of `make test` and CI. Verified: `make redesign` 2 tests OK, `make unit` OK.

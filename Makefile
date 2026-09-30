@@ -1,4 +1,4 @@
-.PHONY: intelligence-v2-review demo ui-v15 demo-showcase doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality intelligence-v15 intelligence-v2 round4-analysis contract-v13 contract-v15 contract-v14-compat profile-publication-v15 contract-v15-release deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n ui-v15 sync-status scheduled-run alerts retention production-container production-container-docker production-deploy json test runtime-health
+.PHONY: intelligence-v2-review demo ui-v15 demo-showcase doctor lint typecheck unit contract integration e2e runtime contract-runtime normalization identity monday-probe video-type cycles-metrics status-sources quality intelligence-v15 intelligence-v2 round4-analysis contract-v13 contract-v15 contract-v14-compat profile-publication-v15 contract-v15-release deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n ui-v15 redesign sync-status scheduled-run alerts retention production-container production-container-docker production-deploy json test runtime-health
 
 doctor:
 	./scripts/atlas doctor
@@ -111,6 +111,10 @@ i18n:
 ui-v15:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_ui_*.py' -v
 
+# Redesign (atlas-redesign-handoff): snapshot smoke test, verdict engine and judgment-first UI
+redesign:
+	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_redesign*.py' -v
+
 sync-status:
 	PYTHONPATH=src:tests python3 -m unittest discover -s tests -p 'test_sync_status.py' -v
 
@@ -138,7 +142,7 @@ ingest:
 json:
 	find config contracts fixtures tasks -name '*.json' -type f -exec python3 -m json.tool {} \; >/dev/null
 
-test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality intelligence-v15 intelligence-v2 round4-analysis contract-v13 contract-v15 contract-v14-compat profile-publication-v15 contract-v15-release deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n ui-v15 sync-status scheduled-run alerts retention production-container production-deploy json
+test: lint typecheck unit contract integration e2e runtime normalization identity monday-probe video-type cycles-metrics status-sources quality intelligence-v15 intelligence-v2 round4-analysis contract-v13 contract-v15 contract-v14-compat profile-publication-v15 contract-v15-release deadline-v12 profile dashboard status-ui ingest sync-config monday-client ingest-runs sync-run publish lock i18n ui-v15 redesign sync-status scheduled-run alerts retention production-container production-deploy json
 
 runtime-health:
 	./scripts/runtime-health
