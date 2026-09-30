@@ -190,6 +190,34 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-rail h2{font:600 19px/1.3 var(--v-display);color:var(--v-fg)}.v-rail-hint{margin:-6px 0 4px;font-size:12.5px;color:var(--v-muted)}
 .v-rail-list{display:flex;flex-direction:column;gap:12px}.v-rail-more,.v-rail-none{margin:0;font-size:12.5px;color:var(--v-muted)}
 @media (max-width:999px){.v-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"rail" "main"}.v-rail{position:static}}
+.v-scrim{position:fixed;inset:0;z-index:20;background:rgba(5,7,10,.55);opacity:0;pointer-events:none;transition:opacity var(--t)}
+.v-profile{position:fixed;inset-block:0;inset-inline-start:0;z-index:21;inline-size:min(540px,100vw);background:var(--v-bg);color:var(--v-fg);
+border-inline-end:1px solid var(--v-line);box-shadow:var(--shadow-lg);overflow-y:auto;overscroll-behavior:contain;font-family:var(--v-body);
+transform:translateX(-100%);visibility:hidden;transition:transform var(--t),visibility 0s linear .2s}
+[dir=rtl] .v-profile{transform:translateX(100%)}
+body.profile-open{overflow:hidden}body.profile-open .v-scrim{opacity:1;pointer-events:auto}
+body.profile-open .v-profile{transform:none;visibility:visible;transition:transform var(--t),visibility 0s}
+.v-profile-in{display:flex;flex-direction:column;gap:18px;padding:20px 24px 40px}
+.v-prof-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.v-prof-x{inline-size:40px;block-size:40px;border-radius:10px;border:1px solid var(--v-line);background:var(--v-surface);color:var(--v-fg);font-size:22px;line-height:1;cursor:pointer}
+.v-prof-x:focus-visible,.v-prof-more summary:focus-visible,.v-profile a:focus-visible{outline:2px solid var(--v-accent);outline-offset:2px}
+.v-prof-who{display:flex;align-items:center;gap:18px}.v-prof-who h2{font:600 26px/1.25 var(--v-display)}.v-prof-who p{margin:4px 0 0;font-size:13px;color:var(--v-muted)}
+.v-prof-chips{display:flex;flex-wrap:wrap;gap:8px}
+.v-prof-verdict{margin:0;font:600 19px/1.6 var(--v-display)}
+.v-prof-alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.v-prof-alert{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;padding:12px 14px;border-radius:12px;font-size:13.5px;
+background:color-mix(in srgb,var(--v-bad) 14%,var(--v-surface));color:var(--v-fg)}.v-prof-alert-t{color:var(--v-bad);font-weight:600}
+.v-prof-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--v-line);border-radius:16px;background:var(--v-surface);overflow:hidden}
+.v-metric{--v-tone:var(--v-fg);display:flex;flex-direction:column;gap:6px;padding:16px 18px;min-inline-size:0}
+.v-metric:nth-child(odd){border-inline-end:1px solid var(--v-line)}.v-metric:nth-child(-n+2){border-block-end:1px solid var(--v-line)}
+.v-metric[data-tone=good]{--v-tone:var(--v-good)}.v-metric[data-tone=warn]{--v-tone:var(--v-warn)}.v-metric[data-tone=bad]{--v-tone:var(--v-bad)}
+.v-metric-l{font-size:12.5px;color:var(--v-muted)}.v-metric-v{font:600 24px/1.2 var(--v-num);color:var(--v-tone);overflow-wrap:anywhere}
+.v-metric-v:not(:has(bdi,data)){font:600 17px/1.4 var(--v-display)}.v-metric-s{font-size:12.5px;color:var(--v-muted)}
+.v-prof-why h3{margin:0 0 8px;font:600 16px/1.4 var(--v-display)}.v-prof-why ul{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px;line-height:1.7}
+.v-prof-more{border-block-start:1px solid var(--v-line);padding-block-start:14px}.v-prof-more summary{cursor:pointer;color:var(--v-accent);font-weight:600}
+.v-prof-more a{color:var(--v-accent)}
+@media (max-width:560px){.v-profile-in{padding:16px 16px 32px}.v-prof-who h2{font-size:22px}.v-metric-v{font-size:21px}}
+@media (prefers-reduced-motion:reduce){.v-profile,.v-scrim{transition:none}body.profile-open .v-profile{transition:none}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
@@ -395,10 +423,37 @@ SCRIPT = r"""
     if (saveTimer) return;
     saveTimer = setTimeout(function(){ saveTimer = null; saveScroll(); }, 200);
   }, {passive: true});
+  // Profile drawer (redesign T4.4): #/editor/<id> opens the Editor's verdict over the Team overview when the page has one
+  // (a template with the id vp-<id>); the full pre-redesign profile is #/profile/<id>. Without verdicts, #/editor/<id> is that full profile.
+  var profile = document.getElementById('vprofile'), profileIn = profile ? profile.querySelector('.v-profile-in') : null;
+  var profileId = null, profileFromApp = false, profileOpener = null, lastName = null;
+  function openProfile(id, fromApp){
+    var tpl = document.getElementById('vp-' + id); if (!tpl) return;
+    profileIn.innerHTML = ''; profileIn.appendChild(tpl.content.cloneNode(true)); profile.scrollTop = 0; profileIn.scrollTop = 0;
+    profileId = id; profileFromApp = fromApp;
+    document.body.classList.add('profile-open'); profile.setAttribute('aria-hidden', 'false');
+    document.querySelectorAll('body > header.top, body > main').forEach(function(el){ el.inert = true; });
+    var close = profile.querySelector('[data-profile-close]'); if (close) close.focus({preventScroll: true});
+  }
+  function hideProfile(){
+    if (!profileId) return null;
+    var id = profileId; profileId = null;
+    document.body.classList.remove('profile-open'); profile.setAttribute('aria-hidden', 'true'); profileIn.innerHTML = '';
+    document.querySelectorAll('body > header.top, body > main').forEach(function(el){ el.inert = false; });
+    return id;
+  }
+  function closeProfile(){   // Esc, the close button or the backdrop: leave the drawer's route (Back when it was opened in the app)
+    if (!profileId) return;
+    if (profileFromApp) history.back(); else location.hash = '#/';
+  }
   function route(){
-    var h = location.hash || '#/', name = 'team', m;
+    var h = location.hash || '#/', name = 'team', m, drawerId = null;
     if (h === '#/system') name = 'system';
-    else if ((m = h.match(/^#\/editor\/([^\/]+)/))) name = 'editor:' + decodeURIComponent(m[1]);
+    else if ((m = h.match(/^#\/profile\/([^\/]+)/))) name = 'editor:' + decodeURIComponent(m[1]);
+    else if ((m = h.match(/^#\/editor\/([^\/]+)/))) {
+      var id = decodeURIComponent(m[1]);
+      if (profile && document.getElementById('vp-' + id)) drawerId = id; else name = 'editor:' + id;
+    }
     var found = false;
     views.forEach(function(v){ var on = v.getAttribute('data-view') === name; v.hidden = !on; found = found || on; });
     if (!found) { name = 'team'; document.querySelector('[data-view="team"]').hidden = false; }
@@ -406,11 +461,25 @@ SCRIPT = r"""
       if (a.getAttribute('data-nav') === (name === 'system' ? 'system' : 'team')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     closeDrawer(true);
-    var state = history.state;
-    window.scrollTo(0, state && typeof state.atlasY === 'number' ? state.atlasY : 0);
+    var state = history.state, stay = drawerId && lastName === 'team';   // opening a drawer over the overview keeps its scroll position
+    if (!stay) window.scrollTo(0, state && typeof state.atlasY === 'number' ? state.atlasY : 0);
+    if (drawerId) { if (profileId !== drawerId) { hideProfile(); openProfile(drawerId, lastName !== null); } }
+    else {
+      var closed = hideProfile();
+      if (closed && name === 'team') {   // focus returns to the card (or face) that opened the drawer
+        var back = profileOpener && document.contains(profileOpener) && profileOpener.offsetParent !== null ? profileOpener
+          : document.querySelector('.v-card[data-editor-id="' + (window.CSS && CSS.escape ? CSS.escape(closed) : closed) + '"]');
+        if (back) back.focus({preventScroll: true});
+      }
+      profileOpener = null;
+    }
+    lastName = name;
     spy();
   }
   document.addEventListener('click', function(e){
+    if (e.target.closest('[data-profile-close]')) { e.preventDefault(); closeProfile(); return; }
+    var toProfile = e.target.closest('a[href^="#/editor/"]');
+    if (toProfile && !profileId) profileOpener = toProfile;
     if (e.target.closest('a[href^="#"]')) saveScroll();   // the entry being left keeps its exact position
     var keep = e.target.closest('a[data-keep-hash]');
     if (keep) { keep.setAttribute('href', keep.getAttribute('href').split('#')[0] + location.hash); return; }
@@ -444,8 +513,23 @@ SCRIPT = r"""
     var none = document.getElementById('no-match'); if (none) none.hidden = shown > 0;
   }
   if (search) search.addEventListener('input', applyFilter);
+  function focusables(root){
+    return [].slice.call(root.querySelectorAll('a[href], button:not([disabled]), summary, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+      .filter(function(el){ return el.offsetParent !== null || el === document.activeElement; });
+  }
   document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key === 'Escape') {
+      if (document.body.classList.contains('drawer-open')) closeDrawer(); else if (profileId) { e.preventDefault(); closeProfile(); }
+      return;
+    }
+    if (e.key === 'Tab' && profileId && !document.body.classList.contains('drawer-open')) {   // keep focus inside the profile drawer
+      var f = focusables(profile); if (!f.length) return;
+      var first = f[0], lastEl = f[f.length - 1], active = document.activeElement;
+      if (!profile.contains(active)) { e.preventDefault(); first.focus(); }
+      else if (e.shiftKey && active === first) { e.preventDefault(); lastEl.focus(); }
+      else if (!e.shiftKey && active === lastEl) { e.preventDefault(); first.focus(); }
+      return;
+    }
     if (e.key === '/' && search && !search.closest('[hidden]') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); search.focus(); }
   });
   // Evidence drawer: content comes from a <template> next to the claim that opened it.

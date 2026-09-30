@@ -8,6 +8,7 @@ Low activity) and ranked inside each tier, and the "What you need to do" rail wi
 from __future__ import annotations
 
 from collections.abc import Mapping
+from html import escape
 from typing import Any
 
 from atlas_commander.i18n import Html
@@ -32,6 +33,17 @@ def rail(verdicts: Mapping[str, Any], ctx: Ctx) -> str:
             f'<p class="v-rail-hint">{loc.t("ui.v.rail.hint")}</p><div class="v-rail-list">{body}</div>{extra}</aside>')
 
 
+def profile_templates(verdicts: Mapping[str, Any], ctx: Ctx) -> str:
+    """One drawer per Editor (T4.4), opened by the route ``#/editor/<id>``; its More details lead to the full analysis (``#/profile/<id>``)."""
+    loc = ctx.loc
+    pending = any(d["type"] == "approve_rule" and d["title"]["params"].get("dimension") == "quality" for d in verdicts["decision_candidates"])
+    out = []
+    for v in verdicts["editors"]:
+        more = f'<p><a class="v-prof-full" href="#/profile/{escape(v["editor_id"], quote=True)}">{loc.t("ui.v.profile.full")}</a></p>'
+        out.append(f'<template id="vp-{escape(v["editor_id"], quote=True)}">{ui.profile_panel(v, loc, quality_rule_pending=pending, more=more)}</template>')
+    return "".join(out)
+
+
 def team_overview(verdicts: Mapping[str, Any], ctx: Ctx) -> str:
     """The redesigned first layer of the Editors page."""
     loc = ctx.loc
@@ -45,4 +57,4 @@ def team_overview(verdicts: Mapping[str, Any], ctx: Ctx) -> str:
     sections = "".join(ui.tier_section(tier, [ui.person_card(v, ui.message(v["headline"], loc), loc) for v in sorted(by_tier[tier], key=_tier_order)], loc)
                        for tier in ui.TIERS)
     return (f'<div class="v-page" data-verdict-version="{verdicts["verdict_version"]}">{band}{window}'
-            f'<div class="v-layout"><div class="v-main">{sections or Html("")}</div>{rail(verdicts, ctx)}</div></div>')
+            f'<div class="v-layout"><div class="v-main">{sections or Html("")}</div>{rail(verdicts, ctx)}</div>{profile_templates(verdicts, ctx)}</div>')

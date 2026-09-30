@@ -69,7 +69,7 @@ class FirstLayerTests(unittest.TestCase):
         for locale in ("en", "ar"):
             view = team_view(page(locale))
             first, legacy = view.split('<div class="v-legacy" data-more-details="overview" hidden>', 1)
-            self.assertTrue(first.startswith('<div class="v-page"') and first.endswith("</aside></div></div>"), locale)
+            self.assertTrue(first.startswith('<div class="v-page"') and first.endswith("</template></div>"), locale)   # the drawers' templates close it (T4.4)
             for part in ('<article class="ed" data-editor-card', 'data-tab="team-pulse"', 'id="editor-search"', '<section class="sec iv" id="intelligence"'):
                 self.assertNotIn(part, first, (locale, part))
                 self.assertIn(part, legacy, (locale, part))                       # moved, not deleted (More details, T4.6)

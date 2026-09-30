@@ -5147,6 +5147,84 @@
    },
    "context": "Decisions rail: how many more decisions are under More details (the overview shows the first five)",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.rank": {
+   "en": "Rank {rank} of {of} ranked",
+   "ar": "المركز {rank} من {of} مصنّفين",
+   "context": "Profile drawer: the Editor's rank among ranked Editors",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.unranked": {
+   "en": "Not ranked",
+   "ar": "غير مصنّف",
+   "context": "Profile drawer: the Editor is not ranked (Low activity or too few projects)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.lifetime": {
+   "en": "{projects} in all",
+   "ar": "{projects} إجمالًا",
+   "context": "Profile drawer: lifetime completed projects (counted noun)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.overdue": {
+   "en": "Past its deadline · {status}",
+   "ar": "تجاوز موعده · {status}",
+   "context": "Profile drawer alert: an open project past its Requested ETA, with its Monday status",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.past": {
+   "en": "{hours} past the deadline",
+   "ar": "بعد الموعد بـ {hours}",
+   "context": "Profile drawer alert: hours past the Requested ETA",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.late_sub": {
+   "en": "{late} of {n} · team {team_pct}",
+   "ar": "{late} من {n} · الفريق {team_pct}",
+   "context": "Profile metric: late projects of deadline-classifiable projects, and the team rate",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.speed": {
+   "en": "Speed vs peers",
+   "ar": "السرعة مقابل الزملاء",
+   "context": "Profile metric label: speed against peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.projects": {
+   "en": "Projects this month",
+   "ar": "المشاريع هذا الشهر",
+   "context": "Profile metric label: completed projects in the window",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.none_open": {
+   "en": "Nothing in progress now",
+   "ar": "لا شيء قيد التنفيذ الآن",
+   "context": "Profile metric: no Active Work",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.quality_pending": {
+   "en": "Quality rule not approved",
+   "ar": "قاعدة الجودة غير معتمدة",
+   "context": "Profile metric: Quality is not measured because its rule is not approved",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.why": {
+   "en": "Why this verdict",
+   "ar": "لماذا هذا الحكم",
+   "context": "Profile drawer heading above the reasons (MSA; the prototype's Egyptian wording is not used)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.more": {
+   "en": "More details",
+   "ar": "مزيد من التفاصيل",
+   "context": "Profile drawer disclosure with methodology, findings and evidence",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.full": {
+   "en": "Open the full analysis",
+   "ar": "فتح التحليل الكامل",
+   "context": "Link from the profile drawer to the full pre-redesign profile (all sections and evidence)",
+   "status": "Needs Arabic Review"
   }
  }
 }

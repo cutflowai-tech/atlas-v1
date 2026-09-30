@@ -1,6 +1,8 @@
 """Redesign Phase 1: routing correctness in a real browser (ATLAS-MOBILE-002, ATLAS-MOBILE-003).
 
 Each test renders the showcase site and drives the page in headless Chrome (see ``browser_harness``); it is skipped without Chrome.
+Since T4.4 ``#/editor/<id>`` opens the profile drawer over the overview; the full profile these tests scroll and open evidence in is
+``#/profile/<id>``.
 """
 
 import unittest
@@ -24,11 +26,11 @@ class ScrollOnRouteChangeTests(unittest.TestCase):
             const afterNav = window.scrollY, systemShown = !document.querySelector('[data-view="system"]').hidden;
             history.back(); await wait(800);
             return {deep, afterNav, systemShown, afterBack: window.scrollY, hash: location.hash};
-        """, width=390, height=844, fragment=f"/editor/{editor}")
+        """, width=390, height=844, fragment=f"/profile/{editor}")
         self.assertGreater(result["deep"], 1000, result)                 # the profile really was scrolled deep
         self.assertTrue(result["systemShown"], result)
         self.assertEqual(result["afterNav"], 0, result)                  # Data & rules opens at its top
-        self.assertEqual(result["hash"], f"#/editor/{editor}", result)
+        self.assertEqual(result["hash"], f"#/profile/{editor}", result)
         self.assertEqual(result["afterBack"], result["deep"], result)    # Back returns to the old position
 
     def test_arabic_page_behaves_the_same(self):
@@ -63,7 +65,7 @@ class DrawerOnRouteChangeTests(unittest.TestCase):
             document.querySelector('.nav a[data-nav="system"]').click(); await wait(300);
             const afterRoute = (() => {{ {DRAWER_STATE} }})();
             return {{opened, afterRoute, focusInHiddenView: !!document.activeElement.closest('[data-view][hidden]')}};
-        """, fragment=f"/editor/{editor}")
+        """, fragment=f"/profile/{editor}")
         self.assertTrue(result["opened"]["open"], result)
         self.assertGreater(result["opened"]["content"], 0, result)
         self.assertEqual(result["afterRoute"], {"open": False, "hidden": "true", "content": 0, "title": ""}, result)
@@ -72,7 +74,7 @@ class DrawerOnRouteChangeTests(unittest.TestCase):
     def test_browser_back_also_closes_the_drawer(self):
         editor = document(site_layout.DASHBOARD_JSON)["editors"][0]["editor_id"]
         result = run_scenario(page("ar"), f"""
-            location.hash = '#/editor/{editor}'; await wait(300);
+            location.hash = '#/profile/{editor}'; await wait(300);
             document.querySelector('[data-view="editor:{editor}"] [data-drawer]').click(); await wait(200);
             const opened = document.body.classList.contains('drawer-open');
             history.back(); await wait(500);
@@ -89,7 +91,7 @@ class DrawerOnRouteChangeTests(unittest.TestCase):
             opener.click(); await wait(200);
             document.dispatchEvent(new KeyboardEvent('keydown', {{key: 'Escape'}})); await wait(200);
             return {{open: document.body.classList.contains('drawer-open'), focusBack: document.activeElement === opener}};
-        """, fragment=f"/editor/{editor}")
+        """, fragment=f"/profile/{editor}")
         self.assertEqual(result, {"open": False, "focusBack": True})
 
 

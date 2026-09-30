@@ -220,7 +220,7 @@ def _param(name: str, value: Any, loc: Loc) -> Html:
     if name.endswith("_pct"):
         whole = int(Decimal(str(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
         return loc.ltr(f"{'−' if whole < 0 else ''}{abs(whole)}%")
-    if name.endswith("_hours"):
+    if name.endswith("_hours") or name == "hours_past_eta":
         return loc.t("unit.hours", value=loc.ltr(f"{float(value):.1f}"))
     if name == "names":
         return Html(loc.comma().join(loc.src(v) for v in value))
@@ -249,3 +249,68 @@ def message(msg: Mapping[str, Any], loc: Loc) -> Html:
     if key in PLURAL:
         return loc.counted(key, int(params["count"]), **values)
     return loc.t(key, **values)
+
+
+
+def _signed_pct(value: float, loc: Loc) -> Html:
+    whole = int(Decimal(str(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return loc.ltr(f"{'+' if whole > 0 else '−' if whole < 0 else ''}{abs(whole)}%")
+
+
+def _metric(label: Html, value: Html, sub: Html, tone: str = "neutral") -> str:
+    return (f'<div class="v-metric" data-tone="{tone}"><span class="v-metric-l">{label}</span><span class="v-metric-v">{value}</span>'
+            f'<span class="v-metric-s">{sub}</span></div>')
+
+
+def _overdue_alert(project: Mapping[str, Any], loc: Loc) -> str:
+    parts = [str(message(project["project_name"], loc))]
+    if project["hours_past_eta"] is not None:
+        parts.append(str(loc.t("ui.v.profile.past", hours=_param("hours_past_eta", project["hours_past_eta"], loc))))
+    name = " · ".join(parts)
+    if project.get("source_url"):
+        name = f'<a href="{escape(project["source_url"], quote=True)}" target="_blank" rel="noopener">{name}</a>'
+    return f'<li class="v-prof-alert"><span class="v-prof-alert-t">{loc.t("ui.v.profile.overdue", status=loc.src(project["status"]))}</span><span>{name}</span></li>'
+
+
+def profile_metrics(verdict: Mapping[str, Any], loc: Loc, *, quality_rule_pending: bool) -> str:
+    """The four metrics of the profile: late rate against the team, speed against peers, projects this month, quality."""
+    m = verdict["metrics"]
+    if m["late_rate"] is None:
+        late = _metric(loc.t("ui.v.card.late"), Html(DASH), loc.t("ui.v.late.none"))
+    else:
+        sub = loc.t("ui.v.profile.late_sub", late=loc.num(m["late_count"]), n=loc.num(m["deadline_classifiable"]),
+                    team_pct=loc.ltr(f"{whole_pct(m['team_late_rate'])}%") if m["team_late_rate"] is not None else Html(DASH))
+        late = _metric(loc.t("ui.v.card.late"), loc.ltr(f"{whole_pct(m['late_rate'])}%"), sub, m["late_tone"])
+    if m["speed_band"] is None or m["speed_delta_pct"] is None:
+        speed = _metric(loc.t("ui.v.profile.speed"), Html(DASH), loc.t("ui.v.speed.none"))
+    else:
+        label = message(m["speed_label"], loc) if m["speed_label"] else Html("")
+        speed = _metric(loc.t("ui.v.profile.speed"), loc.t("ui.v.speed.same") if m["speed_band"] == "same" else _signed_pct(m["speed_delta_pct"], loc),
+                        label, m["speed_tone"])
+    open_now = loc.t("ui.v.card.in_progress", n=loc.num(m["active"])) if m["active"] else loc.t("ui.v.profile.none_open")
+    projects = _metric(loc.t("ui.v.profile.projects"), loc.num(m["completed"]), open_now)
+    quality_value = message(m["quality"], loc) if m["quality"] else loc.t("verdict.quality.state.not_classifiable")
+    quality = _metric(loc.t("ui.v.dimension.quality"), quality_value, loc.t("ui.v.profile.quality_pending") if quality_rule_pending else Html(""))
+    return f'<div class="v-prof-metrics">{late}{speed}{projects}{quality}</div>'
+
+
+def profile_panel(verdict: Mapping[str, Any], loc: Loc, *, quality_rule_pending: bool = False, more: str = "") -> Html:
+    """T4.4: the Editor profile drawer's content (`after/02`, `after/05`): rank and close, the large avatar with name and lifetime
+    projects, tier and confidence chips, the verdict, one alert per overdue project, four metrics, "Why this verdict" and the More
+    details disclosure (``more``, filled by T4.5). Everything is read from the Editor's verdict in ``verdicts.json``."""
+    m, editor_id, name = verdict["metrics"], verdict["editor_id"], verdict["display_name"]
+    rank = (loc.t("ui.v.profile.rank", rank=loc.num(verdict["rank"]), of=loc.num(verdict["ranked_of"])) if verdict["rank"] is not None
+            else loc.t("ui.v.profile.unranked"))
+    close = escape(loc.text("common.close"), quote=True)
+    top = (f'<header class="v-prof-top"><span class="v-pill v-prof-rank">{rank}</span>'
+           f'<button type="button" class="v-prof-x" data-profile-close aria-label="{close}"><span aria-hidden="true">×</span></button></header>')
+    who = (f'<div class="v-prof-who">{avatar(editor_id, name, loc, size=96, tier=verdict["tier"], rank=verdict["rank"], ranked_of=verdict["ranked_of"], photo_url=verdict.get("photo_url"))}'
+           f'<div><h2 id="vprofile-name">{loc.src(name)}</h2><p>{loc.t("ui.v.profile.lifetime", projects=loc.count("noun.project", m["lifetime_completed"]))}</p></div></div>')
+    chips = f'<div class="v-prof-chips">{tier_chip(verdict["tier"], loc)}{confidence_tag(verdict["confidence"], loc, in_profile=True)}</div>'
+    alerts = "".join(_overdue_alert(o, loc) for o in verdict["overdue"])
+    reasons = "".join(f"<li>{message(r, loc)}</li>" for r in verdict["reasons"])
+    return Html(f'{top}{who}{chips}<p class="v-prof-verdict">{message(verdict["headline"], loc)}</p>'
+                f'{f"<ul class=v-prof-alerts>{alerts}</ul>" if alerts else ""}'
+                f'{profile_metrics(verdict, loc, quality_rule_pending=quality_rule_pending)}'
+                f'<section class="v-prof-why" aria-labelledby="vprofile-why"><h3 id="vprofile-why">{loc.t("ui.v.profile.why")}</h3><ul>{reasons}</ul></section>'
+                f'<details class="v-prof-more"><summary>{loc.t("ui.v.profile.more")}</summary>{more}</details>')

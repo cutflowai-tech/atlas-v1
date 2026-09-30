@@ -834,7 +834,9 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
            f'<a href="#/system" data-nav="system">{loc.t("ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
     drawer = ('<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
               f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>')
-    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence)}</main>{drawer}'
+    profile = ('<div class="v-scrim" data-profile-close></div><aside class="v-profile" id="vprofile" role="dialog" aria-modal="true" aria-hidden="true" '
+               'aria-labelledby="vprofile-name"><div class="v-profile-in"></div></aside>') if verdicts is not None else ""   # T4.4
+    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence)}</main>{profile}{drawer}'
                f'<script type="application/json" id="atlas-reports">{blob}</script>')
     return page(loc, loc.text("page.dashboard_title"), content, doc.get("publication"))
 

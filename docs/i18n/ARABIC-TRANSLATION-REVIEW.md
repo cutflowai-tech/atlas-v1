@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-801 keys: 149 Approved from brief, 362 Implemented conservatively, 290 Needs Arabic Review.
+814 keys: 149 Approved from brief, 362 Implemented conservatively, 303 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -188,6 +188,19 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.late.aria_count` | Late on {late_pct} of projects ({late} of {n}). | متأخر في {late_pct} من المشاريع ({late} من {n}). | Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects | Needs Arabic Review |  |
 | `ui.v.late.none` | No deadline data this month | لا توجد بيانات مواعيد هذا الشهر | Late-rate bar when the Editor has no deadline-classifiable project in the window | Needs Arabic Review |  |
 | `ui.v.late.team` | Team average {team_pct} | متوسط الفريق {team_pct} | Tooltip and accessible text of the team-average marker on the late-rate bar | Needs Arabic Review |  |
+| `ui.v.profile.full` | Open the full analysis | فتح التحليل الكامل | Link from the profile drawer to the full pre-redesign profile (all sections and evidence) | Needs Arabic Review |  |
+| `ui.v.profile.late_sub` | {late} of {n} · team {team_pct} | {late} من {n} · الفريق {team_pct} | Profile metric: late projects of deadline-classifiable projects, and the team rate | Needs Arabic Review |  |
+| `ui.v.profile.lifetime` | {projects} in all | {projects} إجمالًا | Profile drawer: lifetime completed projects (counted noun) | Needs Arabic Review |  |
+| `ui.v.profile.more` | More details | مزيد من التفاصيل | Profile drawer disclosure with methodology, findings and evidence | Needs Arabic Review |  |
+| `ui.v.profile.none_open` | Nothing in progress now | لا شيء قيد التنفيذ الآن | Profile metric: no Active Work | Needs Arabic Review |  |
+| `ui.v.profile.overdue` | Past its deadline · {status} | تجاوز موعده · {status} | Profile drawer alert: an open project past its Requested ETA, with its Monday status | Needs Arabic Review |  |
+| `ui.v.profile.past` | {hours} past the deadline | بعد الموعد بـ {hours} | Profile drawer alert: hours past the Requested ETA | Needs Arabic Review |  |
+| `ui.v.profile.projects` | Projects this month | المشاريع هذا الشهر | Profile metric label: completed projects in the window | Needs Arabic Review |  |
+| `ui.v.profile.quality_pending` | Quality rule not approved | قاعدة الجودة غير معتمدة | Profile metric: Quality is not measured because its rule is not approved | Needs Arabic Review |  |
+| `ui.v.profile.rank` | Rank {rank} of {of} ranked | المركز {rank} من {of} مصنّفين | Profile drawer: the Editor's rank among ranked Editors | Needs Arabic Review |  |
+| `ui.v.profile.speed` | Speed vs peers | السرعة مقابل الزملاء | Profile metric label: speed against peers on the same Video Type | Needs Arabic Review |  |
+| `ui.v.profile.unranked` | Not ranked | غير مصنّف | Profile drawer: the Editor is not ranked (Low activity or too few projects) | Needs Arabic Review |  |
+| `ui.v.profile.why` | Why this verdict | لماذا هذا الحكم | Profile drawer heading above the reasons (MSA; the prototype's Egyptian wording is not used) | Needs Arabic Review |  |
 | `ui.v.rail.hint` | Click any photo to open that person's profile. | اضغط على أي صورة لفتح ملف صاحبها. | Hint under the decisions rail heading | Needs Arabic Review |  |
 | `ui.v.rail.more` | one: One more decision under More details. / other: {n} more decisions under More details. | zero: لا قرارات أخرى. / one: قرار آخر في مزيد من التفاصيل. / two: قراران آخران في مزيد من التفاصيل. / few: {n} قرارات أخرى في مزيد من التفاصيل. / many: {n} قرارًا آخر في مزيد من التفاصيل. / other: {n} قرار آخر في مزيد من التفاصيل. | Decisions rail: how many more decisions are under More details (the overview shows the first five) | Needs Arabic Review |  |
 | `ui.v.rail.none` | Nothing needs a decision this month. | لا شيء يحتاج إلى قرار هذا الشهر. | Decisions rail when there is no decision | Needs Arabic Review |  |

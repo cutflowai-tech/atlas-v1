@@ -236,3 +236,16 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - `test_ui_v15::test_cards_show_the_engine_status_in_alphabetical_order` keeps checking that the pre-redesign cards never rank; its
   "no Best / Rank" words check now reads the page without the verdict overview, which ranks by design (D54, R0).
 - Without `verdicts.json` (publication gate off, or contracts 1.3/1.4) the Editors page is exactly the pre-redesign page.
+
+## R17. Profile drawer routes (T4.4)
+
+- `#/editor/<id>` (the repo's equivalent of the handoff's `/editors/:id`, R1) opens the Editor's verdict drawer over the Team overview
+  whenever the page has verdicts; every existing link to an Editor (cards, decision faces, Team Pulse lanes, findings) therefore opens
+  the drawer. The full pre-redesign profile (all sections and evidence) moves to `#/profile/<id>`, linked from the drawer's More details,
+  so nothing that was reachable becomes unreachable. Without verdicts `#/editor/<id>` is the full profile, as before.
+- The drawer sits on the inline-start side (right in Arabic, as in `after/02`), under the evidence drawer (so evidence opened from the
+  profile stacks on top), is a modal dialog (`aria-modal`, the header and main content `inert` while it is open, Tab kept inside), and
+  closes with Esc, its close button, the backdrop or any route change. Closing goes back in history when it was opened in the app, so
+  the overview keeps its scroll position and focus returns to the card or face that opened it.
+- The prototype's "Add/change photo" is not in the drawer: photos are managed as files by an admin (T5.2); the browser-only upload is
+  not shipped.

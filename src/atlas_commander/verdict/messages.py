@@ -5,7 +5,7 @@ catalogue (``locales/catalog.json``, same key, English and Arabic). This registr
 ``tests/test_redesign_verdict_messages.py`` fails when the engine can emit a key that is not listed here, when a listed key has no
 English or Arabic template, or when a template uses a parameter the key does not carry.
 
-Parameter names carry their unit (schema ``Msg``): ``*_pct`` a percentage, ``*_hours`` hours, ``name``/``names`` Monday names,
+Parameter names carry their unit (schema ``Msg``): ``*_pct`` a percentage, ``*_hours`` and ``hours_past_eta`` hours, ``name``/``names`` Monday names,
 ``labels`` Video Type labels, ``dimension`` a dimension code, ``count`` the number a plural template agrees with; the rest are counts
 or Monday values.
 """
