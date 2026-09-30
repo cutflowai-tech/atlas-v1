@@ -149,7 +149,7 @@ def person_card(verdict: Mapping[str, Any], headline: Html, loc: Loc) -> Html:
                 f'{f"<span class=v-card-f>{tag}</span>" if tag else ""}</a>')
 
 
-def decision_card(decision: Mapping[str, Any], title: Html, editors: Mapping[str, Mapping[str, Any]], loc: Loc) -> Html:
+def decision_card(decision: Mapping[str, Any], title: Html, editors: Mapping[str, Mapping[str, Any]], loc: Loc, action: str = "") -> Html:
     """T3.6: one decision of ``verdicts.json``: the horizon label on its colour stripe, the title (rendered by the caller from its key)
     and the owners: each owning Editor's avatar opens their profile (``#/editor/<id>``), then their names; a role owner is named by
     its role. ``editors`` maps Editor IDs to their verdicts (name, tier, rank)."""
@@ -170,7 +170,7 @@ def decision_card(decision: Mapping[str, Any], title: Html, editors: Mapping[str
     who = " · ".join(parts)
     return Html(f'<article class="v-dec" data-horizon="{horizon}" data-decision-id="{escape(decision["id"], quote=True)}">'
                 f'<p class="v-dec-when">{loc.t("ui.v.horizon." + horizon)}</p><h3 class="v-dec-title">{title}</h3>'
-                f'<p class="v-dec-who">{f"<span class=v-dec-faces>{faces}</span>" if faces else ""}<span>{who}</span></p></article>')
+                f'<p class="v-dec-who">{f"<span class=v-dec-faces>{faces}</span>" if faces else ""}<span>{who}</span></p>{action}</article>')
 
 
 def tier_section(tier: str, cards: list[Html], loc: Loc) -> Html:

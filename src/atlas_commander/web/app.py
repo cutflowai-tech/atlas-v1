@@ -60,7 +60,7 @@ from atlas_commander.web.kit import (
     verdict_chip,
 )
 from atlas_commander.web.style import CSS, SCRIPT
-from atlas_commander.web.team_overview import team_overview
+from atlas_commander.web.team_overview import all_decisions, team_overview
 
 COMPONENTS = ("quality", "speed", "deadline")
 LABEL_CLASSES = ("negative", "positive", "context")
@@ -187,7 +187,7 @@ def more_details_sections(doc: Mapping[str, Any], ctx: Ctx, month: str | None, i
     editors = (f'<section id="md-editors" class="sec">{section_head(loc.t("ui.nav.editors"), window_line(first, loc) if first else "")}'
                f'<p class="note" style="margin:-4px 0 14px">{loc.t("ui.overview_note")}</p>{listing}</section>')
     wrapped = f'<div id="md-findings">{findings}</div>' if findings else ""
-    return (f'{wrapped}{editors}'
+    return (f'{all_decisions(verdicts, ctx, intelligence)}{wrapped}{editors}'
             f'<div id="md-pulse">{team_context(doc, ctx, month)}</div>')
 
 
@@ -744,8 +744,41 @@ def editor_profile(s: Mapping[str, Any], retrieved: str | None, ctx: Ctx, intell
 
 # ---------------------------------------------------------------- Data & rules
 
+def _whole(value: float) -> int | float:
+    return int(value) if float(value).is_integer() else round(value, 1)
+
+
+def rule_proposals(doc: Mapping[str, Any], ctx: Ctx, verdicts: Mapping[str, Any]) -> str:
+    """T4.8: every rule that is not approved, with why it is off now, the rule Atlas proposes and what approving it would unlock. Each
+    has an anchor (``#rule-<slot>``) that decision cards link to (``#/system/rule-<slot>``). Numbers in a proposal come from the approved
+    configuration; nothing here is active until the owner approves it."""
+    loc = ctx.loc
+    if not doc["editors"]:
+        return ""
+    view = doc["editors"][0]["interpretation"]
+    values = verdicts["config"]["values"]
+    rules: list[tuple[str, Html, Html]] = []
+    if view["components"]["quality"]["rule_status"] != "approved":
+        rules.append(("quality", loc.t("common.quality"), loc.t("ui.v.profile.quality_pending")))
+    for slot in (slot for slot in PENDING_RULES if slot in V15_PENDING_SLOTS):
+        if slot == "trend_direction" and view["trend_rule_status"] == "approved":
+            continue
+        reason = loc.t(f"pending_v15.{slot}.reason" if slot in V15_REASONS else f"pending.{slot}.reason")
+        rules.append((slot, pending_label(slot, loc, True), reason))
+    params = {"quality": {"quality_weight": loc.ltr(f'{_whole(values["score.weight_quality"] * 100)}%')},
+              "trend_direction": {"rate_pp": loc.num(_whole(values["reasoning.material_rate_difference"] * 100)),
+                                  "duration_pct": loc.ltr(f'{_whole(values["reasoning.material_duration_pct"])}%')}}
+    items = "".join(
+        f'<article class="v-rule" id="rule-{slot}" tabindex="-1" data-rule="{slot}"><h4>{label}<span class="v-chip v-rule-st">{loc.t("ui.v.rule.status")}</span></h4>'
+        f'<dl><dt>{loc.t("ui.v.rule.why")}</dt><dd>{reason}</dd><dt>{loc.t("ui.v.rule.proposal")}</dt><dd>{loc.t(f"ui.v.rule.{slot}.proposal", **params.get(slot, {}))}</dd>'
+        f'<dt>{loc.t("ui.v.rule.unlocks")}</dt><dd>{loc.t(f"ui.v.rule.{slot}.unlocks", **params.get(slot, {}))}</dd></dl></article>'
+        for slot, label, reason in rules)
+    return (f'<div class="card v-rules" id="md-proposals"><h3 style="margin-bottom:6px">{loc.t("ui.v.rule.title")}</h3>'
+            f'<p class="sm soft">{loc.t("ui.v.rule.sub")}</p>{items}</div>')
+
+
 def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None,
-               more: str | None = None) -> str:
+               more: str | None = None, proposals: str | None = None) -> str:
     """Data & rules. With ``more`` (the redesign, T4.6) the same view is the global More details: an index, the pre-redesign first layer
     (``more_details_sections``), then the rules and the data health that were already here."""
     loc = ctx.loc
@@ -807,7 +840,7 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
         status = (f'{plain}<details class="v-tech v-health-tech"><summary>{loc.t("ui.v.more.technical")}</summary>{status}{snapshot_card}</details>')
         snapshot_card = ""
         index = "".join(f'<button type="button" data-jump="{target}">{loc.t(label)}</button>' for target, label in (
-            ("md-findings", "ui.iv2.title"), ("md-editors", "ui.nav.editors"), ("md-pulse", "home.context_label"), ("md-rules", "ui.rules.title"),
+            ("md-decisions", "ui.v.more_page.decisions"), ("md-findings", "ui.iv2.title"), ("md-editors", "ui.nav.editors"), ("md-pulse", "home.context_label"), ("md-rules", "ui.rules.title"),
             ("md-data", "ui.v.more_page.data")) if target != "md-findings" or 'id="md-findings"' in more)
         head = (f'<div class="ph"><div><h1>{loc.t("ui.v.more_page.title")}</h1><p>{loc.t("ui.v.more_page.sub")}</p></div></div>'
                 f'<nav class="jump v-md-index" aria-label="{attr(loc.text("ui.v.more_page.index"))}">{index}</nav>{more}'
@@ -816,8 +849,8 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
         head = f'<div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
     return (f'<div data-view="system" hidden>{head}{status}'
             f'<div class="grid2"{' id="md-rules"' if more is not None else ""} style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
-            f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>'
-            f'{snapshot_card}'
+            + (f'</div>{proposals}' if proposals is not None else f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>')
+            + f'{snapshot_card}'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.editors_identity")}</h3>'
             + table([loc.t("common.editor"), loc.t("system.head.atlas_id"), loc.t("system.head.monday_label"), loc.t("system.head.mapping"), loc.t("system.head.profile"), loc.t("coverage.completed")], identity, none_row)
             + f'</div><div class="card"><h3 style="margin-bottom:12px">{loc.t("system.data_quality_notes")}</h3>'
@@ -881,7 +914,8 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
     profile = ('<div class="v-scrim" data-profile-close></div><aside class="v-profile" id="vprofile" role="dialog" aria-modal="true" aria-hidden="true" '
                'aria-labelledby="vprofile-name"><div class="v-profile-in"></div></aside>') if verdicts is not None else ""   # T4.4
     more = more_details_sections(doc, ctx, month, intelligence, verdicts) if verdicts is not None else None
-    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence, more)}</main>{profile}{drawer}'
+    proposals = rule_proposals(doc, ctx, verdicts) if verdicts is not None else None
+    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence, more, proposals)}</main>{profile}{drawer}'
                f'<script type="application/json" id="atlas-reports">{blob}</script>')
     return page(loc, loc.text("page.dashboard_title"), content, doc.get("publication"))
 

@@ -25,12 +25,31 @@ def _tier_order(verdict: Mapping[str, Any]) -> tuple[int, int, str, str]:
     return (0 if verdict["rank"] is not None else 1, verdict["rank"] or 0, verdict["display_name"].casefold(), verdict["editor_id"])
 
 
-def rail(verdicts: Mapping[str, Any], ctx: Ctx) -> str:
+def decision_action(decision: Mapping[str, Any], intelligence: Mapping[str, Any] | None, loc: Loc) -> str:
+    """Where a decision's detail lives (its ``target``): the proposed rule (T4.8), the Editor's profile, or the evidence of the finding."""
+    target = decision.get("target") or ""
+    kind, _, subject = target.partition(":")
+    findings = {f["finding_id"]: f for f in (intelligence or {}).get("findings") or []} if intel.published(intelligence) else {}
+    if kind == "rule":
+        return f'<a class="v-dec-more" href="#/system/rule-{escape(subject, quote=True)}">{loc.t("ui.v.decision.see_rule")}</a>'
+    if kind == "editor":
+        return f'<a class="v-dec-more" href="#/editor/{escape(subject, quote=True)}">{loc.t("ui.v.decision.see_profile")}</a>'
+    finding = None
+    if kind == "finding":
+        finding = findings.get(subject)
+    elif target == "overdue":
+        finding = next((f for f in findings.values() if f["finding_type"] == "risk.open_work"), None)
+    if finding is not None:
+        return f'<button type="button" class="v-dec-more v-link" data-drawer="{escape(intel.tid(finding), quote=True)}">{loc.t("ui.v.decision.see_evidence")}</button>'
+    return ""
+
+
+def rail(verdicts: Mapping[str, Any], ctx: Ctx, intelligence: Mapping[str, Any] | None = None) -> str:
     loc = ctx.loc
     editors = {e["editor_id"]: e for e in verdicts["editors"]}
-    cards = "".join(ui.decision_card(d, ui.message(d["title"], loc), editors, loc) for d in verdicts["decisions"])
+    cards = "".join(ui.decision_card(d, ui.message(d["title"], loc), editors, loc, decision_action(d, intelligence, loc)) for d in verdicts["decisions"])
     more = len(verdicts["decision_candidates"]) - len(verdicts["decisions"])
-    extra = f'<p class="v-rail-more">{loc.counted("ui.v.rail.more", more)}</p>' if more > 0 else ""
+    extra = f'<p class="v-rail-more"><a href="#/system/md-decisions">{loc.counted("ui.v.rail.more", more)}</a></p>' if more > 0 else ""
     body = cards or f'<p class="v-rail-none">{loc.t("ui.v.rail.none")}</p>'
     return (f'<aside class="v-rail" aria-labelledby="v-rail-h"><h2 id="v-rail-h">{loc.t("ui.v.rail.title")}</h2>'
             f'<p class="v-rail-hint">{loc.t("ui.v.rail.hint")}</p><div class="v-rail-list">{body}</div>{extra}</aside>')
@@ -123,6 +142,19 @@ def profile_templates(verdicts: Mapping[str, Any], ctx: Ctx, dashboard: Mapping[
     return "".join(out)
 
 
+def all_decisions(verdicts: Mapping[str, Any], ctx: Ctx, intelligence: Mapping[str, Any] | None = None) -> str:
+    """More details › Decisions: every decision the engine generated, in priority order (the overview shows the first five)."""
+    loc = ctx.loc
+    editors = {e["editor_id"]: e for e in verdicts["editors"]}
+    shown = {d["id"] for d in verdicts["decisions"]}
+    cards = "".join(f'<div data-on-overview="{str(d["id"] in shown).lower()}">'
+                    f'{ui.decision_card(d, ui.message(d["title"], loc), editors, loc, decision_action(d, intelligence, loc))}</div>'
+                    for d in verdicts["decision_candidates"])
+    body = f'<div class="v-md-decisions">{cards}</div>' if cards else f'<p class="muted">{loc.t("ui.v.rail.none")}</p>'
+    return (f'<section id="md-decisions" class="sec" tabindex="-1"><div class="sec-h"><div><h2>{loc.t("ui.v.more_page.decisions")}</h2>'
+            f'<p>{loc.t("ui.v.more_page.decisions_sub")}</p></div></div>{body}</section>')
+
+
 def team_overview(verdicts: Mapping[str, Any], ctx: Ctx, dashboard: Mapping[str, Any] | None = None,
                   intelligence: Mapping[str, Any] | None = None) -> str:
     """The redesigned first layer of the Editors page."""
@@ -137,4 +169,4 @@ def team_overview(verdicts: Mapping[str, Any], ctx: Ctx, dashboard: Mapping[str,
     sections = "".join(ui.tier_section(tier, [ui.person_card(v, ui.message(v["headline"], loc), loc) for v in sorted(by_tier[tier], key=_tier_order)], loc)
                        for tier in ui.TIERS)
     return (f'<div class="v-page" data-verdict-version="{verdicts["verdict_version"]}">{band}{window}'
-            f'<div class="v-layout"><div class="v-main">{sections or Html("")}</div>{rail(verdicts, ctx)}</div>{profile_templates(verdicts, ctx, dashboard, intelligence)}</div>')
+            f'<div class="v-layout"><div class="v-main">{sections or Html("")}</div>{rail(verdicts, ctx, intelligence)}</div>{profile_templates(verdicts, ctx, dashboard, intelligence)}</div>')

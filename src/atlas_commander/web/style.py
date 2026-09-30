@@ -231,6 +231,13 @@ background:color-mix(in srgb,var(--v-bad) 14%,var(--v-surface));color:var(--v-fg
 .v-health-line{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600}.v-health-line i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--pos)}
 .v-health-tech{margin-block:12px}
 @media (max-width:760px){.fresh.v-health span{display:inline}.top-in{flex-wrap:wrap}.top-end{margin-inline-start:auto}}
+.v-rules{margin-top:12px}.v-rule{padding:14px 0;border-block-start:1px solid var(--line)}.v-rule:first-of-type{border-block-start:0}
+.v-rule h4{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;font-size:15px}.v-rule-st{font-size:11.5px;padding:1px 8px;color:var(--mix)}
+.v-rule dl{display:grid;grid-template-columns:minmax(120px,auto) minmax(0,1fr);gap:4px 14px;margin:0;font-size:13.5px;line-height:1.6}
+.v-rule dt{color:var(--ink-3)}.v-rule dd{margin:0}.v-rule:target,.v-rule:focus{outline:2px solid var(--v-accent);outline-offset:6px;border-radius:6px}
+@media (max-width:600px){.v-rule dl{grid-template-columns:minmax(0,1fr)}.v-rule dt{margin-top:6px}}
+.v-md-decisions{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:24px}
+.v-dec-more{display:inline-block;margin-block-start:10px;font-size:12.5px;color:var(--v-accent)}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
@@ -460,8 +467,9 @@ SCRIPT = r"""
     if (profileFromApp) history.back(); else location.hash = '#/';
   }
   function route(){
-    var h = location.hash || '#/', name = 'team', m, drawerId = null;
+    var h = location.hash || '#/', name = 'team', m, drawerId = null, anchor = null;
     if (h === '#/system') name = 'system';
+    else if ((m = h.match(/^#\/system\/([A-Za-z0-9_-]+)$/))) { name = 'system'; anchor = m[1]; }   // a section of More details (T4.8)
     else if ((m = h.match(/^#\/profile\/([^\/]+)/))) name = 'editor:' + decodeURIComponent(m[1]);
     else if ((m = h.match(/^#\/editor\/([^\/]+)/))) {
       var id = decodeURIComponent(m[1]);
@@ -476,6 +484,7 @@ SCRIPT = r"""
     closeDrawer(true);
     var state = history.state, stay = drawerId && lastName === 'team';   // opening a drawer over the overview keeps its scroll position
     if (!stay) window.scrollTo(0, state && typeof state.atlasY === 'number' ? state.atlasY : 0);
+    if (anchor && !(state && typeof state.atlasY === 'number')) { var at = document.getElementById(anchor); if (at) { at.scrollIntoView({block: 'start'}); if (at.focus) at.focus({preventScroll: true}); } }
     if (drawerId) { if (profileId !== drawerId) { hideProfile(); openProfile(drawerId, lastName !== null); } }
     else {
       var closed = hideProfile();

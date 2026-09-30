@@ -285,3 +285,18 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   `system_state` is always `unknown` (the build cannot observe the runtime), so it is not used for "safe".
 - **Technical fields** (publication and attempt IDs, freshness seconds, attempts, dashboard document version, contract) are under More
   details › Data health › Technical details; the first layer shows none of them, including the blank publication ID the audit saw.
+
+## R21. Rule proposals and decision links (T4.8)
+
+- **Proposals are drafts for the owner.** Every rule that is not approved (Quality, and the contract 1.5 pending judgements: Needs
+  attention, Positive signals, Trend, Capacity, Management recommendation, Reward recommendation, Team patterns) keeps its current
+  reason and gains "Proposed rule" and "It would unlock" texts, marked "Proposed · not approved". Nothing is activated (D25): each rule
+  needs a recorded decision, as written or edited. Numbers inside a proposal come from the approved configuration (the Quality weight
+  of D54, the D53 materiality thresholds for Trend); the proposals that would need a new threshold word it without one (the median
+  for Capacity) or state the value they propose (two months for Rewards, half of the Editors for Team patterns), for the owner to change.
+- **Decision cards link to their detail:** the management card to its rule (`#/system/rule-<dimension>`, a new section route that
+  opens More details at that anchor and focuses it), a Weakest plan to the Editor's drawer, the scheduling review and the overdue
+  decision to the evidence of their Intelligence V2 finding.
+- **All decisions in More details:** the rail's "N more decisions under More details" now links to an "All decisions" section listing
+  every candidate in priority order (on real data the Low-activity question and the Quality rule are below the overview's cap, R11, so
+  this is where the management card lives and links from). This closes a gap T4.6 had left: the rail named that list before it existed.

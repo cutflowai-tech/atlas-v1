@@ -111,7 +111,10 @@ class EditorsAppTests(unittest.TestCase):
         self.assertEqual(len({status for status, _ in cards}), 5, "the showcase exercises every status group")
         # The pre-redesign cards never rank. The redesign's verdict overview (tiers and ranks) supersedes that rule for the verdict layer
         # only (D54; docs/redesign/DECISIONS.md R0), so the check reads the page without it.
-        legacy = re.sub(r'<div class="v-page".*?(?=<div class="ph">)', "", html, flags=re.DOTALL)
+        # With verdicts the pre-redesign list is More details › Editors (T4.6); the rest of the page is redesign content (tiers, ranks,
+        # rule proposals) that ranks by design (D54).
+        editors_list = re.search(r'<section id="md-editors".*?</section>', html, flags=re.DOTALL)
+        legacy = editors_list.group(0) if editors_list else html
         for phrase in ("Top Editor", "Best", "Worst", "Rank", "#1", "Leaderboard"):
             self.assertNotIn(phrase, " ".join(visible(legacy)))
 
