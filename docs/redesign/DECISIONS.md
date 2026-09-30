@@ -185,3 +185,20 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   at or above it the lateness is mostly scheduling, otherwise mostly the editing. The decision and the chain can never disagree.
 - **KPI values** are numerals without units (`"58.9"`, `"3"`); the page formats them per locale (digits, `%`, bidi isolation, T1.4),
   so no preformatted Latin text reaches the Arabic page.
+
+## R13. Tokens and fonts without a web font (T3.1) — owner decision needed on font delivery
+
+- **Conflict:** the handoff's fonts (Readex Pro, IBM Plex Sans Arabic, IBM Plex Mono) are loaded by the prototype from Google Fonts.
+  The Atlas pages are "static and self-contained: no web font, no CDN, no network request" (`web/style.py`), enforced by
+  `tests/test_ui_v15.py::test_pages_make_no_network_request`; nginx serves only `/`, `/en/`, `/ar/`.
+- **Default used now (README rule 8):** each redesign font stack names the handoff font first and falls back to the existing system
+  stacks (`--v-display`: Readex Pro → the locale's `--font`; `--v-body`: IBM Plex Sans Arabic → IBM Plex Sans → `--font`;
+  `--v-num`: IBM Plex Mono → `--mono`). A viewer with the fonts installed sees them; everyone else sees today's fonts. No font is
+  downloaded, embedded or requested.
+- **To decide (owner):** either (a) embed subset WOFF2 files inline as `data:` URIs (no network request; roughly +100–250 KB per
+  page and locale, OFL-licensed fonts), or (b) serve them from the locale trees (`/en/fonts/`, `/ar/fonts/`; one same-origin request,
+  which changes the self-contained rule and the nginx paths), or (c) keep system fonts. Nothing else in the redesign depends on it:
+  every component uses the stacks, so the switch is one CSS change.
+- **Token names:** the handoff's names (`--bg`, `--surface`, `--line`, `--good`, …) already exist in the design system with other
+  values. The redesign's tokens are prefixed `--v-` so the current pages stay pixel-identical until a redesigned view uses them;
+  tier (`--v-tier-<tier>`) and decision-horizon (`--v-horizon-<horizon>`) aliases follow the prototype (ask = idle).

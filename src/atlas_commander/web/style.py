@@ -3,6 +3,12 @@
 The pages are static and self-contained: no web font, no CDN, no network request. Colours are tokens defined once for light and
 dark schemes. Layout uses logical properties (``inline-start``/``inline-end``) so English (LTR) and Arabic (RTL) share one design.
 
+The redesign (judgment-first overview, `atlas-redesign-handoff/01-PRODUCT-DIRECTION.md`) adds its own tokens under ``--v-``: the
+handoff's palette for dark and light, tier and decision-horizon aliases, and three font stacks. They sit beside the existing tokens
+(same names, other values) so nothing on the current pages changes until a redesigned view uses them. The handoff fonts (Readex Pro,
+IBM Plex Sans Arabic, IBM Plex Mono) lead each stack and are used where installed; the stacks fall back to the existing system fonts,
+so no font is downloaded (docs/redesign/DECISIONS.md R13).
+
 Colour semantics are deliberately calm (HANDOFF-V2 §23, fairness):
 
 - Overall Status and component states use a muted green / amber / terracotta scale; "not classifiable" is a dashed, grey outline
@@ -22,8 +28,15 @@ CSS = r"""
 --shadow:0 1px 2px rgba(20,20,10,.05),0 8px 24px rgba(20,20,10,.06);--shadow-lg:0 12px 48px rgba(20,20,10,.18);
 --t:180ms cubic-bezier(.2,.7,.2,1);
 --font:"Inter","SF Pro Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif;
---mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+--mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+--v-bg:#f5f4f0;--v-surface:#fff;--v-raise:#efede7;--v-line:#e1ded5;--v-fg:#1a1d23;--v-muted:#596070;--v-faint:#8a909b;
+--v-accent:#946600;--v-good:#2d7a4d;--v-info:#2d5c9a;--v-warn:#946600;--v-bad:#b64a31;--v-idle:#7a808b;
+--v-tier-best:var(--v-good);--v-tier-steady:var(--v-info);--v-tier-watch:var(--v-warn);--v-tier-weakest:var(--v-bad);--v-tier-low_activity:var(--v-idle);
+--v-horizon-today:var(--v-bad);--v-horizon-this_week:var(--v-warn);--v-horizon-ask:var(--v-idle);--v-horizon-management:var(--v-info);
+--v-display:"Readex Pro",var(--font);--v-body:"IBM Plex Sans Arabic","IBM Plex Sans",var(--font);--v-num:"IBM Plex Mono",var(--mono)}
 @media (prefers-color-scheme:dark){:root{
+--v-bg:#111419;--v-surface:#191d24;--v-raise:#21262f;--v-line:#2b313c;--v-fg:#eceef2;--v-muted:#9aa3b2;--v-faint:#6b7484;
+--v-accent:#e7c46a;--v-good:#7fcf9f;--v-info:#8fb4ea;--v-warn:#e7c46a;--v-bad:#ef8a73;--v-idle:#7d8594;
 --bg:#121310;--surface:#1b1c18;--surface-2:#23241f;--surface-3:#2d2e28;--line:#2f302a;--line-2:#3f4038;
 --ink:#efeee8;--ink-2:#bdbcb2;--ink-3:#8e8d83;--focus:#8fa8ff;
 --pos:#6fcf9a;--pos-bg:#16301f;--good:#a6d38a;--good-bg:#1f2c18;--mix:#e7b851;--mix-bg:#34290f;--neg:#f0957a;--neg-bg:#3a1f16;
