@@ -34,6 +34,8 @@
     "team.intervention_late_rate": {"value": 0.40, "decision_id": "D54", "meaning": "Team state needs intervention at or above this late rate"},
     "team.flat_band_pp": {"value": 5, "decision_id": "D54", "meaning": "Team trend is flat when the late rate moved by at most this many percentage points against the previous window"},
     "decisions.overview_max": {"value": 5, "decision_id": "D54", "meaning": "Decisions shown on the overview (all candidates stay under More details)"},
+    "display.reasons_min": {"value": 2, "decision_id": "D54", "meaning": "Fewest 'why this verdict' reasons per Editor (spec §2: 2–4)"},
+    "display.reasons_max": {"value": 4, "decision_id": "D54", "meaning": "Most 'why this verdict' reasons per Editor (spec §2: 2–4)"},
     "decisions.scheduling_runway_share": {"value": 0.50, "decision_id": "D54", "meaning": "Propose a scheduling review when at least this share of late projects started with short runway"},
     "display.late_bad_above_team_pp": {"value": 10, "decision_id": "D54", "meaning": "Late-rate bar is bad above the team rate plus this many points, warn above the team rate, good otherwise"},
     "display.speed_same_band_pct": {"value": 5, "decision_id": "D54", "meaning": "Speed within this many percent of peers reads 'Same as team'"},

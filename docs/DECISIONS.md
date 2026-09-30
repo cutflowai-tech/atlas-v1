@@ -254,6 +254,8 @@ configuration disagree.
 | Team state needs intervention at or above this late rate | `team.intervention_late_rate` = 0.4 |
 | Team trend is flat when the late rate moved by at most this many percentage points against the previous window | `team.flat_band_pp` = 5 |
 | Decisions shown on the overview (all candidates stay under More details) | `decisions.overview_max` = 5 |
+| Fewest 'why this verdict' reasons per Editor (spec §2: 2–4) | `display.reasons_min` = 2 |
+| Most 'why this verdict' reasons per Editor (spec §2: 2–4) | `display.reasons_max` = 4 |
 | Propose a scheduling review when at least this share of late projects started with short runway | `decisions.scheduling_runway_share` = 0.5 |
 | Late-rate bar is bad above the team rate plus this many points, warn above the team rate, good otherwise | `display.late_bad_above_team_pp` = 10 |
 | Speed within this many percent of peers reads 'Same as team' | `display.speed_same_band_pct` = 5 |

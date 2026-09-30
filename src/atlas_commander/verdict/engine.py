@@ -8,7 +8,7 @@ from typing import Any
 from atlas_commander.verdict.confidence import confidence
 from atlas_commander.verdict.config import VerdictConfig, load_config
 from atlas_commander.verdict.decisions import ordered, silent_measurement_decisions, zero_activity_decision
-from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize
+from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, normalize, own_speed_change
 from atlas_commander.verdict.reasoning import (
     DUPLICATE,
     MIRRORS_TEAM,
@@ -21,6 +21,7 @@ from atlas_commander.verdict.reasoning import (
     silent_measurement,
     zero_activity,
 )
+from atlas_commander.verdict.sentences import Context, headline, reasons
 from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
@@ -91,10 +92,12 @@ def _hidden(editors: list[dict[str, Any]], repeated: list[dict[str, Any]]) -> li
 
 def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: VerdictConfig,
                     repeated: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """One verdict per Editor: metrics (T2.4), score and rank (T2.6), tier (T2.5)."""
+    """One verdict per Editor: metrics (T2.4), tier (T2.5), score and rank (T2.6), confidence (T2.7), the §6 combinations (T2.8-T2.10),
+    headline and reasons (T2.12)."""
     rows = {e.editor_id: metrics(e, team, config) for e in editors}
     ranked = [e for e in editors if e.completed >= config["score.minimum_completed"]]
     median_completed = median([e.completed for e in ranked])
+    highest_completed = max((e.completed for e in ranked), default=None)
     scored: dict[str, tuple[float | None, dict[str, float | None], list[str]]] = {}
     for e in ranked:
         points = dimension_points(rows[e.editor_id], median_completed, config)
@@ -109,11 +112,12 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
                             worse_dimensions=_worse_dimensions(m, median_completed, config))
         scheduling = runway(e, team, config)                                  # §6 rows 1-2 (T2.8)
         tier = limit_tier(assign_tier(m, len(e.overdue), config, standing), scheduling)
-        reasons = [scheduling.reason] if scheduling else []
         duplicate_ids = {finding_id for group in repeated or [] if group["editor_id"] == e.editor_id for finding_id in group["hidden"]}
         mirrored = [c for c in mirrored_changes(e, config) if c.finding_id not in duplicate_ids]   # §6 row 3 (T2.9), on kept findings
-        if (same_as_team := mirror_reason(mirrored, config)) is not None:
-            reasons.append(same_as_team)
+        own = own_speed_change(e)
+        context = Context(editor=e, metrics=m, tier=tier, ranked=e.editor_id in scored, median_completed=median_completed,
+                          highest_completed=highest_completed, runway=scheduling, mirror=mirror_reason(mirrored, config),
+                          own_change_mirrored=own is not None and own in mirrored)
         hidden = sorted({change.finding_id for change in mirrored} | duplicate_ids)
         value, points, missing = scored.get(e.editor_id, (None, {}, []))
         if e.editor_id not in scored:   # not scored: the key dimensions it lacks still lower its confidence
@@ -127,7 +131,7 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
             "editor_id": e.editor_id, "display_name": e.display_name, "tier": tier, "rank": position, "ranked_of": len(ranks), "score": value,
             "score_parts": {name: round(p, int(config["precision.pct_digits"])) for name, p in points.items() if p is not None},
             "confidence": level, "confidence_reasons": why_level,
-            "headline": msg("verdict.headline." + tier), "reasons": reasons,
+            "headline": headline(context, config), "reasons": reasons(context, config),
             "based_on": used,
             "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": hidden,
         })

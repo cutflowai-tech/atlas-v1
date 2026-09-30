@@ -140,3 +140,17 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   nothing" decision does.
 - **Decision IDs and priority:** `dec-` + the first 12 hex digits of SHA-256 of `type:subject` (subject: the rule's dimension, or
   the Editor IDs), stable across rebuilds of the same facts. Priority is the type's position in §7 (1–5), not a configured number.
+
+## R10. Headlines and reasons (T2.12)
+
+- **Keys, not sentences:** `verdict.headline.<tier>.<variant>` and `verdict.reason.<fact>`; parameters follow the schema's unit
+  convention (`*_pct` percentages, counts, `labels`, hours). The catalogue templates are T4.1. The spec's "{himself}" becomes a
+  gender-neutral "their own history" in both languages (no pronoun is inferred from a name).
+- **Variant = the strongest fact:** Weakest leads with "scheduling does not explain it" when that §6 rule holds (adding "slower than
+  peers" and "than their own history" when each is true), otherwise the §3 rule that placed the Editor; Watch leads with overdue
+  work, then lateness, then speed, and a Weakest limited to Watch by the runway rule says so; Best says "highest load, faster" only
+  when both hold (on the §9 fixture Ibrahim, 24 projects, has the highest load, so Will's headline is `best.faster`); Steady leads
+  with "mirrors the team", then "scheduling explains it".
+- **Reasons** are the tier's facts in order of strength (the deciding fact first), then general facts (not ranked, work in progress);
+  an Editor with a single fact gets its project count as the second bullet. "Same as peers" uses the display band
+  (`display.speed_same_band_pct`), so the sentence and the SpeedPill agree.
