@@ -27,6 +27,7 @@ from atlas_commander.dashboard import build_dashboard
 from atlas_commander.dashboard_html import render_dashboard_html
 from atlas_commander.i18n import EN, Loc, locales
 from atlas_commander.identity import AMBIGUOUS_EDITOR, EDITOR_LABEL_NAME_MISMATCH, EDITOR_LABEL_NAME_UNVERIFIED, MISSING_EDITOR, UNMAPPED_EDITOR
+from atlas_commander.investigation.site import build_site_intelligence, write_document
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
@@ -108,12 +109,12 @@ def _entry_page(loc: Loc, target: str, publication: dict[str, Any] | None, alter
 
 def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any], out: Path, generated_at: str, profiles: list[dict[str, Any]],
                           pages: dict[str, dict[str, str]], monday_item_url: str | None = None,
-                          status_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
+                          status_snapshot: dict[str, Any] | None = None, intelligence: dict[str, Any] | None = None) -> dict[str, Any]:
     """Build the language-neutral dashboard and its localized pages.
 
     ``status_snapshot`` is optional, language-neutral Task 7 context captured by the caller at
     build time. This function neither derives nor validates it, and both locales receive the
-    exact same object.
+    exact same object. ``intelligence`` is the optional published Intelligence V2 document, shown by both locales.
     """
     editor_ids = [profile["editor"]["editor_id"] for profile in profiles]
     publication = site_publication(result, contract, generated_at)
@@ -125,7 +126,7 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
     for loc in locales():
         _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(
             dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}",
-            status_snapshot=status_snapshot))
+            status_snapshot=status_snapshot, intelligence=intelligence))
         _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html", publication))
     ar = EN.other()
     _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), publication,
@@ -137,7 +138,10 @@ def build_all(result: CycleReconstruction, contract: dict[str, Any], out: Path, 
               status_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
     """Every Editor Profile and the CEO Dashboard, as the bilingual site described in ``atlas_commander.site_layout``."""
     profiles, pages = build_profiles(result, contract, out, generated_at, monday_item_url)
-    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url, status_snapshot)
+    intelligence = build_site_intelligence(result, contract, generated_at, profiles)   # only when config/intelligence-v2.json enables it
+    if intelligence is not None:
+        write_document(out, intelligence)
+    return build_dashboard_files(result, contract, out, generated_at, profiles, pages, monday_item_url, status_snapshot, intelligence)
 
 
 def main(argv: list[str] | None = None) -> int:
