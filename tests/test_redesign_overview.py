@@ -62,6 +62,31 @@ class OverviewStructureTests(unittest.TestCase):
         self.assertTrue('<div data-view="team"><div class="ph">' in html)
 
 
+class FirstLayerTests(unittest.TestCase):
+    """T4.3: the old first layer leaves the overview, nothing is deleted."""
+
+    def test_only_the_verdict_overview_is_visible_and_the_old_layer_is_kept_hidden(self):
+        for locale in ("en", "ar"):
+            view = team_view(page(locale))
+            first, legacy = view.split('<div class="v-legacy" data-more-details="overview" hidden>', 1)
+            self.assertTrue(first.startswith('<div class="v-page"') and first.endswith("</aside></div></div>"), locale)
+            for part in ('<article class="ed" data-editor-card', 'data-tab="team-pulse"', 'id="editor-search"', '<section class="sec iv" id="intelligence"'):
+                self.assertNotIn(part, first, (locale, part))
+                self.assertIn(part, legacy, (locale, part))                       # moved, not deleted (More details, T4.6)
+        english = team_view(page("en")).split('<div class="v-legacy"', 1)
+        self.assertNotIn("Atlas never ranks", english[0])
+        self.assertIn("Atlas never ranks", english[1])
+
+
+FIRST_LAYER = """
+    await wait(300);
+    const shown = sel => [...document.querySelectorAll('[data-view="team"] ' + sel)].filter(e => e.offsetParent !== null).length;
+    const present = sel => document.querySelectorAll('[data-view="team"] ' + sel).length;
+    return {cards: [shown('.ed'), present('.ed')], pulse: [shown('[data-tab="team-pulse"]'), present('[data-tab="team-pulse"]')],
+            verdictCards: shown('.v-card'), text: document.querySelector('[data-view="team"]').innerText.includes('never ranks')};
+"""
+
+
 LAYOUT = """
     await wait(300);
     const rail = document.querySelector('.v-rail').getBoundingClientRect(), main = document.querySelector('.v-main').getBoundingClientRect();
@@ -73,6 +98,16 @@ LAYOUT = """
 
 @unittest.skipIf(chrome() is None, "headless Chrome is not available")
 class OverviewLayoutTests(unittest.TestCase):
+    def test_the_first_layer_shows_only_the_verdict_overview(self):
+        for locale in ("en", "ar"):
+            result = run_scenario(page(locale), FIRST_LAYER, width=1440, height=900)
+            self.assertEqual(result["cards"][0], 0, result)
+            self.assertGreater(result["cards"][1], 0, result)
+            self.assertEqual(result["pulse"][0], 0, result)
+            self.assertGreater(result["pulse"][1], 0, result)
+            self.assertGreater(result["verdictCards"], 0, result)
+            self.assertFalse(result["text"], result)
+
     def test_rail_sticky_beside_the_team_from_1000px_and_above_it_below(self):
         for locale in ("en", "ar"):
             for width, beside in ((390, False), (768, False), (1000, True), (1440, True)):

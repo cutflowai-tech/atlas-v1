@@ -160,9 +160,12 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: 
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
     judgment = team_overview(verdicts, ctx) if verdicts is not None else ""   # the redesign's first layer (T4.2), when verdicts.json exists
     heading = "h2" if judgment else "h1"   # one h1 per view: with the verdict overview, its headline is the view's h1
-    return (f'<div data-view="team">{judgment}<div class="ph"><div><{heading}>{loc.t("ui.nav.editors")}</{heading}>{window}</div></div>'
-            f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
-            f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}</div>')
+    legacy = (f'<div class="ph"><div><{heading}>{loc.t("ui.nav.editors")}</{heading}>{window}</div></div>'
+              f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
+              f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}')
+    if judgment:   # T4.3: the pre-redesign first layer leaves the overview; kept whole (not deleted) for More details (T4.6)
+        legacy = f'<div class="v-legacy" data-more-details="overview" hidden>{legacy}</div>'
+    return f'<div data-view="team">{judgment}{legacy}</div>'
 
 
 # ---------------------------------------------------------------- team context (secondary)
