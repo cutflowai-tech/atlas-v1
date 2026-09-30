@@ -191,6 +191,10 @@ class Loc:
         text = self._text_html(self._form(key, n, case)).format(n=n, **{k: _safe(v) for k, v in params.items()})
         return Html(f'<data value="{int(n)}">{text}</data>')
 
+    def counted(self, key: str, n: int, **params: Any) -> Html:
+        """A sentence whose words agree with ``n`` (a plural entry), as HTML like :meth:`t`; ``{n}`` is the number, isolated."""
+        return Html(self._text_html(self._form(key, n, None)).format(n=self.num(n), **{k: _safe(v) for k, v in params.items()}))
+
     def count_text(self, key: str, n: int, case: str | None = None, **params: Any) -> str:
         return self._form(key, n, case).format(n=n, **{k: str(v) for k, v in params.items()})
 

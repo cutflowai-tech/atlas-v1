@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from atlas_commander import site_layout
-from atlas_commander.i18n import Html, Loc, locales
+from atlas_commander.i18n import Loc, locales
 from atlas_commander.web import verdict_ui as ui
 from atlas_commander.web.style import CSS
 
@@ -80,59 +80,61 @@ def _sample(editor_id: str, name: str, tier: str, rank: int | None, confidence: 
 
 CARD_SAMPLES = [
     (_sample("sample-1", "Layla", "best", 1, "medium", (6, 20), (-23.0, "faster", "good"), 20, 2),
-     "Best this month: the highest load, faster than peers, and late less often."),
+     {"key": "verdict.headline.best.highest_volume_faster", "params": {}}),
     (_sample("sample-3", "احمد", "weakest", 8, "medium", (12, 14), (43.0, "slower", "bad"), 14, 1),
-     "The weakest this month: late on 86% of projects, slower than peers and than their own history. Scheduling does not explain it."),
+     {"key": "verdict.headline.weakest.not_scheduling_slower_self", "params": {"late_pct": 85.7, "speed_pct": 43.0, "own_pct": 26.3}}),
     (_sample("sample-4", "Sample Editor (Office)", "low_activity", None, "low", (1, 2), (2.8, "same", "neutral"), 2, 1),
-     "Low activity: 2 projects this month."),
-    (_sample("sample-2", "إسلام", "low_activity", None, "low", None, None, 0, 0), "No projects this month and nothing in progress."),
+     {"key": "verdict.headline.low_activity.few", "params": {"completed": 2}}),
+    (_sample("sample-2", "إسلام", "low_activity", None, "low", None, None, 0, 0),
+     {"key": "verdict.headline.low_activity.zero_activity", "params": {"lifetime_completed": 60}}),
 ]
 
 
 def cards_section(loc: Loc) -> str:
-    cards = "".join(f'<div style="inline-size:320px">{ui.person_card(v, Html(escape(text)), loc)}</div>' for v, text in CARD_SAMPLES)
-    return f'<section id="cards"><h2>PersonCard (T3.5) · sample sentences in English until T4.1</h2><div class="row" style="align-items:stretch">{cards}</div></section>'
+    cards = "".join(f'<div style="inline-size:320px">{ui.person_card(v, ui.message(m, loc), loc)}</div>' for v, m in CARD_SAMPLES)
+    return f'<section id="cards"><h2>PersonCard (T3.5)</h2><div class="row" style="align-items:stretch">{cards}</div></section>'
 
 
 DECISION_OWNERS = {v["editor_id"]: v for v, _ in CARD_SAMPLES}
-DECISION_SAMPLES: list[tuple[dict[str, Any], str]] = [
+DECISION_SAMPLES: list[tuple[dict[str, Any], dict[str, Any]]] = [
     ({"id": "dec-000000000001", "horizon": "today", "owner_editor_ids": ["sample-3", "sample-1", "sample-4"], "owner_role": None},
-     "3 projects are past their deadline and still open. Agree a realistic delivery date."),
+     {"key": "verdict.decision.overdue_open_work", "params": {"count": 3, "names": ["احمد", "Layla", "Sample Editor (Office)"]}}),
     ({"id": "dec-000000000002", "horizon": "this_week", "owner_editor_ids": ["sample-3"], "owner_role": "editors_manager"},
-     "An improvement plan for the weakest Editor this week."),
+     {"key": "verdict.decision.weakest_editor", "params": {"name": "احمد"}}),
     ({"id": "dec-000000000003", "horizon": "this_week", "owner_editor_ids": [], "owner_role": "scheduling_owner"},
-     "Review how delivery dates are set: most late projects started with short runway."),
+     {"key": "verdict.decision.scheduling_runway", "params": {"short_share_pct": 77.4}}),
     ({"id": "dec-000000000004", "horizon": "ask", "owner_editor_ids": ["sample-2", "sample-4"], "owner_role": None},
-     "No projects this month: leave or an assignment gap?"),
+     {"key": "verdict.decision.low_activity", "params": {"names": ["إسلام", "Sample Editor (Office)"]}}),
     ({"id": "dec-000000000005", "horizon": "management", "owner_editor_ids": [], "owner_role": "ceo"},
-     "Approve the Quality rule. Atlas cannot see quality yet."),
+     {"key": "verdict.decision.approve_rule", "params": {"dimension": "quality"}}),
 ]
 
 
 def decisions_section(loc: Loc) -> str:
-    cards = "".join(ui.decision_card(d, Html(escape(text)), DECISION_OWNERS, loc) for d, text in DECISION_SAMPLES)
+    cards = "".join(ui.decision_card(d, ui.message(m, loc), DECISION_OWNERS, loc) for d, m in DECISION_SAMPLES)
     return (f'<section id="decisions"><h2>DecisionCard (T3.6) · all four horizons</h2>'
             f'<div style="display:grid;gap:12px;max-inline-size:360px">{cards}</div></section>')
 
 
 def tiers_section(loc: Loc) -> str:
-    cards = [ui.person_card(v, Html(escape(text)), loc) for v, text in CARD_SAMPLES]
+    cards = [ui.person_card(v, ui.message(m, loc), loc) for v, m in CARD_SAMPLES]
     frames = "".join(f'<div class="frame" data-width="{w}" style="inline-size:{w}px;max-inline-size:100%">{ui.tier_section("best", cards[:count], loc)}</div>'
                      for w, count in ((300, 2), (600, 3), (900, 4), (1200, 4), (1200, 1)))
     return (f'<section id="tiers"><h2>TierSection (T3.7) · frames 300 / 600 / 900 / 1200 px, and a lone card</h2>{frames}'
             f'{"".join(ui.tier_section(t, cards[:1], loc) for t in ui.TIERS[1:])}</section>')
 
 
-BAND_SAMPLE = ("The team is improving but still late too often. Most lateness comes from scheduling.",
-               "Two Editors are the best this month, one is the weakest, and five have too little activity to judge.",
-               [({"key": "late_rate", "value": "58.9", "tone": "warn"}, "Team late rate · was 75%"),
-                ({"key": "overdue", "value": "3", "tone": "bad"}, "Projects past their deadline now"),
-                ({"key": "short_runway_share", "value": "77.4", "tone": "neutral"}, "Of late projects had short runway")])
+BAND_SAMPLE: tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]] = ({"key": "verdict.team.headline.needs_intervention.improving", "params": {"late_pct": 58.9, "previous_pct": 75.2, "overdue": 3}},
+               {"key": "verdict.team.supporting.scheduling", "params": {"short_share_pct": 77.4, "overdue": 3}},
+               [{"key": "late_rate", "value": "58.9", "tone": "warn", "label": {"key": "verdict.team.kpi.late_rate", "params": {"previous_pct": 75.2}}},
+                {"key": "overdue", "value": "3", "tone": "bad", "label": {"key": "verdict.team.kpi.overdue", "params": {"count": 3}}},
+                {"key": "short_runway_share", "value": "77.4", "tone": "neutral",
+                 "label": {"key": "verdict.team.kpi.short_runway_share", "params": {"short_runway_late": 328, "late": 424}}}])
 
 
 def band_section(loc: Loc) -> str:
     headline, supporting, kpis = BAND_SAMPLE
-    band = ui.verdict_band(Html(escape(headline)), Html(escape(supporting)), [(k, Html(escape(label))) for k, label in kpis], loc)
+    band = ui.verdict_band(ui.message(headline, loc), ui.message(supporting, loc), [(k, ui.message(k["label"], loc)) for k in kpis], loc)
     return f'<section id="band"><h2>VerdictBand (T3.8)</h2><div class="frame">{band}</div><div class="frame" style="inline-size:390px;max-inline-size:100%">{band}</div></section>'
 
 

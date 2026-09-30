@@ -14,7 +14,8 @@ from decimal import ROUND_HALF_UP, Decimal
 from html import escape
 from typing import Any
 
-from atlas_commander.i18n import Html, Loc
+from atlas_commander.i18n import DASH, Html, Loc
+from atlas_commander.verdict.messages import KEYS, PLURAL
 
 TONES = ("good", "warn", "bad", "neutral")
 TIERS = ("best", "steady", "watch", "weakest", "low_activity")
@@ -206,3 +207,45 @@ def verdict_band(headline: Html, supporting: Html, kpis: list[tuple[Mapping[str,
     return Html(f'<section class="v-band" aria-labelledby="v-band-h"><div class="v-band-in"><div class="v-band-t"><p class="v-eyebrow">{loc.t("ui.v.band.eyebrow")}</p>'
                 f'<h1 id="v-band-h">{headline}</h1><p class="v-band-s">{supporting}</p></div>'
                 f'{f"<div class=v-kpis>{tiles}</div>" if tiles else ""}</div></section>')
+
+
+def _number(value: Any) -> str:
+    return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+
+
+def _param(name: str, value: Any, loc: Loc) -> Html:
+    """One ``Msg`` parameter as people read it, by the unit its name carries (schema ``Msg``)."""
+    if value is None or value == "":
+        return Html(DASH)
+    if name.endswith("_pct"):
+        whole = int(Decimal(str(value)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        return loc.ltr(f"{'−' if whole < 0 else ''}{abs(whole)}%")
+    if name.endswith("_hours"):
+        return loc.t("unit.hours", value=loc.ltr(f"{float(value):.1f}"))
+    if name == "names":
+        return Html(loc.comma().join(loc.src(v) for v in value))
+    if name == "labels":
+        return loc.labels(list(value))
+    if name in ("name", "video_type", "status"):
+        return loc.src(value)
+    if name == "item_id":
+        return loc.ltr(str(value))
+    if name == "dimension":
+        return loc.t("ui.v.dimension." + str(value))
+    return loc.num(_number(value))
+
+
+def message(msg: Mapping[str, Any], loc: Loc) -> Html:
+    """A ``Msg`` from ``verdicts.json`` in ``loc`` (T4.1): the catalogue template of its key with every parameter formatted by its
+    unit. A parameter the key may carry but this message omits (e.g. an unknown Video Type) reads as a dash."""
+    key, params = msg["key"], msg.get("params") or {}
+    allowed = KEYS.get(key)
+    if allowed is None:
+        raise KeyError(f"verdict message {key!r} is not in the registry (atlas_commander.verdict.messages)")
+    unknown = set(params) - set(allowed)
+    if unknown:
+        raise KeyError(f"verdict message {key!r} has parameters {sorted(unknown)} the registry does not list")
+    values = {name: _param(name, params.get(name), loc) for name in allowed if name != "count"}
+    if key in PLURAL:
+        return loc.counted(key, int(params["count"]), **values)
+    return loc.t(key, **values)

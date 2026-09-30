@@ -213,3 +213,15 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Name (+ Latin name):** Atlas has one name per Editor, the Monday "Editor Name" value (mostly Latin), shown as recorded and isolated
   in Arabic. The prototype's Arabic transliterations (e.g. "ويل" for Will) were hand-written and have no source in the data, so the
   card shows the Monday name only; adding transliterations would need a maintained mapping (not in scope).
+
+## R15. Verdict sentences in two languages (T4.1)
+
+- **One key, one template per language:** the catalogue holds every engine key (`verdict.*`) with English and MSA Arabic templates;
+  `atlas_commander.verdict.messages` lists every key and its parameters, and `web.verdict_ui.message()` renders a `Msg` by the unit
+  each parameter name carries (whole percentages, hours, isolated Monday names and IDs, the locale's list comma, dimension names).
+- **Counts that change the words** (`count`: overdue projects) use the catalogue's plural forms (Arabic zero/one/two/few/many/other).
+  Other counts are phrased so no noun has to agree with them ("12 of 14", "in progress now: 2").
+- **No inferred gender:** the spec's "slower … than {himself}" is "than their own earlier work"; in Arabic the templates use
+  impersonal phrasings ("التأخير في …", "أبطأ من الزملاء", "الأداء السابق") instead of masculine forms where Arabic allows it.
+- **Direction words, not arrows:** changes read "from 69% to 54%" / "من … إلى …", which never reorders in Arabic.
+- The Arabic strings carry the review status "Needs Arabic Review" like every redesign string.
