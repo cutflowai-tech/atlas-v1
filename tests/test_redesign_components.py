@@ -215,6 +215,50 @@ class PersonCardRenderTests(unittest.TestCase):
             self.assertFalse(result["overflow"], result)
 
 
+class DecisionCardTests(unittest.TestCase):
+    """T3.6."""
+
+    def test_owners_open_profiles_and_roles_are_named(self):
+        document = verdicts()
+        editors = {e["editor_id"]: e for e in document["editors"]}
+        today, weakest, scheduling, ask, management = document["decisions"]
+        card = ui.decision_card(today, Html("3 overdue"), editors, EN)
+        self.assertIn('data-horizon="today"', card)
+        self.assertIn(">Today<", card)
+        self.assertEqual(re.findall(r'class="v-dec-face" href="#/editor/([^"]+)"', card), today["owner_editor_ids"])
+        self.assertIn("Owner: Editors manager", ui.decision_card(weakest, Html("plan"), editors, EN))
+        self.assertIn("المسؤول: مسؤول الجدولة", ui.decision_card(scheduling, Html("runway"), editors, AR))
+        self.assertIn(">اسأل<", ui.decision_card(ask, Html("ask"), editors, AR))
+        rule = ui.decision_card(management, Html("rule"), editors, EN)
+        self.assertIn("Management decision", rule)
+        self.assertIn("Owner: CEO", rule)
+        self.assertNotIn("v-dec-face", rule)
+        with self.assertRaises(ValueError):
+            ui.decision_card(dict(today, horizon="soon"), Html("x"), editors, EN)
+
+
+DECISION_CHECK = """
+    await wait(300);
+    return [...document.querySelectorAll('#decisions .v-dec')].map(d => {
+      const cs = getComputedStyle(d);
+      return {horizon: d.dataset.horizon, left: cs.borderLeftWidth, right: cs.borderRightWidth, color: cs.direction === 'rtl' ? cs.borderRightColor : cs.borderLeftColor,
+              faces: d.querySelectorAll('a.v-dec-face').length};
+    });
+"""
+
+
+@unittest.skipIf(chrome() is None, "headless Chrome is not available")
+class DecisionCardRenderTests(unittest.TestCase):
+    def test_four_horizon_colours_on_the_inline_start_stripe(self):
+        for loc, side in ((EN, "left"), (AR, "right")):
+            cards = run_scenario(render_components(loc), DECISION_CHECK, width=900, height=900)
+            self.assertEqual([c["horizon"] for c in cards], ["today", "this_week", "this_week", "ask", "management"])
+            self.assertTrue(all(c[side] == "4px" for c in cards), (loc, cards))
+            colours = {c["horizon"]: c["color"] for c in cards}
+            self.assertEqual(len(set(colours.values())), 4, colours)
+            self.assertEqual([c["faces"] for c in cards], [3, 1, 0, 2, 0])
+
+
 class ComponentPageTests(unittest.TestCase):
     def test_the_page_is_self_contained_and_localised(self):
         for loc in (EN, AR):

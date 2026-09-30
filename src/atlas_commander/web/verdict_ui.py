@@ -19,6 +19,8 @@ from atlas_commander.i18n import Html, Loc
 TONES = ("good", "warn", "bad", "neutral")
 TIERS = ("best", "steady", "watch", "weakest", "low_activity")
 CONFIDENCE = ("high", "medium", "low")
+HORIZONS = ("today", "this_week", "ask", "management")
+ROLES = ("scheduling_owner", "editors_manager", "ceo")
 AVATAR_SIZES = (28, 56, 96)
 ARABIC_ALEF = ("ا", "إ")   # names starting with one of these show their first two letters (handoff T3.2)
 
@@ -144,3 +146,27 @@ def person_card(verdict: Mapping[str, Any], headline: Html, loc: Loc) -> Html:
                 f'<span class="v-card-verdict">{headline}</span>'
                 f'<span class="v-card-m">{body}</span>'
                 f'{f"<span class=v-card-f>{tag}</span>" if tag else ""}</a>')
+
+
+def decision_card(decision: Mapping[str, Any], title: Html, editors: Mapping[str, Mapping[str, Any]], loc: Loc) -> Html:
+    """T3.6: one decision of ``verdicts.json``: the horizon label on its colour stripe, the title (rendered by the caller from its key)
+    and the owners: each owning Editor's avatar opens their profile (``#/editor/<id>``), then their names; a role owner is named by
+    its role. ``editors`` maps Editor IDs to their verdicts (name, tier, rank)."""
+    horizon = decision["horizon"]
+    if horizon not in HORIZONS:
+        raise ValueError(f"unknown horizon {horizon!r}")
+    owners = [editors[i] for i in decision["owner_editor_ids"] if i in editors]
+    faces = "".join(f'<a class="v-dec-face" href="#/editor/{escape(v["editor_id"], quote=True)}">'
+                    f'{avatar(v["editor_id"], v["display_name"], loc, size=28, tier=v["tier"], photo_url=v.get("photo_url"))}</a>' for v in owners)
+    parts = []
+    if owners:
+        parts.append(loc.comma().join(str(loc.src(v["display_name"])) for v in owners))
+    if decision.get("owner_role"):
+        role = decision["owner_role"]
+        if role not in ROLES:
+            raise ValueError(f"unknown owner role {role!r}")
+        parts.append(str(loc.t("ui.v.decision.owner", role=loc.t("ui.v.role." + role))))
+    who = " · ".join(parts)
+    return Html(f'<article class="v-dec" data-horizon="{horizon}" data-decision-id="{escape(decision["id"], quote=True)}">'
+                f'<p class="v-dec-when">{loc.t("ui.v.horizon." + horizon)}</p><h3 class="v-dec-title">{title}</h3>'
+                f'<p class="v-dec-who">{f"<span class=v-dec-faces>{faces}</span>" if faces else ""}<span>{who}</span></p></article>')

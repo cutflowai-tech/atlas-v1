@@ -4443,6 +4443,54 @@
    "ar": "{n} قيد التنفيذ",
    "context": "Person card: projects in progress now (Active Work)",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.today": {
+   "en": "Today",
+   "ar": "اليوم",
+   "context": "Decision time frame: act today (overdue open work)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.this_week": {
+   "en": "This week",
+   "ar": "هذا الأسبوع",
+   "context": "Decision time frame: act this week",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.ask": {
+   "en": "Ask",
+   "ar": "اسأل",
+   "context": "Decision time frame: a question to ask the people concerned",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.management": {
+   "en": "Management decision",
+   "ar": "قرار إداري",
+   "context": "Decision time frame: a management decision (e.g. approve a rule)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.scheduling_owner": {
+   "en": "Scheduling owner",
+   "ar": "مسؤول الجدولة",
+   "context": "Decision owner role: whoever sets delivery dates and runway",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.editors_manager": {
+   "en": "Editors manager",
+   "ar": "مدير المونتيرين",
+   "context": "Decision owner role: the manager of the Editors",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.ceo": {
+   "en": "CEO",
+   "ar": "الرئيس التنفيذي",
+   "context": "Decision owner role: the CEO (the reader)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.decision.owner": {
+   "en": "Owner: {role}",
+   "ar": "المسؤول: {role}",
+   "context": "Decision card: the role that owns the decision",
+   "status": "Needs Arabic Review"
   }
  }
 }

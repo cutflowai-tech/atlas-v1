@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-692 keys: 149 Approved from brief, 362 Implemented conservatively, 181 Needs Arabic Review.
+700 keys: 149 Approved from brief, 362 Implemented conservatively, 189 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -174,10 +174,18 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.confidence.low` | Low | منخفضة | Verdict confidence level | Needs Arabic Review |  |
 | `ui.v.confidence.low_tag` | Low confidence | ثقة منخفضة | Tag on a person card, shown only when the verdict's confidence is Low | Needs Arabic Review |  |
 | `ui.v.confidence.medium` | Medium | متوسطة | Verdict confidence level | Needs Arabic Review |  |
+| `ui.v.decision.owner` | Owner: {role} | المسؤول: {role} | Decision card: the role that owns the decision | Needs Arabic Review |  |
+| `ui.v.horizon.ask` | Ask | اسأل | Decision time frame: a question to ask the people concerned | Needs Arabic Review |  |
+| `ui.v.horizon.management` | Management decision | قرار إداري | Decision time frame: a management decision (e.g. approve a rule) | Needs Arabic Review |  |
+| `ui.v.horizon.this_week` | This week | هذا الأسبوع | Decision time frame: act this week | Needs Arabic Review |  |
+| `ui.v.horizon.today` | Today | اليوم | Decision time frame: act today (overdue open work) | Needs Arabic Review |  |
 | `ui.v.late.aria` | Late on {late_pct} of projects. | متأخر في {late_pct} من المشاريع. | Accessible name of the late-rate bar without counts | Needs Arabic Review |  |
 | `ui.v.late.aria_count` | Late on {late_pct} of projects ({late} of {n}). | متأخر في {late_pct} من المشاريع ({late} من {n}). | Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects | Needs Arabic Review |  |
 | `ui.v.late.none` | No deadline data this month | لا توجد بيانات مواعيد هذا الشهر | Late-rate bar when the Editor has no deadline-classifiable project in the window | Needs Arabic Review |  |
 | `ui.v.late.team` | Team average {team_pct} | متوسط الفريق {team_pct} | Tooltip and accessible text of the team-average marker on the late-rate bar | Needs Arabic Review |  |
+| `ui.v.role.ceo` | CEO | الرئيس التنفيذي | Decision owner role: the CEO (the reader) | Needs Arabic Review |  |
+| `ui.v.role.editors_manager` | Editors manager | مدير المونتيرين | Decision owner role: the manager of the Editors | Needs Arabic Review |  |
+| `ui.v.role.scheduling_owner` | Scheduling owner | مسؤول الجدولة | Decision owner role: whoever sets delivery dates and runway | Needs Arabic Review |  |
 | `ui.v.speed.faster` | {pct} faster | أسرع بنسبة {pct} | Speed pill: the Editor is faster than peers on the same Video Type by this percentage | Needs Arabic Review |  |
 | `ui.v.speed.none` | No speed comparison | لا توجد مقارنة للسرعة | Speed pill when there is no comparable peer data | Needs Arabic Review |  |
 | `ui.v.speed.same` | Same as team | مثل الفريق | Speed pill: within the display band of peers on the same Video Type | Needs Arabic Review |  |

@@ -13,6 +13,7 @@ import argparse
 from collections.abc import Sequence
 from html import escape
 from pathlib import Path
+from typing import Any
 
 from atlas_commander import site_layout
 from atlas_commander.i18n import Html, Loc, locales
@@ -93,10 +94,31 @@ def cards_section(loc: Loc) -> str:
     return f'<section id="cards"><h2>PersonCard (T3.5) · sample sentences in English until T4.1</h2><div class="row" style="align-items:stretch">{cards}</div></section>'
 
 
+DECISION_OWNERS = {v["editor_id"]: v for v, _ in CARD_SAMPLES}
+DECISION_SAMPLES: list[tuple[dict[str, Any], str]] = [
+    ({"id": "dec-000000000001", "horizon": "today", "owner_editor_ids": ["sample-3", "sample-1", "sample-4"], "owner_role": None},
+     "3 projects are past their deadline and still open. Agree a realistic delivery date."),
+    ({"id": "dec-000000000002", "horizon": "this_week", "owner_editor_ids": ["sample-3"], "owner_role": "editors_manager"},
+     "An improvement plan for the weakest Editor this week."),
+    ({"id": "dec-000000000003", "horizon": "this_week", "owner_editor_ids": [], "owner_role": "scheduling_owner"},
+     "Review how delivery dates are set: most late projects started with short runway."),
+    ({"id": "dec-000000000004", "horizon": "ask", "owner_editor_ids": ["sample-2", "sample-4"], "owner_role": None},
+     "No projects this month: leave or an assignment gap?"),
+    ({"id": "dec-000000000005", "horizon": "management", "owner_editor_ids": [], "owner_role": "ceo"},
+     "Approve the Quality rule. Atlas cannot see quality yet."),
+]
+
+
+def decisions_section(loc: Loc) -> str:
+    cards = "".join(ui.decision_card(d, Html(escape(text)), DECISION_OWNERS, loc) for d, text in DECISION_SAMPLES)
+    return (f'<section id="decisions"><h2>DecisionCard (T3.6) · all four horizons</h2>'
+            f'<div style="display:grid;gap:12px;max-inline-size:360px">{cards}</div></section>')
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}{decisions_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 
