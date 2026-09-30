@@ -274,3 +274,14 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - Findings are deduplicated twice over: Intelligence V2 still groups its cluster duplicates under their primary finding, and a duplicate
   of the verdict layer (R8) is shown as "Same measure, smaller sample" under the finding kept, not as a row of its own. The published
   count and its reconciliation note (T1.5, R4) are unchanged.
+
+## R20. The plain data-health line (T4.7)
+
+- **Source:** the build's Task 7 status snapshot (`atlas_sync.status.build_time_snapshot`), already on the page for Data & rules:
+  `freshness_state`, `system_state` and the Monday retrieval time. The line words it and computes nothing.
+- **Three states:** "safe" only when the snapshot says `fresh`; "unavailable" when there is no Monday data or the snapshot reports a
+  failed system; otherwise "delayed (last refresh …)". A freshness the snapshot could not confirm (`unknown`, or a local build without a
+  snapshot) therefore reads "delayed": the first layer never claims more than the snapshot proves. A build-time snapshot's
+  `system_state` is always `unknown` (the build cannot observe the runtime), so it is not used for "safe".
+- **Technical fields** (publication and attempt IDs, freshness seconds, attempts, dashboard document version, contract) are under More
+  details › Data health › Technical details; the first layer shows none of them, including the blank publication ID the audit saw.

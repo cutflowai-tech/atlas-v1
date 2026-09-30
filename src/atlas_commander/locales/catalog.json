@@ -5405,6 +5405,30 @@
    "ar": "المقياس نفسه بعينة أصغر",
    "context": "A duplicate finding listed under the finding kept for it (redesign §6 row 4)",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.health.safe": {
+   "en": "Data is safe to use",
+   "ar": "البيانات صالحة للاستخدام",
+   "context": "Top bar data health: the build's status snapshot classified the data as fresh",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.delayed": {
+   "en": "Data is delayed (last refresh {date})",
+   "ar": "البيانات متأخرة (آخر تحديث {date})",
+   "context": "Top bar data health: the data is delayed or its freshness could not be confirmed; the date is the Monday retrieval time",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.unavailable": {
+   "en": "Data unavailable",
+   "ar": "البيانات غير متاحة",
+   "context": "Top bar data health: no Monday data behind the page, or a failed publication",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.explain": {
+   "en": "Read from the publication's status: how fresh the Monday data is and whether the last synchronisation succeeded. The identifiers and timings are under Technical details.",
+   "ar": "مأخوذة من حالة النشر: مدى حداثة بيانات Monday وما إذا نجحت آخر مزامنة. المعرّفات والتوقيتات في التفاصيل التقنية.",
+   "context": "Data health section: what the plain line is based on",
+   "status": "Needs Arabic Review"
   }
  }
 }

@@ -227,6 +227,10 @@ background:color-mix(in srgb,var(--v-bad) 14%,var(--v-surface));color:var(--v-fg
 @media (prefers-reduced-motion:reduce){.v-profile,.v-scrim{transition:none}body.profile-open .v-profile{transition:none}}
 .v-md-index{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 20px}.v-md-index button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
 .iv-row.iv-dup{padding-inline-start:28px;font-size:12.5px;opacity:.85}
+.v-health[data-health=delayed] i,.v-health-card[data-health=delayed] i{background:var(--mix)}.v-health[data-health=unavailable] i,.v-health-card[data-health=unavailable] i{background:var(--neg)}
+.v-health-line{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600}.v-health-line i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--pos)}
+.v-health-tech{margin-block:12px}
+@media (max-width:760px){.fresh.v-health span{display:inline}.top-in{flex-wrap:wrap}.top-end{margin-inline-start:auto}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}

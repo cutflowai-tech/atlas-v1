@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-844 keys: 149 Approved from brief, 362 Implemented conservatively, 333 Needs Arabic Review.
+848 keys: 149 Approved from brief, 362 Implemented conservatively, 337 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -186,6 +186,10 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.dimension.quality` | Quality | الجودة | Verdict dimension name used inside sentences | Needs Arabic Review |  |
 | `ui.v.dimension.speed` | Speed | السرعة | Verdict dimension name used inside sentences | Needs Arabic Review |  |
 | `ui.v.dimension.volume` | Volume | الحجم | Verdict dimension name used inside sentences | Needs Arabic Review |  |
+| `ui.v.health.delayed` | Data is delayed (last refresh {date}) | البيانات متأخرة (آخر تحديث {date}) | Top bar data health: the data is delayed or its freshness could not be confirmed; the date is the Monday retrieval time | Needs Arabic Review |  |
+| `ui.v.health.explain` | Read from the publication's status: how fresh the Monday data is and whether the last synchronisation succeeded. The identifiers and timings are under Technical details. | مأخوذة من حالة النشر: مدى حداثة بيانات Monday وما إذا نجحت آخر مزامنة. المعرّفات والتوقيتات في التفاصيل التقنية. | Data health section: what the plain line is based on | Needs Arabic Review |  |
+| `ui.v.health.safe` | Data is safe to use | البيانات صالحة للاستخدام | Top bar data health: the build's status snapshot classified the data as fresh | Needs Arabic Review |  |
+| `ui.v.health.unavailable` | Data unavailable | البيانات غير متاحة | Top bar data health: no Monday data behind the page, or a failed publication | Needs Arabic Review |  |
 | `ui.v.horizon.ask` | Ask | اسأل | Decision time frame: a question to ask the people concerned | Needs Arabic Review |  |
 | `ui.v.horizon.management` | Management decision | قرار إداري | Decision time frame: a management decision (e.g. approve a rule) | Needs Arabic Review |  |
 | `ui.v.horizon.this_week` | This week | هذا الأسبوع | Decision time frame: act this week | Needs Arabic Review |  |

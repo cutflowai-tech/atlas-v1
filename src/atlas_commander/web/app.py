@@ -30,6 +30,7 @@ from atlas_commander.intelligence import CAIRO
 from atlas_commander.interpretation_html import window_line
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 from atlas_commander.web import intel
+from atlas_commander.web.health import data_health, health_line, health_link
 from atlas_commander.web.kit import (
     CLASSIFIED,
     RESULTS,
@@ -797,7 +798,14 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
                       for e in doc["editors_without_attributable_data"])
     presentation = "".join(f"<li><span>{loc.t(k)}</span></li>" for k in ("ui.presentation.order", "system.presentation.timeline",
                                                                           "system.presentation.months_v15", "system.presentation.languages"))
-    if more is not None:
+    status = operational_status(dict(status_snapshot) if status_snapshot is not None else None, loc)
+    snapshot_card = f'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:12px">{loc.t("system.snapshot")}</h3>{dl(snapshot, "dl")}</div>'
+    if more is not None:   # T4.7: Data health opens with the plain line; the technical fields sit under Technical details
+        state, last = data_health(status_snapshot, source.get("retrieved_at"))
+        plain = (f'<div class="card v-health-card" data-health="{state}"><p class="v-health-line"><i></i>{health_line(state, last, loc)}</p>'
+                 f'<p class="sm soft">{loc.t("ui.v.health.explain")}</p></div>')
+        status = (f'{plain}<details class="v-tech v-health-tech"><summary>{loc.t("ui.v.more.technical")}</summary>{status}{snapshot_card}</details>')
+        snapshot_card = ""
         index = "".join(f'<button type="button" data-jump="{target}">{loc.t(label)}</button>' for target, label in (
             ("md-findings", "ui.iv2.title"), ("md-editors", "ui.nav.editors"), ("md-pulse", "home.context_label"), ("md-rules", "ui.rules.title"),
             ("md-data", "ui.v.more_page.data")) if target != "md-findings" or 'id="md-findings"' in more)
@@ -806,11 +814,10 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
                 f'<div class="sec-h" id="md-data"><div><h2>{loc.t("ui.v.more_page.data")}</h2><p>{loc.t("system.sub")}</p></div></div>')
     else:
         head = f'<div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
-    return (f'<div data-view="system" hidden>{head}'
-            f'{operational_status(dict(status_snapshot) if status_snapshot is not None else None, loc)}'
+    return (f'<div data-view="system" hidden>{head}{status}'
             f'<div class="grid2"{' id="md-rules"' if more is not None else ""} style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>'
-            f'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:12px">{loc.t("system.snapshot")}</h3>{dl(snapshot, "dl")}</div>'
+            f'{snapshot_card}'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.editors_identity")}</h3>'
             + table([loc.t("common.editor"), loc.t("system.head.atlas_id"), loc.t("system.head.monday_label"), loc.t("system.head.mapping"), loc.t("system.head.profile"), loc.t("coverage.completed")], identity, none_row)
             + f'</div><div class="card"><h3 style="margin-bottom:12px">{loc.t("system.data_quality_notes")}</h3>'
@@ -861,8 +868,11 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
     body = _dedupe_templates(views)
     blob = json.dumps(dict(profile_pages)).replace("</", "<\\/")
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
-    fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(loc.when(retrieved, False)))}</span></a>'
-             if retrieved else "")
+    if verdicts is not None:   # T4.7: the plain data-health line instead of the update date
+        fresh = health_link(status_snapshot, retrieved, loc)
+    else:
+        fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(loc.when(retrieved, False)))}</span></a>'
+                 if retrieved else "")
     top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i><bdi dir="ltr">Atlas</bdi></a>'
            f'<nav class="nav" aria-label="{attr(loc.text("nav.main_label"))}"><a href="#/" data-nav="team" aria-current="page">{loc.t("ui.nav.editors")}</a>'
            f'<a href="#/system" data-nav="system">{loc.t("ui.v.more_page.title" if verdicts is not None else "ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
