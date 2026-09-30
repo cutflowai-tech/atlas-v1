@@ -158,7 +158,7 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: 
     tools = (f'<div class="tools"><label class="search">{icon("search", 16)}<span class="sr">{loc.t("ui.search_label")}</span>'
              f'<input id="editor-search" type="search" autocomplete="off" placeholder="{attr(loc.text("ui.search_placeholder"))}"></label>'
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
-    judgment = team_overview(verdicts, ctx) if verdicts is not None else ""   # the redesign's first layer (T4.2), when verdicts.json exists
+    judgment = team_overview(verdicts, ctx, doc, intelligence) if verdicts is not None else ""   # the redesign's first layer (T4.2), when verdicts.json exists
     heading = "h2" if judgment else "h1"   # one h1 per view: with the verdict overview, its headline is the view's h1
     legacy = (f'<div class="ph"><div><{heading}>{loc.t("ui.nav.editors")}</{heading}>{window}</div></div>'
               f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'

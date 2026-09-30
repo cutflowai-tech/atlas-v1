@@ -69,6 +69,11 @@ def _text(finding: Mapping[str, Any], loc: Loc) -> dict[str, Any]:
     return narrative.finding_text(narrative.view(finding), loc.code, marked=True)
 
 
+def finding_title(finding: Mapping[str, Any], loc: Loc) -> str:
+    """A finding's title in ``loc`` (marked text for :func:`marked_html`), as its drawer and lists show it."""
+    return str(_text(finding, loc)["title"])
+
+
 def confidence_chip(finding: Mapping[str, Any], loc: Loc) -> str:
     level = (finding.get("confidence") or {}).get("level", "weak")
     return f'<span class="iv-conf {escape(level)}" data-confidence="{escape(level)}">{loc.t("ui.iv2.confidence")}: {loc.t("ui.iv2.level." + level)}</span>'

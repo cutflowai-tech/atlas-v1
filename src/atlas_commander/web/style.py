@@ -216,6 +216,13 @@ background:color-mix(in srgb,var(--v-bad) 14%,var(--v-surface));color:var(--v-fg
 .v-prof-why h3{margin:0 0 8px;font:600 16px/1.4 var(--v-display)}.v-prof-why ul{margin:0;padding-inline-start:20px;display:grid;gap:6px;font-size:14px;line-height:1.7}
 .v-prof-more{border-block-start:1px solid var(--v-line);padding-block-start:14px}.v-prof-more summary{cursor:pointer;color:var(--v-accent);font-weight:600}
 .v-prof-more a{color:var(--v-accent)}
+.v-prof-more[open]>summary{margin-block-end:12px}.v-more-s{margin-block-end:16px;font-size:13.5px;line-height:1.7}.v-more-s h4{margin:0 0 6px;font:600 14px/1.4 var(--v-display)}
+.v-more-s p{margin:0 0 6px;color:var(--v-muted)}.v-more-s ul{margin:0;padding-inline-start:18px;display:grid;gap:4px}
+.v-link{padding:0;border:0;background:none;color:var(--v-accent);font:inherit;text-align:start;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.v-metric-e{padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:5px}
+.v-link:focus-visible,.v-metric-e:focus-visible,.v-tech summary:focus-visible{outline:2px solid var(--v-accent);outline-offset:2px}
+.v-tech{margin-block-start:8px;padding:10px 12px;border:1px dashed var(--v-line);border-radius:10px;font-size:12.5px}.v-tech summary{cursor:pointer;color:var(--v-muted)}
+.v-tech code{overflow-wrap:anywhere}
 @media (max-width:560px){.v-profile-in{padding:16px 16px 32px}.v-prof-who h2{font-size:22px}.v-metric-v{font-size:21px}}
 @media (prefers-reduced-motion:reduce){.v-profile,.v-scrim{transition:none}body.profile-open .v-profile{transition:none}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}

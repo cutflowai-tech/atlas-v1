@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-814 keys: 149 Approved from brief, 362 Implemented conservatively, 303 Needs Arabic Review.
+839 keys: 149 Approved from brief, 362 Implemented conservatively, 328 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -175,6 +175,11 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.confidence.low` | Low | منخفضة | Verdict confidence level | Needs Arabic Review |  |
 | `ui.v.confidence.low_tag` | Low confidence | ثقة منخفضة | Tag on a person card, shown only when the verdict's confidence is Low | Needs Arabic Review |  |
 | `ui.v.confidence.medium` | Medium | متوسطة | Verdict confidence level | Needs Arabic Review |  |
+| `ui.v.confidence_reason.few_projects` | few completed projects this month | عدد قليل من المشاريع المكتملة هذا الشهر | Confidence reason | Needs Arabic Review |  |
+| `ui.v.confidence_reason.missing_dimension` | a key dimension (deadlines or speed) has no value | أحد البعدين الأساسيين (المواعيد أو السرعة) بلا قيمة | Confidence reason | Needs Arabic Review |  |
+| `ui.v.confidence_reason.mixed_evidence` | a published finding qualifies the late rate | نتيجة منشورة تُقيّد قراءة نسبة التأخير | Confidence reason | Needs Arabic Review |  |
+| `ui.v.confidence_reason.none` | enough projects, every key dimension measured and no mixed evidence | عدد كافٍ من المشاريع، والأبعاد الأساسية مقيسة، ولا أدلة متعارضة | Confidence reason when confidence is High | Needs Arabic Review |  |
+| `ui.v.confidence_reason.timeline_only` | the verdict rests on the event timeline only | الحكم مبني على الخط الزمني للأحداث فقط | Confidence reason | Needs Arabic Review |  |
 | `ui.v.decision.owner` | Owner: {role} | المسؤول: {role} | Decision card: the role that owns the decision | Needs Arabic Review |  |
 | `ui.v.dimension.deadlines` | Deadlines | المواعيد | Verdict dimension name used inside sentences | Needs Arabic Review |  |
 | `ui.v.dimension.quality` | Quality | الجودة | Verdict dimension name used inside sentences | Needs Arabic Review |  |
@@ -188,6 +193,26 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.late.aria_count` | Late on {late_pct} of projects ({late} of {n}). | متأخر في {late_pct} من المشاريع ({late} من {n}). | Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects | Needs Arabic Review |  |
 | `ui.v.late.none` | No deadline data this month | لا توجد بيانات مواعيد هذا الشهر | Late-rate bar when the Editor has no deadline-classifiable project in the window | Needs Arabic Review |  |
 | `ui.v.late.team` | Team average {team_pct} | متوسط الفريق {team_pct} | Tooltip and accessible text of the team-average marker on the late-rate bar | Needs Arabic Review |  |
+| `ui.v.more.based_on` | Judged on: {dimensions}. | بُني الحكم على: {dimensions}. | Methodology: the dimensions the verdict used | Needs Arabic Review |  |
+| `ui.v.more.confidence` | Confidence {level}: {reasons}. | الثقة {level}: {reasons}. | Methodology: the confidence level and why | Needs Arabic Review |  |
+| `ui.v.more.evidence` | Evidence | الأدلة | Profile More details: the evidence drawers behind the numbers | Needs Arabic Review |  |
+| `ui.v.more.evidence_deadline` | Deadlines: the projects behind the late rate | المواعيد: المشاريع وراء نسبة التأخير | Evidence link | Needs Arabic Review |  |
+| `ui.v.more.evidence_projects` | Projects completed this month | المشاريع المكتملة هذا الشهر | Evidence link | Needs Arabic Review |  |
+| `ui.v.more.evidence_quality` | Quality: the labels on each project | الجودة: الوسوم على كل مشروع | Evidence link | Needs Arabic Review |  |
+| `ui.v.more.evidence_speed` | Speed: the projects compared with peers | السرعة: المشاريع المقارنة بالزملاء | Evidence link | Needs Arabic Review |  |
+| `ui.v.more.findings` | Findings about this Editor | النتائج الخاصة بهذا المونتير | Profile More details: this Editor's published findings without duplicates | Needs Arabic Review |  |
+| `ui.v.more.method` | How this verdict was reached | كيف صدر هذا الحكم | Profile More details: methodology heading | Needs Arabic Review |  |
+| `ui.v.more.no_findings` | No published finding is about this Editor. | لا توجد نتيجة منشورة عن هذا المونتير. | Profile More details without findings | Needs Arabic Review |  |
+| `ui.v.more.projects_title` | {name}: projects completed this month | {name}: المشاريع المكتملة هذا الشهر | Evidence drawer title | Needs Arabic Review |  |
+| `ui.v.more.score` | Score {score} of 100 ({parts}); rank {rank} of {of} ranked Editors. | الدرجة {score} من 100 ({parts})؛ المركز {rank} من {of} مصنّفين. | Methodology: the verdict score, its parts and the rank | Needs Arabic Review |  |
+| `ui.v.more.tech_decisions` | Decision IDs | معرّفات القرارات | Technical details row | Needs Arabic Review |  |
+| `ui.v.more.tech_editor` | Editor ID | معرّف المونتير | Technical details row | Needs Arabic Review |  |
+| `ui.v.more.tech_findings` | Finding IDs | معرّفات النتائج | Technical details row | Needs Arabic Review |  |
+| `ui.v.more.tech_hidden` | Hidden from the overview | مخفية من النظرة العامة | Technical details row: findings hidden from the overview and why | Needs Arabic Review |  |
+| `ui.v.more.tech_version` | Verdict and configuration | إصدار الحكم والإعدادات | Technical details row | Needs Arabic Review |  |
+| `ui.v.more.technical` | Technical details | تفاصيل تقنية | Nested disclosure with raw identifiers | Needs Arabic Review |  |
+| `ui.v.more.tiers` | How tiers are set: Weakest when late at least {weakest_pp} points above the team, or at least {weakest_speed} slower than peers and later than the team; Watch when late more than {watch_pp} points above the team, at least {watch_speed} slower, or holding overdue work; Best when in the top {best_share} of ranked Editors and worse than the team on nothing; Low activity below {low} completed projects with nothing overdue; everyone else is Steady. | كيف تُحدَّد الفئات: الأضعف عندما يزيد التأخير على الفريق بـ {weakest_pp} على الأقل (بالنقاط المئوية)، أو تكون السرعة أبطأ من الزملاء بنسبة {weakest_speed} على الأقل مع تأخير أعلى من الفريق؛ يحتاج متابعة عندما يزيد التأخير على الفريق بأكثر من {watch_pp} (بالنقاط المئوية)، أو تكون السرعة أبطأ بنسبة {watch_speed} على الأقل، أو توجد مشاريع تجاوزت موعدها؛ الأفضل ضمن أعلى {best_share} من المصنّفين دون أن يقل عن الفريق في أي بعد؛ نشاط منخفض عندما يقل المكتمل عن {low} ولا شيء متأخر؛ وكل ما عدا ذلك مستقر. | Methodology: the tier rules with the approved thresholds (config/verdict-v1.json, D54) | Needs Arabic Review |  |
+| `ui.v.more.unranked` | Not ranked: ranking needs at least {minimum} completed projects this month. | غير مصنّف: يحتاج الترتيب إلى حد أدنى من المشاريع المكتملة هذا الشهر قدره {minimum}. | Methodology: why the Editor has no rank | Needs Arabic Review |  |
 | `ui.v.profile.full` | Open the full analysis | فتح التحليل الكامل | Link from the profile drawer to the full pre-redesign profile (all sections and evidence) | Needs Arabic Review |  |
 | `ui.v.profile.late_sub` | {late} of {n} · team {team_pct} | {late} من {n} · الفريق {team_pct} | Profile metric: late projects of deadline-classifiable projects, and the team rate | Needs Arabic Review |  |
 | `ui.v.profile.lifetime` | {projects} in all | {projects} إجمالًا | Profile drawer: lifetime completed projects (counted noun) | Needs Arabic Review |  |

@@ -5225,6 +5225,156 @@
    "ar": "فتح التحليل الكامل",
    "context": "Link from the profile drawer to the full pre-redesign profile (all sections and evidence)",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.more.method": {
+   "en": "How this verdict was reached",
+   "ar": "كيف صدر هذا الحكم",
+   "context": "Profile More details: methodology heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.based_on": {
+   "en": "Judged on: {dimensions}.",
+   "ar": "بُني الحكم على: {dimensions}.",
+   "context": "Methodology: the dimensions the verdict used",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.score": {
+   "en": "Score {score} of 100 ({parts}); rank {rank} of {of} ranked Editors.",
+   "ar": "الدرجة {score} من 100 ({parts})؛ المركز {rank} من {of} مصنّفين.",
+   "context": "Methodology: the verdict score, its parts and the rank",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.unranked": {
+   "en": "Not ranked: ranking needs at least {minimum} completed projects this month.",
+   "ar": "غير مصنّف: يحتاج الترتيب إلى حد أدنى من المشاريع المكتملة هذا الشهر قدره {minimum}.",
+   "context": "Methodology: why the Editor has no rank",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.confidence": {
+   "en": "Confidence {level}: {reasons}.",
+   "ar": "الثقة {level}: {reasons}.",
+   "context": "Methodology: the confidence level and why",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.few_projects": {
+   "en": "few completed projects this month",
+   "ar": "عدد قليل من المشاريع المكتملة هذا الشهر",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.missing_dimension": {
+   "en": "a key dimension (deadlines or speed) has no value",
+   "ar": "أحد البعدين الأساسيين (المواعيد أو السرعة) بلا قيمة",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.mixed_evidence": {
+   "en": "a published finding qualifies the late rate",
+   "ar": "نتيجة منشورة تُقيّد قراءة نسبة التأخير",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.timeline_only": {
+   "en": "the verdict rests on the event timeline only",
+   "ar": "الحكم مبني على الخط الزمني للأحداث فقط",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.none": {
+   "en": "enough projects, every key dimension measured and no mixed evidence",
+   "ar": "عدد كافٍ من المشاريع، والأبعاد الأساسية مقيسة، ولا أدلة متعارضة",
+   "context": "Confidence reason when confidence is High",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tiers": {
+   "en": "How tiers are set: Weakest when late at least {weakest_pp} points above the team, or at least {weakest_speed} slower than peers and later than the team; Watch when late more than {watch_pp} points above the team, at least {watch_speed} slower, or holding overdue work; Best when in the top {best_share} of ranked Editors and worse than the team on nothing; Low activity below {low} completed projects with nothing overdue; everyone else is Steady.",
+   "ar": "كيف تُحدَّد الفئات: الأضعف عندما يزيد التأخير على الفريق بـ {weakest_pp} على الأقل (بالنقاط المئوية)، أو تكون السرعة أبطأ من الزملاء بنسبة {weakest_speed} على الأقل مع تأخير أعلى من الفريق؛ يحتاج متابعة عندما يزيد التأخير على الفريق بأكثر من {watch_pp} (بالنقاط المئوية)، أو تكون السرعة أبطأ بنسبة {watch_speed} على الأقل، أو توجد مشاريع تجاوزت موعدها؛ الأفضل ضمن أعلى {best_share} من المصنّفين دون أن يقل عن الفريق في أي بعد؛ نشاط منخفض عندما يقل المكتمل عن {low} ولا شيء متأخر؛ وكل ما عدا ذلك مستقر.",
+   "context": "Methodology: the tier rules with the approved thresholds (config/verdict-v1.json, D54)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.findings": {
+   "en": "Findings about this Editor",
+   "ar": "النتائج الخاصة بهذا المونتير",
+   "context": "Profile More details: this Editor's published findings without duplicates",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.no_findings": {
+   "en": "No published finding is about this Editor.",
+   "ar": "لا توجد نتيجة منشورة عن هذا المونتير.",
+   "context": "Profile More details without findings",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence": {
+   "en": "Evidence",
+   "ar": "الأدلة",
+   "context": "Profile More details: the evidence drawers behind the numbers",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_deadline": {
+   "en": "Deadlines: the projects behind the late rate",
+   "ar": "المواعيد: المشاريع وراء نسبة التأخير",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_speed": {
+   "en": "Speed: the projects compared with peers",
+   "ar": "السرعة: المشاريع المقارنة بالزملاء",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_projects": {
+   "en": "Projects completed this month",
+   "ar": "المشاريع المكتملة هذا الشهر",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_quality": {
+   "en": "Quality: the labels on each project",
+   "ar": "الجودة: الوسوم على كل مشروع",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.projects_title": {
+   "en": "{name}: projects completed this month",
+   "ar": "{name}: المشاريع المكتملة هذا الشهر",
+   "context": "Evidence drawer title",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.technical": {
+   "en": "Technical details",
+   "ar": "تفاصيل تقنية",
+   "context": "Nested disclosure with raw identifiers",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_editor": {
+   "en": "Editor ID",
+   "ar": "معرّف المونتير",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_version": {
+   "en": "Verdict and configuration",
+   "ar": "إصدار الحكم والإعدادات",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_findings": {
+   "en": "Finding IDs",
+   "ar": "معرّفات النتائج",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_hidden": {
+   "en": "Hidden from the overview",
+   "ar": "مخفية من النظرة العامة",
+   "context": "Technical details row: findings hidden from the overview and why",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_decisions": {
+   "en": "Decision IDs",
+   "ar": "معرّفات القرارات",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
   }
  }
 }

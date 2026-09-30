@@ -249,3 +249,17 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   the overview keeps its scroll position and focus returns to the card or face that opened it.
 - The prototype's "Add/change photo" is not in the drawer: photos are managed as files by an admin (T5.2); the browser-only upload is
   not shipped.
+
+## R18. Profile More details (T4.5)
+
+- **Tracing numbers:** each profile metric value is a button to the evidence behind it (one click): the deadline component drawer
+  (late rate), the speed component drawer, a new "projects completed this month" list (exactly the Editor's projects whose first Ready
+  For Approval falls in the window, so its length is the count shown), and the quality component drawer; each overdue alert opens the
+  Intelligence V2 open-work finding (or its Monday link when a template is configured). Numbers in the reasons are the same values, or come
+  from a finding listed under More details (two clicks). The team rate (59%) is explained in the methodology as a sum of the Editors'
+  own counts; it is not an evidence record of its own.
+- **This Editor's findings** are Intelligence V2's per-Editor list (the same list, in the same order, as the full profile's Intelligence
+  section) without the duplicates of R8. Group findings that Intelligence V2 attaches to several Editors appear for each of them, as they do
+  in the full profile.
+- **No UUID on the drawer:** Monday event UUIDs stay in the existing evidence drawers (traceability) and raw identifiers (Editor, finding
+  and decision IDs, verdict and configuration versions) are under the nested Technical details.

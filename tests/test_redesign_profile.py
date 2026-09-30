@@ -37,7 +37,7 @@ class ProfileContentTests(unittest.TestCase):
                 self.assertIn(text(ui.message(v["headline"], loc.isolating())), text(body))
                 self.assertEqual(body.count('class="v-prof-alert"'), len(v["overdue"]))
                 self.assertEqual(body.count('class="v-metric"'), 4)
-                self.assertEqual(body.split('class="v-prof-why"', 1)[1].count("<li>"), len(v["reasons"]))
+                self.assertEqual(body.split('class="v-prof-why"', 1)[1].split("</section>", 1)[0].count("<li>"), len(v["reasons"]))
                 self.assertIn('<details class="v-prof-more">', body)
                 self.assertIn(f'href="#/profile/{v["editor_id"]}"', body)
                 self.assertIn("data-profile-close", body)
@@ -47,6 +47,50 @@ class ProfileContentTests(unittest.TestCase):
     def test_without_verdicts_editor_routes_are_the_full_profile(self):
         html = render_dashboard_html(document(site_layout.DASHBOARD_JSON), {}, None, EN)
         self.assertFalse('id="vprofile"' in html or '<template id="vp-' in html)
+
+
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+class MoreDetailsTests(unittest.TestCase):
+    """T4.5: methodology, this Editor's findings without duplicates, evidence, raw IDs only under Technical details."""
+
+    def test_every_number_has_its_evidence_and_no_uuid_shows_before_technical_details(self):
+        verdicts = document(VERDICTS_JSON)
+        duplicates = {r["finding_id"] for r in verdicts["findings"]["hide_from_overview"] if r["reason"] == "duplicate"}
+        for locale in ("en", "ar"):
+            html = page(locale)
+            templates = set(re.findall(r'<template id="([^"]+)"', html))
+            for v in verdicts["editors"]:
+                body = template(html, v["editor_id"])
+                visible, technical = body.split('<details class="v-tech">', 1)
+                self.assertIsNone(UUID.search(visible), (locale, v["editor_id"]))
+                self.assertIn(v["editor_id"], technical)
+                targets = re.findall(r'data-drawer="([^"]+)"', body)
+                self.assertTrue(targets and set(targets) <= templates, (locale, v["editor_id"], set(targets) - templates))
+                metrics = re.findall(r'class="v-metric-e" data-drawer="([^"]+)"', body)            # one click from each number shown
+                expected = 2 + (v["metrics"]["late_rate"] is not None) + (v["metrics"]["speed_band"] is not None)   # projects and quality always
+                self.assertEqual(len(metrics), expected, (locale, v["editor_id"]))
+                self.assertIn(f'data-drawer="vp-{v["editor_id"]}-projects"', body)
+                for finding_id in duplicates:
+                    self.assertNotIn(f'data-drawer="iv2-{finding_id.replace(".", "-").replace(":", "-")}"', visible, (locale, finding_id))
+                self.assertIn('class="v-more-s"', body)
+
+    def test_the_projects_of_the_month_are_exactly_the_count_shown(self):
+        verdicts = document(VERDICTS_JSON)
+        html = page("en")
+        for v in verdicts["editors"]:
+            listed = html.split(f'<template id="vp-{v["editor_id"]}-projects"', 1)[1].split("</template>", 1)[0]
+            self.assertEqual(listed.count('<button type="button" data-drawer='), v["metrics"]["completed"], v["display_name"])
+
+    def test_methodology_states_the_approved_numbers(self):
+        verdicts = document(VERDICTS_JSON)
+        values = verdicts["config"]["values"]
+        ranked = next(v for v in verdicts["editors"] if v["rank"])
+        body = text(template(page("en"), ranked["editor_id"]))
+        self.assertIn(f'Weakest when late at least {int(values["tier.weakest_late_above_team_pp"])} points above the team', body)
+        self.assertIn(f"rank {ranked['rank']} of {ranked['ranked_of']} ranked Editors", body)
+        self.assertIn("Judged on:", body)
 
 
 def _state():
@@ -106,6 +150,22 @@ class ProfileBehaviourTests(unittest.TestCase):
                         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth};
             """, width=390, height=844, fragment=f"/editor/{editor}")
             self.assertEqual((result["width"], result["left"], result["overflow"], result["pageOverflow"]), (390, 0, 0, 0), (locale, result))
+
+    def test_evidence_opens_on_top_and_a_finding_is_two_clicks_away(self):
+        editor = self.editor()
+        with Browser(width=1440, height=900) as browser:
+            browser.open(page("en"), f"/editor/{editor}")
+            opened = browser.run("""await wait(400); document.querySelector('#vprofile .v-metric-e').click(); await wait(300);
+                const d = document.getElementById('drawer').getBoundingClientRect();
+                return {evidence: document.body.classList.contains('drawer-open'), onTop: !!document.elementFromPoint(d.left + d.width / 2, d.top + 60).closest('#drawer')};""")
+            browser.key("Escape")
+            after = browser.run("await wait(300); return {evidence: document.body.classList.contains('drawer-open'), profile: document.body.classList.contains('profile-open'), focus: document.activeElement.className};")
+            finding = browser.run("""document.querySelector('#vprofile .v-prof-more summary').click(); await wait(100);
+                const f = document.querySelector('#vprofile .v-more-s .v-link'); f.click(); await wait(300);
+                return {evidence: document.body.classList.contains('drawer-open')};""")
+        self.assertEqual(opened, {"evidence": True, "onTop": True})
+        self.assertEqual(after, {"evidence": False, "profile": True, "focus": "v-metric-e"})
+        self.assertTrue(finding["evidence"])
 
     def test_the_full_analysis_stays_reachable(self):
         editor = self.editor()
