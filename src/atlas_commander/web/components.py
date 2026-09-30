@@ -15,7 +15,7 @@ from html import escape
 from pathlib import Path
 
 from atlas_commander import site_layout
-from atlas_commander.i18n import Loc, locales
+from atlas_commander.i18n import Html, Loc, locales
 from atlas_commander.web import verdict_ui as ui
 from atlas_commander.web.style import CSS
 
@@ -68,10 +68,35 @@ def labels_section(loc: Loc) -> str:
     return f'<section id="labels"><h2>SpeedPill, TierChip, ConfidenceTag (T3.4)</h2>{"".join(rows)}</section>'
 
 
+def _sample(editor_id: str, name: str, tier: str, rank: int | None, confidence: str, late: tuple[int, int] | None, speed: tuple[float, str, str] | None,
+            completed: int, active: int) -> dict:
+    return {"editor_id": editor_id, "display_name": name, "tier": tier, "rank": rank, "ranked_of": 8, "confidence": confidence, "photo_url": None,
+            "metrics": {"late_rate": late[0] / late[1] if late else None, "late_count": late[0] if late else None, "deadline_classifiable": late[1] if late else 0,
+                        "team_late_rate": 0.589, "late_tone": ("bad" if late and late[0] / late[1] > 0.689 else "warn" if late and late[0] / late[1] > 0.589 else "good") if late else "neutral",
+                        "speed_delta_pct": speed[0] if speed else None, "speed_band": speed[1] if speed else None, "speed_tone": speed[2] if speed else "neutral",
+                        "completed": completed, "active": active}}
+
+
+CARD_SAMPLES = [
+    (_sample("sample-1", "Layla", "best", 1, "medium", (6, 20), (-23.0, "faster", "good"), 20, 2),
+     "Best this month: the highest load, faster than peers, and late less often."),
+    (_sample("sample-3", "احمد", "weakest", 8, "medium", (12, 14), (43.0, "slower", "bad"), 14, 1),
+     "The weakest this month: late on 86% of projects, slower than peers and than their own history. Scheduling does not explain it."),
+    (_sample("sample-4", "Sample Editor (Office)", "low_activity", None, "low", (1, 2), (2.8, "same", "neutral"), 2, 1),
+     "Low activity: 2 projects this month."),
+    (_sample("sample-2", "إسلام", "low_activity", None, "low", None, None, 0, 0), "No projects this month and nothing in progress."),
+]
+
+
+def cards_section(loc: Loc) -> str:
+    cards = "".join(f'<div style="inline-size:320px">{ui.person_card(v, Html(escape(text)), loc)}</div>' for v, text in CARD_SAMPLES)
+    return f'<section id="cards"><h2>PersonCard (T3.5) · sample sentences in English until T4.1</h2><div class="row" style="align-items:stretch">{cards}</div></section>'
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 

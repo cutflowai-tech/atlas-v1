@@ -5,9 +5,9 @@ import re
 import unittest
 
 from browser_harness import chrome, run_scenario
-from verdict_fixture import verdicts
+from verdict_fixture import editor, verdicts
 
-from atlas_commander.i18n import AR, EN
+from atlas_commander.i18n import AR, EN, Html
 from atlas_commander.verdict.config import load_config
 from atlas_commander.verdict.inputs import late_tone, speed_reading
 from atlas_commander.web import verdict_ui as ui
@@ -167,6 +167,52 @@ class LateBarRenderTests(unittest.TestCase):
             self.assertEqual([b["fill"] for b in bars[:4]], [0, 55, 86, 100], (loc, bars))
             self.assertTrue(all(b["fillStart"] <= 1 for b in bars), (loc, bars))      # every bar grows from the inline start
             self.assertTrue(all(58 <= b["marker"] <= 60 for b in bars), (loc, bars))  # the team marker at 59% from the inline start
+
+
+class PersonCardTests(unittest.TestCase):
+    """T3.5."""
+
+    def card(self, name="Refaat", loc=EN):
+        verdict = editor(verdicts(), name)
+        return verdict, ui.person_card(verdict, Html("The weakest this month."), loc)
+
+    def test_one_link_to_the_profile_with_every_part(self):
+        verdict, card = self.card()
+        self.assertTrue(card.startswith(f'<a class="v-card" href="#/editor/{verdict["editor_id"]}"'))
+        self.assertEqual(len(re.findall(r"<(a|button|input|select|textarea)\b", card)), 1)       # the card is the only interactive element
+        for part in ('class="v-av s56"', 'data-tier="weakest"', '<bdi dir="ltr">8</bdi>', "The weakest this month.", 'class="v-late"',
+                     'class="v-pill v-speed"', "14</data> this month", "1</data> in progress"):
+            self.assertIn(part, card)
+        self.assertNotIn("Low confidence", card)                                               # Refaat is Medium
+
+    def test_low_confidence_shows_and_arabic_labels(self):
+        _, card = self.card("Sobhy", AR)
+        self.assertIn("ثقة منخفضة", card)
+        for label in ("التأخير", "السرعة", "المشاريع", "هذا الشهر"):
+            self.assertIn(label, card)
+
+
+CARD_CHECK = """
+    await wait(300);
+    const card = document.querySelector('#cards .v-card');
+    card.focus();
+    const before = getComputedStyle(card).outlineStyle;
+    document.body.focus();
+    // keyboard focus: Tab from the start of the page reaches the first card
+    const links = [...document.querySelectorAll('a[href], button')];
+    return {focusable: links.indexOf(card) >= 0, outlineOnFocus: before, width: Math.round(card.getBoundingClientRect().width),
+            overflow: [...document.querySelectorAll('#cards .v-card')].some(c => c.scrollWidth > c.clientWidth + 1)};
+"""
+
+
+@unittest.skipIf(chrome() is None, "headless Chrome is not available")
+class PersonCardRenderTests(unittest.TestCase):
+    def test_focus_is_visible_and_nothing_overflows(self):
+        for loc in (EN, AR):
+            result = run_scenario(render_components(loc), CARD_CHECK, width=1440, height=900)
+            self.assertTrue(result["focusable"], result)
+            self.assertEqual(result["outlineOnFocus"], "solid", result)     # :focus-visible after programmatic focus in headless Chrome
+            self.assertFalse(result["overflow"], result)
 
 
 class ComponentPageTests(unittest.TestCase):

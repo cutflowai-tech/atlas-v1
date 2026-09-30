@@ -9,8 +9,10 @@ both directions share one design. Every Latin value, number and ID is isolated f
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal
 from html import escape
+from typing import Any
 
 from atlas_commander.i18n import Html, Loc
 
@@ -118,3 +120,27 @@ def confidence_tag(confidence: str, loc: Loc, *, in_profile: bool = False) -> Ht
     if confidence != "low":
         return Html("")
     return Html(f'<span class="v-chip v-conf" data-confidence="low">{loc.t("ui.v.confidence.low_tag")}</span>')
+
+
+def person_card(verdict: Mapping[str, Any], headline: Html, loc: Loc) -> Html:
+    """T3.5: one Editor of ``verdicts.json`` as a card: avatar (tier ring, rank badge), name, the one-line verdict (``headline``,
+    already rendered from its message key), late-rate bar, speed pill, projects this month and, only when it applies, "Low
+    confidence". The whole card is one link to the Editor's profile route (``#/editor/<id>``, the drawer of T4.4)."""
+    m = verdict["metrics"]
+    editor_id = verdict["editor_id"]
+    projects = loc.t("ui.v.card.this_month", n=loc.num(m["completed"]))
+    if m["active"]:
+        projects = Html(f'{projects}<span class="v-card-open">{loc.t("ui.v.card.in_progress", n=loc.num(m["active"]))}</span>')
+    rows = [(loc.t("ui.v.card.late"), late_bar(m["late_rate"], m["team_late_rate"], m["late_tone"], loc, late=m["late_count"],
+                                                classifiable=m["deadline_classifiable"])),
+            (loc.t("ui.v.card.speed"), speed_pill(m["speed_delta_pct"], m["speed_band"], m["speed_tone"], loc)),
+            (loc.t("ui.v.card.projects"), projects)]
+    body = "".join(f'<span class="v-card-k">{k}</span><span class="v-card-v">{v}</span>' for k, v in rows)
+    tag = confidence_tag(verdict["confidence"], loc)
+    return Html(f'<a class="v-card" href="#/editor/{escape(editor_id, quote=True)}" data-editor-id="{escape(editor_id, quote=True)}" '
+                f'data-tier="{escape(verdict["tier"])}">'
+                f'<span class="v-card-h">{avatar(editor_id, verdict["display_name"], loc, size=56, tier=verdict["tier"], rank=verdict["rank"], ranked_of=verdict["ranked_of"], photo_url=verdict.get("photo_url"))}'
+                f'<span class="v-card-name">{loc.src(verdict["display_name"])}</span></span>'
+                f'<span class="v-card-verdict">{headline}</span>'
+                f'<span class="v-card-m">{body}</span>'
+                f'{f"<span class=v-card-f>{tag}</span>" if tag else ""}</a>')

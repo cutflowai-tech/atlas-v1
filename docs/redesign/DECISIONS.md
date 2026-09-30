@@ -202,3 +202,11 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Token names:** the handoff's names (`--bg`, `--surface`, `--line`, `--good`, …) already exist in the design system with other
   values. The redesign's tokens are prefixed `--v-` so the current pages stay pixel-identical until a redesigned view uses them;
   tier (`--v-tier-<tier>`) and decision-horizon (`--v-horizon-<horizon>`) aliases follow the prototype (ask = idle).
+
+## R14. Person cards: one link, one name (T3.5)
+
+- **"The whole card is one button":** the card is one `<a href="#/editor/<id>">`, a single interactive target like a button, because
+  the profile drawer is bound to that URL (T4.4, R1): Enter, click, middle-click and deep links all work, and Back closes it.
+- **Name (+ Latin name):** Atlas has one name per Editor, the Monday "Editor Name" value (mostly Latin), shown as recorded and isolated
+  in Arabic. The prototype's Arabic transliterations (e.g. "ويل" for Will) were hand-written and have no source in the data, so the
+  card shows the Monday name only; adding transliterations would need a maintained mapping (not in scope).

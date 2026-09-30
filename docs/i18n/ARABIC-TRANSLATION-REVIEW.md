@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-687 keys: 149 Approved from brief, 362 Implemented conservatively, 176 Needs Arabic Review.
+692 keys: 149 Approved from brief, 362 Implemented conservatively, 181 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -164,6 +164,11 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.timeline.positive_marker` | Positive label: {label} | علامة إيجابية: {label} | Timeline marker description | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.v.avatar.ranked` | {name}, {tier}, rank {rank} of {of} | {name}، {tier}، الترتيب {rank} من {of} | Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors | Needs Arabic Review |  |
 | `ui.v.avatar.tier` | {name}, {tier} | {name}، {tier} | Accessible name of an Editor avatar: name and tier | Needs Arabic Review |  |
+| `ui.v.card.in_progress` | {n} in progress | {n} قيد التنفيذ | Person card: projects in progress now (Active Work) | Needs Arabic Review |  |
+| `ui.v.card.late` | Late | التأخير | Person card row label: the late-rate bar | Needs Arabic Review |  |
+| `ui.v.card.projects` | Projects | المشاريع | Person card row label: projects completed this window | Needs Arabic Review |  |
+| `ui.v.card.speed` | Speed | السرعة | Person card row label: speed against peers on the same Video Type | Needs Arabic Review |  |
+| `ui.v.card.this_month` | {n} this month | {n} هذا الشهر | Person card: projects completed in the current 30-day window (the prototype's wording) | Needs Arabic Review |  |
 | `ui.v.confidence.high` | High | عالية | Verdict confidence level | Needs Arabic Review |  |
 | `ui.v.confidence.level` | Confidence: {level} | الثقة: {level} | Confidence chip in the Editor profile | Needs Arabic Review |  |
 | `ui.v.confidence.low` | Low | منخفضة | Verdict confidence level | Needs Arabic Review |  |

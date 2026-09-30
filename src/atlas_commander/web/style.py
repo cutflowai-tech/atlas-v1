@@ -149,6 +149,16 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-chip{border:1px solid var(--v-line);color:var(--v-fg);background:var(--v-surface)}.v-dot{inline-size:8px;block-size:8px;border-radius:2px;background:var(--v-tier,var(--v-idle))}
 .v-tier[data-tier=best]{--v-tier:var(--v-tier-best)}.v-tier[data-tier=steady]{--v-tier:var(--v-tier-steady)}.v-tier[data-tier=watch]{--v-tier:var(--v-tier-watch)}.v-tier[data-tier=weakest]{--v-tier:var(--v-tier-weakest)}.v-tier[data-tier=low_activity]{--v-tier:var(--v-tier-low_activity)}
 .v-tier{border-color:color-mix(in srgb,var(--v-tier) 45%,var(--v-line))}
+.v-card{display:flex;flex-direction:column;gap:14px;padding:20px;border:1px solid var(--v-line);border-radius:16px;background:var(--v-surface);color:var(--v-fg);text-decoration:none;font-family:var(--v-body);min-inline-size:0;transition:border-color var(--t),transform var(--t)}
+.v-card:hover{border-color:color-mix(in srgb,var(--v-accent) 45%,var(--v-line))}
+.v-card:focus-visible{outline:2px solid var(--v-accent);outline-offset:3px}
+.v-card-h{display:flex;align-items:center;gap:14px;min-inline-size:0}.v-card-name{font:600 19px/1.3 var(--v-display);overflow-wrap:anywhere}
+.v-card-verdict{font-size:14.5px;line-height:1.6;color:var(--v-fg)}
+.v-card-m{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px 16px;padding-block-start:14px;border-block-start:1px solid var(--v-line)}
+.v-card-k{font-size:12.5px;color:var(--v-muted)}.v-card-v{min-inline-size:0;font-size:13.5px}.v-card-v .v-late{max-inline-size:none}
+.v-card-open{color:var(--v-muted)}.v-card-open::before{content:" · "}
+.v-card-f{margin-block-start:-4px}
+@media (prefers-reduced-motion:reduce){.v-card{transition:none}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}

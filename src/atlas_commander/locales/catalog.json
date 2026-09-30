@@ -4413,6 +4413,36 @@
    "ar": "ثقة منخفضة",
    "context": "Tag on a person card, shown only when the verdict's confidence is Low",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.card.late": {
+   "en": "Late",
+   "ar": "التأخير",
+   "context": "Person card row label: the late-rate bar",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.speed": {
+   "en": "Speed",
+   "ar": "السرعة",
+   "context": "Person card row label: speed against peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.projects": {
+   "en": "Projects",
+   "ar": "المشاريع",
+   "context": "Person card row label: projects completed this window",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.this_month": {
+   "en": "{n} this month",
+   "ar": "{n} هذا الشهر",
+   "context": "Person card: projects completed in the current 30-day window (the prototype's wording)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.in_progress": {
+   "en": "{n} in progress",
+   "ar": "{n} قيد التنفيذ",
+   "context": "Person card: projects in progress now (Active Work)",
+   "status": "Needs Arabic Review"
   }
  }
 }
