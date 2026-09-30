@@ -204,6 +204,65 @@ Engineering rules kept by this approval (all more conservative than the threshol
 
 Source: management approval of the D53 proposals relayed on 2026-09-30 in the Intelligence V2 production instruction.
 
+## D54 — Redesign: judgment-first overview, verdicts, tiers and ranking — owner handoff 2026-09-30
+
+**Status: APPROVED as the owner's defaults (2026-09-30), changeable by the owner.** Source: the owner's `atlas-redesign-handoff`
+package (README "Product decisions: defaults until the owner changes them" and `02-VERDICT-ENGINE-SPEC.md` §3–§8), relayed with the
+instruction to implement it completely. The owner rejects "Atlas never ranks Editors" and "Atlas prefers silence over an unsupported
+conclusion": Atlas now judges, ranks and proposes, and low data lowers confidence instead of silencing a verdict.
+
+- **Scope.** A separate judgment layer (`verdicts.json`, `atlas_commander.verdict`) on top of the unchanged facts: per Editor a
+  tier (Best, Steady, Watch, Weakest, Low activity), a rank and a 0–100 score for Editors with at least 5 completed projects, a
+  confidence (High, Medium, Low) with its reasons, a one-line verdict and 2–4 reasons; a team verdict; and up to 5 decisions, each
+  with an owner and a time frame (Today, This week, Ask, Management decision).
+- **Supersedes, for this layer only:** `docs/HANDOFF-V2.md` §24 and §36 (no leaderboard, no numbered rank) and D47 (no provisional
+  status below the minimum sample). D37 (Overall Status is a lookup, no score) is unchanged: Overall Status is still computed and
+  shown under More details, and the verdict score never feeds it. No metric, component state, Trend or finding changes.
+- **Language.** Plain CEO sentences, English and Arabic from the same message keys; no HR, disciplinary or personality language
+  (D53.1 still applies). "Weakest" is a ranking position for the window, not a judgement of the person.
+- **Decision owners.** Editor names when a decision is about specific Editors, otherwise the roles Scheduling owner, Editors manager
+  or CEO.
+- **Photos.** Monday avatar if available, else `assets/editors/<editor-id>.jpg`, else the initial.
+- **Language default.** Arabic, with the existing switcher.
+
+Every value is in `config/verdict-v1.json` with `decision_id` D54 (or D53 for the two values shared with Intelligence V2), and
+`atlas_commander.verdict.config` refuses any other decision; `tests/test_redesign_verdict_config.py` fails if this table and the
+configuration disagree.
+
+| Rule | Configuration |
+|---|---|
+| Low activity: fewer than this many completed projects in the window and no overdue open work (zero projects always is) | `tier.low_activity_below_completed` = 3 |
+| Weakest: late rate at least this many percentage points above the team late rate | `tier.weakest_late_above_team_pp` = 20 |
+| Weakest: at least this much slower than peers (%) while also later than the team | `tier.weakest_speed_pct` = 30 |
+| Watch: late rate more than this many percentage points above the team late rate | `tier.watch_late_above_team_pp` = 5 |
+| Watch: at least this much slower than peers (%) | `tier.watch_speed_pct` = 25 |
+| Best: score in this top share of ranked Editors, and no dimension worse than the team | `tier.best_top_share` = 0.25 |
+| Minimum completed projects in the window to be scored and ranked (below it: a verdict with low confidence, no rank) | `score.minimum_completed` = 5 |
+| Score weight of deadlines while Quality has no approved rule | `score.weight_deadlines` = 0.4 |
+| Score weight of speed while Quality has no approved rule | `score.weight_speed` = 0.35 |
+| Score weight of volume while Quality has no approved rule | `score.weight_volume` = 0.25 |
+| Score weight of Quality once a Quality rule is approved; the other weights then share the rest proportionally | `score.weight_quality` = 0.25 |
+| Points of a dimension exactly at the team level | `score.neutral` = 50 |
+| Lowest points of a dimension | `score.minimum` = 0 |
+| Highest points of a dimension | `score.maximum` = 100 |
+| Deadline points per percentage point of late rate below (+) or above (-) the team | `score.deadline_points_per_pp` = 2 |
+| Speed points lost per percent slower than peers (gained per percent faster) | `score.speed_points_per_pct` = 1.25 |
+| Volume points per multiple of the ranked Editors' median completed projects above (+) or below (-) the median | `score.volume_points_per_median_multiple` = 50 |
+| Fewer completed projects than this lowers confidence one level (few_projects) | `confidence.few_projects_below` = 10 |
+| Team state critical at or above this late rate | `team.critical_late_rate` = 0.7 |
+| Team state critical at or above this many open projects past Requested ETA | `team.critical_overdue` = 5 |
+| Team state needs intervention at or above this late rate | `team.intervention_late_rate` = 0.4 |
+| Team trend is flat when the late rate moved by at most this many percentage points against the previous window | `team.flat_band_pp` = 5 |
+| Decisions shown on the overview (all candidates stay under More details) | `decisions.overview_max` = 5 |
+| Propose a scheduling review when at least this share of late projects started with short runway | `decisions.scheduling_runway_share` = 0.5 |
+| Late-rate bar is bad above the team rate plus this many points, warn above the team rate, good otherwise | `display.late_bad_above_team_pp` = 10 |
+| Speed within this many percent of peers reads 'Same as team' | `display.speed_same_band_pct` = 5 |
+| Slower than peers by more than this reads as bad (warn below it) | `display.speed_bad_above_pct` = 30 |
+| Decimals kept for rates (fractions) in the document | `precision.rate_digits` = 4 |
+| Decimals kept for percentages and scores in the document | `precision.pct_digits` = 1 |
+| A change 'mirrors the team' when it differs from the team's change by less than this (rates, absolute) | from `config/intelligence-v2.json` (evidence.material_rate_difference, D53) |
+| A change 'mirrors the team' when it differs from the team's change by less than this (durations, relative %) | from `config/intelligence-v2.json` (evidence.material_duration_pct, D53) |
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**

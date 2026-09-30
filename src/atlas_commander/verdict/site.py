@@ -10,16 +10,20 @@ from typing import Any
 
 from atlas_commander.capabilities import capabilities
 from atlas_commander.contracts import schema_errors
+from atlas_commander.verdict.config import VerdictConfig, load_config
 from atlas_commander.verdict.engine import SCHEMA, build_verdicts
 
 VERDICTS_JSON = "verdicts.json"
 
 
-def build_site_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str) -> dict[str, Any] | None:
-    """The verdict document for a contract with Editor intelligence (1.5.0+); otherwise None."""
-    if not capabilities(dashboard["source"]["executable_contract_version"]).editor_intelligence:
+def build_site_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str,
+                        config: VerdictConfig | None = None) -> dict[str, Any] | None:
+    """The verdict document when ``config/verdict-v1.json`` includes it in site builds and the contract has Editor intelligence
+    (1.5.0+); otherwise None."""
+    config = config or load_config()
+    if not config.include_in_site_build or not capabilities(dashboard["source"]["executable_contract_version"]).editor_intelligence:
         return None
-    return build_verdicts(dashboard, intelligence, generated_at)
+    return build_verdicts(dashboard, intelligence, generated_at, config)
 
 
 def write_document(site: Path, document: Mapping[str, Any]) -> Path:
@@ -36,7 +40,7 @@ def site_problems(path: Path, contract_version: str, retrieved_at: Any) -> list[
         return [f"{VERDICTS_JSON} is not valid JSON"]
     if not isinstance(document, dict):
         return [f"{VERDICTS_JSON} is not a document"]
-    problems = [f"{VERDICTS_JSON}: {error}" for error in schema_errors(document, SCHEMA)[:5]]
+    problems = [f"{VERDICTS_JSON}: {error}" for error in schema_errors(document, SCHEMA)]   # the publisher caps the list it reports
     if problems:
         return problems
     if (document.get("source") or {}).get("retrieved_at") != retrieved_at:

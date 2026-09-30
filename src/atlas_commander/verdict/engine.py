@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from atlas_commander.verdict.config import VerdictConfig, load_config
+
 DOCUMENT_VERSION = "1.0.0"
 VERDICT_VERSION = "verdict-v1.0"
 SCHEMA = "verdict-v1.schema.json"
@@ -13,8 +15,10 @@ NOTE = ("Judgment layer of the Atlas redesign (D54). Computed at build time from
         "never silences a verdict.")
 
 
-def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str) -> dict[str, Any]:
+def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str,
+                   config: VerdictConfig | None = None) -> dict[str, Any]:
     """The verdict document for ``dashboard`` (and its Intelligence V2 document, when one was published)."""
+    config = config or load_config()
     source = dashboard["source"]
     editors = dashboard["editors"]
     window = editors[0]["interpretation"]["window"] if editors else None
@@ -28,7 +32,7 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
         "windows": {"timezone": "Africa/Cairo",
                     "current": _window(window["current"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"},
                     "comparison": _window(window["comparison"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"}},
-        "config": {"version": "verdict-config-v0", "decision_id": "D54", "values": {}},
+        "config": config.as_document(),
         "team": None,
         "editors": [],
         "decisions": [],
