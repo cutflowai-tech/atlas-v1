@@ -38,6 +38,15 @@ States: `pending`, `in_progress`, `verified`, `blocked`.
 
 Backlog B1–B8 is out of scope ("after release").
 
+## Status at the pull request (2026-09-30)
+
+- 44 of 47 tasks verified; 3 blocked on the owner, each documented with what remains: **T5.1** (real Editor photos; the mechanism is
+  verified), **T6.3** (the numbers script passes; the owner's review and sign-off of the editor / tier / rank table are pending), **T6.4**
+  (release after that sign-off; not deployed, R25). Backlog B1–B8 is out of scope.
+- Base `origin/main` `b036834` (unchanged at the end; nothing to integrate). `make test`: 925 tests OK (174 in `make redesign`), ruff and
+  mypy clean. Real build of production run `20260929T210734Z-4cb4bfa25596`: verdicts for all 14 Editors, `verify` numbers match,
+  zero serious accessibility issues on every route, theme and language, responsive at 390–2560 px.
+
 ## Log
 
 One line per task: ID, date, what changed, how it was verified.
