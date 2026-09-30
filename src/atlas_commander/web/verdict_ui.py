@@ -170,3 +170,17 @@ def decision_card(decision: Mapping[str, Any], title: Html, editors: Mapping[str
     return Html(f'<article class="v-dec" data-horizon="{horizon}" data-decision-id="{escape(decision["id"], quote=True)}">'
                 f'<p class="v-dec-when">{loc.t("ui.v.horizon." + horizon)}</p><h3 class="v-dec-title">{title}</h3>'
                 f'<p class="v-dec-who">{f"<span class=v-dec-faces>{faces}</span>" if faces else ""}<span>{who}</span></p></article>')
+
+
+def tier_section(tier: str, cards: list[Html], loc: Loc) -> Html:
+    """T3.7: a tier's heading (colour square, label, count, short description) above a responsive grid of person cards: as many
+    270 px columns as fit, at most four, and a lone card keeps its column width (no orphan stretching). No cards, no section."""
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}")
+    if not cards:
+        return Html("")
+    heading = f"v-tier-{tier}-h"
+    return Html(f'<section class="v-tsec" data-tier="{tier}" aria-labelledby="{heading}">'
+                f'<header class="v-tsec-h"><h2 id="{heading}"><span class="v-sq" aria-hidden="true"></span>{loc.t("ui.v.tier." + tier)}'
+                f'<span class="v-tsec-n">{loc.num(len(cards))}</span></h2><p>{loc.t("ui.v.tier_desc." + tier)}</p></header>'
+                f'<div class="v-grid">{"".join(cards)}</div></section>')

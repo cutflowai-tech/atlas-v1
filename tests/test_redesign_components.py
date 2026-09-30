@@ -12,6 +12,7 @@ from atlas_commander.verdict.config import load_config
 from atlas_commander.verdict.inputs import late_tone, speed_reading
 from atlas_commander.web import verdict_ui as ui
 from atlas_commander.web.components import render_components
+from atlas_commander.web.style import CSS
 
 
 class AvatarTests(unittest.TestCase):
@@ -257,6 +258,45 @@ class DecisionCardRenderTests(unittest.TestCase):
             colours = {c["horizon"]: c["color"] for c in cards}
             self.assertEqual(len(set(colours.values())), 4, colours)
             self.assertEqual([c["faces"] for c in cards], [3, 1, 0, 2, 0])
+
+
+class TierSectionTests(unittest.TestCase):
+    """T3.7."""
+
+    def test_heading_count_description_and_empty_tier(self):
+        cards = [Html("<a class=v-card>1</a>"), Html("<a class=v-card>2</a>")]
+        section = ui.tier_section("weakest", cards, EN)
+        self.assertIn('aria-labelledby="v-tier-weakest-h"', section)
+        self.assertIn('<span class="v-sq" aria-hidden="true"></span>Weakest<span class="v-tsec-n"><data value="2">2</data></span>', section)
+        self.assertIn("<p>Need intervention now</p>", section)
+        self.assertIn("<p>يحتاج تدخّلًا الآن</p>", ui.tier_section("weakest", cards, AR))
+        self.assertEqual(ui.tier_section("best", [], EN), "")
+
+
+def _grid_page(loc):
+    cards = [Html(f'<a class="v-card" href="#">{i}</a>') for i in range(4)]
+    frames = "".join(f'<div class="frame" style="inline-size:{w}px">{ui.tier_section("steady", cards[:n], loc)}</div>'
+                     for w, n in ((300, 2), (600, 3), (900, 4), (1200, 4), (1600, 4), (1600, 1)))
+    return f'<!doctype html><html lang="{loc.code}" dir="{"rtl" if loc.code == "ar" else "ltr"}"><head><style>{CSS}</style></head><body>{frames}</body></html>'
+
+
+GRID_CHECK = """
+    await wait(200);
+    return [...document.querySelectorAll('.frame')].map(f => {
+      const g = f.querySelector('.v-grid');
+      return {cols: getComputedStyle(g).gridTemplateColumns.split(' ').length, first: Math.round(g.children[0].getBoundingClientRect().width)};
+    });
+"""
+
+
+@unittest.skipIf(chrome() is None, "headless Chrome is not available")
+class TierSectionRenderTests(unittest.TestCase):
+    def test_one_to_four_columns_and_no_orphan_stretching(self):
+        for loc in (EN, AR):
+            frames = run_scenario(_grid_page(loc), GRID_CHECK, width=1700, height=900)
+            self.assertEqual([f["cols"] for f in frames], [1, 2, 3, 4, 4, 4], frames)
+            self.assertTrue(all(f["first"] >= 270 for f in frames[1:]), frames)          # never narrower than 270 px once there is room
+            self.assertEqual(frames[5]["first"], frames[4]["first"], frames)               # a lone card keeps its column width
 
 
 class ComponentPageTests(unittest.TestCase):

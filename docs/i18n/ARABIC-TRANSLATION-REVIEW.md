@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-700 keys: 149 Approved from brief, 362 Implemented conservatively, 189 Needs Arabic Review.
+705 keys: 149 Approved from brief, 362 Implemented conservatively, 194 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -195,6 +195,11 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.tier.steady` | Steady | مستقر | Redesign tier label (Steady: no concern, not outstanding) | Needs Arabic Review |  |
 | `ui.v.tier.watch` | Watch | يحتاج متابعة | Redesign tier label (Watch: later or slower than the team, or overdue work) | Needs Arabic Review |  |
 | `ui.v.tier.weakest` | Weakest | الأضعف | Redesign tier label (Weakest: far later than the team, or much slower and later) | Needs Arabic Review |  |
+| `ui.v.tier_desc.best` | Deserve recognition | يستحقون التقدير | Short description under the Best tier heading | Needs Arabic Review |  |
+| `ui.v.tier_desc.low_activity` | Ask why | اسأل عن السبب | Short description under the Low activity tier heading | Needs Arabic Review |  |
+| `ui.v.tier_desc.steady` | No concern, not outstanding | لا قلق ولا تميّز | Short description under the Steady tier heading | Needs Arabic Review |  |
+| `ui.v.tier_desc.watch` | Watch next month | راقب الشهر القادم | Short description under the Watch tier heading | Needs Arabic Review |  |
+| `ui.v.tier_desc.weakest` | Need intervention now | يحتاج تدخّلًا الآن | Short description under the Weakest tier heading | Needs Arabic Review |  |
 | `ui.work.sub` | Items by their current Monday status, as of {date}. | العناصر حسب حالتها الحالية في Monday، حتى {date}. | Current work section subtitle | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `activity.empty_detail` | A missing label is not an assessment of quality. | غياب المؤشرات لا يُعد تقييمًا لجودة العمل. | Empty state detail | Implemented conservatively |  |
 | `activity.empty_title` | No issue labels added this month | لم تتم إضافة أي مؤشرات مشكلات هذا الشهر | Empty state | Implemented conservatively |  |

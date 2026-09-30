@@ -4491,6 +4491,36 @@
    "ar": "المسؤول: {role}",
    "context": "Decision card: the role that owns the decision",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.best": {
+   "en": "Deserve recognition",
+   "ar": "يستحقون التقدير",
+   "context": "Short description under the Best tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.steady": {
+   "en": "No concern, not outstanding",
+   "ar": "لا قلق ولا تميّز",
+   "context": "Short description under the Steady tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.watch": {
+   "en": "Watch next month",
+   "ar": "راقب الشهر القادم",
+   "context": "Short description under the Watch tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.weakest": {
+   "en": "Need intervention now",
+   "ar": "يحتاج تدخّلًا الآن",
+   "context": "Short description under the Weakest tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.low_activity": {
+   "en": "Ask why",
+   "ar": "اسأل عن السبب",
+   "context": "Short description under the Low activity tier heading",
+   "status": "Needs Arabic Review"
   }
  }
 }

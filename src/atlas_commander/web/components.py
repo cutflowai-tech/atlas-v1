@@ -27,7 +27,7 @@ SAMPLE_PHOTO = ("data:image/svg+xml;utf8," + "%3Csvg xmlns='http://www.w3.org/20
 BROKEN_PHOTO = "data:image/png;base64,bm90LWFuLWltYWdl"
 SAMPLE_EDITORS = [("sample-1", "Layla"), ("sample-2", "إسلام"), ("sample-3", "احمد"), ("sample-4", "Sample Editor (Office)")]
 PAGE_CSS = """
-.cp{max-width:1100px;margin:0 auto;padding:24px 16px 64px;font-family:var(--v-body);background:var(--v-bg);color:var(--v-fg)}
+.cp{max-width:1280px;margin:0 auto;padding:24px 16px 64px;font-family:var(--v-body);background:var(--v-bg);color:var(--v-fg)}
 body{background:var(--v-bg)}.cp h1{font:600 22px/1.3 var(--v-display);margin-bottom:4px}.cp>p{color:var(--v-muted);margin:0 0 24px}
 .cp section{border-top:1px solid var(--v-line);padding:20px 0}.cp h2{font:600 16px/1.4 var(--v-display);margin-bottom:12px;unicode-bidi:plaintext}
 .cp .row{display:flex;flex-wrap:wrap;align-items:center;gap:20px;margin-bottom:14px}.cp .cap{font-size:12px;color:var(--v-faint);margin-inline-end:8px;min-width:120px}
@@ -115,10 +115,18 @@ def decisions_section(loc: Loc) -> str:
             f'<div style="display:grid;gap:12px;max-inline-size:360px">{cards}</div></section>')
 
 
+def tiers_section(loc: Loc) -> str:
+    cards = [ui.person_card(v, Html(escape(text)), loc) for v, text in CARD_SAMPLES]
+    frames = "".join(f'<div class="frame" data-width="{w}" style="inline-size:{w}px;max-inline-size:100%">{ui.tier_section("best", cards[:count], loc)}</div>'
+                     for w, count in ((300, 2), (600, 3), (900, 4), (1200, 4), (1200, 1)))
+    return (f'<section id="tiers"><h2>TierSection (T3.7) · frames 300 / 600 / 900 / 1200 px, and a lone card</h2>{frames}'
+            f'{"".join(ui.tier_section(t, cards[:1], loc) for t in ui.TIERS[1:])}</section>')
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}{decisions_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}{decisions_section(loc)}{tiers_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 
