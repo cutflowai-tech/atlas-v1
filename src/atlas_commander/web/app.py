@@ -73,7 +73,7 @@ def _last_day(value: Mapping[str, Any]) -> str:
 
 def window_range(view: Mapping[str, Any], loc: Loc, which: str = "current") -> Html:
     w = view["window"][which]
-    return Html(f'{escape(loc.date(w["start_date"], False))} – {escape(loc.date(_last_day(w), False))}')
+    return Html(f'{loc.when(w["start_date"], False)} – {loc.when(_last_day(w), False)}')
 
 
 def _primary_speed(view: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -278,7 +278,7 @@ def event_templates(s: Mapping[str, Any], ctx: Ctx) -> str:
             continue
         ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], dl([
-            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
+            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), loc.when(event["at"])),
             (loc.t("field.monday_item"), item_link(event["monday_item_id"], ctx)),
             (loc.t("field.source"), loc.tech(event["column_id"]) if "column_id" in event else loc.t("quality.source_column"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
@@ -357,7 +357,7 @@ def component_drawers(s: Mapping[str, Any], ctx: Ctx) -> str:
         rows = [(loc.t("common.status"), state_chip(c["state"], loc) + (" " + reason_span(c["reason"], loc) if c["reason"] else "")),
                 (loc.t("ui.rule"), Html(f'{loc.tech(ev["rule_version"])} · {loc.t("interp.state." + c["rule_status"])}')),
                 (loc.t("ui.period"), window_range(view, loc)),
-                (loc.t("ui.calculated"), escape(loc.date(ev["calculated_at"]))),
+                (loc.t("ui.calculated"), loc.when(ev["calculated_at"])),
                 (loc.t("common.projects"), loc.num(ev["records"]))]
         out.append(template(_component_tid(eid, name), loc.text("ui.component_drawer_title", component=loc.text("common." + ("deadlines" if name == "deadline" else name)),
                                                                   name=s["display_name"]),
@@ -399,7 +399,7 @@ def profile_summary(s: Mapping[str, Any], ctx: Ctx, retrieved: str | None) -> st
     return (f'<section id="{_sid(eid, "summary")}" data-section="interpretation" class="hero">'
             f'<div class="card" data-overall-status="{escape(overall["status"] or "")}" data-status-state="{escape(overall["status_state"])}">'
             f'<div class="who">{avatar(s["display_name"], "xl")}<div><h1>{loc.src(s["display_name"])}</h1>'
-            f'<div class="sub">{loc.t("ui.profile.sub", window=window_range(view, loc), cwindow=window_range(view, loc, "comparison"), updated=Html(escape(loc.date(retrieved, False))))}</div></div></div>'
+            f'<div class="sub">{loc.t("ui.profile.sub", window=window_range(view, loc), cwindow=window_range(view, loc, "comparison"), updated=Html(loc.when(retrieved, False)))}</div></div></div>'
             f'<div class="status-row"><span class="soft sm">{loc.t("interp.section_title")}</span>{overall_pill(overall, loc, True)}{overall_reason}</div>'
             f'<h2 style="font-size:14px;margin-top:14px">{loc.t("interp.why_title")}</h2><ul class="why">{why}</ul>'
             f'<p class="note">{loc.t("interp.no_score")}</p></div>'
@@ -484,7 +484,7 @@ def _component_header(name: str, title: Html, view: Mapping[str, Any], loc: Loc)
 def _evidence_footer(s: Mapping[str, Any], name: str, ctx: Ctx) -> str:
     loc = ctx.loc
     ev = s["interpretation"]["components"][name]["evidence"]
-    summary = loc.t("interp.evidence.summary", n=loc.num(ev["records"]), rule=loc.tech(ev["rule_version"]), at=Html(escape(loc.date(ev["calculated_at"]))))
+    summary = loc.t("interp.evidence.summary", n=loc.num(ev["records"]), rule=loc.tech(ev["rule_version"]), at=Html(loc.when(ev["calculated_at"])))
     return f'<div class="ev"><span>{summary}</span>{open_link(_component_tid(s["editor_id"], name), loc.t("ui.open_evidence"), ctx)}</div>'
 
 
@@ -588,7 +588,7 @@ def profile_work(s: Mapping[str, Any], ctx: Ctx) -> str:
     loc, eid = ctx.loc, s["editor_id"]
     w = s["current_workload"]
     stats = stat(loc.num(w.get("active_work_count")), loc.t("workload.active_work")) + stat(loc.num(w.get("awaiting_approval_count")), loc.t("workload.awaiting_approval"))
-    return (f'<section id="{_sid(eid, "work")}" class="sec">{section_head(loc.t("common.current_work"), loc.t("ui.work.sub", date=Html(escape(loc.date(w["as_of"])))))}'
+    return (f'<section id="{_sid(eid, "work")}" class="sec">{section_head(loc.t("common.current_work"), loc.t("ui.work.sub", date=Html(loc.when(w["as_of"]))))}'
             f'<div class="card"><div class="stats">{stats}</div><div style="margin-top:14px">{workload_chips(w, loc)}</div>'
             f'<p class="note">{loc.t("note.workload_v15")}</p></div></section>')
 
@@ -719,10 +719,10 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
     source = doc["source"]
     window = source.get("activity_log_window") or {}
     publication = doc.get("publication") or {}
-    snapshot = [(loc.t("system.retrieved"), escape(loc.date(source.get("retrieved_at")))),
-                (loc.t("system.window"), Html(f'{escape(loc.date(window.get("since")))} <span dir="ltr">→</span> {escape(loc.date(window.get("until")))}')),
+    snapshot = [(loc.t("system.retrieved"), loc.when(source.get("retrieved_at"))),
+                (loc.t("system.window"), Html(f'{loc.when(window.get("since"))} <span dir="ltr">→</span> {loc.when(window.get("until"))}')),
                 (loc.t("system.contract"), loc.tech(source.get("executable_contract_version"))),
-                (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), escape(loc.date(doc["generated_at"])))]
+                (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), loc.when(doc["generated_at"]))]
     if publication.get("release_id"):
         snapshot.append((loc.t("ui.release"), loc.t("publication.identity", release=loc.tech(publication["release_id"]), snapshot=loc.tech(publication["snapshot_id"]))))
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))
@@ -807,6 +807,7 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
     """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app. ``intelligence`` is the
     optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence."""
     assert loc is not None
+    loc = loc.isolating()   # Latin terms and dates isolated in Arabic (redesign T1.4)
     ctx = Ctx(loc, monday_item_url)
     source = doc["source"]
     retrieved = source.get("retrieved_at")
@@ -817,9 +818,9 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
     body = _dedupe_templates(views)
     blob = json.dumps(dict(profile_pages)).replace("</", "<\\/")
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
-    fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span></a>'
+    fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(loc.when(retrieved, False)))}</span></a>'
              if retrieved else "")
-    top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i>Atlas</a>'
+    top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i><bdi dir="ltr">Atlas</bdi></a>'
            f'<nav class="nav" aria-label="{attr(loc.text("nav.main_label"))}"><a href="#/" data-nav="team" aria-current="page">{loc.t("ui.nav.editors")}</a>'
            f'<a href="#/system" data-nav="system">{loc.t("ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
     drawer = ('<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'

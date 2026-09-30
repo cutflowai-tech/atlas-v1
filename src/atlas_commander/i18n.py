@@ -22,6 +22,7 @@ Rules enforced here:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime
 from functools import lru_cache
@@ -43,6 +44,15 @@ MONTHS = {
 }
 MONTHS_SHORT = {"en": ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), "ar": MONTHS["ar"]}
 DASH = "—"
+
+
+# A run of Latin words inside Arabic text ("Requested ETA", "Video Type", "D53"); entities and {placeholders} are skipped.
+_LATIN = re.compile(r"(&#?\w+;)|(\{[^{}]*\})|([A-Za-z][A-Za-z0-9]*(?:[ ./\-][A-Za-z0-9]+)*)")
+
+
+def isolate_latin(text: str) -> str:
+    """Wrap every run of Latin words in escaped, tag-free text in ``<bdi dir="ltr">`` (redesign T1.4, ATLAS-RTL-002)."""
+    return _LATIN.sub(lambda m: f'<bdi dir="ltr">{m.group(3)}</bdi>' if m.group(3) else m.group(0), text)
 
 
 class TranslationError(KeyError):
@@ -119,16 +129,27 @@ def _month_parts(value: str) -> tuple[int, int]:
 class Loc:
     """Presentation helpers for one locale."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, isolate: bool = False) -> None:
         if code not in LOCALES:
             raise TranslationError(f"unsupported locale {code!r}; production locales are {LOCALES}")
         self.code, self.dir = code, DIRECTION[code]
+        # Bidi isolation of Latin terms and dates in right-to-left text. Only the contract 1.5 app turns it on, so the
+        # contract 1.3/1.4 pages stay byte for byte (fixtures/golden).
+        self.isolate = isolate and DIRECTION[code] == "rtl"
+
+    def isolating(self) -> Loc:
+        """The same locale with bidi isolation of Latin terms and dates (a no-op for left-to-right locales)."""
+        return Loc(self.code, isolate=True)
+
+    def _text_html(self, template: str) -> str:
+        text = escape(template, quote=False)
+        return isolate_latin(text) if self.isolate else text
 
     def __repr__(self) -> str:
         return f"Loc({self.code!r})"
 
     def other(self) -> Loc:
-        return Loc("ar" if self.code == "en" else "en")
+        return Loc("ar" if self.code == "en" else "en", self.isolate)
 
     # ------------------------------------------------------------------ catalogue text
     @staticmethod
@@ -163,11 +184,11 @@ class Loc:
         raw = self._raw(key)
         if not isinstance(raw, str):
             raise TranslationError(f"{key!r} is a plural entry; use count()")
-        return Html(escape(raw, quote=False).format(**{k: _safe(v) for k, v in params.items()}))
+        return Html(self._text_html(raw).format(**{k: _safe(v) for k, v in params.items()}))
 
     def count(self, key: str, n: int, case: str | None = None, **params: Any) -> Html:
         """A counted phrase ("5 projects", "مشروعان"); the value stays machine-readable in <data value>."""
-        text = escape(self._form(key, n, case), quote=False).format(n=n, **{k: _safe(v) for k, v in params.items()})
+        text = self._text_html(self._form(key, n, case)).format(n=n, **{k: _safe(v) for k, v in params.items()})
         return Html(f'<data value="{int(n)}">{text}</data>')
 
     def count_text(self, key: str, n: int, case: str | None = None, **params: Any) -> str:
@@ -175,7 +196,7 @@ class Loc:
 
     def plural(self, key: str, n: int, case: str | None = None) -> Html:
         """Plural-agreeing words without the number (the number is shown separately)."""
-        return Html(escape(self._form(key, n, case), quote=False).format(n=n))
+        return Html(self._text_html(self._form(key, n, case)).format(n=n))
 
     # ------------------------------------------------------------------ values
     @staticmethod
@@ -242,6 +263,16 @@ class Loc:
         if not with_time:
             return day
         return f"{day}{'، ' if self.code == 'ar' else ', '}{moment:%H:%M} UTC"
+
+    def when(self, value: Any, with_time: bool = True) -> Html:
+        """A formatted date as HTML: :meth:`date`, isolated in right-to-left text so it never reorders with its neighbours.
+
+        The isolate is ``<time datetime>`` (isolated by the stylesheet) in the locale's own direction, because an Arabic date is
+        written with an Arabic month name."""
+        text = escape(self.date(value, with_time))
+        if not (self.isolate and value):
+            return Html(text)
+        return Html(f'<time datetime="{escape(str(value))}">{text}</time>')
 
     def comma(self) -> str:
         return "، " if self.code == "ar" else ", "

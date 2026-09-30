@@ -35,7 +35,7 @@ body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--ink);font:15px/
 [lang=ar] body{line-height:1.8}
 a{color:inherit}button,input{font:inherit;color:inherit}h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em}[lang=ar] :is(h1,h2,h3,h4){letter-spacing:0}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:6px}
-bdi,code{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var(--surface-2);padding:1px 6px;border-radius:6px;word-break:break-all}
+bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var(--surface-2);padding:1px 6px;border-radius:6px;word-break:normal;overflow-wrap:anywhere}
 [hidden]{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .muted{color:var(--ink-3)}.soft{color:var(--ink-2)}.sm{font-size:13px}.xs{font-size:12px}.num{font-variant-numeric:tabular-nums}
@@ -267,7 +267,7 @@ body.drawer-open .scrim{opacity:1;pointer-events:auto}body.drawer-open .drawer{t
 @media (max-width:760px){.status-head,.status-grid{grid-template-columns:1fr}}
 .rules{display:grid;gap:8px;list-style:none;padding:0;margin:0}.rules li{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2);font-size:13.5px}
 .rules li span:last-child{color:var(--ink-3);font-size:12.5px;text-align:end;max-width:60%}
-@media (max-width:760px){.rules li{flex-direction:column}.rules li span:last-child{text-align:start;max-width:none}}
+@media (max-width:760px){.rules li{flex-direction:column;align-items:flex-start}.rules li span:last-child{text-align:start;max-width:none}}
 details.more{margin-top:12px}details.more>summary{cursor:pointer;font-size:13px;color:var(--ink-2);list-style:none;display:inline-flex;gap:6px;align-items:center}
 details.more>summary::-webkit-details-marker{display:none}details.more>summary::before{content:"+";display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--surface-2);font-size:12px}
 details.more[open]>summary::before{content:"−"}

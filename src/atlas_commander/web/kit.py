@@ -200,17 +200,17 @@ def project_evidence(editor_name: str, row: Mapping[str, Any], ctx: Ctx) -> str:
         issue = row["requested_eta_issue"]
         reason = (loc.t(f"eta_issue.{issue}") if loc.has(f"eta_issue.{issue}") else loc.tech(issue)) if issue else loc.t("common.not_classified")
         deadline = loc.t("evidence.deadline_unclassified", reason=reason)
-    set_at = (f' <span class="muted">{loc.t("evidence.eta_set_at", date=loc.date(row["requested_eta_observed_at"]))}</span>'
+    set_at = (f' <span class="muted">{loc.t("evidence.eta_set_at", date=loc.when(row["requested_eta_observed_at"]))}</span>'
               if row.get("requested_eta_observed_at") else "")
     duration = loc.hours(row["duration_seconds"]) + ("" if row["speed_eligible"] else Html(" · " + loc.t("evidence.not_used_for_speed")))
     content = dl([
         (loc.t("field.editor"), loc.src(editor_name)),
         (loc.t("field.monday_item"), item_link(row["monday_item_id"], ctx)),
         (loc.t("field.video_type"), loc.labels(row["cohort_labels"])),
-        (loc.t("field.work_started"), escape(loc.date(row["in_progress_at"]))),
-        (loc.t("field.ready_for_approval"), escape(loc.date(row["ready_for_approval_at"]))),
+        (loc.t("field.work_started"), loc.when(row["in_progress_at"])),
+        (loc.t("field.ready_for_approval"), loc.when(row["ready_for_approval_at"])),
         (loc.t("field.work_duration"), duration),
-        (loc.t("field.requested_eta"), escape(loc.date(row["requested_eta"])) + set_at),
+        (loc.t("field.requested_eta"), loc.when(row["requested_eta"]) + set_at),
         (loc.t("field.deadline"), deadline),
     ])
     ignored = row.get("requested_eta_changes_ignored_after_ready_for_approval") or 0
@@ -244,7 +244,7 @@ def project_list(s: Mapping[str, Any], ctx: Ctx, item_ids: Iterable[str] | None 
         result = row["deadline_result"]
         deadline = (f'<span class="res-{result}">{loc.t(f"result.{result}")} {loc.hours(row["deadline_delta_seconds"], signed=True)}</span>' if result
                     else f'<span class="muted">{loc.t("common.not_classified_lower")}</span>')
-        cells = (f'<span>{escape(loc.date(row["ready_for_approval_at"], False))}</span><span>{loc.labels(row["cohort_labels"])}</span>'
+        cells = (f'<span>{loc.when(row["ready_for_approval_at"], False)}</span><span>{loc.labels(row["cohort_labels"])}</span>'
                  f'<span>{deadline}</span><span class="soft">{loc.comma().join(loc.src(label) for label in row["quality_labels"])}</span>'
                  f'<span class="muted">{loc.hours(row["duration_seconds"])}</span>')
         out.append(f'<button type="button" data-drawer="{escape(project_tid(s["editor_id"], row["monday_item_id"]))}">{cells}</button>')

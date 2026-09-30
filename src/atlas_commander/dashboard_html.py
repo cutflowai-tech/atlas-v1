@@ -385,10 +385,10 @@ def project_evidence(editor_name: str, row: dict[str, Any], url: str | None, loc
         (loc.t("field.editor"), loc.src(editor_name)),
         (loc.t("field.monday_item"), _item(row["monday_item_id"], url, loc)),
         (loc.t("field.video_type"), loc.labels(row["cohort_labels"])),
-        (loc.t("field.work_started"), escape(loc.date(row["in_progress_at"]))),
-        (loc.t("field.ready_for_approval"), escape(loc.date(row["ready_for_approval_at"]))),
+        (loc.t("field.work_started"), loc.when(row["in_progress_at"])),
+        (loc.t("field.ready_for_approval"), loc.when(row["ready_for_approval_at"])),
         (loc.t("field.work_duration"), duration),
-        (loc.t("field.requested_eta"), escape(loc.date(row["requested_eta"])) + set_at),
+        (loc.t("field.requested_eta"), loc.when(row["requested_eta"]) + set_at),
         (loc.t("field.deadline"), deadline),
     ])
     ignored = row.get("requested_eta_changes_ignored_after_ready_for_approval") or 0
@@ -419,7 +419,7 @@ def _project_list(s: dict[str, Any], item_ids: list[str] | None = None, loc: Loc
         deadline = (f'<span class="res-{result}">{loc.t(f"result.{result}")} {loc.hours(row["deadline_delta_seconds"], signed=True)}</span>' if result
                     else f'<span class="quiet">{loc.t("common.not_classified_lower")}</span>')
         out.append(f'<button type="button" data-drawer="{escape(_project_tid(s["editor_id"], row["monday_item_id"]))}">'
-                   f'<span>{escape(loc.date(row["ready_for_approval_at"], False))}</span><span>{loc.labels(row["cohort_labels"])}</span>'
+                   f'<span>{loc.when(row["ready_for_approval_at"], False)}</span><span>{loc.labels(row["cohort_labels"])}</span>'
                    f'<span>{deadline}</span><span class="soft">{loc.comma().join(loc.src(label) for label in row["quality_labels"])}</span>'
                    f'<span class="quiet">{loc.hours(row["duration_seconds"])}</span></button>')
     return f'<div class="list">{"".join(out)}</div>'
@@ -581,7 +581,7 @@ def _event_templates(s: dict[str, Any], loc: Loc) -> str:
             continue
         ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], _dl([
-            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
+            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), loc.when(event["at"])),
             (loc.t("field.monday_item"), loc.tech(event["monday_item_id"])),
             (loc.t("field.source"), loc.tech(event["column_id"]) if "column_id" in event else loc.t("quality.source_column"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
@@ -784,7 +784,7 @@ def warning_text(w: dict[str, Any], loc: Loc = EN) -> Html:
         reasons = Html(loc.comma().join(f"{loc.tech(r)} {loc.num(n)}" for r, n in p["reasons"].items()))
         return loc.t("warning.projects_excluded", n=loc.num(p["excluded"]), projects=loc.count("noun.project", p["excluded"]), reasons=reasons)
     if code == "PARTIAL_MONTH":
-        return loc.t("warning.partial_month", month=loc.month(p["month"]), retrieved=loc.date(p["retrieved_at"]))
+        return loc.t("warning.partial_month", month=loc.month(p["month"]), retrieved=loc.when(p["retrieved_at"]))
     return loc.tech(code)   # a code with no rendering is shown as the code itself, never as the English text
 
 
@@ -1035,7 +1035,7 @@ def editor_profile(s: dict[str, Any], retrieved: str | None, url: str | None, lo
     header = (f'<div class="phead">{avatar(s["display_name"], "xl")}<div><span class="eyebrow">{loc.t("common.editor")}</span><h1>{name}</h1>'
               f'<div class="facts" style="margin-top:12px"><div><span>{loc.t("common.current_work")}</span>{workload_chips(s["current_workload"], 4, loc)}</div>'
               f'<div><span>{loc.t("profile.period")}</span><b>{escape(loc.month(last_month)) if last_month else "—"}</b></div>'
-              f'<div><span>{loc.t("profile.data_updated")}</span><b>{escape(loc.date(retrieved, False))}</b></div></div></div>'
+              f'<div><span>{loc.t("profile.data_updated")}</span><b>{loc.when(retrieved, False)}</b></div></div></div>'
               f'{_overall(s, loc)}</div>')
     report = template(f"report-{eid}", loc.text("profile.report_title", name=s["display_name"]),
                       f'<p>{loc.t("profile.report_intro")}</p>'
@@ -1055,7 +1055,7 @@ def _status_value(raw: Any, rendered: Any) -> Html:
 
 
 def _status_date(value: Any, loc: Loc) -> Html:
-    return _status_value(value, escape(loc.date(value)))
+    return _status_value(value, loc.when(value))
 
 
 def _status_code(value: Any, prefix: str, loc: Loc) -> Html:
@@ -1107,7 +1107,7 @@ def operational_status(snapshot: dict[str, Any] | None, loc: Loc = EN) -> str:
     coverage_start = current.get("coverage_start") or coverage.get("history_start") or coverage.get("start") or coverage.get("since")
     coverage_end = current.get("coverage_end") or coverage.get("history_end") or coverage.get("end") or coverage.get("until")
     coverage_value = f"{coverage_start or ''}/{coverage_end or ''}"
-    coverage_display = Html(f'{escape(loc.date(coverage_start))} <span dir="ltr">→</span> {escape(loc.date(coverage_end))}')
+    coverage_display = Html(f'{loc.when(coverage_start)} <span dir="ltr">→</span> {loc.when(coverage_end)}')
     snapshot_scope = str(snapshot.get("snapshot_scope") or "unknown").lower()
     scope_key = f"ops.scope_note.{snapshot_scope}"
     scope_note = loc.t(scope_key) if loc.has(scope_key) else loc.t("ops.scope_note.unknown")
@@ -1142,10 +1142,10 @@ def operational_status(snapshot: dict[str, Any] | None, loc: Loc = EN) -> str:
 def data_system(doc: dict[str, Any], loc: Loc = EN, status_snapshot: dict[str, Any] | None = None) -> str:
     source = doc["source"]
     window = source.get("activity_log_window") or {}
-    snapshot = _dl([(loc.t("system.retrieved"), escape(loc.date(source.get("retrieved_at")))),
-                    (loc.t("system.window"), Html(f'{escape(loc.date(window.get("since")))} <span dir="ltr">→</span> {escape(loc.date(window.get("until")))}')),
+    snapshot = _dl([(loc.t("system.retrieved"), loc.when(source.get("retrieved_at"))),
+                    (loc.t("system.window"), Html(f'{loc.when(window.get("since"))} <span dir="ltr">→</span> {loc.when(window.get("until"))}')),
                     (loc.t("system.contract"), loc.tech(source.get("executable_contract_version"))),
-                    (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), escape(loc.date(doc["generated_at"])))])
+                    (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), loc.when(doc["generated_at"]))])
     first = doc["editors"][0] if doc["editors"] else None
     approved = ""
     if first:
@@ -1235,7 +1235,7 @@ def render_dashboard_html(doc: dict[str, Any], profile_pages: dict[str, str], mo
     editors = doc["editors"]
     cards = "".join(editor_card(s, loc) for s in editors) or empty_state(loc.t("home.no_editors"))
     meta = ((f'<span><b>{escape(loc.month(month))}</b> · {loc.t("common.month_in_progress")}</span>' if month else "")
-            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span>'
+            + f'<span>{loc.count("meta.editors", len(editors))}</span><span>{loc.t("home.updated", date=Html(loc.when(retrieved, False)))}</span>'
             + (f'<span>{loc.t("publication.release", release=loc.tech(release_id))}</span>' if release_id else ""))
     greeting = " ".join(f'data-{part}="{_attr(loc.text("home.greeting." + part))}"' for part in ("morning", "afternoon", "evening"))
     home = (f'<div data-view="team"><div class="hello"><div><span class="eyebrow">Atlas</span><h1 id="greeting" {greeting}>{loc.t("home.title")}</h1>'

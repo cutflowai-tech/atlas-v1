@@ -8,11 +8,12 @@ the engine's level. Sentences come from the same statement codes and params in b
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from html import escape
 from typing import Any
 
-from atlas_commander.i18n import Html, Loc
+from atlas_commander.i18n import Html, Loc, isolate_latin
 from atlas_commander.investigation import narrative
 from atlas_commander.web.kit import Ctx, dl, item_link, open_link, project_tid, section_head, table, template
 
@@ -24,10 +25,21 @@ BLOCKS = ("execution_speed_competitive", "late_despite_typical_execution", "late
           "late_delivery_label_on_on_time_submission", "similar_historical_projects", "workload_by_period")
 
 
-def marked_html(text: str) -> Html:
-    """Narrative text with isolate marks as HTML: Monday values in ``<bdi>``, numbers and IDs in ``<bdi dir="ltr">``."""
-    out = escape(text, quote=False)
-    return Html(out.replace(narrative.FSI, "<bdi>").replace(narrative.LRI, '<bdi dir="ltr">').replace(narrative.PDI, "</bdi>"))
+def marked_html(text: str, isolate: bool = False) -> Html:
+    """Narrative text with isolate marks as HTML: Monday values in ``<bdi>``, numbers and IDs in ``<bdi dir="ltr">``. With
+    ``isolate`` (Arabic), Latin terms of the narrative itself ("Video Type", "Requested ETA") are isolated too (T1.4)."""
+    out, depth = [], 0
+    for part in re.split(f"([{narrative.FSI}{narrative.LRI}{narrative.PDI}])", text):
+        if part in (narrative.FSI, narrative.LRI):
+            out.append("<bdi>" if part == narrative.FSI else '<bdi dir="ltr">')
+            depth += 1
+        elif part == narrative.PDI:
+            out.append("</bdi>")
+            depth -= 1
+        else:
+            escaped = escape(part, quote=False)
+            out.append(isolate_latin(escaped) if isolate and depth == 0 else escaped)
+    return Html("".join(out))
 
 
 def tid(finding: Mapping[str, Any]) -> str:
@@ -87,13 +99,13 @@ def finding_card(finding: Mapping[str, Any], ctx: Ctx, rank: int | None = None, 
     evidence = (f'<div class="iv-ev"><span>{_evidence_line(finding, loc)}</span>'
                 f'{open_link(tid(finding), loc.t("ui.open_evidence"), ctx)}</div>')
     if compact:
-        return (f'<article class="iv-card compact" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"])}</h3>'
-                f'<p>{marked_html(text["observation"])}</p>{_mixed(finding, loc, ctx)}{evidence}</article>')
-    meaning = f'<dt>{loc.t("ui.iv2.meaning")}</dt><dd>{marked_html(text["interpretation"])}</dd>' if text["interpretation"] else ""
-    return (f'<article class="iv-card" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"])}</h3>'
-            f'<dl class="iv-dl"><dt>{loc.t("ui.iv2.noticed")}</dt><dd>{marked_html(text["observation"])}</dd>{meaning}'
-            f'<dt>{loc.t("ui.iv2.matters")}</dt><dd>{marked_html(text["management_significance"])}</dd>'
-            f'<dt>{loc.t("ui.iv2.investigate")}</dt><dd>{marked_html(text["suggested_investigation"])}</dd></dl>'
+        return (f'<article class="iv-card compact" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"], loc.isolate)}</h3>'
+                f'<p>{marked_html(text["observation"], loc.isolate)}</p>{_mixed(finding, loc, ctx)}{evidence}</article>')
+    meaning = f'<dt>{loc.t("ui.iv2.meaning")}</dt><dd>{marked_html(text["interpretation"], loc.isolate)}</dd>' if text["interpretation"] else ""
+    return (f'<article class="iv-card" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"], loc.isolate)}</h3>'
+            f'<dl class="iv-dl"><dt>{loc.t("ui.iv2.noticed")}</dt><dd>{marked_html(text["observation"], loc.isolate)}</dd>{meaning}'
+            f'<dt>{loc.t("ui.iv2.matters")}</dt><dd>{marked_html(text["management_significance"], loc.isolate)}</dd>'
+            f'<dt>{loc.t("ui.iv2.investigate")}</dt><dd>{marked_html(text["suggested_investigation"], loc.isolate)}</dd></dl>'
             f'{_mixed(finding, loc, ctx)}{evidence}</article>')
 
 
@@ -114,7 +126,7 @@ def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
         if not rows:
             continue
         items = "".join(f'<li><button type="button" class="iv-row" data-drawer="{escape(tid(f))}">{confidence_chip(f, loc)}'
-                        f'<span>{marked_html(_text(f, loc)["title"])}</span></button></li>' for f in rows)
+                        f'<span>{marked_html(_text(f, loc)["title"], loc.isolate)}</span></button></li>' for f in rows)
         groups.append(f'<div class="iv-group"><h4>{loc.t("ui.iv2.category." + category)} <span class="muted">{loc.num(len(rows))}</span></h4><ul>{items}</ul></div>')
     more = (f'<details class="more iv-more"><summary>{loc.t("ui.iv2.all", n=loc.num(len(primaries)))}</summary>{"".join(groups)}</details>' if groups else "")
     withheld = sum("weak_evidence_review_only" in row["reasons"] for row in doc["examined_without_finding"])
@@ -168,16 +180,16 @@ def drawers(doc: Mapping[str, Any] | None, ctx: Ctx, templates: set[str]) -> str
         confidence = finding.get("confidence") or {}
         factors = "".join(f"<li>{escape(narrative.module(loc.code).FACTOR_NAMES.get(f['factor'], f['factor']))}: "
                           f"{escape(narrative.module(loc.code).ASSESSMENTS.get(f['assessment'], f['assessment']))}</li>" for f in confidence.get("factors", []))
-        sections = [(loc.t("ui.iv2.noticed"), marked_html(text["observation"]))]
+        sections = [(loc.t("ui.iv2.noticed"), marked_html(text["observation"], loc.isolate))]
         if text["interpretation"]:
-            sections.append((loc.t("ui.iv2.meaning"), marked_html(text["interpretation"])))
+            sections.append((loc.t("ui.iv2.meaning"), marked_html(text["interpretation"], loc.isolate)))
         if text["hypothesis"]:
-            sections.append((loc.t("ui.iv2.to_check"), marked_html(text["hypothesis"])))
-        sections += [(loc.t("ui.iv2.matters"), marked_html(text["management_significance"])),
-                     (loc.t("ui.iv2.investigate"), marked_html(text["suggested_investigation"])),
-                     (loc.t("ui.iv2.question"), marked_html(text["investigation_question"]))]
+            sections.append((loc.t("ui.iv2.to_check"), marked_html(text["hypothesis"], loc.isolate)))
+        sections += [(loc.t("ui.iv2.matters"), marked_html(text["management_significance"], loc.isolate)),
+                     (loc.t("ui.iv2.investigate"), marked_html(text["suggested_investigation"], loc.isolate)),
+                     (loc.t("ui.iv2.question"), marked_html(text["investigation_question"], loc.isolate))]
         content = [f'<div class="iv-h">{category_chip(finding, loc)}{confidence_chip(finding, loc)}</div>', dl([(str(k), str(v)) for k, v in sections])]
-        content.append(f'<h4>{loc.t("ui.iv2.confidence_basis")}</h4><p>{escape(text["uncertainty"])}</p><ul>{factors}</ul>')
+        content.append(f'<h4>{loc.t("ui.iv2.confidence_basis")}</h4><p>{marked_html(text["uncertainty"], loc.isolate)}</p><ul>{factors}</ul>')
         content.append(_mixed(finding, loc, ctx))
         for key, role in ROLES:
             for block in finding.get(key) or []:
@@ -185,10 +197,10 @@ def drawers(doc: Mapping[str, Any] | None, ctx: Ctx, templates: set[str]) -> str
                                f'{_records(block, ctx, templates)}')
         members = [m for m in ((finding.get("cluster") or {}).get("members") or []) if m != finding["finding_id"] and m in by_id]
         if members:
-            links = "".join(f'<li><button type="button" class="link" data-drawer="{escape(tid(by_id[m]))}">{marked_html(_text(by_id[m], loc)["title"])}</button></li>'
+            links = "".join(f'<li><button type="button" class="link" data-drawer="{escape(tid(by_id[m]))}">{marked_html(_text(by_id[m], loc)["title"], loc.isolate)}</button></li>'
                             for m in members)
             content.append(f'<h4>{loc.t("ui.iv2.cluster")}</h4><ul>{links}</ul>')
-        limitations = "".join(f"<li>{escape(line)}</li>" for line in text["limitations"])
+        limitations = "".join(f"<li>{marked_html(line, loc.isolate)}</li>" for line in text["limitations"])
         content.append(f'<h4>{loc.t("ui.iv2.limitations")}</h4><ul>{limitations}</ul>')
         content.append(f'<p class="xs muted">{loc.t("ui.iv2.detector", detector=loc.tech(finding["finding_type"]), version=loc.tech(finding["detector_version"]))}</p>')
         out.append(template(tid(finding), narrative.plain(text["title"]), "".join(content)))

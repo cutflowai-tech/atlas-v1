@@ -70,6 +70,7 @@ def render_report(profile: dict[str, Any], monday_item_url: str | None = None, l
     """The contract 1.5 Editor Profile report in ``loc``. With ``dashboard_href``/``switch_href`` it has a top bar (standalone
     page); without them it is the embedded audit view."""
     assert loc is not None
+    loc = loc.isolating()   # Latin terms and dates isolated in Arabic (redesign T1.4)
     ctx = Ctx(loc, monday_item_url, interactive=False)
     s = editor_summary(profile)
     editor, retrieved = profile["editor"], profile["source"].get("retrieved_at")
@@ -78,7 +79,7 @@ def render_report(profile: dict[str, Any], monday_item_url: str | None = None, l
     if dashboard_href or switch_href:
         back = f'<a class="back" style="margin:0" href="{escape(dashboard_href)}">{icon("back", 15)} {loc.t("report.back")}</a>' if dashboard_href else "<span></span>"
         switch = language_switch(loc, switch_href) if switch_href else ""
-        top = (f'<header class="top"><nav class="top-in" aria-label="{attr(loc.text("nav.main_label"))}"><a class="brand" href="{escape(dashboard_href or "#")}"><i></i>Atlas</a>'
+        top = (f'<header class="top"><nav class="top-in" aria-label="{attr(loc.text("nav.main_label"))}"><a class="brand" href="{escape(dashboard_href or "#")}"><i></i><bdi dir="ltr">Atlas</bdi></a>'
                f'{back}<div class="top-end">{switch}</div></nav></header>')
     identity = loc.t("report.identity", editor_id=loc.tech(editor["editor_id"]), label=loc.src(editor["monday_person_id"]), mapping=loc.tech(editor["mapping_version"]),
                      contract=loc.tech(profile["executable_contract_version"]), retrieved=loc.tech(retrieved), generated=loc.tech(profile["generated_at"]))
