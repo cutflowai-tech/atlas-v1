@@ -95,3 +95,14 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   leave-one-out comparator of D45).
 - **Score (§4)** is computed here because the Best rule needs it; T2.6 adds the ranking tests. The median for the volume
   dimension is the median completed count of the ranked Editors.
+
+## R7. Confidence: the spec's rules, applied as written (T2.7)
+
+- **Reasons that lower the level:** `few_projects`, `missing_dimension` (deadlines or speed), `mixed_evidence`, each one step.
+  `missing_<dimension>` codes from the score are kept as detail and do not lower it twice.
+- **`mixed_evidence`** means a published Intelligence V2 finding (`contradiction.bad_headline`) qualifies the Editor's late-rate
+  headline with contradicting evidence while the verdict uses the deadline dimension (Will, Refaat on the fixture and on real data).
+- **`timeline_only`** cannot occur in Atlas: the prototype used it for Editors whose numbers were missing from its screenshots, but
+  every Atlas verdict rests on computed counts. The rule is implemented and tested, and no real verdict carries it.
+- **Zero-project Editors** (Samra) get Low confidence under §5 (few projects and no key dimension), although the prototype showed
+  "Strong" for Samra. The spec's rules win, as for Mohamed Mansour's tier; the verdict itself ("no projects this month") still shows.
