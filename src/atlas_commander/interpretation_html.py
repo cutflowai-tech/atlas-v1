@@ -48,7 +48,7 @@ def _range(value: Mapping[str, Any], loc: Loc) -> tuple[str, str]:
     # end_date_exclusive is the first day not included; show the last included day.
     from datetime import date, timedelta
     last = date.fromisoformat(value["end_date_exclusive"]) - timedelta(days=1)
-    return escape(loc.date(value["start_date"], False)), escape(loc.date(last.isoformat(), False))
+    return loc.when(value["start_date"], False), loc.when(last.isoformat(), False)
 
 
 def window_line(view: Mapping[str, Any], loc: Loc) -> Html:
@@ -73,7 +73,7 @@ def overall_badge(view: Mapping[str, Any], loc: Loc = EN) -> str:
 
 def _evidence(summary: Mapping[str, Any], loc: Loc) -> str:
     return (f'<p class="ia-muted">{loc.t("interp.evidence.summary", n=loc.num(summary["records"]), rule=loc.tech(summary["rule_version"]),
-                                         at=Html(escape(loc.date(summary["calculated_at"]))))}</p>')
+                                         at=Html(loc.when(summary["calculated_at"])))}</p>')
 
 
 def _records(evidence: Mapping[str, Any], loc: Loc, item_url: str | None) -> str:

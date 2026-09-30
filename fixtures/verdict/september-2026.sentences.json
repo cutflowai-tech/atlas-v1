@@ -1,0 +1,428 @@
+{
+ "Will": {
+  "tier": "best",
+  "headline": {
+   "key": "verdict.headline.best.faster",
+   "params": {
+    "speed_pct": 23.3,
+    "late_pct": 54.5,
+    "team_pct": 58.9
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.volume_above_median",
+    "params": {
+     "completed": 22,
+     "median": 15.0
+    }
+   },
+   {
+    "key": "verdict.reason.faster_than_peers",
+    "params": {
+     "speed_pct": 23.3,
+     "labels": [
+      "Class A"
+     ],
+     "editor_hours": 30.0,
+     "peer_hours": 39.1
+    }
+   },
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 12,
+     "n": 22,
+     "late_pct": 54.5,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 2
+    }
+   }
+  ]
+ },
+ "Anas": {
+  "tier": "steady",
+  "headline": {
+   "key": "verdict.headline.steady.mirrors_team",
+   "params": {}
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.mirrors_team_late_rate",
+    "params": {
+     "before_pct": 69.2,
+     "now_pct": 53.8,
+     "team_before_pct": 75.6,
+     "team_now_pct": 59.0
+    }
+   },
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 7,
+     "n": 13,
+     "late_pct": 53.8,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.slower_than_peers",
+    "params": {
+     "speed_pct": 23.3,
+     "labels": [
+      "Simple Short"
+     ],
+     "editor_hours": 43.4,
+     "peer_hours": 35.2
+    }
+   },
+   {
+    "key": "verdict.reason.volume_below_median",
+    "params": {
+     "completed": 13,
+     "median": 15.0
+    }
+   }
+  ]
+ },
+ "Refaat": {
+  "tier": "weakest",
+  "headline": {
+   "key": "verdict.headline.weakest.not_scheduling_slower_self",
+   "params": {
+    "late_pct": 85.7,
+    "speed_pct": 43.0,
+    "own_pct": 26.3
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.runway_not_explaining",
+    "params": {
+     "late_pct": 85.7,
+     "short_runway_late_pct": 73.2
+    }
+   },
+   {
+    "key": "verdict.reason.late_above_team",
+    "params": {
+     "late": 12,
+     "n": 14,
+     "late_pct": 85.7,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.slower_than_peers",
+    "params": {
+     "speed_pct": 43.0,
+     "labels": [
+      "Simple Short"
+     ],
+     "editor_hours": 41.6,
+     "peer_hours": 29.1
+    }
+   },
+   {
+    "key": "verdict.reason.slower_than_own_history",
+    "params": {
+     "change_pct": 26.3
+    }
+   }
+  ]
+ },
+ "Sobhy": {
+  "tier": "watch",
+  "headline": {
+   "key": "verdict.headline.watch.late",
+   "params": {
+    "late_pct": 66.7,
+    "team_pct": 58.9
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.late_above_team",
+    "params": {
+     "late": 4,
+     "n": 6,
+     "late_pct": 66.7,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.volume_below_median",
+    "params": {
+     "completed": 6,
+     "median": 15.0
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Mohamed Mansour (Office)": {
+  "tier": "low_activity",
+  "headline": {
+   "key": "verdict.headline.low_activity.few",
+   "params": {
+    "completed": 2
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.few_completed_none_overdue",
+    "params": {
+     "completed": 2
+    }
+   },
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 1,
+     "n": 2,
+     "late_pct": 50.0,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Samra": {
+  "tier": "low_activity",
+  "headline": {
+   "key": "verdict.headline.low_activity.zero_activity",
+   "params": {
+    "lifetime_completed": 60
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.no_projects",
+    "params": {
+     "lifetime_completed": 60
+    }
+   },
+   {
+    "key": "verdict.reason.nothing_in_progress",
+    "params": {}
+   }
+  ]
+ },
+ "Michael": {
+  "tier": "low_activity",
+  "headline": {
+   "key": "verdict.headline.low_activity.nothing_completed",
+   "params": {
+    "active": 1
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.nothing_completed",
+    "params": {
+     "active": 1
+    }
+   },
+   {
+    "key": "verdict.reason.overdue_open",
+    "params": {
+     "count": 1
+    }
+   }
+  ]
+ },
+ "Mario": {
+  "tier": "watch",
+  "headline": {
+   "key": "verdict.headline.watch.overdue",
+   "params": {
+    "count": 1
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.overdue_open",
+    "params": {
+     "count": 1
+    }
+   },
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 7,
+     "n": 15,
+     "late_pct": 46.7,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Ibrahim": {
+  "tier": "steady",
+  "headline": {
+   "key": "verdict.headline.steady.default",
+   "params": {
+    "late_pct": 58.3,
+    "team_pct": 58.9
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 14,
+     "n": 24,
+     "late_pct": 58.3,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.speed_as_peers",
+    "params": {
+     "speed_pct": 3.1,
+     "labels": [
+      "Class A"
+     ],
+     "editor_hours": 37.9,
+     "peer_hours": 39.1
+    }
+   },
+   {
+    "key": "verdict.reason.volume_highest",
+    "params": {
+     "completed": 24
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Martin": {
+  "tier": "steady",
+  "headline": {
+   "key": "verdict.headline.steady.default",
+   "params": {
+    "late_pct": 61.1,
+    "team_pct": 58.9
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.late_above_team",
+    "params": {
+     "late": 11,
+     "n": 18,
+     "late_pct": 61.1,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.speed_as_peers",
+    "params": {
+     "speed_pct": 4.9,
+     "labels": [
+      "Premium Short"
+     ],
+     "editor_hours": 40.4,
+     "peer_hours": 38.5
+    }
+   },
+   {
+    "key": "verdict.reason.volume_above_median",
+    "params": {
+     "completed": 18,
+     "median": 15.0
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Amir": {
+  "tier": "watch",
+  "headline": {
+   "key": "verdict.headline.watch.slow",
+   "params": {
+    "speed_pct": 35.4
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.late_below_team",
+    "params": {
+     "late": 8,
+     "n": 15,
+     "late_pct": 53.3,
+     "team_pct": 58.9
+    }
+   },
+   {
+    "key": "verdict.reason.slower_than_peers",
+    "params": {
+     "speed_pct": 35.4,
+     "labels": [
+      "Premium Short"
+     ],
+     "editor_hours": 37.9,
+     "peer_hours": 28.0
+    }
+   },
+   {
+    "key": "verdict.reason.in_progress",
+    "params": {
+     "active": 1
+    }
+   }
+  ]
+ },
+ "Ahmed": {
+  "tier": "low_activity",
+  "headline": {
+   "key": "verdict.headline.low_activity.zero_activity",
+   "params": {
+    "lifetime_completed": 15
+   }
+  },
+  "reasons": [
+   {
+    "key": "verdict.reason.no_projects",
+    "params": {
+     "lifetime_completed": 15
+    }
+   },
+   {
+    "key": "verdict.reason.nothing_in_progress",
+    "params": {}
+   }
+  ]
+ }
+}

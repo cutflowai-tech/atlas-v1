@@ -1,0 +1,16 @@
+Snapshot 2026-09-29T21:10:18Z: 14 Editors, 3 KPIs, 5 overview decisions
+Will                       steady        rank 3   late 55%   ok
+Mario                      weakest       rank 6   late 80%   ok
+Ibrahim                    best          rank 1   late 29%   ok
+Amir                       weakest       rank 7   late 80%   ok
+Samra                      low_activity  rank —   late —     ok
+Martin                     best          rank 2   late 44%   ok
+Refaat                     weakest       rank 8   late 86%   ok
+Anas                       steady        rank 4   late 54%   ok
+Ahmed                      low_activity  rank —   late —     ok
+Sobhy                      watch         rank 5   late 67%   ok
+Ezz                        steady        rank —   late 50%   ok
+Ali                        low_activity  rank —   late 100%  ok
+Michael                    low_activity  rank —   late —     ok
+Mohamed Mansour (Office)   low_activity  rank —   late 50%   ok
+numbers match the snapshot

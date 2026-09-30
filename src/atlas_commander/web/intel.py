@@ -8,13 +8,14 @@ the engine's level. Sentences come from the same statement codes and params in b
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from html import escape
 from typing import Any
 
-from atlas_commander.i18n import Html, Loc
+from atlas_commander.i18n import Html, Loc, isolate_latin
 from atlas_commander.investigation import narrative
-from atlas_commander.web.kit import Ctx, dl, item_link, open_link, project_tid, section_head, template
+from atlas_commander.web.kit import Ctx, dl, item_link, open_link, project_tid, section_head, table, template
 
 CATEGORY_ORDER = ("needs_attention", "emerging_risk", "system_pattern", "hidden_context", "editor_specific_pattern", "important_improvement", "data_warning")
 ROLES = (("supporting_evidence", "supporting"), ("contradicting_evidence", "contradicting"), ("context_evidence", "context"))
@@ -24,10 +25,31 @@ BLOCKS = ("execution_speed_competitive", "late_despite_typical_execution", "late
           "late_delivery_label_on_on_time_submission", "similar_historical_projects", "workload_by_period")
 
 
-def marked_html(text: str) -> Html:
-    """Narrative text with isolate marks as HTML: Monday values in ``<bdi>``, numbers and IDs in ``<bdi dir="ltr">``."""
-    out = escape(text, quote=False)
-    return Html(out.replace(narrative.FSI, "<bdi>").replace(narrative.LRI, '<bdi dir="ltr">').replace(narrative.PDI, "</bdi>"))
+def marked_html(text: str, isolate: bool = False) -> Html:
+    """Narrative text with isolate marks as HTML: Monday values in ``<bdi>``, numbers and IDs in ``<bdi dir="ltr">``. With
+    ``isolate`` (Arabic), Latin terms of the narrative itself ("Video Type", "Requested ETA") are isolated too (T1.4)."""
+    out, depth = [], 0
+    for part in re.split(f"([{narrative.FSI}{narrative.LRI}{narrative.PDI}])", text):
+        if part in (narrative.FSI, narrative.LRI):
+            out.append("<bdi>" if part == narrative.FSI else '<bdi dir="ltr">')
+            depth += 1
+        elif part == narrative.PDI:
+            out.append("</bdi>")
+            depth -= 1
+        else:
+            escaped = escape(part, quote=False)
+            out.append(isolate_latin(escaped) if isolate and depth == 0 else escaped)
+    return Html("".join(out))
+
+
+def finding_scope(doc: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
+    """How the published findings are shown (ATLAS-DATA-002): the Top findings, the other primary findings listed below them, and
+    the duplicates grouped under their cluster's primary finding. The three parts always add up to every published finding."""
+    top_ids = doc["sections"]["top_findings"]["finding_ids"]
+    top = [f for f in doc["findings"] if f["finding_id"] in top_ids]
+    grouped = [f for f in doc["findings"] if f["finding_id"] not in top_ids and (f.get("cluster") or {}).get("suppressed_in_sections")]
+    listed = [f for f in doc["findings"] if f["finding_id"] not in top_ids and not (f.get("cluster") or {}).get("suppressed_in_sections")]
+    return {"top": top, "listed": listed, "grouped": grouped}
 
 
 def tid(finding: Mapping[str, Any]) -> str:
@@ -45,6 +67,11 @@ def _by_id(doc: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
 
 def _text(finding: Mapping[str, Any], loc: Loc) -> dict[str, Any]:
     return narrative.finding_text(narrative.view(finding), loc.code, marked=True)
+
+
+def finding_title(finding: Mapping[str, Any], loc: Loc) -> str:
+    """A finding's title in ``loc`` (marked text for :func:`marked_html`), as its drawer and lists show it."""
+    return str(_text(finding, loc)["title"])
 
 
 def confidence_chip(finding: Mapping[str, Any], loc: Loc) -> str:
@@ -87,18 +114,20 @@ def finding_card(finding: Mapping[str, Any], ctx: Ctx, rank: int | None = None, 
     evidence = (f'<div class="iv-ev"><span>{_evidence_line(finding, loc)}</span>'
                 f'{open_link(tid(finding), loc.t("ui.open_evidence"), ctx)}</div>')
     if compact:
-        return (f'<article class="iv-card compact" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"])}</h3>'
-                f'<p>{marked_html(text["observation"])}</p>{_mixed(finding, loc, ctx)}{evidence}</article>')
-    meaning = f'<dt>{loc.t("ui.iv2.meaning")}</dt><dd>{marked_html(text["interpretation"])}</dd>' if text["interpretation"] else ""
-    return (f'<article class="iv-card" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"])}</h3>'
-            f'<dl class="iv-dl"><dt>{loc.t("ui.iv2.noticed")}</dt><dd>{marked_html(text["observation"])}</dd>{meaning}'
-            f'<dt>{loc.t("ui.iv2.matters")}</dt><dd>{marked_html(text["management_significance"])}</dd>'
-            f'<dt>{loc.t("ui.iv2.investigate")}</dt><dd>{marked_html(text["suggested_investigation"])}</dd></dl>'
+        return (f'<article class="iv-card compact" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"], loc.isolate)}</h3>'
+                f'<p>{marked_html(text["observation"], loc.isolate)}</p>{_mixed(finding, loc, ctx)}{evidence}</article>')
+    meaning = f'<dt>{loc.t("ui.iv2.meaning")}</dt><dd>{marked_html(text["interpretation"], loc.isolate)}</dd>' if text["interpretation"] else ""
+    return (f'<article class="iv-card" data-finding="{escape(finding["finding_id"])}">{head}<h3>{marked_html(text["title"], loc.isolate)}</h3>'
+            f'<dl class="iv-dl"><dt>{loc.t("ui.iv2.noticed")}</dt><dd>{marked_html(text["observation"], loc.isolate)}</dd>{meaning}'
+            f'<dt>{loc.t("ui.iv2.matters")}</dt><dd>{marked_html(text["management_significance"], loc.isolate)}</dd>'
+            f'<dt>{loc.t("ui.iv2.investigate")}</dt><dd>{marked_html(text["suggested_investigation"], loc.isolate)}</dd></dl>'
             f'{_mixed(finding, loc, ctx)}{evidence}</article>')
 
 
-def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
-    """The management surface: at most the engine's Top findings (D53: five), and every other published finding one click away."""
+def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx, collapse: Mapping[str, str] | None = None) -> str:
+    """The management surface: at most the engine's Top findings (D53: five), and every other published finding one click away.
+    ``collapse`` maps a duplicate finding to the finding kept for it (the verdict layer's §6 row 4, redesign T4.6): the duplicate is
+    listed once, under the kept finding's row, instead of as a row of its own."""
     if not published(doc):
         return ""
     assert doc is not None
@@ -108,15 +137,29 @@ def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
     cards = "".join(finding_card(by_id[i], ctx, rank) for rank, i in enumerate(top_ids, start=1))
     body = f'<div class="iv-grid">{cards}</div>' if cards else f'<p class="muted">{loc.t("ui.iv2.none")}</p>'
     groups = []
-    primaries = [f for f in doc["findings"] if not (f.get("cluster") or {}).get("suppressed_in_sections") and f["finding_id"] not in top_ids]
+    scope = finding_scope(doc)
+    primaries = scope["listed"]
+    listed_ids = {f["finding_id"] for f in primaries}
+    folded = {dup: kept for dup, kept in (collapse or {}).items() if dup in listed_ids and kept in listed_ids}
+    under: dict[str, list[Mapping[str, Any]]] = {}
+    for f in primaries:
+        if f["finding_id"] in folded:
+            under.setdefault(folded[f["finding_id"]], []).append(f)
     for category in CATEGORY_ORDER:
-        rows = [f for f in primaries if f["category"] == category]
+        rows = [f for f in primaries if f["category"] == category and f["finding_id"] not in folded]
         if not rows:
             continue
         items = "".join(f'<li><button type="button" class="iv-row" data-drawer="{escape(tid(f))}">{confidence_chip(f, loc)}'
-                        f'<span>{marked_html(_text(f, loc)["title"])}</span></button></li>' for f in rows)
+                        f'<span>{marked_html(_text(f, loc)["title"], loc.isolate)}</span></button>'
+                        + "".join(f'<button type="button" class="iv-row iv-dup" data-drawer="{escape(tid(d))}" data-duplicate-of="{escape(f["finding_id"])}">'
+                                  f'<span>{loc.t("ui.iv2.same_measure")}: {marked_html(_text(d, loc)["title"], loc.isolate)}</span></button>'
+                                  for d in under.get(f["finding_id"], []))
+                        + "</li>" for f in rows)
         groups.append(f'<div class="iv-group"><h4>{loc.t("ui.iv2.category." + category)} <span class="muted">{loc.num(len(rows))}</span></h4><ul>{items}</ul></div>')
-    more = (f'<details class="more iv-more"><summary>{loc.t("ui.iv2.all", n=loc.num(len(primaries)))}</summary>{"".join(groups)}</details>' if groups else "")
+    counts = {key: loc.num(len(scope[key])) for key in ("top", "listed", "grouped")}
+    reconcile = f'<p class="note" data-scope="published">{loc.t("ui.iv2.scope", total=loc.num(len(doc["findings"])), **counts)}</p>'
+    more = (f'<details class="more iv-more"><summary>{loc.t("ui.iv2.all", n=counts["listed"])}</summary>{reconcile}{"".join(groups)}</details>'
+            if groups else "")
     withheld = sum("weak_evidence_review_only" in row["reasons"] for row in doc["examined_without_finding"])
     note = loc.t("ui.iv2.method") + (Html(" ") + loc.t("ui.iv2.withheld", n=loc.num(withheld)) if withheld else Html(""))
     return (f'<section class="sec iv" id="intelligence" data-section="intelligence" aria-labelledby="iv-h">'
@@ -168,16 +211,16 @@ def drawers(doc: Mapping[str, Any] | None, ctx: Ctx, templates: set[str]) -> str
         confidence = finding.get("confidence") or {}
         factors = "".join(f"<li>{escape(narrative.module(loc.code).FACTOR_NAMES.get(f['factor'], f['factor']))}: "
                           f"{escape(narrative.module(loc.code).ASSESSMENTS.get(f['assessment'], f['assessment']))}</li>" for f in confidence.get("factors", []))
-        sections = [(loc.t("ui.iv2.noticed"), marked_html(text["observation"]))]
+        sections = [(loc.t("ui.iv2.noticed"), marked_html(text["observation"], loc.isolate))]
         if text["interpretation"]:
-            sections.append((loc.t("ui.iv2.meaning"), marked_html(text["interpretation"])))
+            sections.append((loc.t("ui.iv2.meaning"), marked_html(text["interpretation"], loc.isolate)))
         if text["hypothesis"]:
-            sections.append((loc.t("ui.iv2.to_check"), marked_html(text["hypothesis"])))
-        sections += [(loc.t("ui.iv2.matters"), marked_html(text["management_significance"])),
-                     (loc.t("ui.iv2.investigate"), marked_html(text["suggested_investigation"])),
-                     (loc.t("ui.iv2.question"), marked_html(text["investigation_question"]))]
+            sections.append((loc.t("ui.iv2.to_check"), marked_html(text["hypothesis"], loc.isolate)))
+        sections += [(loc.t("ui.iv2.matters"), marked_html(text["management_significance"], loc.isolate)),
+                     (loc.t("ui.iv2.investigate"), marked_html(text["suggested_investigation"], loc.isolate)),
+                     (loc.t("ui.iv2.question"), marked_html(text["investigation_question"], loc.isolate))]
         content = [f'<div class="iv-h">{category_chip(finding, loc)}{confidence_chip(finding, loc)}</div>', dl([(str(k), str(v)) for k, v in sections])]
-        content.append(f'<h4>{loc.t("ui.iv2.confidence_basis")}</h4><p>{escape(text["uncertainty"])}</p><ul>{factors}</ul>')
+        content.append(f'<h4>{loc.t("ui.iv2.confidence_basis")}</h4><p>{marked_html(text["uncertainty"], loc.isolate)}</p><ul>{factors}</ul>')
         content.append(_mixed(finding, loc, ctx))
         for key, role in ROLES:
             for block in finding.get(key) or []:
@@ -185,10 +228,10 @@ def drawers(doc: Mapping[str, Any] | None, ctx: Ctx, templates: set[str]) -> str
                                f'{_records(block, ctx, templates)}')
         members = [m for m in ((finding.get("cluster") or {}).get("members") or []) if m != finding["finding_id"] and m in by_id]
         if members:
-            links = "".join(f'<li><button type="button" class="link" data-drawer="{escape(tid(by_id[m]))}">{marked_html(_text(by_id[m], loc)["title"])}</button></li>'
+            links = "".join(f'<li><button type="button" class="link" data-drawer="{escape(tid(by_id[m]))}">{marked_html(_text(by_id[m], loc)["title"], loc.isolate)}</button></li>'
                             for m in members)
             content.append(f'<h4>{loc.t("ui.iv2.cluster")}</h4><ul>{links}</ul>')
-        limitations = "".join(f"<li>{escape(line)}</li>" for line in text["limitations"])
+        limitations = "".join(f"<li>{marked_html(line, loc.isolate)}</li>" for line in text["limitations"])
         content.append(f'<h4>{loc.t("ui.iv2.limitations")}</h4><ul>{limitations}</ul>')
         content.append(f'<p class="xs muted">{loc.t("ui.iv2.detector", detector=loc.tech(finding["finding_type"]), version=loc.tech(finding["detector_version"]))}</p>')
         out.append(template(tid(finding), narrative.plain(text["title"]), "".join(content)))
@@ -203,14 +246,15 @@ def rules_card(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
     loc = ctx.loc
     rows = "".join(f'<tr><td>{loc.tech(p["name"])}</td><td>{loc.tech(p["value"])}</td><td>{loc.tech(p["decision_id"] or "—")}</td></tr>'
                    for p in doc["parameters"]["parameters"])
+    scope = finding_scope(doc)
     counts = [(loc.t("ui.iv2.rules.published"), loc.num(len(doc["findings"]))),
+              (loc.t("ui.iv2.rules.scope"), loc.t("ui.iv2.rules.scope_value", **{key: loc.num(len(scope[key])) for key in ("top", "listed", "grouped")})),
               (loc.t("ui.iv2.rules.withheld"), loc.num(sum("weak_evidence_review_only" in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.not_evaluated"), loc.num(sum("weak_evidence_review_only" not in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.version"), loc.tech(doc["intelligence_version"])), (loc.t("ui.iv2.rules.mode"), loc.tech(doc["mode"]))]
-    table = (f'<div class="tbl"><table><thead><tr><th scope=col>{loc.t("ui.iv2.rules.parameter")}</th><th scope=col>{loc.t("ui.iv2.rules.value")}</th>'
-             f'<th scope=col>{loc.t("ui.iv2.rules.decision")}</th></tr></thead><tbody>{rows}</tbody></table></div>')
+    parameters = table([loc.t("ui.iv2.rules.parameter"), loc.t("ui.iv2.rules.value"), loc.t("ui.iv2.rules.decision")], rows, "")
     return (f'<div class="card" data-section="intelligence-rules"><h3 style="margin-bottom:12px">{loc.t("ui.iv2.rules.title")}</h3>'
-            f'<p class="sm soft">{loc.t("ui.iv2.method")}</p>{dl([(str(k), str(v)) for k, v in counts], "dl")}{table}</div>')
+            f'<p class="sm soft">{loc.t("ui.iv2.method")}</p>{dl([(str(k), str(v)) for k, v in counts], "dl")}{parameters}</div>')
 
 
 def project_template_ids(editors: Sequence[Mapping[str, Any]]) -> set[str]:

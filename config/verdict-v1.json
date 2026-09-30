@@ -1,0 +1,48 @@
+{
+  "verdict_config_version": "verdict-config-v1.0",
+  "document_schema": "verdict-v1.schema.json",
+  "governance": {
+    "decision_id": "D54",
+    "rule": "D25 applied to the redesign: every value below is used only because this file marks it with a decision the verdict engine accepts (D54, or D53 for values read from config/intelligence-v2.json). Changing a value needs a new decision recorded in docs/DECISIONS.md; tests fail if this file and D54 disagree."
+  },
+  "publication": {
+    "include_in_site_build": true,
+    "decision_id": "D54",
+    "note": "A contract 1.5 site build writes verdicts.json and the pages lead with it. Setting include_in_site_build to false needs no code change: the build then has no verdicts.json and the pages are the pre-redesign pages."
+  },
+  "parameters": {
+    "tier.low_activity_below_completed": {"value": 3, "decision_id": "D54", "meaning": "Low activity: fewer than this many completed projects in the window and no overdue open work (zero projects always is)"},
+    "tier.weakest_late_above_team_pp": {"value": 20, "decision_id": "D54", "meaning": "Weakest: late rate at least this many percentage points above the team late rate"},
+    "tier.weakest_speed_pct": {"value": 30, "decision_id": "D54", "meaning": "Weakest: at least this much slower than peers (%) while also later than the team"},
+    "tier.watch_late_above_team_pp": {"value": 5, "decision_id": "D54", "meaning": "Watch: late rate more than this many percentage points above the team late rate"},
+    "tier.watch_speed_pct": {"value": 25, "decision_id": "D54", "meaning": "Watch: at least this much slower than peers (%)"},
+    "tier.best_top_share": {"value": 0.25, "decision_id": "D54", "meaning": "Best: score in this top share of ranked Editors, and no dimension worse than the team"},
+    "score.minimum_completed": {"value": 5, "decision_id": "D54", "meaning": "Minimum completed projects in the window to be scored and ranked (below it: a verdict with low confidence, no rank)"},
+    "score.weight_deadlines": {"value": 0.40, "decision_id": "D54", "meaning": "Score weight of deadlines while Quality has no approved rule"},
+    "score.weight_speed": {"value": 0.35, "decision_id": "D54", "meaning": "Score weight of speed while Quality has no approved rule"},
+    "score.weight_volume": {"value": 0.25, "decision_id": "D54", "meaning": "Score weight of volume while Quality has no approved rule"},
+    "score.weight_quality": {"value": 0.25, "decision_id": "D54", "meaning": "Score weight of Quality once a Quality rule is approved; the other weights then share the rest proportionally"},
+    "score.neutral": {"value": 50, "decision_id": "D54", "meaning": "Points of a dimension exactly at the team level"},
+    "score.minimum": {"value": 0, "decision_id": "D54", "meaning": "Lowest points of a dimension"},
+    "score.maximum": {"value": 100, "decision_id": "D54", "meaning": "Highest points of a dimension"},
+    "score.deadline_points_per_pp": {"value": 2, "decision_id": "D54", "meaning": "Deadline points per percentage point of late rate below (+) or above (-) the team"},
+    "score.speed_points_per_pct": {"value": 1.25, "decision_id": "D54", "meaning": "Speed points lost per percent slower than peers (gained per percent faster)"},
+    "score.volume_points_per_median_multiple": {"value": 50, "decision_id": "D54", "meaning": "Volume points per multiple of the ranked Editors' median completed projects above (+) or below (-) the median"},
+    "confidence.few_projects_below": {"value": 10, "decision_id": "D54", "meaning": "Fewer completed projects than this lowers confidence one level (few_projects)"},
+    "team.critical_late_rate": {"value": 0.70, "decision_id": "D54", "meaning": "Team state critical at or above this late rate"},
+    "team.critical_overdue": {"value": 5, "decision_id": "D54", "meaning": "Team state critical at or above this many open projects past Requested ETA"},
+    "team.intervention_late_rate": {"value": 0.40, "decision_id": "D54", "meaning": "Team state needs intervention at or above this late rate"},
+    "team.flat_band_pp": {"value": 5, "decision_id": "D54", "meaning": "Team trend is flat when the late rate moved by at most this many percentage points against the previous window"},
+    "decisions.overview_max": {"value": 5, "decision_id": "D54", "meaning": "Decisions shown on the overview (all candidates stay under More details)"},
+    "display.reasons_min": {"value": 2, "decision_id": "D54", "meaning": "Fewest 'why this verdict' reasons per Editor (spec §2: 2–4)"},
+    "display.reasons_max": {"value": 4, "decision_id": "D54", "meaning": "Most 'why this verdict' reasons per Editor (spec §2: 2–4)"},
+    "decisions.scheduling_runway_share": {"value": 0.50, "decision_id": "D54", "meaning": "Propose a scheduling review when at least this share of late projects started with short runway"},
+    "display.late_bad_above_team_pp": {"value": 10, "decision_id": "D54", "meaning": "Late-rate bar is bad above the team rate plus this many points, warn above the team rate, good otherwise"},
+    "display.speed_same_band_pct": {"value": 5, "decision_id": "D54", "meaning": "Speed within this many percent of peers reads 'Same as team'"},
+    "display.speed_bad_above_pct": {"value": 30, "decision_id": "D54", "meaning": "Slower than peers by more than this reads as bad (warn below it)"},
+    "precision.rate_digits": {"value": 4, "decision_id": "D54", "meaning": "Decimals kept for rates (fractions) in the document"},
+    "precision.pct_digits": {"value": 1, "decision_id": "D54", "meaning": "Decimals kept for percentages and scores in the document"},
+    "reasoning.material_rate_difference": {"from_config": "intelligence-v2.json:evidence.material_rate_difference", "decision_id": "D53", "meaning": "A change 'mirrors the team' when it differs from the team's change by less than this (rates, absolute)"},
+    "reasoning.material_duration_pct": {"from_config": "intelligence-v2.json:evidence.material_duration_pct", "decision_id": "D53", "meaning": "A change 'mirrors the team' when it differs from the team's change by less than this (durations, relative %)"}
+  }
+}

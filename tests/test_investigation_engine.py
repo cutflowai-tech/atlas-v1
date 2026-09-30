@@ -295,7 +295,7 @@ class SiteArtifactTests(unittest.TestCase):
     def test_optional_artifact_is_unexpected_under_contract_1_4(self):
         from atlas_commander import site_layout
         self.assertEqual(site_layout.optional_files("1.4.0"), [])
-        self.assertEqual(site_layout.optional_files("1.5.0"), [site.INTELLIGENCE_JSON])
+        self.assertEqual(site_layout.optional_files("1.5.0"), [site.INTELLIGENCE_JSON, site_layout.VERDICTS_JSON])   # redesign T2.1 adds verdicts.json
         self.assertNotIn(site.INTELLIGENCE_JSON, site_layout.required_files(["editor-label-6"], "1.5.0"))
 
 

@@ -4027,11 +4027,10 @@
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   },
   "ui.iv2.all": {
-   "en": "All published findings ({n})",
-   "ar": "كل النتائج المنشورة ({n})",
-   "context": "Disclosure listing every other published finding",
-   "status": "Needs Arabic Review",
-   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+   "en": "{n} more published findings",
+   "ar": "{n} نتيجة منشورة أخرى",
+   "context": "Summary of the collapsible list of published Intelligence findings below the Top findings on the Editors page; {n} excludes the Top findings and grouped duplicates (redesign T1.5).",
+   "status": "Needs Arabic Review"
   },
   "ui.iv2.method": {
    "en": "Deterministic rules approved by management (D53). Findings describe what happened and what is associated with it, never a cause; every finding shows its Monday evidence.",
@@ -4223,11 +4222,10 @@
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   },
   "ui.iv2.rules.published": {
-   "en": "Published findings",
-   "ar": "النتائج المنشورة",
-   "context": "Data & rules: Intelligence V2 rules card",
-   "status": "Needs Arabic Review",
-   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+   "en": "Published findings (all, including grouped duplicates)",
+   "ar": "النتائج المنشورة (كلها، بما فيها المكررة المجمّعة)",
+   "context": "Data & rules: total number of findings in the published Intelligence document (redesign T1.5).",
+   "status": "Needs Arabic Review"
   },
   "ui.iv2.rules.withheld": {
    "en": "Weak signals kept for review",
@@ -4277,6 +4275,1322 @@
    "context": "Data & rules: Intelligence V2 rules card",
    "status": "Needs Arabic Review",
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.scope": {
+   "en": "Atlas published {total} findings: the {top} top findings above, these {listed}, and {grouped} duplicates grouped under their main finding (open a finding to see them).",
+   "ar": "نشر Atlas {total} نتيجة: أهم {top} نتائج أعلاه، وهذه النتائج الـ {listed}، و{grouped} نتائج مكررة مجمّعة تحت نتيجتها الرئيسية (افتح النتيجة لعرضها).",
+   "context": "Note inside the list of published findings that reconciles its count with the total on Data & rules (ATLAS-DATA-002, redesign T1.5).",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.rules.scope": {
+   "en": "On the Editors page",
+   "ar": "في صفحة المونتيرين",
+   "context": "Data & rules: label of the row that splits the published total into what the Editors page shows (redesign T1.5).",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.rules.scope_value": {
+   "en": "{top} top findings + {listed} more · {grouped} duplicates grouped under their main finding",
+   "ar": "{top} من أهم النتائج + {listed} أخرى · {grouped} مكررة مجمّعة تحت نتيجتها الرئيسية",
+   "context": "Data & rules: value of the row that splits the published total (redesign T1.5).",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.best": {
+   "en": "Best",
+   "ar": "الأفضل",
+   "context": "Redesign tier label (Best: top of the ranked Editors, no dimension worse than the team)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.steady": {
+   "en": "Steady",
+   "ar": "مستقر",
+   "context": "Redesign tier label (Steady: no concern, not outstanding)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.watch": {
+   "en": "Watch",
+   "ar": "يحتاج متابعة",
+   "context": "Redesign tier label (Watch: later or slower than the team, or overdue work)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.weakest": {
+   "en": "Weakest",
+   "ar": "الأضعف",
+   "context": "Redesign tier label (Weakest: far later than the team, or much slower and later)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier.low_activity": {
+   "en": "Low activity",
+   "ar": "نشاط منخفض",
+   "context": "Redesign tier label (Low activity: too few projects this window)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.avatar.tier": {
+   "en": "{name}, {tier}",
+   "ar": "{name}، {tier}",
+   "context": "Accessible name of an Editor avatar: name and tier",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.avatar.ranked": {
+   "en": "{name}, {tier}, rank {rank} of {of}",
+   "ar": "{name}، {tier}، الترتيب {rank} من {of}",
+   "context": "Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.aria": {
+   "en": "Late on {late_pct} of projects.",
+   "ar": "متأخر في {late_pct} من المشاريع.",
+   "context": "Accessible name of the late-rate bar without counts",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.aria_count": {
+   "en": "Late on {late_pct} of projects ({late} of {n}).",
+   "ar": "متأخر في {late_pct} من المشاريع ({late} من {n}).",
+   "context": "Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.team": {
+   "en": "Team average {team_pct}",
+   "ar": "متوسط الفريق {team_pct}",
+   "context": "Tooltip and accessible text of the team-average marker on the late-rate bar",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.none": {
+   "en": "No deadline data this month",
+   "ar": "لا توجد بيانات مواعيد هذا الشهر",
+   "context": "Late-rate bar when the Editor has no deadline-classifiable project in the window",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.faster": {
+   "en": "{pct} faster",
+   "ar": "أسرع بنسبة {pct}",
+   "context": "Speed pill: the Editor is faster than peers on the same Video Type by this percentage",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.slower": {
+   "en": "{pct} slower",
+   "ar": "أبطأ بنسبة {pct}",
+   "context": "Speed pill: the Editor is slower than peers on the same Video Type by this percentage",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.same": {
+   "en": "Same as team",
+   "ar": "مثل الفريق",
+   "context": "Speed pill: within the display band of peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.none": {
+   "en": "No speed comparison",
+   "ar": "لا توجد مقارنة للسرعة",
+   "context": "Speed pill when there is no comparable peer data",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.high": {
+   "en": "High",
+   "ar": "عالية",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.medium": {
+   "en": "Medium",
+   "ar": "متوسطة",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.low": {
+   "en": "Low",
+   "ar": "منخفضة",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.level": {
+   "en": "Confidence: {level}",
+   "ar": "الثقة: {level}",
+   "context": "Confidence chip in the Editor profile",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.low_tag": {
+   "en": "Low confidence",
+   "ar": "ثقة منخفضة",
+   "context": "Tag on a person card, shown only when the verdict's confidence is Low",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.late": {
+   "en": "Late",
+   "ar": "التأخير",
+   "context": "Person card row label: the late-rate bar",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.speed": {
+   "en": "Speed",
+   "ar": "السرعة",
+   "context": "Person card row label: speed against peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.projects": {
+   "en": "Projects",
+   "ar": "المشاريع",
+   "context": "Person card row label: projects completed this window",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.this_month": {
+   "en": "{n} this month",
+   "ar": "{n} هذا الشهر",
+   "context": "Person card: projects completed in the current 30-day window (the prototype's wording)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.card.in_progress": {
+   "en": "{n} in progress",
+   "ar": "{n} قيد التنفيذ",
+   "context": "Person card: projects in progress now (Active Work)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.today": {
+   "en": "Today",
+   "ar": "اليوم",
+   "context": "Decision time frame: act today (overdue open work)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.this_week": {
+   "en": "This week",
+   "ar": "هذا الأسبوع",
+   "context": "Decision time frame: act this week",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.ask": {
+   "en": "Ask",
+   "ar": "اسأل",
+   "context": "Decision time frame: a question to ask the people concerned",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.horizon.management": {
+   "en": "Management decision",
+   "ar": "قرار إداري",
+   "context": "Decision time frame: a management decision (e.g. approve a rule)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.scheduling_owner": {
+   "en": "Scheduling owner",
+   "ar": "مسؤول الجدولة",
+   "context": "Decision owner role: whoever sets delivery dates and runway",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.editors_manager": {
+   "en": "Editors manager",
+   "ar": "مدير المونتيرين",
+   "context": "Decision owner role: the manager of the Editors",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.role.ceo": {
+   "en": "CEO",
+   "ar": "الرئيس التنفيذي",
+   "context": "Decision owner role: the CEO (the reader)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.decision.owner": {
+   "en": "Owner: {role}",
+   "ar": "المسؤول: {role}",
+   "context": "Decision card: the role that owns the decision",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.best": {
+   "en": "Deserve recognition",
+   "ar": "يستحقون التقدير",
+   "context": "Short description under the Best tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.steady": {
+   "en": "No concern, not outstanding",
+   "ar": "لا قلق ولا تميّز",
+   "context": "Short description under the Steady tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.watch": {
+   "en": "Watch next month",
+   "ar": "راقب الشهر القادم",
+   "context": "Short description under the Watch tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.weakest": {
+   "en": "Need intervention now",
+   "ar": "يحتاج تدخّلًا الآن",
+   "context": "Short description under the Weakest tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.tier_desc.low_activity": {
+   "en": "Ask why",
+   "ar": "اسأل عن السبب",
+   "context": "Short description under the Low activity tier heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.band.eyebrow": {
+   "en": "This month's verdict",
+   "ar": "الحكم هذا الشهر",
+   "context": "Eyebrow above the team verdict headline (the current 30-day window)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.weakest.not_scheduling_slower_self": {
+   "en": "The weakest this month: late on {late_pct} of projects, {speed_pct} slower than peers and {own_pct} slower than their own earlier work. Scheduling does not explain it.",
+   "ar": "الأضعف هذا الشهر: التأخير في {late_pct} من المشاريع، والسرعة أبطأ من الزملاء بنسبة {speed_pct} ومن الأداء السابق بنسبة {own_pct}. الجدولة لا تفسّر ذلك.",
+   "context": "Editor headline, Weakest tier: lateness not explained by scheduling, slower than peers and than their own history",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.weakest.not_scheduling_slower": {
+   "en": "The weakest this month: late on {late_pct} of projects and {speed_pct} slower than peers. Scheduling does not explain it.",
+   "ar": "الأضعف هذا الشهر: التأخير في {late_pct} من المشاريع، والسرعة أبطأ من الزملاء بنسبة {speed_pct}. الجدولة لا تفسّر ذلك.",
+   "context": "Editor headline, Weakest tier: lateness not explained by scheduling, slower than peers",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.weakest.not_scheduling": {
+   "en": "The weakest this month: late on {late_pct} of projects. Scheduling does not explain it.",
+   "ar": "الأضعف هذا الشهر: التأخير في {late_pct} من المشاريع. الجدولة لا تفسّر ذلك.",
+   "context": "Editor headline, Weakest tier: lateness not explained by scheduling",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.weakest.late": {
+   "en": "The weakest this month: late on {late_pct} of projects, against {team_pct} for the team.",
+   "ar": "الأضعف هذا الشهر: التأخير في {late_pct} من المشاريع، مقابل {team_pct} للفريق.",
+   "context": "Editor headline, Weakest tier: far later than the team",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.weakest.slow_and_late": {
+   "en": "The weakest this month: {speed_pct} slower than peers and late more often than the team ({late_pct} against {team_pct}).",
+   "ar": "الأضعف هذا الشهر: السرعة أبطأ من الزملاء بنسبة {speed_pct}، والتأخير أكثر من الفريق ({late_pct} مقابل {team_pct}).",
+   "context": "Editor headline, Weakest tier: much slower than peers and later than the team",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.watch.overdue": {
+   "en": {
+    "one": "Needs follow-up: one open project is past its deadline.",
+    "other": "Needs follow-up: {n} open projects are past their deadline."
+   },
+   "ar": {
+    "zero": "يحتاج متابعة: لا مشاريع مفتوحة تجاوزت موعدها.",
+    "one": "يحتاج متابعة: مشروع مفتوح واحد تجاوز موعده.",
+    "two": "يحتاج متابعة: مشروعان مفتوحان تجاوزا موعدهما.",
+    "few": "يحتاج متابعة: {n} مشاريع مفتوحة تجاوزت موعدها.",
+    "many": "يحتاج متابعة: {n} مشروعًا مفتوحًا تجاوز موعده.",
+    "other": "يحتاج متابعة: {n} مشروع مفتوح تجاوز موعده."
+   },
+   "context": "Editor headline, Watch tier: open projects past their Requested ETA (counted)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.watch.late": {
+   "en": "Needs follow-up: late on {late_pct} of projects, against {team_pct} for the team.",
+   "ar": "يحتاج متابعة: التأخير في {late_pct} من المشاريع، مقابل {team_pct} للفريق.",
+   "context": "Editor headline, Watch tier: later than the team",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.watch.slow": {
+   "en": "Needs follow-up: {speed_pct} slower than peers on the same Video Type.",
+   "ar": "يحتاج متابعة: السرعة أبطأ من الزملاء بنسبة {speed_pct} على نوع الفيديو نفسه.",
+   "context": "Editor headline, Watch tier: slower than peers",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.watch.scheduling": {
+   "en": "Needs follow-up: late on {late_pct} of projects, mostly because of scheduling.",
+   "ar": "يحتاج متابعة: التأخير في {late_pct} من المشاريع، وأغلبه بسبب الجدولة.",
+   "context": "Editor headline, Watch tier: a Weakest verdict softened because scheduling explains the lateness",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.best.highest_volume_faster": {
+   "en": "Best this month: the highest load on the team, faster than peers, and late less often.",
+   "ar": "الأفضل هذا الشهر: أعلى حمل في الفريق، وأسرع من الزملاء، وتأخير أقل.",
+   "context": "Editor headline, Best tier: highest volume and faster (spec template)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.best.faster": {
+   "en": "Best this month: {speed_pct} faster than peers and late less often than the team ({late_pct} against {team_pct}).",
+   "ar": "الأفضل هذا الشهر: أسرع من الزملاء بنسبة {speed_pct}، والتأخير أقل من الفريق ({late_pct} مقابل {team_pct}).",
+   "context": "Editor headline, Best tier: faster and less late",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.best.default": {
+   "en": "Best this month: late less often than the team ({late_pct} against {team_pct}) with at least the usual load.",
+   "ar": "الأفضل هذا الشهر: التأخير أقل من الفريق ({late_pct} مقابل {team_pct}) مع حمل لا يقل عن المعتاد.",
+   "context": "Editor headline, Best tier",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.steady.mirrors_team": {
+   "en": "Average: the change this month matches the whole team.",
+   "ar": "متوسط: التغيّر هذا الشهر مثل تغيّر الفريق كله.",
+   "context": "Editor headline, Steady tier: the Editor's change mirrors the team's (neither credit nor blame)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.steady.scheduling": {
+   "en": "Average: late on {late_pct} of projects, mostly because of scheduling.",
+   "ar": "متوسط: التأخير في {late_pct} من المشاريع، وأغلبه بسبب الجدولة.",
+   "context": "Editor headline, Steady tier: scheduling explains the lateness",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.steady.few_data": {
+   "en": "Average: {completed} completed this month, without deadlines to compare.",
+   "ar": "متوسط: المكتمل هذا الشهر {completed}، دون مواعيد يمكن مقارنتها.",
+   "context": "Editor headline, Steady tier without a late rate",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.steady.default": {
+   "en": "Average: late on {late_pct} of projects, against {team_pct} for the team.",
+   "ar": "متوسط: التأخير في {late_pct} من المشاريع، مقابل {team_pct} للفريق.",
+   "context": "Editor headline, Steady tier",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.low_activity.zero_activity": {
+   "en": "No projects this month and nothing in progress ({lifetime_completed} delivered in all).",
+   "ar": "لا مشاريع هذا الشهر ولا شيء قيد التنفيذ (إجمالي المُسلَّم: {lifetime_completed}).",
+   "context": "Editor headline, Low activity: zero projects and zero in progress",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.low_activity.nothing_completed": {
+   "en": "Low activity: nothing completed this month; {active} in progress now.",
+   "ar": "نشاط منخفض: لا مشاريع مكتملة هذا الشهر، وقيد التنفيذ الآن: {active}.",
+   "context": "Editor headline, Low activity: nothing completed but work in progress",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.headline.low_activity.few": {
+   "en": "Low activity: only {completed} completed this month, too few to judge.",
+   "ar": "نشاط منخفض: المكتمل هذا الشهر {completed} فقط، وهذا أقل من أن يُحكم عليه.",
+   "context": "Editor headline, Low activity: too few completed projects",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.late_above_team": {
+   "en": "Late on {late} of {n} projects ({late_pct}), above the team's {team_pct}.",
+   "ar": "التأخير في {late} من {n} ({late_pct})، أعلى من الفريق ({team_pct}).",
+   "context": "Reason: the Editor's late rate against the team's",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.late_below_team": {
+   "en": "Late on {late} of {n} projects ({late_pct}), below the team's {team_pct}.",
+   "ar": "التأخير في {late} من {n} ({late_pct})، أقل من الفريق ({team_pct}).",
+   "context": "Reason: the Editor's late rate against the team's",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.late_at_team": {
+   "en": "Late on {late} of {n} projects ({late_pct}), the same as the team.",
+   "ar": "التأخير في {late} من {n} ({late_pct})، مثل الفريق.",
+   "context": "Reason: late rate equal to the team's",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.slower_than_peers": {
+   "en": "{speed_pct} slower than peers on {labels}: {editor_hours} against {peer_hours}.",
+   "ar": "أبطأ من الزملاء بنسبة {speed_pct} على {labels}: {editor_hours} مقابل {peer_hours}.",
+   "context": "Reason: slower than peers on the same Video Type (median times)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.faster_than_peers": {
+   "en": "{speed_pct} faster than peers on {labels}: {editor_hours} against {peer_hours}.",
+   "ar": "أسرع من الزملاء بنسبة {speed_pct} على {labels}: {editor_hours} مقابل {peer_hours}.",
+   "context": "Reason: faster than peers on the same Video Type (median times)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.speed_as_peers": {
+   "en": "About the same speed as peers on {labels}: {editor_hours} against {peer_hours}.",
+   "ar": "السرعة مثل الزملاء تقريبًا على {labels}: {editor_hours} مقابل {peer_hours}.",
+   "context": "Reason: speed within the display band of peers",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.slower_than_own_history": {
+   "en": "{change_pct} slower than their own earlier projects.",
+   "ar": "أبطأ من الأداء السابق بنسبة {change_pct}.",
+   "context": "Reason: slower than the Editor's own history (not the team's change)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.faster_than_own_history": {
+   "en": "{change_pct} faster than their own earlier projects.",
+   "ar": "أسرع من الأداء السابق بنسبة {change_pct}.",
+   "context": "Reason: faster than the Editor's own history (not the team's change)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.volume_highest": {
+   "en": "The highest load on the team: {completed} projects this month.",
+   "ar": "أعلى حمل في الفريق: عدد المشاريع {completed} هذا الشهر.",
+   "context": "Reason: most completed projects among ranked Editors",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.volume_above_median": {
+   "en": "{completed} projects this month, above the team's usual {median}.",
+   "ar": "عدد المشاريع {completed} هذا الشهر، أعلى من المعتاد في الفريق ({median}).",
+   "context": "Reason: completed projects above the ranked Editors' median",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.volume_below_median": {
+   "en": "{completed} projects this month, below the team's usual {median}.",
+   "ar": "عدد المشاريع {completed} هذا الشهر، أقل من المعتاد في الفريق ({median}).",
+   "context": "Reason: completed projects below the ranked Editors' median",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.overdue_open": {
+   "en": {
+    "one": "One open project is past its deadline.",
+    "other": "{n} open projects are past their deadline."
+   },
+   "ar": {
+    "zero": "لا مشاريع مفتوحة تجاوزت موعدها.",
+    "one": "مشروع مفتوح واحد تجاوز موعده.",
+    "two": "مشروعان مفتوحان تجاوزا موعدهما.",
+    "few": "{n} مشاريع مفتوحة تجاوزت موعدها.",
+    "many": "{n} مشروعًا مفتوحًا تجاوز موعده.",
+    "other": "{n} مشروع مفتوح تجاوز موعده."
+   },
+   "context": "Reason: open projects past their Requested ETA (counted)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.no_projects": {
+   "en": "No projects this month; {lifetime_completed} delivered in all.",
+   "ar": "لا مشاريع هذا الشهر؛ إجمالي المُسلَّم: {lifetime_completed}.",
+   "context": "Reason: zero completed projects in the window, with the lifetime total",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.nothing_in_progress": {
+   "en": "Nothing in progress now.",
+   "ar": "لا شيء قيد التنفيذ الآن.",
+   "context": "Reason: no Active Work",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.nothing_completed": {
+   "en": "Nothing completed this month; {active} in progress now.",
+   "ar": "لا مشاريع مكتملة هذا الشهر، وقيد التنفيذ الآن: {active}.",
+   "context": "Reason: zero completed, some in progress",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.few_completed_none_overdue": {
+   "en": "Only {completed} completed this month and nothing overdue.",
+   "ar": "المكتمل هذا الشهر {completed} فقط، ولا شيء متأخر عن موعده.",
+   "context": "Reason: fewer completed projects than the Low-activity threshold and no overdue work",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.not_ranked": {
+   "en": "Not ranked: {completed} completed this month, fewer than the {minimum} needed.",
+   "ar": "بلا ترتيب: المكتمل هذا الشهر {completed}، أقل من الحد الأدنى ({minimum}).",
+   "context": "Reason: below the minimum completed projects to be ranked",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.in_progress": {
+   "en": "{active} in progress now.",
+   "ar": "قيد التنفيذ الآن: {active}.",
+   "context": "Reason: Active Work now",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.completed_in_window": {
+   "en": "{completed} completed this month, {lifetime_completed} in all.",
+   "ar": "المكتمل هذا الشهر {completed}، والإجمالي {lifetime_completed}.",
+   "context": "Reason: completed this window and lifetime",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.runway_not_explaining": {
+   "en": "Scheduling does not explain it: late on {late_pct} of projects, more than the team's {short_runway_late_pct} even on short-runway projects.",
+   "ar": "الجدولة لا تفسّر ذلك: التأخير في {late_pct} من المشاريع، أكثر من {short_runway_late_pct} للفريق حتى في المشاريع ذات المهلة القصيرة.",
+   "context": "Reason (§6): the Editor is later than the team's short-runway late rate",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.runway_explains": {
+   "en": "Most of the lateness comes from scheduling: {short} of {late} late projects ({short_share_pct}) started with short runway, against {team_short_share_pct} for the team.",
+   "ar": "أغلب التأخير سببه الجدولة: {short} من {late} ({short_share_pct}) من المشاريع المتأخرة بدأت بمهلة قصيرة، مقابل {team_short_share_pct} للفريق.",
+   "context": "Reason (§6): short runway explains the Editor's lateness",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.mirrors_team_late_rate": {
+   "en": "Same as the whole team: late rate from {before_pct} to {now_pct}, while the team went from {team_before_pct} to {team_now_pct}.",
+   "ar": "مثل الفريق كله: نسبة التأخير من {before_pct} إلى {now_pct}، والفريق من {team_before_pct} إلى {team_now_pct}.",
+   "context": "Reason (§6): the Editor's late-rate change mirrors the team's (neither credit nor blame)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.reason.mirrors_team_speed": {
+   "en": "Same as the whole team: median time changed by {change_pct}, the team's by {team_change_pct}.",
+   "ar": "مثل الفريق كله: تغيّر زمن التنفيذ بنسبة {change_pct}، وزمن الفريق بنسبة {team_change_pct}.",
+   "context": "Reason (§6): the Editor's speed change mirrors the team's",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.critical.improving": {
+   "en": "The team is improving, but the situation is still critical.",
+   "ar": "الفريق يتحسّن، لكن الوضع ما زال حرجًا.",
+   "context": "Team headline: state critical, trend improving against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.critical.flat": {
+   "en": "The situation is critical and not improving.",
+   "ar": "الوضع حرج ولا يتحسّن.",
+   "context": "Team headline: state critical, trend flat against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.critical.declining": {
+   "en": "The situation is critical and getting worse.",
+   "ar": "الوضع حرج ويزداد سوءًا.",
+   "context": "Team headline: state critical, trend declining against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.needs_intervention.improving": {
+   "en": "The team is improving but still late too often.",
+   "ar": "الفريق يتحسّن لكنه ما زال يتأخر كثيرًا.",
+   "context": "Team headline: state needs_intervention, trend improving against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.needs_intervention.flat": {
+   "en": "The team is late too often, and nothing changed this month.",
+   "ar": "الفريق يتأخر كثيرًا، ولم يتغيّر شيء هذا الشهر.",
+   "context": "Team headline: state needs_intervention, trend flat against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.needs_intervention.declining": {
+   "en": "The team is late too often, and it is getting worse.",
+   "ar": "الفريق يتأخر كثيرًا، والوضع يزداد سوءًا.",
+   "context": "Team headline: state needs_intervention, trend declining against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.on_track.improving": {
+   "en": "The team is on track and improving.",
+   "ar": "الفريق على المسار الصحيح ويتحسّن.",
+   "context": "Team headline: state on_track, trend improving against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.on_track.flat": {
+   "en": "The team is on track.",
+   "ar": "الفريق على المسار الصحيح.",
+   "context": "Team headline: state on_track, trend flat against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.headline.on_track.declining": {
+   "en": "The team is on track, but slipping.",
+   "ar": "الفريق على المسار الصحيح، لكنه يتراجع.",
+   "context": "Team headline: state on_track, trend declining against the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.supporting.scheduling": {
+   "en": "Most of the lateness comes from scheduling: {short_share_pct} of late projects started with short runway.",
+   "ar": "أغلب التأخير سببه الجدولة: {short_share_pct} من المشاريع المتأخرة بدأت بمهلة قصيرة.",
+   "context": "Team supporting sentence: scheduling dominates",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.supporting.editing": {
+   "en": "Most late projects had enough runway: the lateness is in the editing itself.",
+   "ar": "أغلب المشاريع المتأخرة كانت مهلتها كافية: التأخير في المونتاج نفسه.",
+   "context": "Team supporting sentence: editing dominates",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.supporting.unknown": {
+   "en": "Atlas has no runway data for this update.",
+   "ar": "لا تتوفر لدى Atlas بيانات المهلة في هذا التحديث.",
+   "context": "Team supporting sentence without the runway split",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.fact.late_rate_change": {
+   "en": "The team was late on {late_pct} of projects ({late} of {n}), against {previous_pct} the month before.",
+   "ar": "تأخّر الفريق في {late_pct} من المشاريع ({late} من {n})، مقابل {previous_pct} في الشهر السابق.",
+   "context": "Team chain, fact: late rate and its change",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.fact.late_rate": {
+   "en": "The team was late on {late_pct} of projects ({late} of {n}).",
+   "ar": "تأخّر الفريق في {late_pct} من المشاريع ({late} من {n}).",
+   "context": "Team chain, fact without a previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.fact.no_late_rate": {
+   "en": "No deadline data for the team this month.",
+   "ar": "لا توجد بيانات مواعيد للفريق هذا الشهر.",
+   "context": "Team chain, fact without deadline data",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.pattern.short_runway": {
+   "en": "Projects that started with short runway were late {short_runway_late_pct} of the time (of {short_runway}), against {adequate_runway_late_pct} with enough runway (of {adequate_runway}).",
+   "ar": "المشاريع التي بدأت بمهلة قصيرة تأخّر منها {short_runway_late_pct} (من {short_runway})، مقابل {adequate_runway_late_pct} للمشاريع ذات المهلة الكافية (من {adequate_runway}).",
+   "context": "Team chain, pattern: the short-runway split",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.pattern.no_runway_split": {
+   "en": "No runway split is available.",
+   "ar": "لا يتوفر تقسيم حسب المهلة.",
+   "context": "Team chain, pattern without the split",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.conclusion.scheduling": {
+   "en": "Scheduling is the main lever: {short_runway_late} of {late} late projects ({short_share_pct}) started with short runway.",
+   "ar": "الجدولة هي العامل الأهم: {short_runway_late} من {late} ({short_share_pct}) من المشاريع المتأخرة بدأت بمهلة قصيرة.",
+   "context": "Team chain, conclusion: scheduling dominates",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.conclusion.editing": {
+   "en": "The editing itself is the main lever: only {short_runway_late} of {late} late projects ({short_share_pct}) started with short runway.",
+   "ar": "المونتاج نفسه هو العامل الأهم: {short_runway_late} فقط من {late} ({short_share_pct}) من المشاريع المتأخرة بدأت بمهلة قصيرة.",
+   "context": "Team chain, conclusion: editing dominates",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.conclusion.unknown": {
+   "en": "Atlas cannot tell whether scheduling or the editing drives the lateness.",
+   "ar": "لا يستطيع Atlas تحديد ما إذا كان التأخير سببه الجدولة أم المونتاج.",
+   "context": "Team chain, conclusion without the split",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.kpi.late_rate": {
+   "en": "Team late rate · was {previous_pct}",
+   "ar": "تأخير الفريق · كان {previous_pct}",
+   "context": "KPI label: team late rate with the previous window",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.kpi.late_rate_now": {
+   "en": "Team late rate",
+   "ar": "تأخير الفريق",
+   "context": "KPI label: team late rate",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.kpi.overdue": {
+   "en": {
+    "one": "Project past its deadline now",
+    "other": "Projects past their deadline now"
+   },
+   "ar": {
+    "zero": "مشاريع تجاوزت موعدها الآن",
+    "one": "مشروع تجاوز موعده الآن",
+    "two": "مشروعان تجاوزا موعدهما الآن",
+    "few": "مشاريع تجاوزت موعدها الآن",
+    "many": "مشروعًا تجاوز موعده الآن",
+    "other": "مشروع تجاوز موعده الآن"
+   },
+   "context": "KPI label under the overdue count (the number is shown separately; the noun agrees with it)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.team.kpi.short_runway_share": {
+   "en": "Of late projects had short runway ({short_runway_late} of {late})",
+   "ar": "من المشاريع المتأخرة بدأت بمهلة قصيرة ({short_runway_late} من {late})",
+   "context": "KPI label under the short-runway share",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.overdue_open_work": {
+   "en": {
+    "one": "One open project is past its deadline ({names}). Agree a realistic delivery date today.",
+    "other": "{n} open projects are past their deadline ({names}). Agree realistic delivery dates today."
+   },
+   "ar": {
+    "zero": "لا مشاريع مفتوحة تجاوزت موعدها.",
+    "one": "مشروع مفتوح واحد تجاوز موعده ({names}). اتفق اليوم على موعد تسليم واقعي.",
+    "two": "مشروعان مفتوحان تجاوزا موعدهما ({names}). اتفق اليوم على مواعيد تسليم واقعية.",
+    "few": "{n} مشاريع مفتوحة تجاوزت موعدها ({names}). اتفق اليوم على مواعيد تسليم واقعية.",
+    "many": "{n} مشروعًا مفتوحًا تجاوز موعده ({names}). اتفق اليوم على مواعيد تسليم واقعية.",
+    "other": "{n} مشروع مفتوح تجاوز موعده ({names}). اتفق اليوم على مواعيد تسليم واقعية."
+   },
+   "context": "Decision (today): every open project past its Requested ETA, with the Editors holding them",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.weakest_editor": {
+   "en": "Agree an improvement plan with {name} this week.",
+   "ar": "اتفق هذا الأسبوع على خطة تحسين مع {name}.",
+   "context": "Decision (this week): a plan for a Weakest Editor with the Editors manager",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.scheduling_runway": {
+   "en": "Review how delivery dates are set: {short_share_pct} of late projects started with short runway.",
+   "ar": "راجع طريقة تحديد مواعيد التسليم: {short_share_pct} من المشاريع المتأخرة بدأت بمهلة قصيرة.",
+   "context": "Decision (this week): the scheduling owner reviews runway",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.low_activity": {
+   "en": "Ask {names} why activity is low this month.",
+   "ar": "اسأل {names} عن سبب انخفاض النشاط هذا الشهر.",
+   "context": "Decision (ask): every Low-activity Editor",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.zero_activity": {
+   "en": "No projects this month for {names}: leave or an assignment gap?",
+   "ar": "لا مشاريع هذا الشهر لدى {names}: إجازة أم فجوة في التكليف؟",
+   "context": "Decision (ask): Editors with no project and nothing in progress",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.approve_rule": {
+   "en": "Approve the {dimension} rule. Atlas cannot see {dimension} yet.",
+   "ar": "اعتمد قاعدة {dimension}. Atlas لا يرى {dimension} حاليًا.",
+   "context": "Decision (management): approve a rule that silences a dimension",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.decision.review_rule": {
+   "en": "Review the {dimension} rule: it reads 0% for every Editor.",
+   "ar": "راجع قاعدة {dimension}: نتيجتها 0% لكل المونتيرين.",
+   "context": "Decision (management): an approved rule reads 0% for everyone",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.overdue_project": {
+   "en": "{name}: {video_type} · {item_id}, {status}, {hours_past_eta} past the deadline",
+   "ar": "{name}: {video_type} · {item_id}، الحالة {status}، تجاوز الموعد بـ {hours_past_eta}",
+   "context": "Decision evidence: one overdue project",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.short_runway_split": {
+   "en": "Short runway: late {short_runway_late_pct} of {short_runway}; enough runway: late {adequate_runway_late_pct} of {adequate_runway}. {short_runway_late} of {late} late projects started with short runway.",
+   "ar": "المهلة القصيرة: تأخّر {short_runway_late_pct} من {short_runway}؛ المهلة الكافية: تأخّر {adequate_runway_late_pct} من {adequate_runway}. {short_runway_late} من {late} من المشاريع المتأخرة بدأت بمهلة قصيرة.",
+   "context": "Decision evidence: the short-runway split",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.low_activity": {
+   "en": "{name}: {completed} completed this month, {active} in progress, {overdue} overdue.",
+   "ar": "{name}: المكتمل هذا الشهر {completed}، قيد التنفيذ {active}، متجاوز الموعد {overdue}.",
+   "context": "Decision evidence: one Low-activity Editor",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.zero_activity": {
+   "en": "{name}: no projects this month and nothing in progress ({lifetime_completed} delivered in all). Leave or an assignment gap?",
+   "ar": "{name}: لا مشاريع هذا الشهر ولا شيء قيد التنفيذ (إجمالي المُسلَّم {lifetime_completed}). إجازة أم فجوة في التكليف؟",
+   "context": "Decision evidence: one zero-activity Editor",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.rule_not_approved": {
+   "en": "The {dimension} rule is not approved, so {dimension} is not measured for any of the {editors} Editors with data.",
+   "ar": "قاعدة {dimension} غير معتمدة، لذلك لا تُقاس {dimension} لأي من المونتيرين الذين لديهم بيانات ({editors}).",
+   "context": "Decision evidence: the rule that silences a dimension is not approved",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.evidence.zero_for_everyone": {
+   "en": "{dimension} reads 0% for all {editors} Editors with data: that means not measured, not good.",
+   "ar": "نتيجة {dimension} 0% لكل المونتيرين الذين لديهم بيانات ({editors}): هذا يعني أنها لا تُقاس، وليس أنها جيدة.",
+   "context": "Decision evidence: a measure is 0% for everyone",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.project.reference": {
+   "en": "{video_type} · {item_id}",
+   "ar": "{video_type} · {item_id}",
+   "context": "A project named by its Video Type and Monday item ID (item names are not ingested)",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.project.item": {
+   "en": "Project {item_id}",
+   "ar": "مشروع {item_id}",
+   "context": "A project named by its Monday item ID",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.speed.label": {
+   "en": "{labels}: {editor_hours} against {peer_hours}",
+   "ar": "{labels}: {editor_hours} مقابل {peer_hours}",
+   "context": "Speed comparison label: Video Type, the Editor's median against peers'",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.quality.positive_notes": {
+   "en": "Positive client notes on {positive_pct} of projects",
+   "ar": "ملاحظات إيجابية من العملاء في {positive_pct} من المشاريع",
+   "context": "Quality fact while no Quality rule is approved",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.quality.state.positive": {
+   "en": "Good",
+   "ar": "جيدة",
+   "context": "Quality state once a Quality rule is approved",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.quality.state.neutral": {
+   "en": "Neutral",
+   "ar": "محايدة",
+   "context": "Quality state once a Quality rule is approved",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.quality.state.negative": {
+   "en": "Below expectations",
+   "ar": "دون التوقعات",
+   "context": "Quality state once a Quality rule is approved",
+   "status": "Needs Arabic Review"
+  },
+  "verdict.quality.state.not_classifiable": {
+   "en": "Not measured yet",
+   "ar": "لا تُقاس بعد",
+   "context": "Quality state once a Quality rule is approved",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.dimension.quality": {
+   "en": "Quality",
+   "ar": "الجودة",
+   "context": "Verdict dimension name used inside sentences",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.dimension.deadlines": {
+   "en": "Deadlines",
+   "ar": "المواعيد",
+   "context": "Verdict dimension name used inside sentences",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.dimension.speed": {
+   "en": "Speed",
+   "ar": "السرعة",
+   "context": "Verdict dimension name used inside sentences",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.dimension.volume": {
+   "en": "Volume",
+   "ar": "الحجم",
+   "context": "Verdict dimension name used inside sentences",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.title": {
+   "en": "What you need to do",
+   "ar": "المطلوب منك",
+   "context": "Heading of the decisions rail on the Team overview",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.hint": {
+   "en": "Click any photo to open that person's profile.",
+   "ar": "اضغط على أي صورة لفتح ملف صاحبها.",
+   "context": "Hint under the decisions rail heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.none": {
+   "en": "Nothing needs a decision this month.",
+   "ar": "لا شيء يحتاج إلى قرار هذا الشهر.",
+   "context": "Decisions rail when there is no decision",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.more": {
+   "en": {
+    "one": "One more decision under More details.",
+    "other": "{n} more decisions under More details."
+   },
+   "ar": {
+    "zero": "لا قرارات أخرى.",
+    "one": "قرار آخر في مزيد من التفاصيل.",
+    "two": "قراران آخران في مزيد من التفاصيل.",
+    "few": "{n} قرارات أخرى في مزيد من التفاصيل.",
+    "many": "{n} قرارًا آخر في مزيد من التفاصيل.",
+    "other": "{n} قرار آخر في مزيد من التفاصيل."
+   },
+   "context": "Decisions rail: how many more decisions are under More details (the overview shows the first five)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.rank": {
+   "en": "Rank {rank} of {of} ranked",
+   "ar": "المركز {rank} من {of} مصنّفين",
+   "context": "Profile drawer: the Editor's rank among ranked Editors",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.unranked": {
+   "en": "Not ranked",
+   "ar": "غير مصنّف",
+   "context": "Profile drawer: the Editor is not ranked (Low activity or too few projects)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.lifetime": {
+   "en": "{projects} in all",
+   "ar": "{projects} إجمالًا",
+   "context": "Profile drawer: lifetime completed projects (counted noun)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.overdue": {
+   "en": "Past its deadline · {status}",
+   "ar": "تجاوز موعده · {status}",
+   "context": "Profile drawer alert: an open project past its Requested ETA, with its Monday status",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.past": {
+   "en": "{hours} past the deadline",
+   "ar": "بعد الموعد بـ {hours}",
+   "context": "Profile drawer alert: hours past the Requested ETA",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.late_sub": {
+   "en": "{late} of {n} · team {team_pct}",
+   "ar": "{late} من {n} · الفريق {team_pct}",
+   "context": "Profile metric: late projects of deadline-classifiable projects, and the team rate",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.speed": {
+   "en": "Speed vs peers",
+   "ar": "السرعة مقابل الزملاء",
+   "context": "Profile metric label: speed against peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.projects": {
+   "en": "Projects this month",
+   "ar": "المشاريع هذا الشهر",
+   "context": "Profile metric label: completed projects in the window",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.none_open": {
+   "en": "Nothing in progress now",
+   "ar": "لا شيء قيد التنفيذ الآن",
+   "context": "Profile metric: no Active Work",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.quality_pending": {
+   "en": "Quality rule not approved",
+   "ar": "قاعدة الجودة غير معتمدة",
+   "context": "Profile metric: Quality is not measured because its rule is not approved",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.why": {
+   "en": "Why this verdict",
+   "ar": "لماذا هذا الحكم",
+   "context": "Profile drawer heading above the reasons (MSA; the prototype's Egyptian wording is not used)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.more": {
+   "en": "More details",
+   "ar": "مزيد من التفاصيل",
+   "context": "Profile drawer disclosure with methodology, findings and evidence",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.profile.full": {
+   "en": "Open the full analysis",
+   "ar": "فتح التحليل الكامل",
+   "context": "Link from the profile drawer to the full pre-redesign profile (all sections and evidence)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.method": {
+   "en": "How this verdict was reached",
+   "ar": "كيف صدر هذا الحكم",
+   "context": "Profile More details: methodology heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.based_on": {
+   "en": "Judged on: {dimensions}.",
+   "ar": "بُني الحكم على: {dimensions}.",
+   "context": "Methodology: the dimensions the verdict used",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.score": {
+   "en": "Score {score} of 100 ({parts}); rank {rank} of {of} ranked Editors.",
+   "ar": "الدرجة {score} من 100 ({parts})؛ المركز {rank} من {of} مصنّفين.",
+   "context": "Methodology: the verdict score, its parts and the rank",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.unranked": {
+   "en": "Not ranked: ranking needs at least {minimum} completed projects this month.",
+   "ar": "غير مصنّف: يحتاج الترتيب إلى حد أدنى من المشاريع المكتملة هذا الشهر قدره {minimum}.",
+   "context": "Methodology: why the Editor has no rank",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.confidence": {
+   "en": "Confidence {level}: {reasons}.",
+   "ar": "الثقة {level}: {reasons}.",
+   "context": "Methodology: the confidence level and why",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.few_projects": {
+   "en": "few completed projects this month",
+   "ar": "عدد قليل من المشاريع المكتملة هذا الشهر",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.missing_dimension": {
+   "en": "a key dimension (deadlines or speed) has no value",
+   "ar": "أحد البعدين الأساسيين (المواعيد أو السرعة) بلا قيمة",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.mixed_evidence": {
+   "en": "a published finding qualifies the late rate",
+   "ar": "نتيجة منشورة تُقيّد قراءة نسبة التأخير",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.timeline_only": {
+   "en": "the verdict rests on the event timeline only",
+   "ar": "الحكم مبني على الخط الزمني للأحداث فقط",
+   "context": "Confidence reason",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence_reason.none": {
+   "en": "enough projects, every key dimension measured and no mixed evidence",
+   "ar": "عدد كافٍ من المشاريع، والأبعاد الأساسية مقيسة، ولا أدلة متعارضة",
+   "context": "Confidence reason when confidence is High",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tiers": {
+   "en": "How tiers are set: Weakest when late at least {weakest_pp} points above the team, or at least {weakest_speed} slower than peers and later than the team; Watch when late more than {watch_pp} points above the team, at least {watch_speed} slower, or holding overdue work; Best when in the top {best_share} of ranked Editors and worse than the team on nothing; Low activity below {low} completed projects with nothing overdue; everyone else is Steady.",
+   "ar": "كيف تُحدَّد الفئات: الأضعف عندما يزيد التأخير على الفريق بـ {weakest_pp} على الأقل (بالنقاط المئوية)، أو تكون السرعة أبطأ من الزملاء بنسبة {weakest_speed} على الأقل مع تأخير أعلى من الفريق؛ يحتاج متابعة عندما يزيد التأخير على الفريق بأكثر من {watch_pp} (بالنقاط المئوية)، أو تكون السرعة أبطأ بنسبة {watch_speed} على الأقل، أو توجد مشاريع تجاوزت موعدها؛ الأفضل ضمن أعلى {best_share} من المصنّفين دون أن يقل عن الفريق في أي بعد؛ نشاط منخفض عندما يقل المكتمل عن {low} ولا شيء متأخر؛ وكل ما عدا ذلك مستقر.",
+   "context": "Methodology: the tier rules with the approved thresholds (config/verdict-v1.json, D54)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.findings": {
+   "en": "Findings about this Editor",
+   "ar": "النتائج الخاصة بهذا المونتير",
+   "context": "Profile More details: this Editor's published findings without duplicates",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.no_findings": {
+   "en": "No published finding is about this Editor.",
+   "ar": "لا توجد نتيجة منشورة عن هذا المونتير.",
+   "context": "Profile More details without findings",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence": {
+   "en": "Evidence",
+   "ar": "الأدلة",
+   "context": "Profile More details: the evidence drawers behind the numbers",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_deadline": {
+   "en": "Deadlines: the projects behind the late rate",
+   "ar": "المواعيد: المشاريع وراء نسبة التأخير",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_speed": {
+   "en": "Speed: the projects compared with peers",
+   "ar": "السرعة: المشاريع المقارنة بالزملاء",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_projects": {
+   "en": "Projects completed this month",
+   "ar": "المشاريع المكتملة هذا الشهر",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.evidence_quality": {
+   "en": "Quality: the labels on each project",
+   "ar": "الجودة: الوسوم على كل مشروع",
+   "context": "Evidence link",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.projects_title": {
+   "en": "{name}: projects completed this month",
+   "ar": "{name}: المشاريع المكتملة هذا الشهر",
+   "context": "Evidence drawer title",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.technical": {
+   "en": "Technical details",
+   "ar": "تفاصيل تقنية",
+   "context": "Nested disclosure with raw identifiers",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_editor": {
+   "en": "Editor ID",
+   "ar": "معرّف المونتير",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_version": {
+   "en": "Verdict and configuration",
+   "ar": "إصدار الحكم والإعدادات",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_findings": {
+   "en": "Finding IDs",
+   "ar": "معرّفات النتائج",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_hidden": {
+   "en": "Hidden from the overview",
+   "ar": "مخفية من النظرة العامة",
+   "context": "Technical details row: findings hidden from the overview and why",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more.tech_decisions": {
+   "en": "Decision IDs",
+   "ar": "معرّفات القرارات",
+   "context": "Technical details row",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.title": {
+   "en": "More details",
+   "ar": "مزيد من التفاصيل",
+   "context": "Top bar link and heading of the global More details page (replaces 'Data & rules' when the page has verdicts)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.sub": {
+   "en": "Everything behind the verdicts: every finding, the Editors list, Team Pulse, the rules and the data.",
+   "ar": "كل ما وراء الأحكام: جميع النتائج، وقائمة المونتيرين، ونبض الفريق، والقواعد، والبيانات.",
+   "context": "Subtitle of the More details page",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.index": {
+   "en": "Sections of More details",
+   "ar": "أقسام مزيد من التفاصيل",
+   "context": "Accessible name of the in-page index",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.data": {
+   "en": "Data health",
+   "ar": "سلامة البيانات",
+   "context": "More details section: data freshness, sync status and data notes",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.same_measure": {
+   "en": "Same measure, smaller sample",
+   "ar": "المقياس نفسه بعينة أصغر",
+   "context": "A duplicate finding listed under the finding kept for it (redesign §6 row 4)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.safe": {
+   "en": "Data is safe to use",
+   "ar": "البيانات صالحة للاستخدام",
+   "context": "Top bar data health: the build's status snapshot classified the data as fresh",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.delayed": {
+   "en": "Data is delayed (last refresh {date})",
+   "ar": "البيانات متأخرة (آخر تحديث {date})",
+   "context": "Top bar data health: the data is delayed or its freshness could not be confirmed; the date is the Monday retrieval time",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.unavailable": {
+   "en": "Data unavailable",
+   "ar": "البيانات غير متاحة",
+   "context": "Top bar data health: no Monday data behind the page, or a failed publication",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.health.explain": {
+   "en": "Read from the publication's status: how fresh the Monday data is and whether the last synchronisation succeeded. The identifiers and timings are under Technical details.",
+   "ar": "مأخوذة من حالة النشر: مدى حداثة بيانات Monday وما إذا نجحت آخر مزامنة. المعرّفات والتوقيتات في التفاصيل التقنية.",
+   "context": "Data health section: what the plain line is based on",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.title": {
+   "en": "Rules awaiting approval: what Atlas proposes",
+   "ar": "قواعد بانتظار الاعتماد: ما يقترحه Atlas",
+   "context": "More details › Rules: every rule that is not approved, with a proposal",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.sub": {
+   "en": "Nothing below is active. Each rule stays off until the owner approves it, as written or edited, in a recorded decision.",
+   "ar": "لا شيء مما يلي مفعّل. تبقى كل قاعدة متوقفة حتى يعتمدها المالك، كما هي أو بعد تعديلها، بقرار مسجّل.",
+   "context": "Subtitle: proposals are drafts for the owner (D25)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.status": {
+   "en": "Proposed · not approved",
+   "ar": "مقترحة · غير معتمدة",
+   "context": "Status chip of a proposed rule",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.why": {
+   "en": "Why it is off now",
+   "ar": "لماذا هي متوقفة الآن",
+   "context": "Label: the current reason the rule is not active",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.proposal": {
+   "en": "Proposed rule",
+   "ar": "القاعدة المقترحة",
+   "context": "Label: the proposed rule text",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.unlocks": {
+   "en": "It would unlock",
+   "ar": "ما الذي ستتيحه",
+   "context": "Label: what approving the rule would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.quality.proposal": {
+   "en": "Approve Quality: any project with a negative client-quality label on Monday counts as a quality issue, and each Editor's share of such projects is compared with the team's.",
+   "ar": "اعتمد قاعدة الجودة: أي مشروع يحمل على Monday وسمًا سلبيًا عن جودة العميل يُحسب مشكلة جودة، وتُقارن نسبة هذه المشاريع لدى كل مونتير بنسبة الفريق.",
+   "context": "Proposed rule text for 'quality' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.quality.unlocks": {
+   "en": "Quality joins every verdict and the ranking ({quality_weight} of the score, the other weights shrinking in proportion), and the Quality decision leaves the rail.",
+   "ar": "تدخل الجودة في كل حكم وفي الترتيب ({quality_weight} من الدرجة، مع تقليص الأوزان الأخرى بالنسبة نفسها)، ويختفي قرار الجودة من قائمة المطلوب منك.",
+   "context": "What approving 'quality' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.trend_direction.proposal": {
+   "en": "Approve Trend: a change against the previous 30 days counts as improving or declining when it moves the late rate by at least {rate_pp} points or the median time by at least {duration_pct}.",
+   "ar": "اعتمد قاعدة الاتجاه: يُعدّ التغيّر مقارنةً بالثلاثين يومًا السابقة تحسنًا أو تراجعًا عندما يحرّك نسبة التأخير بـ {rate_pp} على الأقل (بالنقاط المئوية) أو زمن التنفيذ الوسيط بنسبة {duration_pct} على الأقل.",
+   "context": "Proposed rule text for 'trend_direction' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.trend_direction.unlocks": {
+   "en": "Profiles say improving or declining instead of only showing both windows.",
+   "ar": "تقول الملفات «يتحسّن» أو «يتراجع» بدلًا من عرض الفترتين فقط.",
+   "context": "What approving 'trend_direction' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.needs_attention.proposal": {
+   "en": "Approve Needs attention: an Editor needs attention now when they hold an open project past its Requested ETA or are in the Weakest tier.",
+   "ar": "اعتمد قاعدة «يحتاج اهتمامًا الآن»: يحتاج المونتير اهتمامًا عندما يكون لديه مشروع مفتوح تجاوز موعده المطلوب أو يكون في فئة الأضعف.",
+   "context": "Proposed rule text for 'needs_attention' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.needs_attention.unlocks": {
+   "en": "A Needs attention flag on profiles and a count on the overview, from the same facts as today's decisions.",
+   "ar": "علامة «يحتاج اهتمامًا» في الملفات وعددها في النظرة العامة، من الوقائع نفسها التي تبني قرارات اليوم.",
+   "context": "What approving 'needs_attention' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.positive_signals.proposal": {
+   "en": "Approve Positive signals: a project with a positive client label counts as a strength, and an Editor whose share of such projects is above the team's shows it.",
+   "ar": "اعتمد قاعدة الإشارات الإيجابية: يُحسب المشروع الذي يحمل وسمًا إيجابيًا من العميل نقطة قوة، ويُظهرها المونتير الذي تزيد نسبته من هذه المشاريع على الفريق.",
+   "context": "Proposed rule text for 'positive_signals' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.positive_signals.unlocks": {
+   "en": "A strength line in each profile and recognition among the Best tier's reasons.",
+   "ar": "سطر لنقاط القوة في كل ملف، وذكرها ضمن أسباب فئة الأفضل.",
+   "context": "What approving 'positive_signals' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.workload_capacity.proposal": {
+   "en": "Approve Capacity: an Editor holding more projects in Active Work than the team's usual (the median) is at capacity; one holding none is available.",
+   "ar": "اعتمد قاعدة السعة: المونتير الذي لديه مشاريع قيد التنفيذ أكثر من المعتاد في الفريق (الوسيط) بلغ سعته، ومن لا يملك أيًا منها متاح.",
+   "context": "Proposed rule text for 'workload_capacity' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.workload_capacity.unlocks": {
+   "en": "Who is overloaded or idle, and who should take the next project.",
+   "ar": "من المُثقل ومن المتفرغ، ومن يأخذ المشروع التالي.",
+   "context": "What approving 'workload_capacity' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.management_recommendation.proposal": {
+   "en": "Approve the verdict layer's decision rules (spec §7, D54) as Atlas's management recommendations everywhere, still built only from approved rules and never by AI.",
+   "ar": "اعتمد قواعد القرارات في طبقة الأحكام (المواصفة §7، D54) كتوصيات إدارية في Atlas كله، على أن تُبنى دائمًا من قواعد معتمدة فقط وليس بالذكاء الاصطناعي.",
+   "context": "Proposed rule text for 'management_recommendation' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.management_recommendation.unlocks": {
+   "en": "Recommendations beyond the overview's decisions, in profiles and in future reports.",
+   "ar": "توصيات تتجاوز قرارات النظرة العامة، في الملفات وفي التقارير القادمة.",
+   "context": "What approving 'management_recommendation' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.reward_recommendation.proposal": {
+   "en": "Approve Rewards: an Editor in the Best tier two months in a row, with high confidence, is proposed for a reward.",
+   "ar": "اعتمد قاعدة المكافآت: يُقترح للمكافأة المونتير الذي يبقى في فئة الأفضل شهرين متتاليين بثقة عالية.",
+   "context": "Proposed rule text for 'reward_recommendation' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.reward_recommendation.unlocks": {
+   "en": "A reward candidate list for the CEO, with its evidence.",
+   "ar": "قائمة مرشحين للمكافأة أمام الرئيس التنفيذي مع أدلتها.",
+   "context": "What approving 'reward_recommendation' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.team_patterns.proposal": {
+   "en": "Approve Team patterns: a label or a delay that appears for at least half of the Editors in the window is a team pattern.",
+   "ar": "اعتمد قاعدة أنماط الفريق: الوسم أو التأخير الذي يظهر لدى نصف المونتيرين على الأقل في الفترة نمطٌ على مستوى الفريق.",
+   "context": "Proposed rule text for 'team_patterns' (a draft for the owner; not approved)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rule.team_patterns.unlocks": {
+   "en": "Team-level patterns on the overview instead of label counts per Editor.",
+   "ar": "أنماط على مستوى الفريق في النظرة العامة بدلًا من عدّ الوسوم لكل مونتير.",
+   "context": "What approving 'team_patterns' would add",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.decision.see_rule": {
+   "en": "See the proposed rule",
+   "ar": "عرض القاعدة المقترحة",
+   "context": "Decision card link to where its detail lives",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.decision.see_profile": {
+   "en": "Open the profile",
+   "ar": "فتح الملف",
+   "context": "Decision card link to where its detail lives",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.decision.see_evidence": {
+   "en": "See the evidence",
+   "ar": "عرض الأدلة",
+   "context": "Decision card link to where its detail lives",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.decisions": {
+   "en": "All decisions",
+   "ar": "جميع القرارات",
+   "context": "More details section: every decision generated this month, in priority order",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.decisions_sub": {
+   "en": "In priority order; the overview shows the first five.",
+   "ar": "مرتّبة حسب الأولوية؛ تعرض النظرة العامة أول خمسة منها.",
+   "context": "Subtitle of the All decisions section",
+   "status": "Needs Arabic Review"
   }
  }
 }

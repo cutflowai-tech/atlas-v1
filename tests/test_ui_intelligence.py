@@ -61,8 +61,9 @@ class IntelligencePagesTests(unittest.TestCase):
                             (self.ar, ("ما لاحظه Atlas", "لماذا يهم", "التحقق المقترح", "قوة الأدلة:"))):
             cards = re.findall(r'<article class="iv-card" data-finding=.*?</article>', section(html), re.DOTALL)
             for card in cards:
+                visible = re.sub(r'</?bdi[^>]*>', "", card)          # Latin terms are isolated in Arabic (redesign T1.4)
                 for word in words:
-                    self.assertIn(word, card)
+                    self.assertIn(word, visible)
 
     def test_confidence_is_a_word_never_a_percentage(self):
         levels = {f["finding_id"]: f["confidence"]["level"] for f in self.iv2["findings"]}

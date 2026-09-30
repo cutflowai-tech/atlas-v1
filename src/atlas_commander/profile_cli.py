@@ -28,11 +28,14 @@ from atlas_commander.dashboard_html import render_dashboard_html
 from atlas_commander.i18n import EN, Loc, locales
 from atlas_commander.identity import AMBIGUOUS_EDITOR, EDITOR_LABEL_NAME_MISMATCH, EDITOR_LABEL_NAME_UNVERIFIED, MISSING_EDITOR, UNMAPPED_EDITOR
 from atlas_commander.investigation.site import build_site_intelligence, write_document
+from atlas_commander.photos import editor_photos
 from atlas_commander.pipeline import CycleReconstruction, reconstruct_cycles
 from atlas_commander.profile import build_editor_profile, profiled_editors
 from atlas_commander.profile_html import render_profile_html
 from atlas_commander.publication import site_publication
 from atlas_commander.runtime import ACTIVE_CONTRACT_VERSION, load_contract_version
+from atlas_commander.verdict.site import build_site_verdicts
+from atlas_commander.verdict.site import write_document as write_verdicts
 
 
 def reconstruct_extract(extract: dict[str, Any], contract: dict[str, Any]) -> CycleReconstruction:
@@ -114,7 +117,8 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
 
     ``status_snapshot`` is optional, language-neutral Task 7 context captured by the caller at
     build time. This function neither derives nor validates it, and both locales receive the
-    exact same object. ``intelligence`` is the optional published Intelligence V2 document, shown by both locales.
+    exact same object. ``intelligence`` is the optional published Intelligence V2 document, shown by both locales. Under contract
+    1.5.0+ the verdict document (``verdicts.json``, D54) is built from the dashboard and that Intelligence document.
     """
     editor_ids = [profile["editor"]["editor_id"] for profile in profiles]
     publication = site_publication(result, contract, generated_at)
@@ -123,14 +127,21 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
                                 profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids}, publication=publication,
                                 contract_version=contract["contract_version"])
     (out / site_layout.DASHBOARD_JSON).write_text(json.dumps(dashboard, indent=1) + "\n")
+    verdicts = build_site_verdicts(dashboard, intelligence, generated_at, monday_item_url=monday_item_url)   # the redesign's judgment layer (D54), 1.5.0+
+    if verdicts is not None:
+        write_verdicts(out, verdicts)
+    photos = editor_photos(e["editor_id"] for e in dashboard["editors"]) if verdicts is not None else {}   # T5.1: admin-added photo files
     for loc in locales():
         _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(
             dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}",
-            status_snapshot=status_snapshot, intelligence=intelligence))
+            status_snapshot=status_snapshot, intelligence=intelligence, verdicts=verdicts, photos=photos))
         _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html", publication))
-    ar = EN.other()
-    _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), publication,
-                                                    (ar, site_layout.dashboard_html(ar.code))))
+    # The root opens the default language: Arabic for the redesigned site (D54, "Language default: Arabic, with the existing switcher"),
+    # English otherwise (the pre-redesign sites, byte for byte).
+    first = EN.other() if verdicts is not None else EN
+    second = first.other()
+    _write(out, site_layout.ROOT_ENTRY, _entry_page(first, site_layout.dashboard_html(first.code), publication,
+                                                    (second, site_layout.dashboard_html(second.code))))
     return dashboard
 
 

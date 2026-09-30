@@ -36,14 +36,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_commander import site_layout
+from atlas_commander import optional_artifacts, site_layout
 from atlas_commander.contracts import validate
 from atlas_commander.cycles import COMPLETED
 from atlas_commander.i18n import LOCALES
 from atlas_commander.ingest import EXTRACT_NAME, MANIFEST_NAME, Clock, failure_category, ingest_run, new_run_id, tracked_columns, utc_now
 from atlas_commander.ingest_verify import verify
 from atlas_commander.investigation.site import build_site_intelligence, write_document
-from atlas_commander.investigation.site import site_problems as intelligence_problems
 from atlas_commander.pipeline import CycleReconstruction
 from atlas_commander.profile import PROFILE_CONTRACTS, evidence_consistency_errors, profiled_editors
 from atlas_commander.profile_cli import attribution_coverage, build_dashboard_files, build_profiles, reconstruct_extract
@@ -226,8 +225,8 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
     problems += [f"missing required artifact {name}" for name in required if name not in files]
     optional = site_layout.optional_files(contract["contract_version"])
     problems += [f"unexpected artifact {name}" for name in files if name not in required and name not in optional]
-    problems += [problem for name in optional if name in files for problem in intelligence_problems(files[name], contract["contract_version"],
-                                                                                                       extract.get("retrieved_at"))]
+    problems += [problem for name in optional if name in files for problem in optional_artifacts.problems(name, files[name], contract["contract_version"],
+                                                                                                             extract.get("retrieved_at"))]
     problems += [f"empty artifact {name}" for name, path in files.items() if path.stat().st_size == 0]
     if token:
         problems += [f"artifact {name} contains the Monday token" for name, path in files.items() if token in path.read_bytes()]

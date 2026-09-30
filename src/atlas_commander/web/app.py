@@ -30,6 +30,7 @@ from atlas_commander.intelligence import CAIRO
 from atlas_commander.interpretation_html import window_line
 from atlas_commander.management import PENDING_RULES, V15_PENDING_SLOTS, V15_REASONS
 from atlas_commander.web import intel
+from atlas_commander.web.health import data_health, health_line, health_link
 from atlas_commander.web.kit import (
     CLASSIFIED,
     RESULTS,
@@ -59,6 +60,7 @@ from atlas_commander.web.kit import (
     verdict_chip,
 )
 from atlas_commander.web.style import CSS, SCRIPT
+from atlas_commander.web.team_overview import all_decisions, team_overview
 
 COMPONENTS = ("quality", "speed", "deadline")
 LABEL_CLASSES = ("negative", "positive", "context")
@@ -73,7 +75,7 @@ def _last_day(value: Mapping[str, Any]) -> str:
 
 def window_range(view: Mapping[str, Any], loc: Loc, which: str = "current") -> Html:
     w = view["window"][which]
-    return Html(f'{escape(loc.date(w["start_date"], False))} – {escape(loc.date(_last_day(w), False))}')
+    return Html(f'{loc.when(w["start_date"], False)} – {loc.when(_last_day(w), False)}')
 
 
 def _primary_speed(view: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -139,7 +141,9 @@ def editor_card(s: Mapping[str, Any], ctx: Ctx) -> str:
             f'<span>{loc.t("card.view_profile")} {icon("arrow", 13)}</span></div></article>')
 
 
-def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None) -> str:
+def editor_list(doc: Mapping[str, Any], ctx: Ctx) -> tuple[str, str]:
+    """The pre-redesign Editors list: its window line, and the search, status filters and cards in alphabetical order (a filter,
+    never a ranking)."""
     loc = ctx.loc
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))   # alphabetical: never a ranking
     counts = Counter(status_key(s["interpretation"]["overall"]) for s in editors)
@@ -156,9 +160,35 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: 
     tools = (f'<div class="tools"><label class="search">{icon("search", 16)}<span class="sr">{loc.t("ui.search_label")}</span>'
              f'<input id="editor-search" type="search" autocomplete="off" placeholder="{attr(loc.text("ui.search_placeholder"))}"></label>'
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
+    return window, tools + grid
+
+
+def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None,
+             verdicts: Mapping[str, Any] | None = None) -> str:
+    loc = ctx.loc
+    if verdicts is not None:   # T4.2/T4.3: the judgment-first overview is the whole first layer; the old one is in More details (T4.6)
+        return f'<div data-view="team">{team_overview(verdicts, ctx, doc, intelligence)}</div>'
+    window, listing = editor_list(doc, ctx)
     return (f'<div data-view="team"><div class="ph"><div><h1>{loc.t("ui.nav.editors")}</h1>{window}</div></div>'
             f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
-            f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}</div>')
+            f'{intel.overview_section(intelligence, ctx)}{listing}{team_context(doc, ctx, month)}</div>')
+
+
+def more_details_sections(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None,
+                          verdicts: Mapping[str, Any]) -> str:
+    """T4.6: the pre-redesign first layer, whole, inside More details: every published finding (the verdict layer's duplicates folded
+    under the finding kept), the Editors list in alphabetical order with its search and filters, and Team Pulse with the other team tabs,
+    unchanged. Each part keeps its IDs, so every drawer, tab and link it had still works."""
+    loc = ctx.loc
+    collapse = {hidden: group["kept"] for group in verdicts["findings"]["duplicates"] for hidden in group["hidden"]}
+    _, listing = editor_list(doc, ctx)
+    first = doc["editors"][0]["interpretation"] if doc["editors"] else None
+    findings = intel.overview_section(intelligence, ctx, collapse)
+    editors = (f'<section id="md-editors" class="sec">{section_head(loc.t("ui.nav.editors"), window_line(first, loc) if first else "")}'
+               f'<p class="note" style="margin:-4px 0 14px">{loc.t("ui.overview_note")}</p>{listing}</section>')
+    wrapped = f'<div id="md-findings">{findings}</div>' if findings else ""
+    return (f'{all_decisions(verdicts, ctx, intelligence)}{wrapped}{editors}'
+            f'<div id="md-pulse">{team_context(doc, ctx, month)}</div>')
 
 
 # ---------------------------------------------------------------- team context (secondary)
@@ -278,7 +308,7 @@ def event_templates(s: Mapping[str, Any], ctx: Ctx) -> str:
             continue
         ids = "".join(f"<dd>{loc.tech(v)}</dd>" for v in event["event_ids"])
         out.append(template(_event_tid(s["editor_id"], index), event["label"], dl([
-            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), escape(loc.date(event["at"]))),
+            (loc.t("field.editor"), loc.src(s["display_name"])), (loc.t("field.label_added"), loc.when(event["at"])),
             (loc.t("field.monday_item"), item_link(event["monday_item_id"], ctx)),
             (loc.t("field.source"), loc.tech(event["column_id"]) if "column_id" in event else loc.t("quality.source_column"))])
             + f"<h4>{loc.t('evidence.monday_events')}</h4><dl><dt>{loc.t('common.evidence')}</dt>{ids}</dl>"
@@ -357,7 +387,7 @@ def component_drawers(s: Mapping[str, Any], ctx: Ctx) -> str:
         rows = [(loc.t("common.status"), state_chip(c["state"], loc) + (" " + reason_span(c["reason"], loc) if c["reason"] else "")),
                 (loc.t("ui.rule"), Html(f'{loc.tech(ev["rule_version"])} · {loc.t("interp.state." + c["rule_status"])}')),
                 (loc.t("ui.period"), window_range(view, loc)),
-                (loc.t("ui.calculated"), escape(loc.date(ev["calculated_at"]))),
+                (loc.t("ui.calculated"), loc.when(ev["calculated_at"])),
                 (loc.t("common.projects"), loc.num(ev["records"]))]
         out.append(template(_component_tid(eid, name), loc.text("ui.component_drawer_title", component=loc.text("common." + ("deadlines" if name == "deadline" else name)),
                                                                   name=s["display_name"]),
@@ -399,7 +429,7 @@ def profile_summary(s: Mapping[str, Any], ctx: Ctx, retrieved: str | None) -> st
     return (f'<section id="{_sid(eid, "summary")}" data-section="interpretation" class="hero">'
             f'<div class="card" data-overall-status="{escape(overall["status"] or "")}" data-status-state="{escape(overall["status_state"])}">'
             f'<div class="who">{avatar(s["display_name"], "xl")}<div><h1>{loc.src(s["display_name"])}</h1>'
-            f'<div class="sub">{loc.t("ui.profile.sub", window=window_range(view, loc), cwindow=window_range(view, loc, "comparison"), updated=Html(escape(loc.date(retrieved, False))))}</div></div></div>'
+            f'<div class="sub">{loc.t("ui.profile.sub", window=window_range(view, loc), cwindow=window_range(view, loc, "comparison"), updated=Html(loc.when(retrieved, False)))}</div></div></div>'
             f'<div class="status-row"><span class="soft sm">{loc.t("interp.section_title")}</span>{overall_pill(overall, loc, True)}{overall_reason}</div>'
             f'<h2 style="font-size:14px;margin-top:14px">{loc.t("interp.why_title")}</h2><ul class="why">{why}</ul>'
             f'<p class="note">{loc.t("interp.no_score")}</p></div>'
@@ -484,7 +514,7 @@ def _component_header(name: str, title: Html, view: Mapping[str, Any], loc: Loc)
 def _evidence_footer(s: Mapping[str, Any], name: str, ctx: Ctx) -> str:
     loc = ctx.loc
     ev = s["interpretation"]["components"][name]["evidence"]
-    summary = loc.t("interp.evidence.summary", n=loc.num(ev["records"]), rule=loc.tech(ev["rule_version"]), at=Html(escape(loc.date(ev["calculated_at"]))))
+    summary = loc.t("interp.evidence.summary", n=loc.num(ev["records"]), rule=loc.tech(ev["rule_version"]), at=Html(loc.when(ev["calculated_at"])))
     return f'<div class="ev"><span>{summary}</span>{open_link(_component_tid(s["editor_id"], name), loc.t("ui.open_evidence"), ctx)}</div>'
 
 
@@ -588,7 +618,7 @@ def profile_work(s: Mapping[str, Any], ctx: Ctx) -> str:
     loc, eid = ctx.loc, s["editor_id"]
     w = s["current_workload"]
     stats = stat(loc.num(w.get("active_work_count")), loc.t("workload.active_work")) + stat(loc.num(w.get("awaiting_approval_count")), loc.t("workload.awaiting_approval"))
-    return (f'<section id="{_sid(eid, "work")}" class="sec">{section_head(loc.t("common.current_work"), loc.t("ui.work.sub", date=Html(escape(loc.date(w["as_of"])))))}'
+    return (f'<section id="{_sid(eid, "work")}" class="sec">{section_head(loc.t("common.current_work"), loc.t("ui.work.sub", date=Html(loc.when(w["as_of"]))))}'
             f'<div class="card"><div class="stats">{stats}</div><div style="margin-top:14px">{workload_chips(w, loc)}</div>'
             f'<p class="note">{loc.t("note.workload_v15")}</p></div></section>')
 
@@ -714,15 +744,51 @@ def editor_profile(s: Mapping[str, Any], retrieved: str | None, ctx: Ctx, intell
 
 # ---------------------------------------------------------------- Data & rules
 
-def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None) -> str:
+def _whole(value: float) -> int | float:
+    return int(value) if float(value).is_integer() else round(value, 1)
+
+
+def rule_proposals(doc: Mapping[str, Any], ctx: Ctx, verdicts: Mapping[str, Any]) -> str:
+    """T4.8: every rule that is not approved, with why it is off now, the rule Atlas proposes and what approving it would unlock. Each
+    has an anchor (``#rule-<slot>``) that decision cards link to (``#/system/rule-<slot>``). Numbers in a proposal come from the approved
+    configuration; nothing here is active until the owner approves it."""
+    loc = ctx.loc
+    if not doc["editors"]:
+        return ""
+    view = doc["editors"][0]["interpretation"]
+    values = verdicts["config"]["values"]
+    rules: list[tuple[str, Html, Html]] = []
+    if view["components"]["quality"]["rule_status"] != "approved":
+        rules.append(("quality", loc.t("common.quality"), loc.t("ui.v.profile.quality_pending")))
+    for slot in (slot for slot in PENDING_RULES if slot in V15_PENDING_SLOTS):
+        if slot == "trend_direction" and view["trend_rule_status"] == "approved":
+            continue
+        reason = loc.t(f"pending_v15.{slot}.reason" if slot in V15_REASONS else f"pending.{slot}.reason")
+        rules.append((slot, pending_label(slot, loc, True), reason))
+    params = {"quality": {"quality_weight": loc.ltr(f'{_whole(values["score.weight_quality"] * 100)}%')},
+              "trend_direction": {"rate_pp": loc.num(_whole(values["reasoning.material_rate_difference"] * 100)),
+                                  "duration_pct": loc.ltr(f'{_whole(values["reasoning.material_duration_pct"])}%')}}
+    items = "".join(
+        f'<article class="v-rule" id="rule-{slot}" tabindex="-1" data-rule="{slot}"><h4>{label}<span class="v-chip v-rule-st">{loc.t("ui.v.rule.status")}</span></h4>'
+        f'<dl><dt>{loc.t("ui.v.rule.why")}</dt><dd>{reason}</dd><dt>{loc.t("ui.v.rule.proposal")}</dt><dd>{loc.t(f"ui.v.rule.{slot}.proposal", **params.get(slot, {}))}</dd>'
+        f'<dt>{loc.t("ui.v.rule.unlocks")}</dt><dd>{loc.t(f"ui.v.rule.{slot}.unlocks", **params.get(slot, {}))}</dd></dl></article>'
+        for slot, label, reason in rules)
+    return (f'<div class="card v-rules" id="md-proposals"><h3 style="margin-bottom:6px">{loc.t("ui.v.rule.title")}</h3>'
+            f'<p class="sm soft">{loc.t("ui.v.rule.sub")}</p>{items}</div>')
+
+
+def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None,
+               more: str | None = None, proposals: str | None = None) -> str:
+    """Data & rules. With ``more`` (the redesign, T4.6) the same view is the global More details: an index, the pre-redesign first layer
+    (``more_details_sections``), then the rules and the data health that were already here."""
     loc = ctx.loc
     source = doc["source"]
     window = source.get("activity_log_window") or {}
     publication = doc.get("publication") or {}
-    snapshot = [(loc.t("system.retrieved"), escape(loc.date(source.get("retrieved_at")))),
-                (loc.t("system.window"), Html(f'{escape(loc.date(window.get("since")))} <span dir="ltr">→</span> {escape(loc.date(window.get("until")))}')),
+    snapshot = [(loc.t("system.retrieved"), loc.when(source.get("retrieved_at"))),
+                (loc.t("system.window"), Html(f'{loc.when(window.get("since"))} <span dir="ltr">→</span> {loc.when(window.get("until"))}')),
                 (loc.t("system.contract"), loc.tech(source.get("executable_contract_version"))),
-                (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), escape(loc.date(doc["generated_at"])))]
+                (loc.t("system.dashboard_document"), loc.tech(doc["dashboard_version"])), (loc.t("system.generated"), loc.when(doc["generated_at"]))]
     if publication.get("release_id"):
         snapshot.append((loc.t("ui.release"), loc.t("publication.identity", release=loc.tech(publication["release_id"]), snapshot=loc.tech(publication["snapshot_id"]))))
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))
@@ -765,11 +831,26 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
                       for e in doc["editors_without_attributable_data"])
     presentation = "".join(f"<li><span>{loc.t(k)}</span></li>" for k in ("ui.presentation.order", "system.presentation.timeline",
                                                                           "system.presentation.months_v15", "system.presentation.languages"))
-    return (f'<div data-view="system" hidden><div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
-            f'{operational_status(dict(status_snapshot) if status_snapshot is not None else None, loc)}'
-            f'<div class="grid2" style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
-            f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>'
-            f'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:12px">{loc.t("system.snapshot")}</h3>{dl(snapshot, "dl")}</div>'
+    status = operational_status(dict(status_snapshot) if status_snapshot is not None else None, loc)
+    snapshot_card = f'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:12px">{loc.t("system.snapshot")}</h3>{dl(snapshot, "dl")}</div>'
+    if more is not None:   # T4.7: Data health opens with the plain line; the technical fields sit under Technical details
+        state, last = data_health(status_snapshot, source.get("retrieved_at"))
+        plain = (f'<div class="card v-health-card" data-health="{state}"><p class="v-health-line"><i></i>{health_line(state, last, loc)}</p>'
+                 f'<p class="sm soft">{loc.t("ui.v.health.explain")}</p></div>')
+        status = (f'{plain}<details class="v-tech v-health-tech"><summary>{loc.t("ui.v.more.technical")}</summary>{status}{snapshot_card}</details>')
+        snapshot_card = ""
+        index = "".join(f'<button type="button" data-jump="{target}">{loc.t(label)}</button>' for target, label in (
+            ("md-decisions", "ui.v.more_page.decisions"), ("md-findings", "ui.iv2.title"), ("md-editors", "ui.nav.editors"), ("md-pulse", "home.context_label"), ("md-rules", "ui.rules.title"),
+            ("md-data", "ui.v.more_page.data")) if target != "md-findings" or 'id="md-findings"' in more)
+        head = (f'<div class="ph"><div><h1>{loc.t("ui.v.more_page.title")}</h1><p>{loc.t("ui.v.more_page.sub")}</p></div></div>'
+                f'<nav class="jump v-md-index" aria-label="{attr(loc.text("ui.v.more_page.index"))}">{index}</nav>{more}'
+                f'<div class="sec-h" id="md-data"><div><h2>{loc.t("ui.v.more_page.data")}</h2><p>{loc.t("system.sub")}</p></div></div>')
+    else:
+        head = f'<div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
+    return (f'<div data-view="system" hidden>{head}{status}'
+            f'<div class="grid2"{' id="md-rules"' if more is not None else ""} style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
+            + (f'</div>{proposals}' if proposals is not None else f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>')
+            + f'{snapshot_card}'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.editors_identity")}</h3>'
             + table([loc.t("common.editor"), loc.t("system.head.atlas_id"), loc.t("system.head.monday_label"), loc.t("system.head.mapping"), loc.t("system.head.profile"), loc.t("coverage.completed")], identity, none_row)
             + f'</div><div class="card"><h3 style="margin-bottom:12px">{loc.t("system.data_quality_notes")}</h3>'
@@ -803,28 +884,41 @@ def page(loc: Loc, title: str, body: str, publication: Mapping[str, Any] | None,
 
 
 def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_item_url: str | None = None, loc: Loc | None = None,
-               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None) -> str:
+               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None,
+               verdicts: Mapping[str, Any] | None = None, photos: Mapping[str, str] | None = None) -> str:
     """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app. ``intelligence`` is the
-    optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence."""
+    optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence.
+    ``verdicts`` is the optional verdict document (D54); with it the Editors page opens with the judgment-first overview. ``photos`` maps
+    Editor IDs to embedded photos (T5.1); they are shown wherever the verdict pages show that Editor, and never written to verdicts.json."""
     assert loc is not None
+    if verdicts is not None and photos:
+        verdicts = {**verdicts, "editors": [{**e, "photo_url": photos.get(e["editor_id"], e.get("photo_url"))} for e in verdicts["editors"]]}
+    loc = loc.isolating()   # Latin terms and dates isolated in Arabic (redesign T1.4)
     ctx = Ctx(loc, monday_item_url)
     source = doc["source"]
     retrieved = source.get("retrieved_at")
     month = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).strftime("%Y-%m") if retrieved else None
     editors = doc["editors"]
-    views = (overview(doc, ctx, month, intelligence) + "".join(editor_profile(s, retrieved, ctx, intelligence) for s in editors)
+    views = (overview(doc, ctx, month, intelligence, verdicts) + "".join(editor_profile(s, retrieved, ctx, intelligence) for s in editors)
              + intel.drawers(intelligence, ctx, intel.project_template_ids(editors)))
     body = _dedupe_templates(views)
     blob = json.dumps(dict(profile_pages)).replace("</", "<\\/")
     switch = language_switch(loc, switch_href, keep_hash=True) if switch_href else ""
-    fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(escape(loc.date(retrieved, False))))}</span></a>'
-             if retrieved else "")
-    top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i>Atlas</a>'
+    if verdicts is not None:   # T4.7: the plain data-health line instead of the update date
+        fresh = health_link(status_snapshot, retrieved, loc)
+    else:
+        fresh = (f'<a class="fresh" href="#/system" title="{attr(loc.text("ui.data_status"))}"><i></i><span>{loc.t("home.updated", date=Html(loc.when(retrieved, False)))}</span></a>'
+                 if retrieved else "")
+    top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i><bdi dir="ltr">Atlas</bdi></a>'
            f'<nav class="nav" aria-label="{attr(loc.text("nav.main_label"))}"><a href="#/" data-nav="team" aria-current="page">{loc.t("ui.nav.editors")}</a>'
-           f'<a href="#/system" data-nav="system">{loc.t("ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
+           f'<a href="#/system" data-nav="system">{loc.t("ui.v.more_page.title" if verdicts is not None else "ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
     drawer = ('<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
               f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>')
-    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence)}</main>{drawer}'
+    profile = ('<div class="v-scrim" data-profile-close></div><aside class="v-profile" id="vprofile" role="dialog" aria-modal="true" aria-hidden="true" '
+               'aria-labelledby="vprofile-name"><div class="v-profile-in"></div></aside>') if verdicts is not None else ""   # T4.4
+    more = more_details_sections(doc, ctx, month, intelligence, verdicts) if verdicts is not None else None
+    proposals = rule_proposals(doc, ctx, verdicts) if verdicts is not None else None
+    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence, more, proposals)}</main>{profile}{drawer}'
                f'<script type="application/json" id="atlas-reports">{blob}</script>')
     return page(loc, loc.text("page.dashboard_title"), content, doc.get("publication"))
 

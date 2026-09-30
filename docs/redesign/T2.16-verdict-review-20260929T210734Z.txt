@@ -1,0 +1,28 @@
+Snapshot 2026-09-29T21:10:18Z · verdict verdict-v1.0 · config verdict-config-v1.0
+Team: critical · improving · confidence high · late_rate 58.5 · overdue 5 · short_runway_share 77.8
+
+Editor                    Tier          Rank  Score  Confidence  Headline                            Overdue
+------------------------  ------------  ----  -----  ----------  ----------------------------------  -------
+Ibrahim                   best          1/8   93.7   high        best.highest_volume_faster          0
+Martin                    best          2/8   78.9   high        best.faster                         0
+Will                      steady        3/8   69.3   medium      steady.default                      0
+Anas                      steady        4/8   41.9   high        steady.mirrors_team                 0
+Ezz                       steady        —     —      low         steady.default                      0
+Sobhy                     watch         5/8   28.4   low         watch.late                          0
+Mario                     weakest       6/8   18.0   medium      weakest.not_scheduling_slower       1
+Amir                      weakest       7/8   17.3   medium      weakest.not_scheduling_slower       1
+Refaat                    weakest       8/8   11.7   medium      weakest.not_scheduling_slower_self  2
+Ahmed                     low_activity  —     —      low         low_activity.zero_activity          0
+Ali                       low_activity  —     —      low         low_activity.few                    0
+Michael                   low_activity  —     —      low         low_activity.nothing_completed      1
+Mohamed Mansour (Office)  low_activity  —     —      low         low_activity.few                    0
+Samra                     low_activity  —     —      low         low_activity.zero_activity          0
+
+Decisions (5 on the overview, 7 in all):
+  * 1 today      overdue_open_work  Refaat, Michael, Amir, Mario (high)
+  * 2 this_week  weakest_editor     Refaat (medium)
+  * 2 this_week  weakest_editor     Amir (medium)
+  * 2 this_week  weakest_editor     Mario (medium)
+  * 3 this_week  scheduling_runway  scheduling_owner (high)
+    4 ask        low_activity       Ahmed, Ali, Michael, Mohamed Mansour (Office), Samra (high)
+    5 management approve_rule       ceo (high)
