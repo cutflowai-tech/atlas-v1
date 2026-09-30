@@ -294,6 +294,19 @@ SCRIPT = r"""
   var reports = reportsEl ? JSON.parse(reportsEl.textContent) : {};
   var views = document.querySelectorAll('[data-view]');
   var drawer = document.getElementById('drawer');
+  // Scroll: a new route opens at the top; Back and Forward return to where that history entry was left (ATLAS-MOBILE-002).
+  // Each entry keeps its own position in history.state, so the browser's per-document restoration is switched off.
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  function saveScroll(){
+    var state = history.state || {};
+    if (state.atlasY === window.scrollY) return;
+    try { history.replaceState(Object.assign({}, state, {atlasY: window.scrollY}), ''); } catch (err) {}
+  }
+  var saveTimer = null;
+  window.addEventListener('scroll', function(){
+    if (saveTimer) return;
+    saveTimer = setTimeout(function(){ saveTimer = null; saveScroll(); }, 200);
+  }, {passive: true});
   function route(){
     var h = location.hash || '#/', name = 'team', m;
     if (h === '#/system') name = 'system';
@@ -304,9 +317,13 @@ SCRIPT = r"""
     document.querySelectorAll('.nav a').forEach(function(a){
       if (a.getAttribute('data-nav') === (name === 'system' ? 'system' : 'team')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    closeDrawer(); window.scrollTo(0, 0); spy();
+    closeDrawer();
+    var state = history.state;
+    window.scrollTo(0, state && typeof state.atlasY === 'number' ? state.atlasY : 0);
+    spy();
   }
   document.addEventListener('click', function(e){
+    if (e.target.closest('a[href^="#"]')) saveScroll();   // the entry being left keeps its exact position
     var keep = e.target.closest('a[data-keep-hash]');
     if (keep) { keep.setAttribute('href', keep.getAttribute('href').split('#')[0] + location.hash); return; }
     var tab = e.target.closest('[data-tab]');
