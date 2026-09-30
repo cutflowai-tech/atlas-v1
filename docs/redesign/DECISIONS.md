@@ -315,3 +315,15 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   embedded photo wherever the verdict pages show the Editor (card, drawer, decision owners).
 - **Blocked:** no real Editor photo exists in the repository or the data. The mechanism is verified with a generated test image;
   "at least one real photo shows" needs photo files from the owner (see T5.2 for how to add them).
+
+## R23. Accessibility audit without axe-core (T6.2)
+
+- The handoff suggests axe. axe-core is not a dependency of the repository and is not available offline here; downloading it needs the
+  owner's approval, so the pass uses an equivalent audit built on the existing headless-Chrome harness (`tests/a11y.py`,
+  `tests/js/a11y_check.js`): WCAG 2 AA text contrast computed from the rendered colours (4.5:1, 3:1 for large text), accessible names
+  from Chrome's own accessibility tree for every link, button, image, dialog, tab and control, focusable content under `aria-hidden`,
+  broken ARIA references, image alternatives, the document language and direction, one `h1` per view, and reduced motion. A negative
+  control proves each family is caught. Adding axe later is a drop-in second check; it would not replace these assertions.
+- **Token changes for contrast.** Two light-theme text tokens of the existing design system were darkened (`--ink-3` and `--na`
+  #7f7f74 → #5f5f55) because they fell below 4.5:1 on the light surfaces (4.05 on white, 3.52 on `--surface-2`). The dark theme is
+  unchanged. The redesign's `--v-faint` stays as the handoff defines it but is used only for decoration, never for text.

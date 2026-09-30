@@ -155,8 +155,10 @@ class Browser:
     def key(self, name: str, shift: bool = False) -> None:
         key, code = KEYS[name]
         modifiers = 8 if shift else 0
-        for kind in ("rawKeyDown", "keyUp"):
-            self.call("Input.dispatchKeyEvent", {"type": kind, "key": key, "code": key, "windowsVirtualKeyCode": code, "modifiers": modifiers})
+        # Enter carries its character, as a real keyboard does, so buttons activate (Chrome clicks a button on the key press)
+        down = {"type": "keyDown", "text": "\r"} if name == "Enter" else {"type": "rawKeyDown"}
+        for event in (down, {"type": "keyUp"}):
+            self.call("Input.dispatchKeyEvent", {**event, "key": key, "code": key, "windowsVirtualKeyCode": code, "modifiers": modifiers})
 
     def close(self) -> None:
         with contextlib.suppress(Exception):   # best effort; the process is killed below anyway
