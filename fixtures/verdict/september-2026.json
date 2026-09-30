@@ -1,0 +1,1613 @@
+{
+ "note": "Write ``fixtures/verdict/september-2026.json``: the spec §9 test fixture (redesign T2.3).\n\n    PYTHONPATH=src:tests python3 tests/make_verdict_fixture.py\n\nA minimal subset of one snapshot's ``dashboard.json`` and ``intelligence-v2.json`` holding only the fields the verdict engine reads.\nThe six Editors of `02-VERDICT-ENGINE-SPEC.md` §9 (Will, Anas, Refaat, Sobhy, Mohamed Mansour, Samra) carry the spec's numbers.\nSix more Editors are added only so the team totals reproduce §9 (late 59% was 75%, 3 overdue open projects held by Michael,\nRefaat and Mario, 328 of 424 late projects with short runway, 73% of 448 vs 55% of 91); their values are chosen to be unremarkable\nand are not taken from any real Editor.",
+ "dashboard": {
+  "dashboard_version": "ceo-dashboard-v0.1",
+  "generated_at": "2026-09-30T13:10:00Z",
+  "source": {
+   "retrieved_at": "2026-09-30T13:10:00Z",
+   "executable_contract_version": "1.5.0"
+  },
+  "editors": [
+   {
+    "editor_id": "editor-label-6",
+    "display_name": "Will",
+    "sample": {
+     "completed_projects": 158
+    },
+    "current_workload": {
+     "active_work_count": 2
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 22
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 22,
+        "late": 12,
+        "absolute_late_rate": 0.5455
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Class A",
+         "cohort_labels": [
+          "Class A"
+         ],
+         "verdict": "similar",
+         "reason": null,
+         "editor_projects": 8,
+         "editor_median_seconds": 108000,
+         "comparator_projects": 30,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 140760,
+         "editor_vs_comparator_pct": -23.3
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.182,
+        "eligible_completed_projects": 22
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.5455,
+       "comparison": 0.875,
+       "current_sample": 22,
+       "comparison_sample": 24
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-5",
+    "display_name": "Anas",
+    "sample": {
+     "completed_projects": 39
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 13
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 13,
+        "late": 7,
+        "absolute_late_rate": 0.5385
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Simple Short",
+         "cohort_labels": [
+          "Simple Short"
+         ],
+         "verdict": "similar",
+         "reason": null,
+         "editor_projects": 9,
+         "editor_median_seconds": 156240,
+         "comparator_projects": 20,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 126720,
+         "editor_vs_comparator_pct": 23.3
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 13
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.5385,
+       "comparison": 0.75,
+       "current_sample": 13,
+       "comparison_sample": 16
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-11",
+    "display_name": "Refaat",
+    "sample": {
+     "completed_projects": 45
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 14
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 14,
+        "late": 12,
+        "absolute_late_rate": 0.8571
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Simple Short",
+         "cohort_labels": [
+          "Simple Short"
+         ],
+         "verdict": "slower",
+         "reason": null,
+         "editor_projects": 11,
+         "editor_median_seconds": 149760,
+         "comparator_projects": 16,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 104760,
+         "editor_vs_comparator_pct": 43.0
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 14
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.8571,
+       "comparison": 0.7143,
+       "current_sample": 14,
+       "comparison_sample": 14
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-15",
+    "display_name": "Sobhy",
+    "sample": {
+     "completed_projects": 6
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 6
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 6,
+        "late": 4,
+        "absolute_late_rate": 0.6667
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "2* + Class A",
+         "cohort_labels": [
+          "2*",
+          "Class A"
+         ],
+         "verdict": "not_classifiable",
+         "reason": "insufficient_sample",
+         "editor_projects": 1,
+         "editor_median_seconds": 193320,
+         "comparator_projects": 0,
+         "comparator_editor_count": 0,
+         "comparator_median_seconds": null,
+         "editor_vs_comparator_pct": null
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 6
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.6667,
+       "comparison": null,
+       "current_sample": 6,
+       "comparison_sample": 0
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-18",
+    "display_name": "Mohamed Mansour (Office)",
+    "sample": {
+     "completed_projects": 2
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 2
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 2,
+        "late": 1,
+        "absolute_late_rate": 0.5
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "2* + Ai + Class A",
+         "cohort_labels": [
+          "2*",
+          "Ai",
+          "Class A"
+         ],
+         "verdict": "not_classifiable",
+         "reason": "insufficient_sample",
+         "editor_projects": 1,
+         "editor_median_seconds": 104760,
+         "comparator_projects": 30,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 101880,
+         "editor_vs_comparator_pct": 2.8
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 2
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.5,
+       "comparison": null,
+       "current_sample": 2,
+       "comparison_sample": 0
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-8",
+    "display_name": "Samra",
+    "sample": {
+     "completed_projects": 60
+    },
+    "current_workload": {
+     "active_work_count": 0
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 0
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 0,
+        "late": 0,
+        "absolute_late_rate": null
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": []
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": null,
+        "positive_rate": null,
+        "eligible_completed_projects": 0
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": null,
+       "comparison": null,
+       "current_sample": 0,
+       "comparison_sample": 0
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-13",
+    "display_name": "Michael",
+    "sample": {
+     "completed_projects": 2
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 0
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 0,
+        "late": 0,
+        "absolute_late_rate": null
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": []
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": null,
+        "positive_rate": null,
+        "eligible_completed_projects": 0
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": null,
+       "comparison": null,
+       "current_sample": 0,
+       "comparison_sample": 0
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-4",
+    "display_name": "Mario",
+    "sample": {
+     "completed_projects": 143
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 15
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 15,
+        "late": 7,
+        "absolute_late_rate": 0.4667
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": []
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 15
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.4667,
+       "comparison": 0.7778,
+       "current_sample": 15,
+       "comparison_sample": 18
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-9",
+    "display_name": "Ibrahim",
+    "sample": {
+     "completed_projects": 103
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 24
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 24,
+        "late": 14,
+        "absolute_late_rate": 0.5833
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Class A",
+         "cohort_labels": [
+          "Class A"
+         ],
+         "verdict": "similar",
+         "reason": null,
+         "editor_projects": 18,
+         "editor_median_seconds": 136440,
+         "comparator_projects": 30,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 140760,
+         "editor_vs_comparator_pct": -3.1
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 24
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.5833,
+       "comparison": 0.6923,
+       "current_sample": 24,
+       "comparison_sample": 26
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-7",
+    "display_name": "Martin",
+    "sample": {
+     "completed_projects": 48
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 18
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 18,
+        "late": 11,
+        "absolute_late_rate": 0.6111
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Premium Short",
+         "cohort_labels": [
+          "Premium Short"
+         ],
+         "verdict": "similar",
+         "reason": null,
+         "editor_projects": 13,
+         "editor_median_seconds": 145440,
+         "comparator_projects": 26,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 138600,
+         "editor_vs_comparator_pct": 4.9
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 18
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.6111,
+       "comparison": 0.6667,
+       "current_sample": 18,
+       "comparison_sample": 21
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-10",
+    "display_name": "Amir",
+    "sample": {
+     "completed_projects": 60
+    },
+    "current_workload": {
+     "active_work_count": 1
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 15
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 15,
+        "late": 8,
+        "absolute_late_rate": 0.5333
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": [
+        {
+         "cohort_key": "Premium Short",
+         "cohort_labels": [
+          "Premium Short"
+         ],
+         "verdict": "slower",
+         "reason": null,
+         "editor_projects": 10,
+         "editor_median_seconds": 136440,
+         "comparator_projects": 29,
+         "comparator_editor_count": 3,
+         "comparator_median_seconds": 100800,
+         "editor_vs_comparator_pct": 35.4
+        }
+       ]
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": 0.0,
+        "positive_rate": 0.0,
+        "eligible_completed_projects": 15
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": 0.5333,
+       "comparison": 0.8,
+       "current_sample": 15,
+       "comparison_sample": 10
+      }
+     ]
+    }
+   },
+   {
+    "editor_id": "editor-label-12",
+    "display_name": "Ahmed",
+    "sample": {
+     "completed_projects": 15
+    },
+    "current_workload": {
+     "active_work_count": 0
+    },
+    "interpretation": {
+     "window": {
+      "current": {
+       "window": "current",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-31",
+       "end_date_exclusive": "2026-09-30",
+       "completed_days": 30
+      },
+      "comparison": {
+       "window": "comparison",
+       "timezone": "Africa/Cairo",
+       "start_date": "2026-08-01",
+       "end_date_exclusive": "2026-08-31",
+       "completed_days": 30
+      }
+     },
+     "coverage": {
+      "current_projects": 0
+     },
+     "components": {
+      "deadline": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "facts": {
+        "deadline_classifiable_projects": 0,
+        "late": 0,
+        "absolute_late_rate": null
+       }
+      },
+      "speed": {
+       "state": "neutral",
+       "rule_status": "approved",
+       "video_types": []
+      },
+      "quality": {
+       "state": "not_classifiable",
+       "reason": "rule_not_approved",
+       "rule_status": "rule_not_approved",
+       "facts": {
+        "negative_rate": null,
+        "positive_rate": null,
+        "eligible_completed_projects": 0
+       }
+      }
+     },
+     "recent_change": [
+      {
+       "measurement": "late_rate",
+       "cohort_key": null,
+       "current": null,
+       "comparison": null,
+       "current_sample": 0,
+       "comparison_sample": 0
+      }
+     ]
+    }
+   }
+  ]
+ },
+ "intelligence": {
+  "intelligence_version": "intelligence-v2.0.0",
+  "mode": "approved_only",
+  "publishable": true,
+  "findings": [
+   {
+    "finding_id": "risk.open_work:fixture",
+    "finding_type": "risk.open_work",
+    "category": "emerging_risk",
+    "affected_editors": [
+     "editor-label-11",
+     "editor-label-13",
+     "editor-label-4"
+    ],
+    "sample_size": 3,
+    "statements": [
+     {
+      "code": "risk_past_eta",
+      "level": "metric",
+      "params": {
+       "items": [
+        {
+         "editor_name": "Michael",
+         "monday_item_id": "3109734616",
+         "status": "Revisions",
+         "requested_eta": "2026-09-28T11:49:00Z",
+         "hours_past_eta": 49.4
+        },
+        {
+         "editor_name": "Refaat",
+         "monday_item_id": "3202025538",
+         "status": "Revisions",
+         "requested_eta": "2026-09-25T14:19:56Z",
+         "hours_past_eta": 118.8
+        },
+        {
+         "editor_name": "Mario",
+         "monday_item_id": "3248937694",
+         "status": "In Progress",
+         "requested_eta": "2026-09-30T09:00:00Z",
+         "hours_past_eta": 4.2
+        }
+       ],
+       "projects": 3,
+       "retrieved_at": "2026-09-30T13:10:00Z"
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": []
+   },
+   {
+    "finding_id": "bottleneck.pre_editor_runway:fixture",
+    "finding_type": "bottleneck.pre_editor_runway",
+    "category": "system_pattern",
+    "affected_editors": [
+     "editor-label-6",
+     "editor-label-5",
+     "editor-label-11",
+     "editor-label-15",
+     "editor-label-18",
+     "editor-label-8",
+     "editor-label-13",
+     "editor-label-4",
+     "editor-label-9",
+     "editor-label-7",
+     "editor-label-10",
+     "editor-label-12"
+    ],
+    "sample_size": 328,
+    "statements": [
+     {
+      "code": "late_projects_with_short_runway",
+      "level": "metric",
+      "params": {
+       "late": 424,
+       "short_runway": 448,
+       "short_runway_late": 328,
+       "short_runway_late_rate": 0.7321,
+       "adequate_runway": 91,
+       "adequate_runway_late": 50,
+       "adequate_runway_late_rate": 0.5495,
+       "share_of_late_with_short_runway": 0.7736
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": [
+     {
+      "code": "contradicting",
+      "records": [
+       {
+        "monday_item_id": "3000000000"
+       },
+       {
+        "monday_item_id": "3000000001"
+       },
+       {
+        "monday_item_id": "3000000002"
+       },
+       {
+        "monday_item_id": "3000000003"
+       },
+       {
+        "monday_item_id": "3000000004"
+       },
+       {
+        "monday_item_id": "3000000005"
+       },
+       {
+        "monday_item_id": "3000000006"
+       },
+       {
+        "monday_item_id": "3000000007"
+       },
+       {
+        "monday_item_id": "3000000008"
+       },
+       {
+        "monday_item_id": "3000000009"
+       },
+       {
+        "monday_item_id": "3000000010"
+       },
+       {
+        "monday_item_id": "3000000011"
+       },
+       {
+        "monday_item_id": "3000000012"
+       },
+       {
+        "monday_item_id": "3000000013"
+       },
+       {
+        "monday_item_id": "3000000014"
+       },
+       {
+        "monday_item_id": "3000000015"
+       },
+       {
+        "monday_item_id": "3000000016"
+       },
+       {
+        "monday_item_id": "3000000017"
+       },
+       {
+        "monday_item_id": "3000000018"
+       },
+       {
+        "monday_item_id": "3000000019"
+       },
+       {
+        "monday_item_id": "3000000020"
+       },
+       {
+        "monday_item_id": "3000000021"
+       },
+       {
+        "monday_item_id": "3000000022"
+       },
+       {
+        "monday_item_id": "3000000023"
+       },
+       {
+        "monday_item_id": "3000000024"
+       },
+       {
+        "monday_item_id": "3000000025"
+       },
+       {
+        "monday_item_id": "3000000026"
+       },
+       {
+        "monday_item_id": "3000000027"
+       },
+       {
+        "monday_item_id": "3000000028"
+       },
+       {
+        "monday_item_id": "3000000029"
+       },
+       {
+        "monday_item_id": "3000000030"
+       },
+       {
+        "monday_item_id": "3000000031"
+       },
+       {
+        "monday_item_id": "3000000032"
+       },
+       {
+        "monday_item_id": "3000000033"
+       },
+       {
+        "monday_item_id": "3000000034"
+       },
+       {
+        "monday_item_id": "3000000035"
+       },
+       {
+        "monday_item_id": "3000000036"
+       },
+       {
+        "monday_item_id": "3000000037"
+       },
+       {
+        "monday_item_id": "3000000038"
+       },
+       {
+        "monday_item_id": "3000000039"
+       },
+       {
+        "monday_item_id": "3000000040"
+       },
+       {
+        "monday_item_id": "3000000041"
+       },
+       {
+        "monday_item_id": "3000000042"
+       },
+       {
+        "monday_item_id": "3000000043"
+       },
+       {
+        "monday_item_id": "3000000044"
+       },
+       {
+        "monday_item_id": "3000000045"
+       },
+       {
+        "monday_item_id": "3000000046"
+       },
+       {
+        "monday_item_id": "3000000047"
+       },
+       {
+        "monday_item_id": "3000000048"
+       },
+       {
+        "monday_item_id": "3000000049"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "finding_id": "change.editor:refaat-speed",
+    "finding_type": "change.editor",
+    "category": "needs_attention",
+    "affected_editors": [
+     "editor-label-11"
+    ],
+    "sample_size": 38,
+    "statements": [
+     {
+      "code": "median_execution_changed",
+      "level": "metric",
+      "params": {
+       "against": "history",
+       "measure": "median_execution",
+       "editor_id": "editor-label-11",
+       "cohort_label": "Simple Short",
+       "baseline_hours": 33.0,
+       "current_hours": 41.6,
+       "pct_change": 26.3,
+       "team_pct_change": -4.1,
+       "material_pct": 25.0,
+       "team_comparison_available": true
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": []
+   },
+   {
+    "finding_id": "change.editor:anas-history",
+    "finding_type": "change.editor",
+    "category": "hidden_context",
+    "affected_editors": [
+     "editor-label-5"
+    ],
+    "sample_size": 39,
+    "statements": [
+     {
+      "code": "late_rate_changed",
+      "level": "metric",
+      "params": {
+       "against": "history",
+       "measure": "late_rate",
+       "editor_id": "editor-label-5",
+       "editor_name": "Anas",
+       "baseline": 0.6923,
+       "baseline_sample": 26,
+       "current": 0.5385,
+       "current_sample": 13,
+       "difference": -0.1538,
+       "team_baseline": 0.7564,
+       "team_current": 0.5902,
+       "team_difference": -0.1662,
+       "editor_minus_team_change": 0.0124,
+       "material_difference": 0.15,
+       "team_comparison_available": true,
+       "status": "improving"
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": []
+   },
+   {
+    "finding_id": "change.editor:anas-comparison",
+    "finding_type": "change.editor",
+    "category": "hidden_context",
+    "affected_editors": [
+     "editor-label-5"
+    ],
+    "sample_size": 29,
+    "statements": [
+     {
+      "code": "late_rate_changed",
+      "level": "metric",
+      "params": {
+       "against": "comparison",
+       "measure": "late_rate",
+       "editor_id": "editor-label-5",
+       "editor_name": "Anas",
+       "baseline": 0.75,
+       "baseline_sample": 16,
+       "current": 0.5385,
+       "current_sample": 13,
+       "difference": -0.2115,
+       "team_baseline": 0.7257,
+       "team_current": 0.5902,
+       "team_difference": -0.1355,
+       "editor_minus_team_change": -0.076,
+       "material_difference": 0.15,
+       "team_comparison_available": true,
+       "status": "improving"
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": []
+   },
+   {
+    "finding_id": "contradiction.bad_headline:will",
+    "finding_type": "contradiction.bad_headline",
+    "category": "hidden_context",
+    "affected_editors": [
+     "editor-label-6"
+    ],
+    "sample_size": 129,
+    "statements": [
+     {
+      "code": "headline_needs_context",
+      "level": "metric",
+      "params": {
+       "editor_id": "editor-label-6",
+       "measure": "late_rate"
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": [
+     {
+      "code": "contradicting",
+      "records": [
+       {
+        "monday_item_id": "3000000000"
+       },
+       {
+        "monday_item_id": "3000000001"
+       },
+       {
+        "monday_item_id": "3000000002"
+       },
+       {
+        "monday_item_id": "3000000003"
+       },
+       {
+        "monday_item_id": "3000000004"
+       },
+       {
+        "monday_item_id": "3000000005"
+       },
+       {
+        "monday_item_id": "3000000006"
+       },
+       {
+        "monday_item_id": "3000000007"
+       },
+       {
+        "monday_item_id": "3000000008"
+       },
+       {
+        "monday_item_id": "3000000009"
+       },
+       {
+        "monday_item_id": "3000000010"
+       },
+       {
+        "monday_item_id": "3000000011"
+       },
+       {
+        "monday_item_id": "3000000012"
+       },
+       {
+        "monday_item_id": "3000000013"
+       },
+       {
+        "monday_item_id": "3000000014"
+       },
+       {
+        "monday_item_id": "3000000015"
+       },
+       {
+        "monday_item_id": "3000000016"
+       },
+       {
+        "monday_item_id": "3000000017"
+       },
+       {
+        "monday_item_id": "3000000018"
+       },
+       {
+        "monday_item_id": "3000000019"
+       },
+       {
+        "monday_item_id": "3000000020"
+       },
+       {
+        "monday_item_id": "3000000021"
+       },
+       {
+        "monday_item_id": "3000000022"
+       },
+       {
+        "monday_item_id": "3000000023"
+       },
+       {
+        "monday_item_id": "3000000024"
+       },
+       {
+        "monday_item_id": "3000000025"
+       },
+       {
+        "monday_item_id": "3000000026"
+       },
+       {
+        "monday_item_id": "3000000027"
+       },
+       {
+        "monday_item_id": "3000000028"
+       },
+       {
+        "monday_item_id": "3000000029"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "finding_id": "contradiction.bad_headline:refaat",
+    "finding_type": "contradiction.bad_headline",
+    "category": "hidden_context",
+    "affected_editors": [
+     "editor-label-11"
+    ],
+    "sample_size": 45,
+    "statements": [
+     {
+      "code": "headline_needs_context",
+      "level": "metric",
+      "params": {
+       "editor_id": "editor-label-11",
+       "measure": "late_rate"
+      }
+     }
+    ],
+    "cluster": null,
+    "contradicting_evidence": [
+     {
+      "code": "contradicting",
+      "records": [
+       {
+        "monday_item_id": "3000000000"
+       },
+       {
+        "monday_item_id": "3000000001"
+       },
+       {
+        "monday_item_id": "3000000002"
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "editors": [
+   {
+    "editor_id": "editor-label-6",
+    "display_name": "Will",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture",
+     "contradiction.bad_headline:will"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 40,
+      "late_with_short_runway": 28
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-5",
+    "display_name": "Anas",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture",
+     "change.editor:anas-history",
+     "change.editor:anas-comparison"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 20,
+      "late_with_short_runway": 13
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-11",
+    "display_name": "Refaat",
+    "finding_ids": [
+     "risk.open_work:fixture",
+     "bottleneck.pre_editor_runway:fixture",
+     "change.editor:refaat-speed",
+     "contradiction.bad_headline:refaat"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 33,
+      "late_with_short_runway": 24
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-15",
+    "display_name": "Sobhy",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 4,
+      "late_with_short_runway": 2
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-18",
+    "display_name": "Mohamed Mansour (Office)",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 1,
+      "late_with_short_runway": 0
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-8",
+    "display_name": "Samra",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 30,
+      "late_with_short_runway": 20
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-13",
+    "display_name": "Michael",
+    "finding_ids": [
+     "risk.open_work:fixture",
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 1,
+      "late_with_short_runway": 1
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-4",
+    "display_name": "Mario",
+    "finding_ids": [
+     "risk.open_work:fixture",
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 60,
+      "late_with_short_runway": 40
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-9",
+    "display_name": "Ibrahim",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 50,
+      "late_with_short_runway": 35
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-7",
+    "display_name": "Martin",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 25,
+      "late_with_short_runway": 18
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-10",
+    "display_name": "Amir",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 33,
+      "late_with_short_runway": 23
+     }
+    }
+   },
+   {
+    "editor_id": "editor-label-12",
+    "display_name": "Ahmed",
+    "finding_ids": [
+     "bottleneck.pre_editor_runway:fixture"
+    ],
+    "fairness_context": {
+     "runway": {
+      "late": 10,
+      "late_with_short_runway": 7
+     }
+    }
+   }
+  ],
+  "sections": {
+   "top_findings": {
+    "finding_ids": [
+     "risk.open_work:fixture",
+     "bottleneck.pre_editor_runway:fixture"
+    ]
+   }
+  }
+ }
+}
