@@ -885,11 +885,14 @@ def page(loc: Loc, title: str, body: str, publication: Mapping[str, Any] | None,
 
 def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_item_url: str | None = None, loc: Loc | None = None,
                switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None,
-               verdicts: Mapping[str, Any] | None = None) -> str:
+               verdicts: Mapping[str, Any] | None = None, photos: Mapping[str, str] | None = None) -> str:
     """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app. ``intelligence`` is the
     optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence.
-    ``verdicts`` is the optional verdict document (D54); with it the Editors page opens with the judgment-first overview."""
+    ``verdicts`` is the optional verdict document (D54); with it the Editors page opens with the judgment-first overview. ``photos`` maps
+    Editor IDs to embedded photos (T5.1); they are shown wherever the verdict pages show that Editor, and never written to verdicts.json."""
     assert loc is not None
+    if verdicts is not None and photos:
+        verdicts = {**verdicts, "editors": [{**e, "photo_url": photos.get(e["editor_id"], e.get("photo_url"))} for e in verdicts["editors"]]}
     loc = loc.isolating()   # Latin terms and dates isolated in Arabic (redesign T1.4)
     ctx = Ctx(loc, monday_item_url)
     source = doc["source"]

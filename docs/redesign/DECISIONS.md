@@ -300,3 +300,18 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **All decisions in More details:** the rail's "N more decisions under More details" now links to an "All decisions" section listing
   every candidate in priority order (on real data the Low-activity question and the Quality rule are below the overview's cap, R11, so
   this is where the management card lives and links from). This closes a gap T4.6 had left: the rail named that list before it existed.
+
+## R22. Editor photos come from files an admin adds (T5.1)
+
+- **Monday has no avatar for these Editors.** The Editor is a value of the board's "Editor Name" dropdown on a shared account
+  (`identity.py`, T0.3), not a Monday user, so there is no user whose avatar the API could return. The handoff's fallback applies:
+  `assets/editors/<editor-id>.jpg` (also `.jpeg`, `.png`, `.webp`), in the repository or in the directory named by
+  `ATLAS_EDITOR_PHOTOS` (e.g. on the production host, so photos need not live in Git).
+- **Embedded, not linked.** The pages make no network request and nginx serves only the language trees, so the site build embeds each
+  photo as a `data:` URI. Files are checked by type signature and size (at most 150 KB; a 192 × 192 px photo is enough); a refused
+  file leaves the Editor with the initial and is reported by `python3 -m atlas_commander.photos <dashboard.json>`. No image library
+  is added to the runtime.
+- **Not in `verdicts.json`.** `photo_url` stays null in the published document (it has no public URL); the renderer places the
+  embedded photo wherever the verdict pages show the Editor (card, drawer, decision owners).
+- **Blocked:** no real Editor photo exists in the repository or the data. The mechanism is verified with a generated test image;
+  "at least one real photo shows" needs photo files from the owner (see T5.2 for how to add them).
