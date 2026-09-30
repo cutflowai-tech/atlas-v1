@@ -8,7 +8,7 @@ from typing import Any
 from atlas_commander.verdict.confidence import confidence
 from atlas_commander.verdict.config import VerdictConfig, load_config
 from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize
-from atlas_commander.verdict.reasoning import limit_tier, runway
+from atlas_commander.verdict.reasoning import MIRRORS_TEAM, limit_tier, mirror_reason, mirrored_changes, runway
 from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
@@ -38,10 +38,12 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
                     "comparison": _window(window["comparison"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"}},
         "config": config.as_document(),
         "team": None,
-        "editors": editor_verdicts(*normalize(dashboard, intelligence), config),
+        "editors": (editors := editor_verdicts(*normalize(dashboard, intelligence), config)),
         "decisions": [],
         "decision_candidates": [],
-        "findings": {"hide_from_overview": [], "duplicates": []},
+        "findings": {"hide_from_overview": [{"finding_id": finding_id, "reason": MIRRORS_TEAM, "editor_id": e["editor_id"]}
+                                            for e in editors for finding_id in e["hidden_finding_ids"]],
+                     "duplicates": []},
         "note": NOTE,
     }
 
@@ -80,6 +82,10 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
         scheduling = runway(e, team, config)                                  # §6 rows 1-2 (T2.8)
         tier = limit_tier(assign_tier(m, len(e.overdue), config, standing), scheduling)
         reasons = [scheduling.reason] if scheduling else []
+        mirrored = mirrored_changes(e, config)                                # §6 row 3 (T2.9)
+        if (same_as_team := mirror_reason(mirrored, config)) is not None:
+            reasons.append(same_as_team)
+        hidden = [change.finding_id for change in mirrored]
         value, points, missing = scored.get(e.editor_id, (None, {}, []))
         if e.editor_id not in scored:   # not scored: the key dimensions it lacks still lower its confidence
             unscored = dimension_points(m, median_completed, config)
@@ -94,7 +100,7 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
             "confidence": level, "confidence_reasons": why_level,
             "headline": msg("verdict.headline." + tier), "reasons": reasons,
             "based_on": used,
-            "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": [],
+            "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": hidden,
         })
     return out
 

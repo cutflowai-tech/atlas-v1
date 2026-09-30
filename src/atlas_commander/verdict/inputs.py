@@ -52,6 +52,10 @@ class OwnChange:
     difference: float     # rate: absolute difference; duration: percent change
     team_difference: float | None
     cohort_label: str | None
+    before: float | None = None        # rate or hours, the Editor's baseline
+    now: float | None = None           # rate or hours, the Editor's current value
+    team_before: float | None = None   # rates only: the other Editors over the same periods
+    team_now: float | None = None
 
 
 @dataclass(frozen=True)
@@ -153,10 +157,12 @@ def _changes(intelligence: Mapping[str, Any] | None, editor_id: str) -> list[Own
         duration = _statement(finding, "median_execution_changed")
         if rate is not None:
             out.append(OwnChange(finding["finding_id"], "late_rate", rate["against"], finding["sample_size"], rate["difference"],
-                                 rate.get("team_difference"), None))
+                                 rate.get("team_difference"), None, rate.get("baseline"), rate.get("current"), rate.get("team_baseline"),
+                                 rate.get("team_current")))
         elif duration is not None:
             out.append(OwnChange(finding["finding_id"], "median_execution", duration["against"], finding["sample_size"], duration["pct_change"],
-                                 duration.get("team_pct_change"), duration.get("cohort_label")))
+                                 duration.get("team_pct_change"), duration.get("cohort_label"), duration.get("baseline_hours"),
+                                 duration.get("current_hours")))
     return out
 
 
