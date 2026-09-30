@@ -140,8 +140,9 @@ def editor_card(s: Mapping[str, Any], ctx: Ctx) -> str:
             f'<span>{loc.t("card.view_profile")} {icon("arrow", 13)}</span></div></article>')
 
 
-def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None,
-             verdicts: Mapping[str, Any] | None = None) -> str:
+def editor_list(doc: Mapping[str, Any], ctx: Ctx) -> tuple[str, str]:
+    """The pre-redesign Editors list: its window line, and the search, status filters and cards in alphabetical order (a filter,
+    never a ranking)."""
     loc = ctx.loc
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))   # alphabetical: never a ranking
     counts = Counter(status_key(s["interpretation"]["overall"]) for s in editors)
@@ -158,14 +159,35 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: 
     tools = (f'<div class="tools"><label class="search">{icon("search", 16)}<span class="sr">{loc.t("ui.search_label")}</span>'
              f'<input id="editor-search" type="search" autocomplete="off" placeholder="{attr(loc.text("ui.search_placeholder"))}"></label>'
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
-    judgment = team_overview(verdicts, ctx, doc, intelligence) if verdicts is not None else ""   # the redesign's first layer (T4.2), when verdicts.json exists
-    heading = "h2" if judgment else "h1"   # one h1 per view: with the verdict overview, its headline is the view's h1
-    legacy = (f'<div class="ph"><div><{heading}>{loc.t("ui.nav.editors")}</{heading}>{window}</div></div>'
-              f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
-              f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}')
-    if judgment:   # T4.3: the pre-redesign first layer leaves the overview; kept whole (not deleted) for More details (T4.6)
-        legacy = f'<div class="v-legacy" data-more-details="overview" hidden>{legacy}</div>'
-    return f'<div data-view="team">{judgment}{legacy}</div>'
+    return window, tools + grid
+
+
+def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None,
+             verdicts: Mapping[str, Any] | None = None) -> str:
+    loc = ctx.loc
+    if verdicts is not None:   # T4.2/T4.3: the judgment-first overview is the whole first layer; the old one is in More details (T4.6)
+        return f'<div data-view="team">{team_overview(verdicts, ctx, doc, intelligence)}</div>'
+    window, listing = editor_list(doc, ctx)
+    return (f'<div data-view="team"><div class="ph"><div><h1>{loc.t("ui.nav.editors")}</h1>{window}</div></div>'
+            f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
+            f'{intel.overview_section(intelligence, ctx)}{listing}{team_context(doc, ctx, month)}</div>')
+
+
+def more_details_sections(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None,
+                          verdicts: Mapping[str, Any]) -> str:
+    """T4.6: the pre-redesign first layer, whole, inside More details: every published finding (the verdict layer's duplicates folded
+    under the finding kept), the Editors list in alphabetical order with its search and filters, and Team Pulse with the other team tabs,
+    unchanged. Each part keeps its IDs, so every drawer, tab and link it had still works."""
+    loc = ctx.loc
+    collapse = {hidden: group["kept"] for group in verdicts["findings"]["duplicates"] for hidden in group["hidden"]}
+    _, listing = editor_list(doc, ctx)
+    first = doc["editors"][0]["interpretation"] if doc["editors"] else None
+    findings = intel.overview_section(intelligence, ctx, collapse)
+    editors = (f'<section id="md-editors" class="sec">{section_head(loc.t("ui.nav.editors"), window_line(first, loc) if first else "")}'
+               f'<p class="note" style="margin:-4px 0 14px">{loc.t("ui.overview_note")}</p>{listing}</section>')
+    wrapped = f'<div id="md-findings">{findings}</div>' if findings else ""
+    return (f'{wrapped}{editors}'
+            f'<div id="md-pulse">{team_context(doc, ctx, month)}</div>')
 
 
 # ---------------------------------------------------------------- team context (secondary)
@@ -721,7 +743,10 @@ def editor_profile(s: Mapping[str, Any], retrieved: str | None, ctx: Ctx, intell
 
 # ---------------------------------------------------------------- Data & rules
 
-def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None) -> str:
+def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, Any] | None, intelligence: Mapping[str, Any] | None = None,
+               more: str | None = None) -> str:
+    """Data & rules. With ``more`` (the redesign, T4.6) the same view is the global More details: an index, the pre-redesign first layer
+    (``more_details_sections``), then the rules and the data health that were already here."""
     loc = ctx.loc
     source = doc["source"]
     window = source.get("activity_log_window") or {}
@@ -772,9 +797,18 @@ def data_rules(doc: Mapping[str, Any], ctx: Ctx, status_snapshot: Mapping[str, A
                       for e in doc["editors_without_attributable_data"])
     presentation = "".join(f"<li><span>{loc.t(k)}</span></li>" for k in ("ui.presentation.order", "system.presentation.timeline",
                                                                           "system.presentation.months_v15", "system.presentation.languages"))
-    return (f'<div data-view="system" hidden><div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
+    if more is not None:
+        index = "".join(f'<button type="button" data-jump="{target}">{loc.t(label)}</button>' for target, label in (
+            ("md-findings", "ui.iv2.title"), ("md-editors", "ui.nav.editors"), ("md-pulse", "home.context_label"), ("md-rules", "ui.rules.title"),
+            ("md-data", "ui.v.more_page.data")) if target != "md-findings" or 'id="md-findings"' in more)
+        head = (f'<div class="ph"><div><h1>{loc.t("ui.v.more_page.title")}</h1><p>{loc.t("ui.v.more_page.sub")}</p></div></div>'
+                f'<nav class="jump v-md-index" aria-label="{attr(loc.text("ui.v.more_page.index"))}">{index}</nav>{more}'
+                f'<div class="sec-h" id="md-data"><div><h2>{loc.t("ui.v.more_page.data")}</h2><p>{loc.t("system.sub")}</p></div></div>')
+    else:
+        head = f'<div class="ph"><div><h1>{loc.t("ui.nav.system")}</h1><p>{loc.t("system.sub")}</p></div></div>'
+    return (f'<div data-view="system" hidden>{head}'
             f'{operational_status(dict(status_snapshot) if status_snapshot is not None else None, loc)}'
-            f'<div class="grid2" style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
+            f'<div class="grid2"{' id="md-rules"' if more is not None else ""} style="margin-top:12px"><div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.title")}</h3><ul class="rules">{rules}</ul></div>'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("ui.rules.pending")}</h3><ul class="rules">{pending}</ul></div></div>'
             f'<div class="card" style="margin-top:12px"><h3 style="margin-bottom:12px">{loc.t("system.snapshot")}</h3>{dl(snapshot, "dl")}</div>'
             f'<div class="card"><h3 style="margin-bottom:12px">{loc.t("system.editors_identity")}</h3>'
@@ -831,12 +865,13 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
              if retrieved else "")
     top = (f'<header class="top"><div class="top-in"><a class="brand" href="#/"><i></i><bdi dir="ltr">Atlas</bdi></a>'
            f'<nav class="nav" aria-label="{attr(loc.text("nav.main_label"))}"><a href="#/" data-nav="team" aria-current="page">{loc.t("ui.nav.editors")}</a>'
-           f'<a href="#/system" data-nav="system">{loc.t("ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
+           f'<a href="#/system" data-nav="system">{loc.t("ui.v.more_page.title" if verdicts is not None else "ui.nav.system")}</a></nav><div class="top-end">{fresh}{switch}</div></div></header>')
     drawer = ('<div class="scrim"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawer-title">'
               f'<header><h2 id="drawer-title"></h2><button type="button" class="x" aria-label="{attr(loc.text("common.close"))}">{icon("x")}</button></header><div class="body"></div></aside>')
     profile = ('<div class="v-scrim" data-profile-close></div><aside class="v-profile" id="vprofile" role="dialog" aria-modal="true" aria-hidden="true" '
                'aria-labelledby="vprofile-name"><div class="v-profile-in"></div></aside>') if verdicts is not None else ""   # T4.4
-    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence)}</main>{profile}{drawer}'
+    more = more_details_sections(doc, ctx, month, intelligence, verdicts) if verdicts is not None else None
+    content = (f'{top}<main class="wrap">{body}{data_rules(doc, ctx, status_snapshot, intelligence, more)}</main>{profile}{drawer}'
                f'<script type="application/json" id="atlas-reports">{blob}</script>')
     return page(loc, loc.text("page.dashboard_title"), content, doc.get("publication"))
 

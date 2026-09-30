@@ -63,25 +63,25 @@ class OverviewStructureTests(unittest.TestCase):
 
 
 class FirstLayerTests(unittest.TestCase):
-    """T4.3: the old first layer leaves the overview, nothing is deleted."""
+    """T4.3: the old first layer leaves the overview; nothing is deleted (since T4.6 it lives in More details)."""
 
-    def test_only_the_verdict_overview_is_visible_and_the_old_layer_is_kept_hidden(self):
+    def test_only_the_verdict_overview_is_in_the_team_view_and_the_old_layer_moved(self):
         for locale in ("en", "ar"):
-            view = team_view(page(locale))
-            first, legacy = view.split('<div class="v-legacy" data-more-details="overview" hidden>', 1)
-            self.assertTrue(first.startswith('<div class="v-page"') and first.endswith("</template></div>"), locale)   # the drawers' templates close it (T4.4)
+            html = page(locale)
+            view = team_view(html)
+            more = html.split('<div data-view="system"', 1)[1]
+            self.assertTrue(view.startswith('<div class="v-page"') and view.endswith("</template></div></div>"), locale)
             for part in ('<article class="ed" data-editor-card', 'data-tab="team-pulse"', 'id="editor-search"', '<section class="sec iv" id="intelligence"'):
-                self.assertNotIn(part, first, (locale, part))
-                self.assertIn(part, legacy, (locale, part))                       # moved, not deleted (More details, T4.6)
-        english = team_view(page("en")).split('<div class="v-legacy"', 1)
-        self.assertNotIn("Atlas never ranks", english[0])
-        self.assertIn("Atlas never ranks", english[1])
+                self.assertNotIn(part, view, (locale, part))
+                self.assertIn(part, more, (locale, part))                          # moved to More details, not deleted
+        self.assertNotIn("Atlas never ranks", team_view(page("en")))
+        self.assertIn("Atlas never ranks", page("en").split('<div data-view="system"', 1)[1])
 
 
 FIRST_LAYER = """
     await wait(300);
     const shown = sel => [...document.querySelectorAll('[data-view="team"] ' + sel)].filter(e => e.offsetParent !== null).length;
-    const present = sel => document.querySelectorAll('[data-view="team"] ' + sel).length;
+    const present = sel => document.querySelectorAll(sel).length;   // anywhere in the page (More details since T4.6)
     return {cards: [shown('.ed'), present('.ed')], pulse: [shown('[data-tab="team-pulse"]'), present('[data-tab="team-pulse"]')],
             verdictCards: shown('.v-card'), text: document.querySelector('[data-view="team"]').innerText.includes('never ranks')};
 """

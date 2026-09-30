@@ -124,8 +124,10 @@ def finding_card(finding: Mapping[str, Any], ctx: Ctx, rank: int | None = None, 
             f'{_mixed(finding, loc, ctx)}{evidence}</article>')
 
 
-def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
-    """The management surface: at most the engine's Top findings (D53: five), and every other published finding one click away."""
+def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx, collapse: Mapping[str, str] | None = None) -> str:
+    """The management surface: at most the engine's Top findings (D53: five), and every other published finding one click away.
+    ``collapse`` maps a duplicate finding to the finding kept for it (the verdict layer's §6 row 4, redesign T4.6): the duplicate is
+    listed once, under the kept finding's row, instead of as a row of its own."""
     if not published(doc):
         return ""
     assert doc is not None
@@ -137,12 +139,22 @@ def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
     groups = []
     scope = finding_scope(doc)
     primaries = scope["listed"]
+    listed_ids = {f["finding_id"] for f in primaries}
+    folded = {dup: kept for dup, kept in (collapse or {}).items() if dup in listed_ids and kept in listed_ids}
+    under: dict[str, list[Mapping[str, Any]]] = {}
+    for f in primaries:
+        if f["finding_id"] in folded:
+            under.setdefault(folded[f["finding_id"]], []).append(f)
     for category in CATEGORY_ORDER:
-        rows = [f for f in primaries if f["category"] == category]
+        rows = [f for f in primaries if f["category"] == category and f["finding_id"] not in folded]
         if not rows:
             continue
         items = "".join(f'<li><button type="button" class="iv-row" data-drawer="{escape(tid(f))}">{confidence_chip(f, loc)}'
-                        f'<span>{marked_html(_text(f, loc)["title"], loc.isolate)}</span></button></li>' for f in rows)
+                        f'<span>{marked_html(_text(f, loc)["title"], loc.isolate)}</span></button>'
+                        + "".join(f'<button type="button" class="iv-row iv-dup" data-drawer="{escape(tid(d))}" data-duplicate-of="{escape(f["finding_id"])}">'
+                                  f'<span>{loc.t("ui.iv2.same_measure")}: {marked_html(_text(d, loc)["title"], loc.isolate)}</span></button>'
+                                  for d in under.get(f["finding_id"], []))
+                        + "</li>" for f in rows)
         groups.append(f'<div class="iv-group"><h4>{loc.t("ui.iv2.category." + category)} <span class="muted">{loc.num(len(rows))}</span></h4><ul>{items}</ul></div>')
     counts = {key: loc.num(len(scope[key])) for key in ("top", "listed", "grouped")}
     reconcile = f'<p class="note" data-scope="published">{loc.t("ui.iv2.scope", total=loc.num(len(doc["findings"])), **counts)}</p>'

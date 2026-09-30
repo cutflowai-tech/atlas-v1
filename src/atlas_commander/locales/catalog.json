@@ -5375,6 +5375,36 @@
    "ar": "معرّفات القرارات",
    "context": "Technical details row",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.title": {
+   "en": "More details",
+   "ar": "مزيد من التفاصيل",
+   "context": "Top bar link and heading of the global More details page (replaces 'Data & rules' when the page has verdicts)",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.sub": {
+   "en": "Everything behind the verdicts: every finding, the Editors list, Team Pulse, the rules and the data.",
+   "ar": "كل ما وراء الأحكام: جميع النتائج، وقائمة المونتيرين، ونبض الفريق، والقواعد، والبيانات.",
+   "context": "Subtitle of the More details page",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.index": {
+   "en": "Sections of More details",
+   "ar": "أقسام مزيد من التفاصيل",
+   "context": "Accessible name of the in-page index",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.more_page.data": {
+   "en": "Data health",
+   "ar": "سلامة البيانات",
+   "context": "More details section: data freshness, sync status and data notes",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.same_measure": {
+   "en": "Same measure, smaller sample",
+   "ar": "المقياس نفسه بعينة أصغر",
+   "context": "A duplicate finding listed under the finding kept for it (redesign §6 row 4)",
+   "status": "Needs Arabic Review"
   }
  }
 }

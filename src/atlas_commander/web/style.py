@@ -225,6 +225,8 @@ background:color-mix(in srgb,var(--v-bad) 14%,var(--v-surface));color:var(--v-fg
 .v-tech code{overflow-wrap:anywhere}
 @media (max-width:560px){.v-profile-in{padding:16px 16px 32px}.v-prof-who h2{font-size:22px}.v-metric-v{font-size:21px}}
 @media (prefers-reduced-motion:reduce){.v-profile,.v-scrim{transition:none}body.profile-open .v-profile{transition:none}}
+.v-md-index{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 20px}.v-md-index button{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.iv-row.iv-dup{padding-inline-start:28px;font-size:12.5px;opacity:.85}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}

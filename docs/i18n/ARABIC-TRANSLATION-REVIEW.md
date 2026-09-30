@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-839 keys: 149 Approved from brief, 362 Implemented conservatively, 328 Needs Arabic Review.
+844 keys: 149 Approved from brief, 362 Implemented conservatively, 333 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -106,6 +106,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.iv2.rules.value` | Approved value | القيمة المعتمدة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.version` | Intelligence version | إصدار الرؤى التحليلية | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.withheld` | Weak signals kept for review | إشارات محدودة الأدلة محفوظة للمراجعة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.same_measure` | Same measure, smaller sample | المقياس نفسه بعينة أصغر | A duplicate finding listed under the finding kept for it (redesign §6 row 4) | Needs Arabic Review |  |
 | `ui.iv2.scope` | Atlas published {total} findings: the {top} top findings above, these {listed}, and {grouped} duplicates grouped under their main finding (open a finding to see them). | نشر Atlas {total} نتيجة: أهم {top} نتائج أعلاه، وهذه النتائج الـ {listed}، و{grouped} نتائج مكررة مجمّعة تحت نتيجتها الرئيسية (افتح النتيجة لعرضها). | Note inside the list of published findings that reconciles its count with the total on Data & rules (ATLAS-DATA-002, redesign T1.5). | Needs Arabic Review |  |
 | `ui.iv2.short` | Intelligence | رؤى تحليلية | Editor Profile section bar label | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.sub` | The most important evidence-backed findings, ranked. Atlas prefers silence over an unsupported conclusion. | أهم النتائج المدعومة بالأدلة، مرتبة حسب الأهمية. يفضّل Atlas الصمت على استنتاج غير مدعوم. | Intelligence section subtitle | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
@@ -213,6 +214,10 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.more.technical` | Technical details | تفاصيل تقنية | Nested disclosure with raw identifiers | Needs Arabic Review |  |
 | `ui.v.more.tiers` | How tiers are set: Weakest when late at least {weakest_pp} points above the team, or at least {weakest_speed} slower than peers and later than the team; Watch when late more than {watch_pp} points above the team, at least {watch_speed} slower, or holding overdue work; Best when in the top {best_share} of ranked Editors and worse than the team on nothing; Low activity below {low} completed projects with nothing overdue; everyone else is Steady. | كيف تُحدَّد الفئات: الأضعف عندما يزيد التأخير على الفريق بـ {weakest_pp} على الأقل (بالنقاط المئوية)، أو تكون السرعة أبطأ من الزملاء بنسبة {weakest_speed} على الأقل مع تأخير أعلى من الفريق؛ يحتاج متابعة عندما يزيد التأخير على الفريق بأكثر من {watch_pp} (بالنقاط المئوية)، أو تكون السرعة أبطأ بنسبة {watch_speed} على الأقل، أو توجد مشاريع تجاوزت موعدها؛ الأفضل ضمن أعلى {best_share} من المصنّفين دون أن يقل عن الفريق في أي بعد؛ نشاط منخفض عندما يقل المكتمل عن {low} ولا شيء متأخر؛ وكل ما عدا ذلك مستقر. | Methodology: the tier rules with the approved thresholds (config/verdict-v1.json, D54) | Needs Arabic Review |  |
 | `ui.v.more.unranked` | Not ranked: ranking needs at least {minimum} completed projects this month. | غير مصنّف: يحتاج الترتيب إلى حد أدنى من المشاريع المكتملة هذا الشهر قدره {minimum}. | Methodology: why the Editor has no rank | Needs Arabic Review |  |
+| `ui.v.more_page.data` | Data health | سلامة البيانات | More details section: data freshness, sync status and data notes | Needs Arabic Review |  |
+| `ui.v.more_page.index` | Sections of More details | أقسام مزيد من التفاصيل | Accessible name of the in-page index | Needs Arabic Review |  |
+| `ui.v.more_page.sub` | Everything behind the verdicts: every finding, the Editors list, Team Pulse, the rules and the data. | كل ما وراء الأحكام: جميع النتائج، وقائمة المونتيرين، ونبض الفريق، والقواعد، والبيانات. | Subtitle of the More details page | Needs Arabic Review |  |
+| `ui.v.more_page.title` | More details | مزيد من التفاصيل | Top bar link and heading of the global More details page (replaces 'Data & rules' when the page has verdicts) | Needs Arabic Review |  |
 | `ui.v.profile.full` | Open the full analysis | فتح التحليل الكامل | Link from the profile drawer to the full pre-redesign profile (all sections and evidence) | Needs Arabic Review |  |
 | `ui.v.profile.late_sub` | {late} of {n} · team {team_pct} | {late} من {n} · الفريق {team_pct} | Profile metric: late projects of deadline-classifiable projects, and the team rate | Needs Arabic Review |  |
 | `ui.v.profile.lifetime` | {projects} in all | {projects} إجمالًا | Profile drawer: lifetime completed projects (counted noun) | Needs Arabic Review |  |

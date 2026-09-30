@@ -263,3 +263,14 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   in the full profile.
 - **No UUID on the drawer:** Monday event UUIDs stay in the existing evidence drawers (traceability) and raw identifiers (Editor, finding
   and decision IDs, verdict and configuration versions) are under the nested Technical details.
+
+## R19. One More details page (T4.6)
+
+- The global More details area is the existing Data & rules view (`#/system`), relabelled "More details" in the top bar when the
+  page has verdicts: it already held the rules and the data health, so the findings, the pre-redesign Editors list and Team Pulse join
+  it instead of a second page. An index at the top jumps to Findings, Editors, Team Pulse, Rules and Data health.
+- The moved parts keep their element IDs, so every existing link, tab, filter, search shortcut and drawer keeps working; the list of
+  old sections and their new places is [`T4.6-reachability.md`](T4.6-reachability.md).
+- Findings are deduplicated twice over: Intelligence V2 still groups its cluster duplicates under their primary finding, and a duplicate
+  of the verdict layer (R8) is shown as "Same measure, smaller sample" under the finding kept, not as a row of its own. The published
+  count and its reconciliation note (T1.5, R4) are unchanged.
