@@ -17,13 +17,13 @@ VERDICTS_JSON = "verdicts.json"
 
 
 def build_site_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str,
-                        config: VerdictConfig | None = None) -> dict[str, Any] | None:
+                        config: VerdictConfig | None = None, monday_item_url: str | None = None) -> dict[str, Any] | None:
     """The verdict document when ``config/verdict-v1.json`` includes it in site builds and the contract has Editor intelligence
     (1.5.0+); otherwise None."""
     config = config or load_config()
     if not config.include_in_site_build or not capabilities(dashboard["source"]["executable_contract_version"]).editor_intelligence:
         return None
-    return build_verdicts(dashboard, intelligence, generated_at, config)
+    return build_verdicts(dashboard, intelligence, generated_at, config, monday_item_url)
 
 
 def write_document(site: Path, document: Mapping[str, Any]) -> Path:

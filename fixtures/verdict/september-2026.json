@@ -986,6 +986,28 @@
      }
     ],
     "cluster": null,
+    "supporting_evidence": [
+     {
+      "code": "open_work_past_eta",
+      "records": [
+       {
+        "monday_item_id": "3109734616",
+        "editor_id": "editor-label-13",
+        "cohort_key": "4"
+       },
+       {
+        "monday_item_id": "3202025538",
+        "editor_id": "editor-label-11",
+        "cohort_key": "6"
+       },
+       {
+        "monday_item_id": "3248937694",
+        "editor_id": "editor-label-4",
+        "cohort_key": "27"
+       }
+      ]
+     }
+    ],
     "contradicting_evidence": []
    },
    {
@@ -1601,6 +1623,11 @@
     }
    }
   ],
+  "video_types": {
+   "4": "Class A",
+   "6": "Simple Short",
+   "27": "Premium Short"
+  },
   "sections": {
    "top_findings": {
     "finding_ids": [

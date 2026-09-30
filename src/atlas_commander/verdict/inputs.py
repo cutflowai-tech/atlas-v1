@@ -39,6 +39,7 @@ class Overdue:
     status: str
     requested_eta: str | None
     hours_past_eta: float | None
+    video_type: str | None = None   # the item's Video Type label, when Intelligence V2 recorded it
 
 
 @dataclass(frozen=True)
@@ -135,16 +136,22 @@ def _findings_by_type(intelligence: Mapping[str, Any] | None, finding_type: str)
 
 
 def _overdue(intelligence: Mapping[str, Any] | None, names: Mapping[str, str]) -> list[tuple[str, Overdue]]:
-    """Open projects already past their Requested ETA (Intelligence V2 ``risk.open_work``, a direct fact of the snapshot)."""
+    """Open projects already past their Requested ETA (Intelligence V2 ``risk.open_work``, a direct fact of the snapshot). The
+    finding's evidence records give each item's Editor ID and Video Type; the Editor's name is the fallback."""
     out: list[tuple[str, Overdue]] = []
     by_name = {name: editor_id for editor_id, name in names.items()}
+    video_types = (intelligence or {}).get("video_types") or {}
     for finding in _findings_by_type(intelligence, "risk.open_work"):
         params = _statement(finding, "risk_past_eta") or {}
+        records = {str(r["monday_item_id"]): r for evidence in finding.get("supporting_evidence") or [] if evidence["code"] == "open_work_past_eta"
+                   for r in evidence.get("records") or []}
         for item in params.get("items") or []:
-            editor_id = by_name.get(item["editor_name"])
+            record = records.get(str(item["monday_item_id"])) or {}
+            editor_id = record.get("editor_id") if record.get("editor_id") in names else by_name.get(item["editor_name"])
             if editor_id is not None:
                 out.append((editor_id, Overdue(project_id=str(item["monday_item_id"]), status=item["status"],
-                                               requested_eta=item.get("requested_eta"), hours_past_eta=item.get("hours_past_eta"))))
+                                               requested_eta=item.get("requested_eta"), hours_past_eta=item.get("hours_past_eta"),
+                                               video_type=video_types.get(str(record.get("cohort_key"))))))
     return out
 
 

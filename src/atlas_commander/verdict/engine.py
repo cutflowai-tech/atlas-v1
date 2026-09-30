@@ -8,7 +8,7 @@ from typing import Any
 from atlas_commander.verdict.confidence import confidence
 from atlas_commander.verdict.config import VerdictConfig, load_config
 from atlas_commander.verdict.decisions import ordered, silent_measurement_decisions, zero_activity_decision
-from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, normalize, own_speed_change
+from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize, own_speed_change
 from atlas_commander.verdict.reasoning import (
     DUPLICATE,
     MIRRORS_TEAM,
@@ -33,8 +33,9 @@ NOTE = ("Judgment layer of the Atlas redesign (D54). Computed at build time from
 
 
 def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | None, generated_at: str,
-                   config: VerdictConfig | None = None) -> dict[str, Any]:
-    """The verdict document for ``dashboard`` (and its Intelligence V2 document, when one was published)."""
+                   config: VerdictConfig | None = None, monday_item_url: str | None = None) -> dict[str, Any]:
+    """The verdict document for ``dashboard`` (and its Intelligence V2 document, when one was published). ``monday_item_url`` is the
+    site's optional Monday item link template (``{item_id}``), used for the overdue projects' source links."""
     config = config or load_config()
     editor_inputs, team = normalize(dashboard, intelligence)
     repeated = duplicates(team.findings.values())                             # §6 row 4 (T2.10)
@@ -58,7 +59,7 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
                     "comparison": _window(window["comparison"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"}},
         "config": config.as_document(),
         "team": None,
-        "editors": (editors := editor_verdicts(editor_inputs, team, config, repeated)),
+        "editors": (editors := editor_verdicts(editor_inputs, team, config, repeated, monday_item_url)),
         "decisions": [],
         "decision_candidates": ordered(candidates),
         "findings": {"hide_from_overview": _hidden(editors, repeated), "duplicates": repeated},
@@ -90,10 +91,23 @@ def _hidden(editors: list[dict[str, Any]], repeated: list[dict[str, Any]]) -> li
     return sorted(out.values(), key=lambda row: row["finding_id"])
 
 
+def overdue(editor: EditorInputs, monday_item_url: str | None) -> list[dict[str, Any]]:
+    """T2.13: the Editor's open projects past Requested ETA, most overdue first. No item names are ingested (DECISIONS.md R3), so a
+    project is named by its Video Type and Monday item ID."""
+    out = []
+    for o in sorted(editor.overdue, key=lambda o: (-(o.hours_past_eta or 0), o.project_id)):
+        name = (msg("verdict.project.reference", video_type=o.video_type, item_id=o.project_id) if o.video_type
+                else msg("verdict.project.item", item_id=o.project_id))
+        out.append({"project_id": o.project_id, "project_name": name, "status": o.status,
+                    "source_url": monday_item_url.format(item_id=o.project_id) if monday_item_url else None,
+                    "requested_eta": o.requested_eta, "hours_past_eta": o.hours_past_eta})
+    return out
+
+
 def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: VerdictConfig,
-                    repeated: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+                    repeated: list[dict[str, Any]] | None = None, monday_item_url: str | None = None) -> list[dict[str, Any]]:
     """One verdict per Editor: metrics (T2.4), tier (T2.5), score and rank (T2.6), confidence (T2.7), the §6 combinations (T2.8-T2.10),
-    headline and reasons (T2.12)."""
+    headline and reasons (T2.12), overdue projects (T2.13)."""
     rows = {e.editor_id: metrics(e, team, config) for e in editors}
     ranked = [e for e in editors if e.completed >= config["score.minimum_completed"]]
     median_completed = median([e.completed for e in ranked])
@@ -133,7 +147,7 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
             "confidence": level, "confidence_reasons": why_level,
             "headline": headline(context, config), "reasons": reasons(context, config),
             "based_on": used,
-            "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": hidden,
+            "metrics": m, "overdue": overdue(e, monday_item_url), "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": hidden,
         })
     return out
 

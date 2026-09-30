@@ -35,9 +35,11 @@ EDITORS = [
     ("editor-label-10", "Amir", 60, 1, (8, 15), (8, 10), ("Premium Short", "slower", 37.9, 28.0, 10, 29), 0.0, (33, 23)),
     ("editor-label-12", "Ahmed", 15, 0, (0, 0), (0, 0), None, None, (10, 7)),
 ]
-OVERDUE = [("editor-label-13", "Michael", "3109734616", "Revisions", "2026-09-28T11:49:00Z", 49.4),
-           ("editor-label-11", "Refaat", "3202025538", "Revisions", "2026-09-25T14:19:56Z", 118.8),
-           ("editor-label-4", "Mario", "3248937694", "In Progress", "2026-09-30T09:00:00Z", 4.2)]
+# editor_id, name, Monday item ID, status, Requested ETA, hours past it, Video Type key (see VIDEO_TYPES)
+OVERDUE = [("editor-label-13", "Michael", "3109734616", "Revisions", "2026-09-28T11:49:00Z", 49.4, "4"),
+           ("editor-label-11", "Refaat", "3202025538", "Revisions", "2026-09-25T14:19:56Z", 118.8, "6"),
+           ("editor-label-4", "Mario", "3248937694", "In Progress", "2026-09-30T09:00:00Z", 4.2, "27")]
+VIDEO_TYPES = {"4": "Class A", "6": "Simple Short", "27": "Premium Short"}
 
 
 def rate(late: int, total: int) -> float | None:
@@ -79,9 +81,9 @@ def statement(code: str, params: dict) -> dict:
 
 
 def finding(finding_id: str, finding_type: str, editors: list[str], sample: int, statements: list[dict], *, contradicting: int = 0,
-            category: str = "editor_specific_pattern") -> dict:
+            category: str = "editor_specific_pattern", supporting: list[dict] | None = None) -> dict:
     return {"finding_id": finding_id, "finding_type": finding_type, "category": category, "affected_editors": editors, "sample_size": sample,
-            "statements": statements, "cluster": None,
+            "statements": statements, "cluster": None, **({"supporting_evidence": supporting} if supporting else {}),
             "contradicting_evidence": [{"code": "contradicting", "records": [{"monday_item_id": str(3000000000 + i)} for i in range(contradicting)]}]
             if contradicting else []}
 
@@ -99,10 +101,12 @@ def change(editor_id: str, name: str, against: str, before: tuple, now: tuple, t
 
 def intelligence() -> dict:
     items = [{"editor_name": name, "monday_item_id": item, "status": status, "requested_eta": eta, "hours_past_eta": hours}
-             for _, name, item, status, eta, hours in OVERDUE]
+             for _, name, item, status, eta, hours, _ in OVERDUE]
+    records = [{"monday_item_id": item, "editor_id": editor_id, "cohort_key": video_type} for editor_id, _, item, *_, video_type in OVERDUE]
     findings = [
         finding("risk.open_work:fixture", "risk.open_work", sorted({e for e, *_ in OVERDUE}), 3,
-                [statement("risk_past_eta", {"items": items, "projects": 3, "retrieved_at": RETRIEVED})], category="emerging_risk"),
+                [statement("risk_past_eta", {"items": items, "projects": 3, "retrieved_at": RETRIEVED})], category="emerging_risk",
+                supporting=[{"code": "open_work_past_eta", "records": records}]),
         finding("bottleneck.pre_editor_runway:fixture", "bottleneck.pre_editor_runway", [e[0] for e in EDITORS], 328,
                 [statement("late_projects_with_short_runway", {"late": 424, "short_runway": 448, "short_runway_late": 328, "short_runway_late_rate": 0.7321,
                                                                "adequate_runway": 91, "adequate_runway_late": 50, "adequate_runway_late_rate": 0.5495,
@@ -122,6 +126,7 @@ def intelligence() -> dict:
     editors = [{"editor_id": e[0], "display_name": e[1], "finding_ids": [f["finding_id"] for f in findings if e[0] in f["affected_editors"]],
                 "fairness_context": {"runway": {"late": e[8][0], "late_with_short_runway": e[8][1]}}} for e in EDITORS]
     return {"intelligence_version": "intelligence-v2.0.0", "mode": "approved_only", "publishable": True, "findings": findings, "editors": editors,
+            "video_types": VIDEO_TYPES,
             "sections": {"top_findings": {"finding_ids": [findings[0]["finding_id"], findings[1]["finding_id"]]}}}
 
 

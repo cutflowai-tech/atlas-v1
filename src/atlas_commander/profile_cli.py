@@ -126,7 +126,7 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
                                 profile_refs={editor_id: site_layout.profile_json(editor_id) for editor_id in editor_ids}, publication=publication,
                                 contract_version=contract["contract_version"])
     (out / site_layout.DASHBOARD_JSON).write_text(json.dumps(dashboard, indent=1) + "\n")
-    verdicts = build_site_verdicts(dashboard, intelligence, generated_at)   # the redesign's judgment layer (D54), contract 1.5.0+
+    verdicts = build_site_verdicts(dashboard, intelligence, generated_at, monday_item_url=monday_item_url)   # the redesign's judgment layer (D54), 1.5.0+
     if verdicts is not None:
         write_verdicts(out, verdicts)
     for loc in locales():
