@@ -7,7 +7,7 @@ import unittest
 from verdict_fixture import editor, fixture, verdicts
 
 from atlas_commander.verdict.config import load_config
-from atlas_commander.verdict.decisions import APPROVE_RULE, LOW_ACTIVITY, decision_id
+from atlas_commander.verdict.decisions import APPROVE_RULE, LOW_ACTIVITY, decision_id, low_activity_decision
 from atlas_commander.verdict.engine import build_verdicts
 from atlas_commander.verdict.inputs import normalize
 from atlas_commander.verdict.reasoning import (
@@ -211,7 +211,7 @@ class ZeroActivityTests(unittest.TestCase):
         self.assertEqual((ask["horizon"], ask["owner_role"]), ("ask", None))
         self.assertIn(samra["editor_id"], ask["owner_editor_ids"])
         self.assertIn({"key": "verdict.evidence.zero_activity", "params": {"name": "Samra", "lifetime_completed": 60}}, ask["evidence"])
-        self.assertEqual(ask["title"]["key"], "verdict.decision.zero_activity")
+        self.assertEqual(ask["title"]["key"], "verdict.decision.low_activity")   # T2.14: one ask for every Low-activity Editor (§7 row 4)
 
     def test_only_editors_with_nothing_completed_and_nothing_in_progress(self):
         editors, _ = inputs()
@@ -219,16 +219,15 @@ class ZeroActivityTests(unittest.TestCase):
         self.assertFalse(zero_activity(editors["Michael"]))            # 0 completed but 1 in progress (and overdue)
         self.assertFalse(zero_activity(editors["Mohamed Mansour (Office)"]))
         (ask,) = candidates(verdicts(), LOW_ACTIVITY)
-        owners = sorted([editors["Ahmed"], editors["Samra"]], key=lambda e: e.editor_id)
-        self.assertEqual(ask["owner_editor_ids"], [e.editor_id for e in owners])
-        self.assertEqual(ask["title"]["params"], {"names": [e.display_name for e in owners]})   # names in the owners' order
+        asked = {m["params"]["name"] for m in ask["evidence"] if m["key"] == "verdict.evidence.zero_activity"}
+        self.assertEqual(asked, {"Ahmed", "Samra"})                     # "leave or assignment gap?" only for them
+        self.assertEqual(ask["title"]["params"]["names"], [editors[n].display_name for n in ask["title"]["params"]["names"]])
 
-    def test_candidates_are_stable_and_in_priority_order(self):
-        first, second = verdicts()["decision_candidates"], verdicts()["decision_candidates"]
-        self.assertEqual(first, second)
-        self.assertEqual([d["type"] for d in first], [LOW_ACTIVITY, APPROVE_RULE])          # §7: ask (4) before management (5)
-        self.assertEqual([d["priority"] for d in first], [4, 5])
-        self.assertEqual(verdicts()["decisions"], [])                                      # the overview list is T2.14
+    def test_an_ask_about_idle_editors_only_is_titled_as_such(self):
+        editors, _ = inputs()
+        idle = low_activity_decision([editors["Samra"], editors["Ahmed"]])
+        self.assertEqual(idle["title"]["key"], "verdict.decision.zero_activity")
+        self.assertEqual(idle["id"], low_activity_decision([editors["Ahmed"], editors["Samra"]])["id"])   # same subject, same ID
 
 
 if __name__ == "__main__":

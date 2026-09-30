@@ -154,3 +154,19 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Reasons** are the tier's facts in order of strength (the deciding fact first), then general facts (not ranked, work in progress);
   an Editor with a single fact gets its project count as the second bullet. "Same as peers" uses the display band
   (`display.speed_same_band_pct`), so the sentence and the SpeedPill agree.
+
+## R11. Decisions (T2.14)
+
+- **Priority** is the position of the decision's type in spec §7 (1 overdue, 2 Weakest, 3 scheduling, 4 ask, 5 rule). Within a
+  priority the order is deterministic: Weakest plans lowest rank first. The overview shows the first `decisions.overview_max` (5);
+  `decision_candidates` keeps all of them for More details.
+- **Consequence on real data (flag for the owner):** production run `20260929T210734Z-4cb4bfa25596` has three Weakest Editors, so
+  the five overview slots go to today (5 overdue projects), three Weakest plans and the scheduling review; the Low-activity question
+  and the Quality-rule approval are only under More details. This follows the spec as written. A per-type limit (e.g. one Weakest
+  slot listing all) would be a product decision; nothing changes without one.
+- **Owners:** overdue work: the Editors holding it, most overdue first; Weakest: the Editor plus `editors_manager`; scheduling:
+  `scheduling_owner`; ask: every Low-activity Editor by name; rule: `ceo`.
+- **Confidence:** direct facts (overdue items, zero projects, an unapproved rule) are High; a Weakest plan is as confident as the
+  verdict; the scheduling review takes the Intelligence V2 finding's level (strong/moderate/weak → high/medium/low).
+- **Subjects for the stable ID:** the overdue item IDs, the Editor ID, `team`, the sorted Low-activity Editor IDs, the rule's
+  dimension. The same facts give the same ID on every rebuild; a changed subject (a new overdue project) is a new decision.
