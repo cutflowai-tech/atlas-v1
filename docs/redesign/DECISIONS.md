@@ -121,3 +121,22 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   overview findings from `verdicts.json` and still show every finding under More details.
 - **Order of rules:** duplicates are removed before "mirrors the team" (row 3) is judged, so only a kept finding can give that reason.
   A finding hidden for both reasons is listed once, as `duplicate`.
+
+## R9. Silent measurement and zero activity (T2.11)
+
+- **Which measure can be silent:** Quality, the only dimension with an unapproved rule (Deadlines and Speed are approved, D52;
+  Volume is a count). Its measure is the share of projects with a quality issue (`quality.facts.negative_rate`).
+- **Two causes, one decision:** the spec's row 5 ("0% for every Editor") holds on the §9 fixture but **not on production data**
+  (run `20260929T210734Z-4cb4bfa25596`: Mario 26.7%, Amir 6.7%). What silences Quality there is §7 row 5, "a rule not approved
+  that silences a dimension": `rule_status` is `rule_not_approved` for every Editor. Either cause gives one `approve_rule`
+  candidate (horizon `management`, owner `ceo`, target `rule:quality`) whose evidence names the cause(s). If a Quality rule is
+  approved and still reads 0% for everyone, the title asks to *review* the rule instead. "Every Editor" needs at least two Editors
+  with a value.
+- **Not measured, never good:** while Quality is silent the verdict carries no Quality state and Quality takes no score weight. The
+  positive-notes fact (share of projects with a positive client note) is still shown; it is a count, not a judgment.
+- **Zero activity:** `completed == 0` and `active == 0` (Samra and Ahmed on real data; Michael has work in progress and overdue,
+  so he is not asked "leave or assignment gap?"). The candidate is an `ask` decision of type `low_activity` listing those Editors;
+  T2.14 widens it to every Low-activity Editor (§7 row 4), as the prototype's "Samra has no projects; Ahmed and Michael delivered
+  nothing" decision does.
+- **Decision IDs and priority:** `dec-` + the first 12 hex digits of SHA-256 of `type:subject` (subject: the rule's dimension, or
+  the Editor IDs), stable across rebuilds of the same facts. Priority is the type's position in §7 (1–5), not a configured number.

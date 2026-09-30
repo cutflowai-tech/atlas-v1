@@ -6,8 +6,8 @@ finding hidden from the overview, a decision candidate). No rule adds a new metr
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import Any
 
 from atlas_commander.verdict.config import VerdictConfig
@@ -125,3 +125,45 @@ def duplicates(findings: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         if rest:
             out.append({"kept": kept["finding_id"], "hidden": [f["finding_id"] for f in rest], "editor_id": editor_id, "measure": measure})
     return out
+
+
+QUALITY = "quality"
+RULE_NOT_APPROVED, ZERO_FOR_EVERYONE = "rule_not_approved", "zero_for_everyone"
+
+
+@dataclass(frozen=True)
+class SilentMeasurement:
+    """A dimension Atlas cannot see this window, and why (one or both causes)."""
+
+    dimension: str
+    causes: tuple[str, ...]
+    measured_editors: int      # Editors with a value for the dimension's measure
+    rule_approved: bool
+
+
+def silent_measurement(editors: Sequence[EditorInputs]) -> list[SilentMeasurement]:
+    """Row 5: a measure that reads 0% for every Editor with a value is "not measured", never "good"; so is a dimension whose rule is
+    approved for nobody (spec §7, "a rule not approved that silences a dimension"). Quality is the only dimension with such a rule:
+    Deadlines and Speed are approved (D52), Volume is a count. Its measure is the share of projects with a quality issue."""
+    if not editors:
+        return []
+    measured = [e.quality_negative_rate for e in editors if e.quality_negative_rate is not None]
+    approved = any(e.quality_approved for e in editors)
+    causes = []
+    if not approved:
+        causes.append(RULE_NOT_APPROVED)
+    if len(measured) > 1 and not any(measured):
+        causes.append(ZERO_FOR_EVERYONE)
+    return [SilentMeasurement(QUALITY, tuple(causes), len(measured), approved)] if causes else []
+
+
+def not_measured(editors: Sequence[EditorInputs], silent: Sequence[SilentMeasurement]) -> list[EditorInputs]:
+    """A silenced Quality measure is read as "not measured yet": no Quality state, no Quality weight in the score."""
+    if not any(s.dimension == QUALITY for s in silent):
+        return list(editors)
+    return [replace(e, quality_approved=False, quality_state=None) for e in editors]
+
+
+def zero_activity(editor: EditorInputs) -> bool:
+    """Row 6: no completed project in the window and nothing in progress (Low activity by §3; the question is leave or assignment)."""
+    return editor.completed == 0 and editor.active == 0

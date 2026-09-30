@@ -7,8 +7,20 @@ from typing import Any
 
 from atlas_commander.verdict.confidence import confidence
 from atlas_commander.verdict.config import VerdictConfig, load_config
+from atlas_commander.verdict.decisions import ordered, silent_measurement_decisions, zero_activity_decision
 from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize
-from atlas_commander.verdict.reasoning import DUPLICATE, MIRRORS_TEAM, duplicates, limit_tier, mirror_reason, mirrored_changes, runway
+from atlas_commander.verdict.reasoning import (
+    DUPLICATE,
+    MIRRORS_TEAM,
+    duplicates,
+    limit_tier,
+    mirror_reason,
+    mirrored_changes,
+    not_measured,
+    runway,
+    silent_measurement,
+    zero_activity,
+)
 from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
@@ -25,6 +37,11 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
     config = config or load_config()
     editor_inputs, team = normalize(dashboard, intelligence)
     repeated = duplicates(team.findings.values())                             # §6 row 4 (T2.10)
+    silent = silent_measurement(editor_inputs)                                # §6 row 5 (T2.11)
+    editor_inputs = not_measured(editor_inputs, silent)
+    candidates = silent_measurement_decisions(silent)
+    if (idle := zero_activity_decision([e for e in editor_inputs if zero_activity(e)])) is not None:   # §6 row 6 (T2.11)
+        candidates.append(idle)
     source = dashboard["source"]
     editors = dashboard["editors"]
     window = editors[0]["interpretation"]["window"] if editors else None
@@ -42,7 +59,7 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
         "team": None,
         "editors": (editors := editor_verdicts(editor_inputs, team, config, repeated)),
         "decisions": [],
-        "decision_candidates": [],
+        "decision_candidates": ordered(candidates),
         "findings": {"hide_from_overview": _hidden(editors, repeated), "duplicates": repeated},
         "note": NOTE,
     }

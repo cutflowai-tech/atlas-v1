@@ -7,9 +7,21 @@ import unittest
 from verdict_fixture import editor, fixture, verdicts
 
 from atlas_commander.verdict.config import load_config
+from atlas_commander.verdict.decisions import APPROVE_RULE, LOW_ACTIVITY, decision_id
 from atlas_commander.verdict.engine import build_verdicts
 from atlas_commander.verdict.inputs import normalize
-from atlas_commander.verdict.reasoning import RUNWAY_EXPLAINS, RUNWAY_NOT_EXPLAINING, duplicates, limit_tier, mirrored_changes, mirrors_team, runway
+from atlas_commander.verdict.reasoning import (
+    RUNWAY_EXPLAINS,
+    RUNWAY_NOT_EXPLAINING,
+    duplicates,
+    limit_tier,
+    mirrored_changes,
+    mirrors_team,
+    runway,
+    silent_measurement,
+    zero_activity,
+)
+from atlas_commander.verdict.tiers import LOW_ACTIVITY as LOW_ACTIVITY_TIER
 from atlas_commander.verdict.tiers import STEADY, WATCH, WEAKEST
 
 CONFIG = load_config()
@@ -137,6 +149,86 @@ class DuplicateFindingTests(unittest.TestCase):
         self.assertEqual([r for r in anas["reasons"] if r["key"].startswith("verdict.reason.mirrors_team")], [])
         self.assertEqual({(h["finding_id"], h["reason"]) for h in document["findings"]["hide_from_overview"] if h["editor_id"] == "editor-label-5"},
                          {("change.editor:anas-comparison", "duplicate")})
+
+
+def candidates(document, decision_type):
+    return [d for d in document["decision_candidates"] if d["type"] == decision_type]
+
+
+class SilentMeasurementTests(unittest.TestCase):
+    """T2.11, §6 row 5."""
+
+    def test_quality_at_zero_for_everyone_is_a_management_decision(self):
+        editors, _ = inputs()
+        self.assertEqual({e.quality_negative_rate for e in editors.values() if e.quality_negative_rate is not None}, {0.0})
+        (rule,) = candidates(verdicts(), APPROVE_RULE)
+        self.assertEqual((rule["horizon"], rule["owner_role"], rule["owner_editor_ids"], rule["target"]), ("management", "ceo", [], "rule:quality"))
+        self.assertEqual(rule["title"], {"key": "verdict.decision.approve_rule", "params": {"dimension": "quality"}})
+        self.assertEqual([m["key"] for m in rule["evidence"]], ["verdict.evidence.rule_not_approved", "verdict.evidence.zero_for_everyone"])
+        self.assertEqual(rule["evidence"][1]["params"], {"dimension": "quality", "editors": 9})   # every Editor with a value
+        self.assertEqual(rule["id"], decision_id(APPROVE_RULE, "quality"))
+
+    def test_zero_is_read_as_not_measured_never_as_good(self):
+        document = verdicts()
+        for e in document["editors"]:
+            self.assertNotIn("quality", e["based_on"], e["display_name"])
+            self.assertNotIn("quality.state", (e["metrics"]["quality"] or {}).get("key", ""), e["display_name"])
+
+    def test_an_approved_rule_that_reads_zero_for_everyone_is_reviewed_and_not_scored(self):
+        data = copy.deepcopy(fixture())
+        for e in data["dashboard"]["editors"]:
+            e["interpretation"]["components"]["quality"].update(rule_status="approved", state="good")
+        document = build_verdicts(data["dashboard"], data["intelligence"], data["dashboard"]["generated_at"])
+        (rule,) = candidates(document, APPROVE_RULE)
+        self.assertEqual(rule["title"]["key"], "verdict.decision.review_rule")
+        self.assertEqual([m["key"] for m in rule["evidence"]], ["verdict.evidence.zero_for_everyone"])
+        for e in document["editors"]:                                  # "good" from a measure that is 0% for everyone is not shown
+            self.assertNotIn("quality", e["based_on"], e["display_name"])
+            self.assertNotEqual((e["metrics"]["quality"] or {}).get("key"), "verdict.quality.state.good", e["display_name"])
+
+    def test_a_measure_that_varies_is_not_silent(self):
+        data = copy.deepcopy(fixture())
+        for e in data["dashboard"]["editors"]:
+            e["interpretation"]["components"]["quality"]["rule_status"] = "approved"
+        mario = next(e for e in data["dashboard"]["editors"] if e["display_name"] == "Mario")
+        mario["interpretation"]["components"]["quality"]["facts"]["negative_rate"] = 0.2667     # as on the real build
+        document = build_verdicts(data["dashboard"], data["intelligence"], data["dashboard"]["generated_at"])
+        self.assertEqual(candidates(document, APPROVE_RULE), [])
+        editors = normalize(data["dashboard"], data["intelligence"])[0]
+        self.assertEqual(silent_measurement(editors), [])
+        self.assertEqual(silent_measurement([e for e in editors if e.display_name == "Will"]), [])   # one Editor at 0% is not "everyone"
+        self.assertEqual(silent_measurement([]), [])
+
+
+class ZeroActivityTests(unittest.TestCase):
+    """T2.11, §6 row 6."""
+
+    def test_samra_produces_an_ask_candidate(self):
+        document = verdicts()
+        (ask,) = candidates(document, LOW_ACTIVITY)
+        samra = editor(document, "Samra")
+        self.assertEqual(samra["tier"], LOW_ACTIVITY_TIER)
+        self.assertEqual((ask["horizon"], ask["owner_role"]), ("ask", None))
+        self.assertIn(samra["editor_id"], ask["owner_editor_ids"])
+        self.assertIn({"key": "verdict.evidence.zero_activity", "params": {"name": "Samra", "lifetime_completed": 60}}, ask["evidence"])
+        self.assertEqual(ask["title"]["key"], "verdict.decision.zero_activity")
+
+    def test_only_editors_with_nothing_completed_and_nothing_in_progress(self):
+        editors, _ = inputs()
+        self.assertEqual(sorted(name for name, e in editors.items() if zero_activity(e)), ["Ahmed", "Samra"])
+        self.assertFalse(zero_activity(editors["Michael"]))            # 0 completed but 1 in progress (and overdue)
+        self.assertFalse(zero_activity(editors["Mohamed Mansour (Office)"]))
+        (ask,) = candidates(verdicts(), LOW_ACTIVITY)
+        owners = sorted([editors["Ahmed"], editors["Samra"]], key=lambda e: e.editor_id)
+        self.assertEqual(ask["owner_editor_ids"], [e.editor_id for e in owners])
+        self.assertEqual(ask["title"]["params"], {"names": [e.display_name for e in owners]})   # names in the owners' order
+
+    def test_candidates_are_stable_and_in_priority_order(self):
+        first, second = verdicts()["decision_candidates"], verdicts()["decision_candidates"]
+        self.assertEqual(first, second)
+        self.assertEqual([d["type"] for d in first], [LOW_ACTIVITY, APPROVE_RULE])          # §7: ask (4) before management (5)
+        self.assertEqual([d["priority"] for d in first], [4, 5])
+        self.assertEqual(verdicts()["decisions"], [])                                      # the overview list is T2.14
 
 
 if __name__ == "__main__":
