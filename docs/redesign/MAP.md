@@ -157,3 +157,22 @@ Real extracts are never committed (`/out/` is ignored). The extract used in this
 `20260929T210734Z-4cb4bfa25596`, kept outside the repository. Screenshot of the local Editors page from that build:
 [`screenshots/T0.2-editors-local-en.png`](screenshots/T0.2-editors-local-en.png). Screenshots in this folder are taken with headless
 Chrome (`--headless=new --window-size=W,H --screenshot=…`; `--blink-settings=preferredColorScheme=0|1` selects dark or light).
+
+## Editor photos (admin; redesign T5.1, T5.2)
+
+Atlas cannot read Editor photos from Monday (Editors are dropdown values, not Monday users; DECISIONS.md R22). An admin adds them as
+files; there is no upload in the app (the prototype's browser-only upload is not shipped).
+
+1. **Find the Editor ID.** `PYTHONPATH=src python3 -m atlas_commander.photos <site>/dashboard.json` lists every Editor ID with its name
+   and whether it already has a photo (the IDs are also in More details › Data health, "Editors: identity").
+2. **Prepare the photo.** A square face photo, 192 × 192 px, JPEG (or PNG / WebP), at most 150 KB. On macOS:
+   `sips -Z 192 -s format jpeg -s formatOptions 80 photo.jpg --out editor-label-9.jpg`.
+3. **Put it in the photo directory** as `<editor-id>.jpg` (`.jpeg`, `.png`, `.webp` also work):
+   - production: `${ATLAS_HOST_DATA_DIR:-/var/lib/waset-atlas}/editor-photos/` on the host (the persistent data directory the sync
+     container mounts as `$ATLAS_DATA_DIR`), readable by the container user (`chmod 0644`); no image rebuild or deploy is needed;
+   - local builds: `assets/editors/` in the repository;
+   - anywhere else: set `ATLAS_EDITOR_PHOTOS=/path/to/dir` for the build.
+4. **Check it.** Run the command of step 1 again: the Editor shows the file name, or a line says why it was refused (not an image, or
+   too large). A refused or missing photo never breaks the build; the Editor keeps the initial.
+5. **Publish.** The next site build embeds it (production: the next sync cycle). To replace a photo, overwrite the file; to remove it,
+   delete the file.

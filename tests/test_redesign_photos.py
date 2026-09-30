@@ -52,7 +52,9 @@ class PhotoFilesTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {photos.ENV: str(self.dir)}):
             self.assertEqual(photos.photo_dir(), self.dir)
             self.assertEqual(list(photos.editor_photos(["e1"])), ["e1"])
-        with mock.patch.dict(os.environ, {photos.ENV: ""}):
+        with mock.patch.dict(os.environ, {photos.ENV: "", "ATLAS_DATA_DIR": "/var/lib/waset-atlas"}):
+            self.assertEqual(photos.photo_dir(), Path("/var/lib/waset-atlas/editor-photos"))    # production: the persistent data directory
+        with mock.patch.dict(os.environ, {photos.ENV: "", "ATLAS_DATA_DIR": ""}):
             self.assertEqual(photos.photo_dir(), photos.DEFAULT_DIR)
 
 

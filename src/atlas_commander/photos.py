@@ -2,9 +2,11 @@
 
 Monday cannot supply them: Editors are values of the board's "Editor Name" dropdown on a shared account, not Monday users, so there is
 no user avatar to read (docs/redesign/DECISIONS.md T0.3, R22). An admin adds a photo as a file named after the Editor ID,
-``<photo dir>/<editor-id>.jpg`` (or ``.jpeg``, ``.png``, ``.webp``), where the photo directory is ``assets/editors/`` in the
-repository or the directory named by ``ATLAS_EDITOR_PHOTOS``. The site build embeds each valid photo in the pages as a ``data:`` URI,
-because the pages make no network request and nginx serves only the language trees. A file that is not an image of those types, or is
+``<photo dir>/<editor-id>.jpg`` (or ``.jpeg``, ``.png``, ``.webp``). The photo directory is, in order: the directory named by
+``ATLAS_EDITOR_PHOTOS``; ``$ATLAS_DATA_DIR/editor-photos`` (in production the persistent data directory the host bind-mounts, so no
+image rebuild is needed); otherwise ``assets/editors/`` in the repository (local builds). Steps: docs/redesign/MAP.md, "Editor photos".
+The site build embeds each valid photo in the pages as a ``data:`` URI, because the pages make no network request and nginx serves only
+the language trees. A file that is not an image of those types, or is
 larger than ``MAX_BYTES``, is skipped (the Editor keeps the initial) and reported by :func:`check`.
 """
 
@@ -18,13 +20,18 @@ from pathlib import Path
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "assets" / "editors"
 ENV = "ATLAS_EDITOR_PHOTOS"
+DATA_ENV, DATA_SUBDIR = "ATLAS_DATA_DIR", "editor-photos"
 EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 MAX_BYTES = 150 * 1024   # a 192 x 192 photo (twice the largest avatar) is far below this
 SIGNATURES = {"image/jpeg": (b"\xff\xd8\xff",), "image/png": (b"\x89PNG\r\n\x1a\n",)}
 
 
 def photo_dir() -> Path:
-    return Path(os.environ[ENV]) if os.environ.get(ENV) else DEFAULT_DIR
+    if os.environ.get(ENV):
+        return Path(os.environ[ENV])
+    if os.environ.get(DATA_ENV):
+        return Path(os.environ[DATA_ENV]) / DATA_SUBDIR
+    return DEFAULT_DIR
 
 
 def _media_type(data: bytes) -> str | None:
