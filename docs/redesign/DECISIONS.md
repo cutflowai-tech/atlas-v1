@@ -70,3 +70,15 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Decision:** keep both views and label the scopes. The list reads "46 more published findings" with a note that reconciles
   it with the total; Data & rules shows "Published findings (all, including grouped duplicates)" and the same split. The split
   comes from one function, `web.intel.finding_scope`, so the two pages cannot drift apart.
+
+## R5. The verdicts are a new snapshot artifact, not a dashboard version bump (T2.1)
+
+- **Handoff:** add `EditorVerdict`, `TeamVerdict`, `Decision` and `Msg` to "the snapshot schema" and bump its version.
+- **Repo convention:** the dashboard document (`ceo-dashboard-v0.1`) copies profile facts and has no JSON Schema; the last new
+  layer (Intelligence V2, D53) became its own optional, schema-validated artifact.
+- **Decision:** `verdicts.json` (`document_version` 1.0.0, `verdict_version` `verdict-v1.x`) with
+  [`contracts/verdict-v1.schema.json`](../../contracts/verdict-v1.schema.json). It is listed in `site_layout.optional_files`, so the
+  staged-build validation and publication check it whenever it is present (`atlas_commander.optional_artifacts`) and a build without
+  it still publishes and rolls back. Field names follow the repo's snake_case (`editor_id`, `ranked_of`, `confidence_reasons`, …)
+  instead of the spec's camelCase. `Msg.params` may also hold a list of strings (a list of names), which the page joins with the
+  locale's own comma.

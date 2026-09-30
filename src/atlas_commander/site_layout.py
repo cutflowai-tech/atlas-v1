@@ -61,14 +61,16 @@ def html_files(editor_ids: Iterable[str]) -> dict[str, str]:
 
 
 INTELLIGENCE_JSON = "intelligence-v2.json"
+VERDICTS_JSON = "verdicts.json"
 
 
 def optional_files(contract_version: str) -> list[str]:
-    """Files a complete site may contain but never needs (Intelligence V2, contract 1.5.0+, feature-gated).
+    """Files a complete site may contain but never needs (contract 1.5.0+): Intelligence V2 (feature-gated) and the redesign's
+    verdicts (D54).
 
     An optional file is validated whenever it is present and is never required, so builds with and without it both validate,
     publish and roll back."""
-    return [INTELLIGENCE_JSON] if capabilities(contract_version).editor_intelligence else []
+    return [INTELLIGENCE_JSON, VERDICTS_JSON] if capabilities(contract_version).editor_intelligence else []
 
 
 def required_files(editor_ids: Iterable[str], contract_version: str) -> list[str]:

@@ -43,11 +43,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from atlas_commander import site_layout
+from atlas_commander import optional_artifacts, site_layout
 from atlas_commander.contracts import validate
 from atlas_commander.ingest import MANIFEST_NAME, RUN_ID_PATTERN, Clock, new_run_id, utc_now
 from atlas_commander.ingest_verify import verify
-from atlas_commander.investigation.site import site_problems as intelligence_problems
 from atlas_commander.profile import evidence_consistency_errors
 from atlas_monday_probe.client import InvalidMondaySetting, validate_api_version
 from atlas_monday_probe.raw_store import write_immutable_atomic
@@ -239,7 +238,7 @@ def validate_build(config: SyncConfig, attempt_id: str) -> ValidatedBuild:
             problems.append("build.json contains the Monday token")
     problems += site_layout.publication_problems(files, editors, contract_version, manifest.get("retrieved_at"))
     problems += [problem for name in site_layout.optional_files(contract_version) if name in files
-                 for problem in intelligence_problems(files[name], contract_version, manifest.get("retrieved_at"))]
+                 for problem in optional_artifacts.problems(name, files[name], contract_version, manifest.get("retrieved_at"))]
     if problems:
         raise PublishRejected("build_tampered", problems[:MAX_PROBLEMS])
 
