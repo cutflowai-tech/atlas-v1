@@ -204,6 +204,19 @@ th,td{text-align:start;padding:10px 12px;border-bottom:1px solid var(--line);ver
 th{font-weight:550;color:var(--ink-3);font-size:12px;background:var(--surface-2)}
 tbody tr:last-child td{border-bottom:0}
 td ul{margin:0;padding-inline-start:16px}
+/* narrow screens: every table row becomes a key/value record; no column is squeezed (ATLAS-MOBILE-001) */
+@media (max-width:767.98px){
+.tbl{overflow:visible;border:0;border-radius:0}
+.tbl table,.tbl tbody,.tbl tr,.tbl td{display:block;width:100%}
+.tbl thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tbl tr{border:1px solid var(--line);border-radius:var(--r-md);padding:4px 14px;background:var(--surface)}.tbl tr+tr{margin-top:10px}
+.tbl td{display:grid;grid-template-columns:minmax(92px,36%) minmax(0,1fr);gap:4px 12px;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.tbl tbody tr td:last-child{border-bottom:0}
+.tbl td::before{content:attr(data-label);color:var(--ink-3);font-size:12px}
+.tbl td:not([data-label]){grid-template-columns:minmax(0,1fr)}.tbl td:not([data-label])::before{content:none}
+.tbl code{word-break:normal;overflow-wrap:anywhere}.tbl td>*{justify-self:start;max-width:100%}
+.tbl td[style*="min-width"]{min-width:0!important}
+}
 /* project list */
 .plist{display:flex;flex-direction:column}
 .plist button{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:110px minmax(0,1fr) 150px minmax(0,1fr) 70px;gap:12px;padding:11px 12px;border-bottom:1px solid var(--line);font-size:13px;align-items:center}

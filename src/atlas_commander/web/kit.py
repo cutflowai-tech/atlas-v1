@@ -7,9 +7,10 @@ exactly as the profile states it, and its CSS class is chosen from that value.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from typing import Any
 
 from atlas_commander.i18n import Html, Loc
@@ -135,9 +136,35 @@ def section_head(title: str, sub: str = "", extra: str = "") -> str:
     return f'<div class="sec-h"><div><h2>{title}</h2>{f"<p>{sub}</p>" if sub else ""}</div>{extra}</div>'
 
 
+_TAG = re.compile(r"<[^>]+>")
+_CELL = re.compile(r"<td(?=[\s>])([^>]*)>")
+_COLSPAN = re.compile(r"colspan=\"?(\d+)")
+
+
+def _labelled(rows: str, labels: Sequence[str]) -> str:
+    """Give every body cell its column header as ``data-label`` so narrow screens can show each row as a stacked record."""
+    def row(match: re.Match[str]) -> str:
+        column = 0
+
+        def cell(found: re.Match[str]) -> str:
+            nonlocal column
+            attrs = found.group(1)
+            span = int(m.group(1)) if (m := _COLSPAN.search(attrs)) else 1
+            label = labels[column] if span == 1 and column < len(labels) else ""
+            column += span
+            return f'<td{attrs} role="cell"' + (f' data-label="{attr(label)}">' if label else ">")
+        return "<tr" + match.group(1) + ' role="row">' + _CELL.sub(cell, match.group(2)) + "</tr>"
+    return re.sub(r"<tr([^>]*)>(.*?)</tr>", row, rows, flags=re.DOTALL)
+
+
 def table(head: Iterable[str], rows: str, empty: str) -> str:
-    heads = "".join(f"<th scope=col>{h}</th>" for h in head)
-    return f'<div class="tbl"><table><thead><tr>{heads}</tr></thead><tbody>{rows or empty}</tbody></table></div>'
+    """A data table. Below 768 px the stylesheet turns each row into a key/value record (ATLAS-MOBILE-001); explicit roles keep
+    the table semantics that ``display: block`` would otherwise remove."""
+    head = list(head)
+    heads = "".join(f'<th scope=col role="columnheader">{h}</th>' for h in head)
+    labels = [unescape(_TAG.sub("", str(h))).strip() for h in head]
+    return (f'<div class="tbl"><table role="table"><thead><tr role="row">{heads}</tr></thead>'
+            f'<tbody>{_labelled(rows or empty, labels)}</tbody></table></div>')
 
 
 def meter(value: float, maximum: float, cls: str = "") -> str:

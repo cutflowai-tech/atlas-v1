@@ -14,7 +14,7 @@ from typing import Any
 
 from atlas_commander.i18n import Html, Loc
 from atlas_commander.investigation import narrative
-from atlas_commander.web.kit import Ctx, dl, item_link, open_link, project_tid, section_head, template
+from atlas_commander.web.kit import Ctx, dl, item_link, open_link, project_tid, section_head, table, template
 
 CATEGORY_ORDER = ("needs_attention", "emerging_risk", "system_pattern", "hidden_context", "editor_specific_pattern", "important_improvement", "data_warning")
 ROLES = (("supporting_evidence", "supporting"), ("contradicting_evidence", "contradicting"), ("context_evidence", "context"))
@@ -207,10 +207,9 @@ def rules_card(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
               (loc.t("ui.iv2.rules.withheld"), loc.num(sum("weak_evidence_review_only" in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.not_evaluated"), loc.num(sum("weak_evidence_review_only" not in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.version"), loc.tech(doc["intelligence_version"])), (loc.t("ui.iv2.rules.mode"), loc.tech(doc["mode"]))]
-    table = (f'<div class="tbl"><table><thead><tr><th scope=col>{loc.t("ui.iv2.rules.parameter")}</th><th scope=col>{loc.t("ui.iv2.rules.value")}</th>'
-             f'<th scope=col>{loc.t("ui.iv2.rules.decision")}</th></tr></thead><tbody>{rows}</tbody></table></div>')
+    parameters = table([loc.t("ui.iv2.rules.parameter"), loc.t("ui.iv2.rules.value"), loc.t("ui.iv2.rules.decision")], rows, "")
     return (f'<div class="card" data-section="intelligence-rules"><h3 style="margin-bottom:12px">{loc.t("ui.iv2.rules.title")}</h3>'
-            f'<p class="sm soft">{loc.t("ui.iv2.method")}</p>{dl([(str(k), str(v)) for k, v in counts], "dl")}{table}</div>')
+            f'<p class="sm soft">{loc.t("ui.iv2.method")}</p>{dl([(str(k), str(v)) for k, v in counts], "dl")}{parameters}</div>')
 
 
 def project_template_ids(editors: Sequence[Mapping[str, Any]]) -> set[str]:

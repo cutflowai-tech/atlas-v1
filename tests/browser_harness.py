@@ -10,6 +10,7 @@ Tests using it are skipped when no Chrome is installed or when ``ATLAS_BROWSER_T
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import json
 import os
@@ -133,6 +134,23 @@ class Browser:
         if "exceptionDetails" in result:
             raise AssertionError(f"scenario failed: {result['exceptionDetails']}")
         return result["result"].get("value")
+
+    def screenshot(self, path: Path, *, selector: str | None = None, full_page: bool = False) -> None:
+        """PNG of the viewport, the whole page, or one element (scrolled into view)."""
+        params: dict[str, Any] = {"format": "png"}
+        if selector or full_page:
+            box = self.run(f"""
+                const el = {json.dumps(selector)} ? document.querySelector({json.dumps(selector)}) : document.documentElement;
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return {{x: r.left + window.scrollX, y: r.top + window.scrollY, width: Math.ceil(r.width),
+                         height: Math.ceil({json.dumps(full_page)} ? document.documentElement.scrollHeight : r.height)}};
+            """)
+            if box is None:
+                raise AssertionError(f"no element {selector!r}")
+            params.update({"captureBeyondViewport": True, "clip": {**box, "scale": 1}})
+        data = self.call("Page.captureScreenshot", params, timeout=60)["data"]
+        Path(path).write_bytes(base64.b64decode(data))
 
     def key(self, name: str, shift: bool = False) -> None:
         key, code = KEYS[name]
