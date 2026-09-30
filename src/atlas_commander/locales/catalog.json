@@ -5113,6 +5113,40 @@
    "ar": "الحجم",
    "context": "Verdict dimension name used inside sentences",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.title": {
+   "en": "What you need to do",
+   "ar": "المطلوب منك",
+   "context": "Heading of the decisions rail on the Team overview",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.hint": {
+   "en": "Click any photo to open that person's profile.",
+   "ar": "اضغط على أي صورة لفتح ملف صاحبها.",
+   "context": "Hint under the decisions rail heading",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.none": {
+   "en": "Nothing needs a decision this month.",
+   "ar": "لا شيء يحتاج إلى قرار هذا الشهر.",
+   "context": "Decisions rail when there is no decision",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.rail.more": {
+   "en": {
+    "one": "One more decision under More details.",
+    "other": "{n} more decisions under More details."
+   },
+   "ar": {
+    "zero": "لا قرارات أخرى.",
+    "one": "قرار آخر في مزيد من التفاصيل.",
+    "two": "قراران آخران في مزيد من التفاصيل.",
+    "few": "{n} قرارات أخرى في مزيد من التفاصيل.",
+    "many": "{n} قرارًا آخر في مزيد من التفاصيل.",
+    "other": "{n} قرار آخر في مزيد من التفاصيل."
+   },
+   "context": "Decisions rail: how many more decisions are under More details (the overview shows the first five)",
+   "status": "Needs Arabic Review"
   }
  }
 }

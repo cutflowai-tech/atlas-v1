@@ -59,6 +59,7 @@ from atlas_commander.web.kit import (
     verdict_chip,
 )
 from atlas_commander.web.style import CSS, SCRIPT
+from atlas_commander.web.team_overview import team_overview
 
 COMPONENTS = ("quality", "speed", "deadline")
 LABEL_CLASSES = ("negative", "positive", "context")
@@ -139,7 +140,8 @@ def editor_card(s: Mapping[str, Any], ctx: Ctx) -> str:
             f'<span>{loc.t("card.view_profile")} {icon("arrow", 13)}</span></div></article>')
 
 
-def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None) -> str:
+def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: Mapping[str, Any] | None = None,
+             verdicts: Mapping[str, Any] | None = None) -> str:
     loc = ctx.loc
     editors = sorted(doc["editors"], key=lambda s: (s["display_name"].casefold(), s["editor_id"]))   # alphabetical: never a ranking
     counts = Counter(status_key(s["interpretation"]["overall"]) for s in editors)
@@ -156,7 +158,9 @@ def overview(doc: Mapping[str, Any], ctx: Ctx, month: str | None, intelligence: 
     tools = (f'<div class="tools"><label class="search">{icon("search", 16)}<span class="sr">{loc.t("ui.search_label")}</span>'
              f'<input id="editor-search" type="search" autocomplete="off" placeholder="{attr(loc.text("ui.search_placeholder"))}"></label>'
              f'<div class="filters" role="group" aria-label="{attr(loc.text("ui.filter_label"))}">{chips}</div></div>') if editors else ""
-    return (f'<div data-view="team"><div class="ph"><div><h1>{loc.t("ui.nav.editors")}</h1>{window}</div></div>'
+    judgment = team_overview(verdicts, ctx) if verdicts is not None else ""   # the redesign's first layer (T4.2), when verdicts.json exists
+    heading = "h2" if judgment else "h1"   # one h1 per view: with the verdict overview, its headline is the view's h1
+    return (f'<div data-view="team">{judgment}<div class="ph"><div><{heading}>{loc.t("ui.nav.editors")}</{heading}>{window}</div></div>'
             f'<p class="note" style="margin:-8px 0 18px">{loc.t("ui.overview_note")}</p>'
             f'{intel.overview_section(intelligence, ctx)}{tools}{grid}{team_context(doc, ctx, month)}</div>')
 
@@ -803,9 +807,11 @@ def page(loc: Loc, title: str, body: str, publication: Mapping[str, Any] | None,
 
 
 def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_item_url: str | None = None, loc: Loc | None = None,
-               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None) -> str:
+               switch_href: str | None = None, status_snapshot: Mapping[str, Any] | None = None, intelligence: Mapping[str, Any] | None = None,
+               verdicts: Mapping[str, Any] | None = None) -> str:
     """The contract 1.5 dashboard page in ``loc``: Editors, each Editor Profile and Data & rules, as one static app. ``intelligence`` is the
-    optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence."""
+    optional published Intelligence V2 document (``approved_only``); without it the page is exactly the page without Intelligence.
+    ``verdicts`` is the optional verdict document (D54); with it the Editors page opens with the judgment-first overview."""
     assert loc is not None
     loc = loc.isolating()   # Latin terms and dates isolated in Arabic (redesign T1.4)
     ctx = Ctx(loc, monday_item_url)
@@ -813,7 +819,7 @@ def render_app(doc: Mapping[str, Any], profile_pages: Mapping[str, str], monday_
     retrieved = source.get("retrieved_at")
     month = datetime.fromisoformat(retrieved.replace("Z", "+00:00")).astimezone(CAIRO).strftime("%Y-%m") if retrieved else None
     editors = doc["editors"]
-    views = (overview(doc, ctx, month, intelligence) + "".join(editor_profile(s, retrieved, ctx, intelligence) for s in editors)
+    views = (overview(doc, ctx, month, intelligence, verdicts) + "".join(editor_profile(s, retrieved, ctx, intelligence) for s in editors)
              + intel.drawers(intelligence, ctx, intel.project_template_ids(editors)))
     body = _dedupe_templates(views)
     blob = json.dumps(dict(profile_pages)).replace("</", "<\\/")

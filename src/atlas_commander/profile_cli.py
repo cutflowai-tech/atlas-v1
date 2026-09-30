@@ -132,7 +132,7 @@ def build_dashboard_files(result: CycleReconstruction, contract: dict[str, Any],
     for loc in locales():
         _write(out, site_layout.dashboard_html(loc.code), render_dashboard_html(
             dashboard, pages[loc.code], monday_item_url, loc, switch_href=f"../{site_layout.dashboard_html(loc.other().code)}",
-            status_snapshot=status_snapshot, intelligence=intelligence))
+            status_snapshot=status_snapshot, intelligence=intelligence, verdicts=verdicts))
         _write(out, site_layout.locale_index(loc.code), _entry_page(loc, "dashboard.html", publication))
     ar = EN.other()
     _write(out, site_layout.ROOT_ENTRY, _entry_page(EN, site_layout.dashboard_html(EN.code), publication,

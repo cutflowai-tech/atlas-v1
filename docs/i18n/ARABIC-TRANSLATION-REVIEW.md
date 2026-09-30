@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-797 keys: 149 Approved from brief, 362 Implemented conservatively, 286 Needs Arabic Review.
+801 keys: 149 Approved from brief, 362 Implemented conservatively, 290 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -188,6 +188,10 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.v.late.aria_count` | Late on {late_pct} of projects ({late} of {n}). | متأخر في {late_pct} من المشاريع ({late} من {n}). | Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects | Needs Arabic Review |  |
 | `ui.v.late.none` | No deadline data this month | لا توجد بيانات مواعيد هذا الشهر | Late-rate bar when the Editor has no deadline-classifiable project in the window | Needs Arabic Review |  |
 | `ui.v.late.team` | Team average {team_pct} | متوسط الفريق {team_pct} | Tooltip and accessible text of the team-average marker on the late-rate bar | Needs Arabic Review |  |
+| `ui.v.rail.hint` | Click any photo to open that person's profile. | اضغط على أي صورة لفتح ملف صاحبها. | Hint under the decisions rail heading | Needs Arabic Review |  |
+| `ui.v.rail.more` | one: One more decision under More details. / other: {n} more decisions under More details. | zero: لا قرارات أخرى. / one: قرار آخر في مزيد من التفاصيل. / two: قراران آخران في مزيد من التفاصيل. / few: {n} قرارات أخرى في مزيد من التفاصيل. / many: {n} قرارًا آخر في مزيد من التفاصيل. / other: {n} قرار آخر في مزيد من التفاصيل. | Decisions rail: how many more decisions are under More details (the overview shows the first five) | Needs Arabic Review |  |
+| `ui.v.rail.none` | Nothing needs a decision this month. | لا شيء يحتاج إلى قرار هذا الشهر. | Decisions rail when there is no decision | Needs Arabic Review |  |
+| `ui.v.rail.title` | What you need to do | المطلوب منك | Heading of the decisions rail on the Team overview | Needs Arabic Review |  |
 | `ui.v.role.ceo` | CEO | الرئيس التنفيذي | Decision owner role: the CEO (the reader) | Needs Arabic Review |  |
 | `ui.v.role.editors_manager` | Editors manager | مدير المونتيرين | Decision owner role: the manager of the Editors | Needs Arabic Review |  |
 | `ui.v.role.scheduling_owner` | Scheduling owner | مسؤول الجدولة | Decision owner role: whoever sets delivery dates and runway | Needs Arabic Review |  |

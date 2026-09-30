@@ -225,3 +225,14 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   impersonal phrasings ("التأخير في …", "أبطأ من الزملاء", "الأداء السابق") instead of masculine forms where Arabic allows it.
 - **Direction words, not arrows:** changes read "from 69% to 54%" / "من … إلى …", which never reorders in Arabic.
 - The Arabic strings carry the review status "Needs Arabic Review" like every redesign string.
+
+## R16. The Team overview arrives before the old first layer leaves (T4.2 → T4.3)
+
+- T4.2 puts the judgment-first overview (band, tiers, decisions rail) at the top of the Editors view; T4.3 then moves the old first
+  layer (alphabetical cards, "Atlas never ranks", findings list, Team Pulse) to More details. Between the two commits the old content
+  sits below the new one; its heading becomes an `h2` so each view keeps one `h1` (the verdict headline).
+- Order inside a tier is the engine's rank (lowest number first), then unranked Editors by name. The Weakest tier therefore lists
+  rank 6, 7, 8 in that order, like every other tier.
+- `test_ui_v15::test_cards_show_the_engine_status_in_alphabetical_order` keeps checking that the pre-redesign cards never rank; its
+  "no Best / Rank" words check now reads the page without the verdict overview, which ranks by design (D54, R0).
+- Without `verdicts.json` (publication gate off, or contracts 1.3/1.4) the Editors page is exactly the pre-redesign page.

@@ -109,8 +109,11 @@ class EditorsAppTests(unittest.TestCase):
             expected = {"Strong": "strong", "Good": "good", "Mixed": "mixed", "Below Expectations": "below_expectations"}.get(label, "none")
             self.assertEqual(status, expected, eid)
         self.assertEqual(len({status for status, _ in cards}), 5, "the showcase exercises every status group")
+        # The pre-redesign cards never rank. The redesign's verdict overview (tiers and ranks) supersedes that rule for the verdict layer
+        # only (D54; docs/redesign/DECISIONS.md R0), so the check reads the page without it.
+        legacy = re.sub(r'<div class="v-page".*?(?=<div class="ph">)', "", html, flags=re.DOTALL)
         for phrase in ("Top Editor", "Best", "Worst", "Rank", "#1", "Leaderboard"):
-            self.assertNotIn(phrase, " ".join(visible(html)))
+            self.assertNotIn(phrase, " ".join(visible(legacy)))
 
     def test_filters_count_each_status_and_search_covers_names(self):
         html = app_only(self.page("en/dashboard.html"))

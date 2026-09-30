@@ -71,7 +71,7 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 
 /* ---- headings */
 .ph{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:20px}
-.ph h1{font-size:clamp(26px,3vw,34px);letter-spacing:-.02em;line-height:1.15}.ph p{margin:6px 0 0;color:var(--ink-2);max-width:72ch}
+.ph :is(h1,h2){font-size:clamp(26px,3vw,34px);letter-spacing:-.02em;line-height:1.15}.ph p{margin:6px 0 0;color:var(--ink-2);max-width:72ch}
 .sec{margin-top:40px}.sec-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;margin-bottom:14px}
 .sec-h h2{font-size:20px}.sec-h p{margin:2px 0 0;color:var(--ink-3);font-size:13.5px;max-width:80ch}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px}
@@ -184,6 +184,12 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-kpi-v{font:600 26px/1.1 var(--v-num);color:var(--v-tone)}.v-kpi-l{font-size:12.5px;line-height:1.5;color:var(--v-muted)}
 @container (max-width:880px){.v-band-in{grid-template-columns:minmax(0,1fr);align-items:start}.v-kpis{min-inline-size:0}}
 @container (max-width:420px){.v-kpi{padding:14px 12px}.v-kpi-v{font-size:22px}.v-band h1{font-size:24px}}
+.v-page{margin-block-end:40px}.v-window{margin:-18px 0 24px;font-size:12.5px;color:var(--v-faint)}
+.v-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;grid-template-areas:"main rail";gap:32px;align-items:start}
+.v-main{grid-area:main;min-inline-size:0}.v-rail{grid-area:rail;position:sticky;inset-block-start:76px;display:flex;flex-direction:column;gap:12px;font-family:var(--v-body)}
+.v-rail h2{font:600 19px/1.3 var(--v-display);color:var(--v-fg)}.v-rail-hint{margin:-6px 0 4px;font-size:12.5px;color:var(--v-muted)}
+.v-rail-list{display:flex;flex-direction:column;gap:12px}.v-rail-more,.v-rail-none{margin:0;font-size:12.5px;color:var(--v-muted)}
+@media (max-width:999px){.v-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"rail" "main"}.v-rail{position:static}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
