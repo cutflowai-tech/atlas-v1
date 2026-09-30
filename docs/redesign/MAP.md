@@ -164,7 +164,7 @@ Atlas cannot read Editor photos from Monday (Editors are dropdown values, not Mo
 files; there is no upload in the app (the prototype's browser-only upload is not shipped).
 
 1. **Find the Editor ID.** `PYTHONPATH=src python3 -m atlas_commander.photos <site>/dashboard.json` lists every Editor ID with its name
-   and whether it already has a photo (the IDs are also in More details › Data health, "Editors: identity").
+   and whether it already has a photo (the IDs are also in More details › Data health, "Editors and identity").
 2. **Prepare the photo.** A square face photo, 192 × 192 px, JPEG (or PNG / WebP), at most 150 KB. On macOS:
    `sips -Z 192 -s format jpeg -s formatOptions 80 photo.jpg --out editor-label-9.jpg`.
 3. **Put it in the photo directory** as `<editor-id>.jpg` (`.jpeg`, `.png`, `.webp` also work):
