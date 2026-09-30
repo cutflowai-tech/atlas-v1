@@ -170,3 +170,18 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   verdict; the scheduling review takes the Intelligence V2 finding's level (strong/moderate/weak → high/medium/low).
 - **Subjects for the stable ID:** the overdue item IDs, the Editor ID, `team`, the sorted Low-activity Editor IDs, the rule's
   dimension. The same facts give the same ID on every rebuild; a changed subject (a new overdue project) is a new decision.
+
+## R12. Team verdict (T2.15)
+
+- **Team late rate** (current and previous) is the sum of every profiled Editor's late projects over their deadline-classifiable
+  projects in each window (T0.3). The previous window uses each Editor's own published comparison sample, so on real data it is
+  72.9% (94 of 129) where the audit screenshot said "75%".
+- **State on real data:** production run `20260929T210734Z-4cb4bfa25596` is `critical` because 5 open projects are past Requested
+  ETA and `team.critical_overdue` is 5 (spec §8: "overdue ≥ 5"); its late rate (58.5%) alone would be `needs_intervention`. This is
+  the spec's rule applied as written; it changes with the overdue count on every build.
+- **Trend:** the late-rate move is compared in percentage points rounded to the document's precision, so a move of exactly 5 points
+  is `flat`. Without a previous window the trend is `flat` and confidence drops one level.
+- **Conclusion:** "which share dominates" uses the same threshold as the scheduling decision (`decisions.scheduling_runway_share`):
+  at or above it the lateness is mostly scheduling, otherwise mostly the editing. The decision and the chain can never disagree.
+- **KPI values** are numerals without units (`"58.9"`, `"3"`); the page formats them per locale (digits, `%`, bidi isolation, T1.4),
+  so no preformatted Latin text reaches the Arabic page.

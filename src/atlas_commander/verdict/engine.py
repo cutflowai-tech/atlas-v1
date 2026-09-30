@@ -21,6 +21,7 @@ from atlas_commander.verdict.reasoning import (
     silent_measurement,
 )
 from atlas_commander.verdict.sentences import Context, headline, reasons
+from atlas_commander.verdict.team import team_verdict
 from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
@@ -54,7 +55,7 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
                     "current": _window(window["current"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"},
                     "comparison": _window(window["comparison"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"}},
         "config": config.as_document(),
-        "team": None,
+        "team": team_verdict(team, config),                                   # §8 (T2.15)
         "editors": (editors := editor_verdicts(editor_inputs, team, config, repeated, monday_item_url)),
         "decisions": (candidates := generate(editor_inputs, editors, team, silent, config))[:int(config["decisions.overview_max"])],   # §7 (T2.14)
         "decision_candidates": candidates,
