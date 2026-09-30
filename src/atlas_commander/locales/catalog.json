@@ -4521,6 +4521,12 @@
    "ar": "اسأل عن السبب",
    "context": "Short description under the Low activity tier heading",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.band.eyebrow": {
+   "en": "This month's verdict",
+   "ar": "الحكم هذا الشهر",
+   "context": "Eyebrow above the team verdict headline (the current 30-day window)",
+   "status": "Needs Arabic Review"
   }
  }
 }

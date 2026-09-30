@@ -62,10 +62,9 @@ def _tone_late(late_rate: float | None, config: VerdictConfig) -> str:
     return "warn" if late_rate >= config["team.intervention_late_rate"] else "good"
 
 
-def _tone_overdue(overdue: int, config: VerdictConfig) -> str:
-    if overdue >= config["team.critical_overdue"]:
-        return "bad"
-    return "warn" if overdue else "good"
+def _tone_overdue(overdue: int) -> str:
+    """Any open project past its Requested ETA is today's problem (the `today` horizon's colour); none is good."""
+    return "bad" if overdue else "good"
 
 
 def _number(value: float) -> str:
@@ -101,9 +100,9 @@ def team_verdict(team: TeamInputs, config: VerdictConfig) -> dict[str, Any]:
 
     kpis = [{"key": "late_rate", "value": _number(late_pct) if late_pct is not None else "", "tone": _tone_late(late_rate, config),
              "label": msg("verdict.team.kpi.late_rate", previous_pct=previous_pct) if previous_pct is not None else msg("verdict.team.kpi.late_rate_now")},
-            {"key": "overdue", "value": _number(overdue), "tone": _tone_overdue(overdue, config), "label": msg("verdict.team.kpi.overdue", count=overdue)}]
+            {"key": "overdue", "value": _number(overdue), "tone": _tone_overdue(overdue), "label": msg("verdict.team.kpi.overdue", count=overdue)}]
     if short_share_pct is not None:
-        kpis.append({"key": "short_runway_share", "value": _number(short_share_pct), "tone": "warn" if cause == SCHEDULING else "neutral",
+        kpis.append({"key": "short_runway_share", "value": _number(short_share_pct), "tone": "neutral",
                      "label": msg("verdict.team.kpi.short_runway_share", short_runway_late=split["short_runway_late"], late=split["late"])})
     return {
         "headline": _msg(f"verdict.team.headline.{now_state}.{now_trend}", late_pct=late_pct, previous_pct=previous_pct, overdue=overdue),

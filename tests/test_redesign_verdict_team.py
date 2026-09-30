@@ -32,7 +32,8 @@ class TeamVerdictTests(unittest.TestCase):
         self.assertEqual(list(kpis), ["late_rate", "overdue", "short_runway_share"])
         self.assertEqual((kpis["late_rate"]["value"], kpis["late_rate"]["label"]["params"], kpis["late_rate"]["tone"]),
                          ("58.9", {"previous_pct": 75.2}, "warn"))            # shown as 59% was 75%
-        self.assertEqual((kpis["overdue"]["value"], kpis["overdue"]["tone"]), ("3", "warn"))
+        self.assertEqual((kpis["overdue"]["value"], kpis["overdue"]["tone"]), ("3", "bad"))            # the prototype's colours: overdue is today's
+        self.assertEqual(kpis["short_runway_share"]["tone"], "neutral")
         self.assertEqual((kpis["short_runway_share"]["value"], kpis["short_runway_share"]["label"]["params"]),
                          ("77.4", {"short_runway_late": 328, "late": 424}))   # 77%, 328 of 424
 

@@ -123,10 +123,23 @@ def tiers_section(loc: Loc) -> str:
             f'{"".join(ui.tier_section(t, cards[:1], loc) for t in ui.TIERS[1:])}</section>')
 
 
+BAND_SAMPLE = ("The team is improving but still late too often. Most lateness comes from scheduling.",
+               "Two Editors are the best this month, one is the weakest, and five have too little activity to judge.",
+               [({"key": "late_rate", "value": "58.9", "tone": "warn"}, "Team late rate · was 75%"),
+                ({"key": "overdue", "value": "3", "tone": "bad"}, "Projects past their deadline now"),
+                ({"key": "short_runway_share", "value": "77.4", "tone": "neutral"}, "Of late projects had short runway")])
+
+
+def band_section(loc: Loc) -> str:
+    headline, supporting, kpis = BAND_SAMPLE
+    band = ui.verdict_band(Html(escape(headline)), Html(escape(supporting)), [(k, Html(escape(label))) for k, label in kpis], loc)
+    return f'<section id="band"><h2>VerdictBand (T3.8)</h2><div class="frame">{band}</div><div class="frame" style="inline-size:390px;max-inline-size:100%">{band}</div></section>'
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}{decisions_section(loc)}{tiers_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}{cards_section(loc)}{decisions_section(loc)}{tiers_section(loc)}{band_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 

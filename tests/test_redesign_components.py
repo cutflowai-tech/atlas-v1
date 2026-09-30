@@ -299,6 +299,44 @@ class TierSectionRenderTests(unittest.TestCase):
             self.assertEqual(frames[5]["first"], frames[4]["first"], frames)               # a lone card keeps its column width
 
 
+class VerdictBandTests(unittest.TestCase):
+    """T3.8."""
+
+    def test_eyebrow_headline_supporting_and_three_kpis_from_the_team_verdict(self):
+        team = verdicts()["team"]
+        band = ui.verdict_band(Html("Headline."), Html("Supporting."), [(k, Html(k["key"])) for k in team["kpis"] * 2], EN)
+        self.assertIn('<p class="v-eyebrow">This month\'s verdict</p><h1 id="v-band-h">Headline.</h1><p class="v-band-s">Supporting.</p>', band)
+        self.assertEqual(len(re.findall(r'class="v-kpi"', band)), 3)                      # never more than three tiles
+        self.assertIn('data-tone="warn" data-kpi="late_rate"><span class="v-kpi-v"><bdi dir="ltr">59%</bdi>', band)   # 58.9 -> 59%
+        self.assertIn('data-tone="bad" data-kpi="overdue"><span class="v-kpi-v"><data value="3">3</data>', band)
+        self.assertIn('data-kpi="short_runway_share"><span class="v-kpi-v"><bdi dir="ltr">77%</bdi>', band)
+        self.assertIn("الحكم هذا الشهر", ui.verdict_band(Html("x"), Html("y"), [], AR))
+        self.assertNotIn("v-kpis", ui.verdict_band(Html("x"), Html("y"), [], EN))
+
+
+BAND_CHECK = """
+    await wait(300);
+    return [...document.querySelectorAll('#band .frame')].map(f => {
+      const t = f.querySelector('.v-band-t').getBoundingClientRect(), k = f.querySelector('.v-kpis').getBoundingClientRect();
+      const tiles = [...f.querySelectorAll('.v-kpi')].map(e => Math.round(e.getBoundingClientRect().top));
+      return {sideBySide: k.top < t.bottom && (k.right <= t.left + 1 || k.left >= t.right - 1), stacked: k.top >= t.bottom - 1,
+              oneRow: new Set(tiles).size === 1, overflow: f.scrollWidth > f.clientWidth + 1};
+    });
+"""
+
+
+@unittest.skipIf(chrome() is None, "headless Chrome is not available")
+class VerdictBandRenderTests(unittest.TestCase):
+    def test_side_by_side_on_desktop_stacked_on_mobile(self):
+        for loc in (EN, AR):
+            wide, narrow = run_scenario(render_components(loc), BAND_CHECK, width=1440, height=900)
+            self.assertTrue(wide["sideBySide"] and not wide["stacked"], (loc, wide))
+            self.assertTrue(narrow["stacked"] and narrow["oneRow"], (loc, narrow))
+            self.assertFalse(wide["overflow"] or narrow["overflow"], (loc, wide, narrow))
+            (phone,) = run_scenario(render_components(loc), BAND_CHECK, width=390, height=844)[:1]
+            self.assertTrue(phone["stacked"] and phone["oneRow"] and not phone["overflow"], (loc, phone))
+
+
 class ComponentPageTests(unittest.TestCase):
     def test_the_page_is_self_contained_and_localised(self):
         for loc in (EN, AR):

@@ -173,6 +173,17 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-tsec-h p{margin:0;font-size:13px;color:var(--v-muted)}.v-tsec-n{font:500 13px/1 var(--v-num);color:var(--v-faint)}
 .v-sq{inline-size:12px;block-size:12px;border-radius:3px;background:var(--v-tier)}
 .v-grid{--v-gap:16px;display:grid;gap:var(--v-gap);grid-template-columns:repeat(auto-fill,minmax(max(270px,calc((100% - 3 * var(--v-gap)) / 4)),1fr))}
+.v-band{container-type:inline-size;padding-block:28px 32px;font-family:var(--v-body);color:var(--v-fg)}
+.v-band-in{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:24px 48px}
+.v-eyebrow{margin:0 0 10px;font:600 13px/1.4 var(--v-display);color:var(--v-accent)}
+.v-band h1{margin:0 0 12px;font:700 clamp(24px,2.6vw,36px)/1.35 var(--v-display);letter-spacing:0;max-inline-size:32ch;text-wrap:balance}
+.v-band-s{margin:0;font-size:15px;line-height:1.7;color:var(--v-muted);max-inline-size:60ch}
+.v-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--v-line);border-radius:16px;background:var(--v-surface);min-inline-size:min(100%,480px)}
+.v-kpi{--v-tone:var(--v-fg);display:flex;flex-direction:column;gap:6px;padding:16px 18px;min-inline-size:0}.v-kpi+.v-kpi{border-inline-start:1px solid var(--v-line)}
+.v-kpi[data-tone=good]{--v-tone:var(--v-good)}.v-kpi[data-tone=warn]{--v-tone:var(--v-warn)}.v-kpi[data-tone=bad]{--v-tone:var(--v-bad)}
+.v-kpi-v{font:600 26px/1.1 var(--v-num);color:var(--v-tone)}.v-kpi-l{font-size:12.5px;line-height:1.5;color:var(--v-muted)}
+@container (max-width:880px){.v-band-in{grid-template-columns:minmax(0,1fr);align-items:start}.v-kpis{min-inline-size:0}}
+@container (max-width:420px){.v-kpi{padding:14px 12px}.v-kpi-v{font-size:22px}.v-band h1{font-size:24px}}
 .v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}

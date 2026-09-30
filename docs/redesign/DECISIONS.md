@@ -183,6 +183,9 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   is `flat`. Without a previous window the trend is `flat` and confidence drops one level.
 - **Conclusion:** "which share dominates" uses the same threshold as the scheduling decision (`decisions.scheduling_runway_share`):
   at or above it the lateness is mostly scheduling, otherwise mostly the editing. The decision and the chain can never disagree.
+- **KPI tones** follow the target design (`after/01`, `after/04`): the late rate is warn at or above the intervention rate and bad
+  at or above the critical rate; any overdue project is bad (it is the `today` horizon), none is good; the short-runway share is
+  neutral (it explains, it does not judge). Aligned in T3.8.
 - **KPI values** are numerals without units (`"58.9"`, `"3"`); the page formats them per locale (digits, `%`, bidi isolation, T1.4),
   so no preformatted Latin text reaches the Arabic page.
 

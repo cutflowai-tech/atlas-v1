@@ -184,3 +184,25 @@ def tier_section(tier: str, cards: list[Html], loc: Loc) -> Html:
                 f'<header class="v-tsec-h"><h2 id="{heading}"><span class="v-sq" aria-hidden="true"></span>{loc.t("ui.v.tier." + tier)}'
                 f'<span class="v-tsec-n">{loc.num(len(cards))}</span></h2><p>{loc.t("ui.v.tier_desc." + tier)}</p></header>'
                 f'<div class="v-grid">{"".join(cards)}</div></section>')
+
+PERCENT_KPIS = ("late_rate", "short_runway_share")   # KPI values that are percentages; the others are counts
+
+
+def kpi_value(key: str, value: str, loc: Loc) -> Html:
+    """A KPI value from ``team.kpis[].value`` (a language-neutral numeral) as people read it: a whole percentage, or a count."""
+    if not value:
+        return Html("—")
+    if key in PERCENT_KPIS:
+        return loc.ltr(f"{whole_pct(float(value) / 100)}%")
+    return loc.num(value)
+
+
+def verdict_band(headline: Html, supporting: Html, kpis: list[tuple[Mapping[str, Any], Html]], loc: Loc) -> Html:
+    """T3.8: the eyebrow "This month's verdict", the team headline and supporting sentence (rendered by the caller from their keys),
+    and up to three KPI tiles (``team.kpis`` with their rendered labels; the tone was decided by the engine). Side by side on wide
+    containers, stacked on narrow ones (a container query, so the band follows its own width), the tiles staying in one row."""
+    tiles = "".join(f'<div class="v-kpi" data-tone="{escape(k["tone"])}" data-kpi="{escape(k["key"])}"><span class="v-kpi-v">{kpi_value(k["key"], k["value"], loc)}</span>'
+                    f'<span class="v-kpi-l">{label}</span></div>' for k, label in kpis[:3])
+    return Html(f'<section class="v-band" aria-labelledby="v-band-h"><div class="v-band-in"><div class="v-band-t"><p class="v-eyebrow">{loc.t("ui.v.band.eyebrow")}</p>'
+                f'<h1 id="v-band-h">{headline}</h1><p class="v-band-s">{supporting}</p></div>'
+                f'{f"<div class=v-kpis>{tiles}</div>" if tiles else ""}</div></section>')
