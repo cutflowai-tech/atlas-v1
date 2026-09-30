@@ -82,3 +82,16 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   it still publishes and rolls back. Field names follow the repo's snake_case (`editor_id`, `ranked_of`, `confidence_reasons`, …)
   instead of the spec's camelCase. `Msg.params` may also hold a list of strings (a list of names), which the page joins with the
   locale's own comma.
+
+## R6. Tier rules: how the spec's words are read (T2.5)
+
+- **Speed for a verdict** is the primary Video Type comparison only when the approved Speed rule classifies it (D52 sample
+  minimums). A one-project comparison (Mohamed Mansour, +3%) is shown but never judged.
+- **"Worse than the team"** (the Best rule): late rate above the team rate, slower than peers (any positive difference), or fewer
+  completed projects than the ranked Editors' median. Quality joins once a Quality rule is approved.
+- **"Top 25% of ranked Editors"**: rank ≤ ranked count × 0.25 (8 ranked → ranks 1–2). With fewer than 4 ranked Editors nobody is
+  Best, which follows the spec literally.
+- **Team late rate** is every profiled Editor's late projects over their deadline-classifiable projects in the window (not the
+  leave-one-out comparator of D45).
+- **Score (§4)** is computed here because the Best rule needs it; T2.6 adds the ranking tests. The median for the volume
+  dimension is the median completed count of the ranked Editors.

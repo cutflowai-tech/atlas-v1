@@ -25,7 +25,6 @@ class FixtureTests(unittest.TestCase):
         self.assertEqual(len(data["intelligence"]["findings"][0]["statements"][0]["params"]["items"]), 3)
         self.assertEqual(schema_errors(verdicts(), SCHEMA), [])
 
-    @unittest.expectedFailure   # T2.5 not implemented yet: the engine writes no Editor verdicts
     def test_spec_tiers(self):
         document = verdicts()
         for name, tier in EXPECTED_TIERS.items():

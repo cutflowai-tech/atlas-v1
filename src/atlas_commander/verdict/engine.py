@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from atlas_commander.verdict.config import VerdictConfig, load_config
+from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize
+from atlas_commander.verdict.tiers import Standing, assign_tier, dimension_points, points_above, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
 VERDICT_VERSION = "verdict-v1.0"
@@ -34,12 +36,58 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
                     "comparison": _window(window["comparison"]) if window else {"start_date": "1970-01-01", "end_date_exclusive": "1970-01-01"}},
         "config": config.as_document(),
         "team": None,
-        "editors": [],
+        "editors": editor_verdicts(*normalize(dashboard, intelligence), config),
         "decisions": [],
         "decision_candidates": [],
         "findings": {"hide_from_overview": [], "duplicates": []},
         "note": NOTE,
     }
+
+
+def _worse_dimensions(m: Mapping[str, Any], median_completed: float | None, config: VerdictConfig) -> tuple[str, ...]:
+    """Dimensions on which the Editor is worse than the team (a Best Editor has none)."""
+    above = points_above(m["late_rate"], m["team_late_rate"], config)
+    speed = speed_for_verdict(m)
+    worse = []
+    if above is not None and above > 0:
+        worse.append("deadlines")
+    if speed is not None and speed > 0:
+        worse.append("speed")
+    if median_completed is not None and m["completed"] < median_completed:
+        worse.append("volume")
+    return tuple(worse)
+
+
+def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: VerdictConfig) -> list[dict[str, Any]]:
+    """One verdict per Editor: metrics (T2.4), score and rank (T2.6), tier (T2.5)."""
+    rows = {e.editor_id: metrics(e, team, config) for e in editors}
+    ranked = [e for e in editors if e.completed >= config["score.minimum_completed"]]
+    median_completed = median([e.completed for e in ranked])
+    scored: dict[str, tuple[float | None, dict[str, float | None], list[str]]] = {}
+    for e in ranked:
+        points = dimension_points(rows[e.editor_id], median_completed, config)
+        value, missing = score(points, config, e.quality_approved)
+        scored[e.editor_id] = (value, points, missing)
+    order = sorted((e for e in ranked if scored[e.editor_id][0] is not None),
+                   key=lambda e: (-(scored[e.editor_id][0] or 0), e.late_rate if e.late_rate is not None else float("inf"), -e.completed, e.editor_id))
+    ranks = {e.editor_id: position for position, e in enumerate(order, start=1)}
+    out = []
+    for e in editors:
+        m = rows[e.editor_id]
+        rank = ranks.get(e.editor_id)
+        standing = Standing(in_top_share=rank is not None and rank <= len(order) * config["tier.best_top_share"],
+                            worse_dimensions=_worse_dimensions(m, median_completed, config))
+        tier = assign_tier(m, len(e.overdue), config, standing)
+        value, points, _missing = scored.get(e.editor_id, (None, {}, []))
+        out.append({
+            "editor_id": e.editor_id, "display_name": e.display_name, "tier": tier, "rank": rank, "ranked_of": len(order), "score": value,
+            "score_parts": {name: round(p, int(config["precision.pct_digits"])) for name, p in points.items() if p is not None},
+            "confidence": "high", "confidence_reasons": [],
+            "headline": msg("verdict.headline." + tier), "reasons": [],
+            "based_on": [name for name, p in points.items() if p is not None],
+            "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": [],
+        })
+    return out
 
 
 def _window(window: Mapping[str, Any]) -> dict[str, str]:
