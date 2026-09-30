@@ -9,10 +9,12 @@ both directions share one design. Every Latin value, number and ID is isolated f
 from __future__ import annotations
 
 import hashlib
+from decimal import ROUND_HALF_UP, Decimal
 from html import escape
 
 from atlas_commander.i18n import Html, Loc
 
+TONES = ("good", "warn", "bad", "neutral")
 AVATAR_SIZES = (28, 56, 96)
 ARABIC_ALEF = ("ا", "إ")   # names starting with one of these show their first two letters (handoff T3.2)
 
@@ -54,3 +56,32 @@ def avatar(editor_id: str, name: str, loc: Loc, *, size: int = 56, tier: str | N
     return Html(f'<span class="v-av s{size}" role="img" aria-label="{escape(label, quote=True)}" data-editor-id="{escape(editor_id, quote=True)}"'
                 f'{tier_attr} style="--v-av-hue:{hue(editor_id)}">'
                 f'<span class="v-av-i" aria-hidden="true"><bdi>{escape(initial(name))}</bdi></span>{photo}{badge}</span>')
+
+
+def whole_pct(rate: float) -> int:
+    """A rate as a whole percentage, halves rounded up (0.545 -> 55), as people read it."""
+    return int(Decimal(str(rate * 100)).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
+def late_bar(late_rate: float | None, team_late_rate: float | None, tone: str, loc: Loc, *, late: int | None = None,
+             classifiable: int | None = None) -> Html:
+    """T3.3: the Editor's late rate as a horizontal bar with a marker at the team average; the tone (``metrics.late_tone``) was
+    decided by the engine. Logical properties make the bar grow from the inline start, so it mirrors in Arabic. The accessible name
+    and the tooltip say the value and "Team average N%"."""
+    if tone not in TONES:
+        raise ValueError(f"unknown tone {tone!r}")
+    if late_rate is None:
+        return Html(f'<div class="v-late" data-tone="neutral"><span class="v-late-none">{loc.t("ui.v.late.none")}</span></div>')
+    pct = whole_pct(late_rate)
+    team = whole_pct(team_late_rate) if team_late_rate is not None else None
+    team_text = loc.text("ui.v.late.team", team_pct=f"{team}%") if team is not None else ""
+    if late is not None and classifiable:
+        label = loc.text("ui.v.late.aria_count", late_pct=f"{pct}%", late=late, n=classifiable)
+    else:
+        label = loc.text("ui.v.late.aria", late_pct=f"{pct}%")
+    label = f"{label} {team_text}." if team_text else label
+    marker = (f'<span class="v-late-team" style="inset-inline-start:{min(max(team, 0), 100)}%" aria-hidden="true"></span>'
+              if team is not None else "")
+    return Html(f'<div class="v-late" data-tone="{tone}" role="img" aria-label="{escape(label, quote=True)}" title="{escape(team_text, quote=True)}">'
+                f'<span class="v-late-track"><span class="v-late-fill" style="inline-size:{min(max(pct, 0), 100)}%"></span>{marker}</span>'
+                f'<span class="v-late-v" aria-hidden="true">{loc.ltr(f"{pct}%")}</span></div>')

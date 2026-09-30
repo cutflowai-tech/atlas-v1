@@ -5,8 +5,11 @@ import re
 import unittest
 
 from browser_harness import chrome, run_scenario
+from verdict_fixture import verdicts
 
 from atlas_commander.i18n import AR, EN
+from atlas_commander.verdict.config import load_config
+from atlas_commander.verdict.inputs import late_tone
 from atlas_commander.web import verdict_ui as ui
 from atlas_commander.web.components import render_components
 
@@ -74,6 +77,56 @@ class AvatarRenderTests(unittest.TestCase):
             self.assertRegex(result["ring"], r"rgb", result)
             self.assertEqual(result["badgeSide"], side, result)                    # the rank badge sits at the inline end
             self.assertEqual(result["overflow"], 0, result)
+
+
+class LateBarTests(unittest.TestCase):
+    """T3.3."""
+
+    def test_team_average_in_the_accessible_text_and_tooltip(self):
+        bar = ui.late_bar(0.857, 0.589, "bad", EN, late=12, classifiable=14)
+        self.assertIn('aria-label="Late on 86% of projects (12 of 14). Team average 59%."', bar)
+        self.assertIn('title="Team average 59%"', bar)
+        self.assertIn('aria-label="متأخر في 86% من المشاريع (12 من 14). متوسط الفريق 59%."', ui.late_bar(0.857, 0.589, "bad", AR, late=12, classifiable=14))
+
+    def test_fill_marker_and_rounding(self):
+        for rate, width in ((0.0, 0), (0.55, 55), (0.857, 86), (1.0, 100)):
+            self.assertIn(f'class="v-late-fill" style="inline-size:{width}%"', ui.late_bar(rate, 0.589, "good", EN))
+        self.assertIn('inset-inline-start:59%', ui.late_bar(0.5, 0.589, "good", EN))
+        self.assertEqual((ui.whole_pct(0.545), ui.whole_pct(0.5449), ui.whole_pct(0.589)), (55, 54, 59))
+        self.assertIn("No deadline data", ui.late_bar(None, 0.589, "neutral", EN))
+        with self.assertRaises(ValueError):
+            ui.late_bar(0.5, 0.589, "red", EN)
+
+    def test_the_engine_decides_the_tone(self):
+        config = load_config()
+        self.assertEqual(late_tone(0.689, 0.589, config), "warn")            # exactly 10 points above: not yet bad
+        self.assertEqual(late_tone(0.6891, 0.589, config), "bad")
+        self.assertEqual(late_tone(0.5891, 0.589, config), "warn")
+        self.assertEqual(late_tone(0.589, 0.589, config), "good")
+        self.assertEqual(late_tone(None, 0.589, config), "neutral")
+        tones = {e["display_name"]: e["metrics"]["late_tone"] for e in verdicts()["editors"]}
+        self.assertEqual((tones["Refaat"], tones["Sobhy"], tones["Will"], tones["Samra"]), ("bad", "warn", "good", "neutral"))
+
+
+LATE_CHECK = """
+    await wait(300);
+    return [...document.querySelectorAll('#late-bar .v-late-track')].map(t => {
+      const r = t.getBoundingClientRect(), f = t.querySelector('.v-late-fill').getBoundingClientRect(), m = t.querySelector('.v-late-team').getBoundingClientRect();
+      const start = getComputedStyle(t).direction === 'rtl' ? r.right : r.left, sign = getComputedStyle(t).direction === 'rtl' ? -1 : 1;
+      return {fill: Math.round(f.width / r.width * 100), fillStart: Math.round(Math.abs((sign > 0 ? f.left : f.right) - start)),
+              marker: Math.round(sign * ((m.left + m.width / 2) - start) / r.width * 100)};
+    });
+"""
+
+
+@unittest.skipIf(chrome() is None, "headless Chrome is not available")
+class LateBarRenderTests(unittest.TestCase):
+    def test_0_55_86_100_in_both_directions(self):
+        for loc in (EN, AR):
+            bars = run_scenario(render_components(loc), LATE_CHECK, width=900, height=900)
+            self.assertEqual([b["fill"] for b in bars[:4]], [0, 55, 86, 100], (loc, bars))
+            self.assertTrue(all(b["fillStart"] <= 1 for b in bars), (loc, bars))      # every bar grows from the inline start
+            self.assertTrue(all(58 <= b["marker"] <= 60 for b in bars), (loc, bars))  # the team marker at 59% from the inline start
 
 
 class ComponentPageTests(unittest.TestCase):

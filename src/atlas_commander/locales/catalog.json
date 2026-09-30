@@ -4335,6 +4335,30 @@
    "ar": "{name}، {tier}، الترتيب {rank} من {of}",
    "context": "Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.late.aria": {
+   "en": "Late on {late_pct} of projects.",
+   "ar": "متأخر في {late_pct} من المشاريع.",
+   "context": "Accessible name of the late-rate bar without counts",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.aria_count": {
+   "en": "Late on {late_pct} of projects ({late} of {n}).",
+   "ar": "متأخر في {late_pct} من المشاريع ({late} من {n}).",
+   "context": "Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.team": {
+   "en": "Team average {team_pct}",
+   "ar": "متوسط الفريق {team_pct}",
+   "context": "Tooltip and accessible text of the team-average marker on the late-rate bar",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.late.none": {
+   "en": "No deadline data this month",
+   "ar": "لا توجد بيانات مواعيد هذا الشهر",
+   "context": "Late-rate bar when the Editor has no deadline-classifiable project in the window",
+   "status": "Needs Arabic Review"
   }
  }
 }

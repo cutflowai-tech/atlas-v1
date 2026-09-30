@@ -233,6 +233,17 @@ def own_speed_change(editor: EditorInputs) -> OwnChange | None:
     return next((c for c in changes if c.cohort_label == primary), max(changes, key=lambda c: c.sample, default=None))
 
 
+def late_tone(late_rate: float | None, team_late_rate: float | None, config: VerdictConfig) -> str:
+    """The late-rate bar's colour (T3.3), decided here so the page only renders it: bad above the team rate plus
+    ``display.late_bad_above_team_pp``, warn above the team rate, good otherwise."""
+    if late_rate is None or team_late_rate is None:
+        return "neutral"
+    above = round((late_rate - team_late_rate) * 100, int(config["precision.rate_digits"]) - 2)
+    if above > config["display.late_bad_above_team_pp"]:
+        return "bad"
+    return "warn" if above > 0 else "good"
+
+
 def metrics(editor: EditorInputs, team: TeamInputs, config: VerdictConfig) -> dict[str, Any]:
     rate_digits, pct_digits = config["precision.rate_digits"], config["precision.pct_digits"]
     speed = editor.speed
@@ -259,6 +270,7 @@ def metrics(editor: EditorInputs, team: TeamInputs, config: VerdictConfig) -> di
         "speed_classified": bool(speed and speed.classified and speed.delta_pct is not None),
         "own_speed_delta_pct": _round(own.difference, pct_digits) if own else None,
         "quality": quality,
+        "late_tone": late_tone(editor.late_rate, team.late_rate, config),
     }
 
 

@@ -27,7 +27,7 @@ SAMPLE_EDITORS = [("sample-1", "Layla"), ("sample-2", "إسلام"), ("sample-3"
 PAGE_CSS = """
 .cp{max-width:1100px;margin:0 auto;padding:24px 16px 64px;font-family:var(--v-body);background:var(--v-bg);color:var(--v-fg)}
 body{background:var(--v-bg)}.cp h1{font:600 22px/1.3 var(--v-display);margin-bottom:4px}.cp>p{color:var(--v-muted);margin:0 0 24px}
-.cp section{border-top:1px solid var(--v-line);padding:20px 0}.cp h2{font:600 16px/1.4 var(--v-display);margin-bottom:12px}
+.cp section{border-top:1px solid var(--v-line);padding:20px 0}.cp h2{font:600 16px/1.4 var(--v-display);margin-bottom:12px;unicode-bidi:plaintext}
 .cp .row{display:flex;flex-wrap:wrap;align-items:center;gap:20px;margin-bottom:14px}.cp .cap{font-size:12px;color:var(--v-faint);margin-inline-end:8px;min-width:120px}
 """
 
@@ -48,10 +48,18 @@ def avatar_section(loc: Loc) -> str:
     return f'<section id="avatar"><h2>Avatar (T3.2)</h2>{"".join(rows)}</section>'
 
 
+def late_section(loc: Loc) -> str:
+    team = 0.589
+    rows = [_row(f"{ui.whole_pct(rate)}% · {tone}", [f'<div style="inline-size:320px">{ui.late_bar(rate, team, tone, loc, late=late, classifiable=n)}</div>'])
+            for rate, tone, late, n in ((0.0, "good", 0, 12), (0.55, "good", 11, 20), (0.857, "bad", 12, 14), (1.0, "bad", 2, 2), (0.62, "warn", 13, 21))]
+    rows.append(_row("no late rate", [f'<div style="inline-size:320px">{ui.late_bar(None, team, "neutral", loc)}</div>']))
+    return f'<section id="late-bar"><h2>LateBar (T3.3) · team average 59%</h2>{"".join(rows)}</section>'
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 
