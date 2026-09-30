@@ -106,3 +106,18 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
   every Atlas verdict rests on computed counts. The rule is implemented and tested, and no real verdict carries it.
 - **Zero-project Editors** (Samra) get Low confidence under §5 (few projects and no key dimension), although the prototype showed
   "Strong" for Samra. The spec's rules win, as for Mohamed Mansour's tier; the verdict itself ("no projects this month") still shows.
+
+## R8. Duplicate findings: how §6 row 4 is read (T2.10)
+
+- **"Same metric"** is the finding type, its measure (`late_rate`, `median_execution`, …) and its Video Type (`cohort_key`), for a
+  finding about exactly one Editor. A change against the Editor's own history and a change against the comparison window are the
+  same metric over the same current window, so they are duplicates (Anas's two "late rate improved" findings, 39 and 29 projects).
+- **"Overlapping windows"** means the findings' `time_window` date ranges intersect (end exclusive); a finding without a dated window
+  covers the whole snapshot and overlaps every window.
+- **Which one is kept:** the larger sample, as the spec says; equal samples keep the lower finding ID, so rebuilds choose the same one.
+  This can differ from Intelligence V2's own clusters (`cluster.primary`, a different rule: same direction and affected-project
+  Jaccard ≥ 0.8). On production run `20260929T210734Z-4cb4bfa25596` Martin's cluster primary is his 39-project comparison finding,
+  while the verdict layer keeps his 48-project history finding. Intelligence V2 is not changed; the redesigned pages take their
+  overview findings from `verdicts.json` and still show every finding under More details.
+- **Order of rules:** duplicates are removed before "mirrors the team" (row 3) is judged, so only a kept finding can give that reason.
+  A finding hidden for both reasons is listed once, as `duplicate`.
