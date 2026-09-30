@@ -15,6 +15,8 @@ from html import escape
 from atlas_commander.i18n import Html, Loc
 
 TONES = ("good", "warn", "bad", "neutral")
+TIERS = ("best", "steady", "watch", "weakest", "low_activity")
+CONFIDENCE = ("high", "medium", "low")
 AVATAR_SIZES = (28, 56, 96)
 ARABIC_ALEF = ("ا", "إ")   # names starting with one of these show their first two letters (handoff T3.2)
 
@@ -85,3 +87,34 @@ def late_bar(late_rate: float | None, team_late_rate: float | None, tone: str, l
     return Html(f'<div class="v-late" data-tone="{tone}" role="img" aria-label="{escape(label, quote=True)}" title="{escape(team_text, quote=True)}">'
                 f'<span class="v-late-track"><span class="v-late-fill" style="inline-size:{min(max(pct, 0), 100)}%"></span>{marker}</span>'
                 f'<span class="v-late-v" aria-hidden="true">{loc.ltr(f"{pct}%")}</span></div>')
+
+
+def speed_pill(delta_pct: float | None, band: str | None, tone: str, loc: Loc) -> Html:
+    """T3.4: "23% faster", "43% slower" or "Same as team"; band and tone come from the engine (``metrics.speed_band``/``speed_tone``)."""
+    if tone not in TONES:
+        raise ValueError(f"unknown tone {tone!r}")
+    if band is None or delta_pct is None:
+        return Html(f'<span class="v-pill v-speed" data-tone="neutral">{loc.t("ui.v.speed.none")}</span>')
+    if band == "same":
+        text = loc.t("ui.v.speed.same")
+    else:
+        text = loc.t("ui.v.speed." + band, pct=loc.ltr(f"{abs(int(Decimal(str(delta_pct)).quantize(Decimal(1), rounding=ROUND_HALF_UP)))}%"))
+    return Html(f'<span class="v-pill v-speed" data-tone="{tone}" data-band="{escape(band)}">{text}</span>')
+
+
+def tier_chip(tier: str, loc: Loc) -> Html:
+    """T3.4: the tier's label on its colour (always with the text, never colour alone)."""
+    if tier not in TIERS:
+        raise ValueError(f"unknown tier {tier!r}")
+    return Html(f'<span class="v-chip v-tier" data-tier="{tier}"><span class="v-dot" aria-hidden="true"></span><span>{loc.t("ui.v.tier." + tier)}</span></span>')
+
+
+def confidence_tag(confidence: str, loc: Loc, *, in_profile: bool = False) -> Html:
+    """T3.4: on cards only a Low confidence shows ("Low confidence"); in a profile every level shows ("Confidence: High")."""
+    if confidence not in CONFIDENCE:
+        raise ValueError(f"unknown confidence {confidence!r}")
+    if in_profile:
+        return Html(f'<span class="v-chip v-conf" data-confidence="{confidence}">{loc.t("ui.v.confidence.level", level=loc.t("ui.v.confidence." + confidence))}</span>')
+    if confidence != "low":
+        return Html("")
+    return Html(f'<span class="v-chip v-conf" data-confidence="low">{loc.t("ui.v.confidence.low_tag")}</span>')

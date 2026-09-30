@@ -143,6 +143,13 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-late-team{position:absolute;inset-block:-4px;inline-size:2px;margin-inline-start:-1px;border-radius:1px;background:var(--v-fg)}
 .v-late-v{flex:none;min-inline-size:3.2em;text-align:end;font:600 13px/1 var(--v-num);color:var(--v-tone)}
 .v-late-none{font-size:13px;color:var(--v-muted)}
+.v-pill,.v-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font:500 12.5px/1.5 var(--v-body);white-space:nowrap}.v-pill{display:inline-block}
+.v-pill{--v-tone:var(--v-muted);background:var(--v-raise);color:var(--v-tone)}
+.v-pill[data-tone=good]{--v-tone:var(--v-good)}.v-pill[data-tone=warn]{--v-tone:var(--v-warn)}.v-pill[data-tone=bad]{--v-tone:var(--v-bad)}
+.v-chip{border:1px solid var(--v-line);color:var(--v-fg);background:var(--v-surface)}.v-dot{inline-size:8px;block-size:8px;border-radius:2px;background:var(--v-tier,var(--v-idle))}
+.v-tier[data-tier=best]{--v-tier:var(--v-tier-best)}.v-tier[data-tier=steady]{--v-tier:var(--v-tier-steady)}.v-tier[data-tier=watch]{--v-tier:var(--v-tier-watch)}.v-tier[data-tier=weakest]{--v-tier:var(--v-tier-weakest)}.v-tier[data-tier=low_activity]{--v-tier:var(--v-tier-low_activity)}
+.v-tier{border-color:color-mix(in srgb,var(--v-tier) 45%,var(--v-line))}
+.v-conf{color:var(--v-muted)}.v-conf[data-confidence=low]{color:var(--v-warn);border-color:color-mix(in srgb,var(--v-warn) 40%,var(--v-line))}
 .comp{display:grid;gap:0;border-top:1px solid var(--line)}
 .comp>div{display:grid;grid-template-columns:78px 1fr;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
 [lang=ar] .comp>div{grid-template-columns:96px 1fr}

@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-678 keys: 149 Approved from brief, 362 Implemented conservatively, 167 Needs Arabic Review.
+687 keys: 149 Approved from brief, 362 Implemented conservatively, 176 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -164,10 +164,19 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.timeline.positive_marker` | Positive label: {label} | علامة إيجابية: {label} | Timeline marker description | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.v.avatar.ranked` | {name}, {tier}, rank {rank} of {of} | {name}، {tier}، الترتيب {rank} من {of} | Accessible name of a ranked Editor avatar: name, tier and rank among ranked Editors | Needs Arabic Review |  |
 | `ui.v.avatar.tier` | {name}, {tier} | {name}، {tier} | Accessible name of an Editor avatar: name and tier | Needs Arabic Review |  |
+| `ui.v.confidence.high` | High | عالية | Verdict confidence level | Needs Arabic Review |  |
+| `ui.v.confidence.level` | Confidence: {level} | الثقة: {level} | Confidence chip in the Editor profile | Needs Arabic Review |  |
+| `ui.v.confidence.low` | Low | منخفضة | Verdict confidence level | Needs Arabic Review |  |
+| `ui.v.confidence.low_tag` | Low confidence | ثقة منخفضة | Tag on a person card, shown only when the verdict's confidence is Low | Needs Arabic Review |  |
+| `ui.v.confidence.medium` | Medium | متوسطة | Verdict confidence level | Needs Arabic Review |  |
 | `ui.v.late.aria` | Late on {late_pct} of projects. | متأخر في {late_pct} من المشاريع. | Accessible name of the late-rate bar without counts | Needs Arabic Review |  |
 | `ui.v.late.aria_count` | Late on {late_pct} of projects ({late} of {n}). | متأخر في {late_pct} من المشاريع ({late} من {n}). | Accessible name of the late-rate bar: the Editor's late rate and late projects of deadline-classifiable projects | Needs Arabic Review |  |
 | `ui.v.late.none` | No deadline data this month | لا توجد بيانات مواعيد هذا الشهر | Late-rate bar when the Editor has no deadline-classifiable project in the window | Needs Arabic Review |  |
 | `ui.v.late.team` | Team average {team_pct} | متوسط الفريق {team_pct} | Tooltip and accessible text of the team-average marker on the late-rate bar | Needs Arabic Review |  |
+| `ui.v.speed.faster` | {pct} faster | أسرع بنسبة {pct} | Speed pill: the Editor is faster than peers on the same Video Type by this percentage | Needs Arabic Review |  |
+| `ui.v.speed.none` | No speed comparison | لا توجد مقارنة للسرعة | Speed pill when there is no comparable peer data | Needs Arabic Review |  |
+| `ui.v.speed.same` | Same as team | مثل الفريق | Speed pill: within the display band of peers on the same Video Type | Needs Arabic Review |  |
+| `ui.v.speed.slower` | {pct} slower | أبطأ بنسبة {pct} | Speed pill: the Editor is slower than peers on the same Video Type by this percentage | Needs Arabic Review |  |
 | `ui.v.tier.best` | Best | الأفضل | Redesign tier label (Best: top of the ranked Editors, no dimension worse than the team) | Needs Arabic Review |  |
 | `ui.v.tier.low_activity` | Low activity | نشاط منخفض | Redesign tier label (Low activity: too few projects this window) | Needs Arabic Review |  |
 | `ui.v.tier.steady` | Steady | مستقر | Redesign tier label (Steady: no concern, not outstanding) | Needs Arabic Review |  |

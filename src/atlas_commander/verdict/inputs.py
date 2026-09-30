@@ -244,6 +244,23 @@ def late_tone(late_rate: float | None, team_late_rate: float | None, config: Ver
     return "warn" if above > 0 else "good"
 
 
+def speed_reading(delta_pct: float | None, classified: bool, config: VerdictConfig) -> dict[str, str | None]:
+    """How the speed pill reads (T3.4), decided here so the page only renders it. The band follows the value; the tone judges it only
+    when the approved Speed rule classifies the comparison (D52), so a one-project comparison is shown but never coloured."""
+    if delta_pct is None:
+        return {"speed_band": None, "speed_tone": "neutral"}
+    if abs(delta_pct) < config["display.speed_same_band_pct"]:
+        return {"speed_band": "same", "speed_tone": "neutral"}
+    band = "faster" if delta_pct < 0 else "slower"
+    if not classified:
+        tone = "neutral"
+    elif band == "faster":
+        tone = "good"
+    else:
+        tone = "bad" if delta_pct > config["display.speed_bad_above_pct"] else "warn"
+    return {"speed_band": band, "speed_tone": tone}
+
+
 def metrics(editor: EditorInputs, team: TeamInputs, config: VerdictConfig) -> dict[str, Any]:
     rate_digits, pct_digits = config["precision.rate_digits"], config["precision.pct_digits"]
     speed = editor.speed
@@ -271,6 +288,7 @@ def metrics(editor: EditorInputs, team: TeamInputs, config: VerdictConfig) -> di
         "own_speed_delta_pct": _round(own.difference, pct_digits) if own else None,
         "quality": quality,
         "late_tone": late_tone(editor.late_rate, team.late_rate, config),
+        **speed_reading(speed.delta_pct if speed and speed.peer_hours is not None else None, bool(speed and speed.classified), config),
     }
 
 

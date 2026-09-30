@@ -81,7 +81,7 @@
         "metrics": {
           "type": "object", "additionalProperties": false,
           "required": ["completed", "active", "lifetime_completed", "late_rate", "late_count", "deadline_classifiable", "team_late_rate", "speed_delta_pct",
-                       "speed_label", "speed_classified", "own_speed_delta_pct", "quality", "late_tone"],
+                       "speed_label", "speed_classified", "own_speed_delta_pct", "quality", "late_tone", "speed_band", "speed_tone"],
           "properties": {
             "completed": {"type": "integer", "minimum": 0},
             "active": {"type": "integer", "minimum": 0},
@@ -95,7 +95,9 @@
             "speed_classified": {"type": "boolean", "description": "true when the Video Type comparison meets the approved Speed sample rules (D52)"},
             "own_speed_delta_pct": {"type": ["number", "null"]},
             "quality": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/msg"}]},
-            "late_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the late-rate bar: bad above the team rate plus display.late_bad_above_team_pp, warn above the team rate, good otherwise; neutral without a late rate"}
+            "late_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the late-rate bar: bad above the team rate plus display.late_bad_above_team_pp, warn above the team rate, good otherwise; neutral without a late rate"},
+            "speed_band": {"enum": ["faster", "same", "slower", null], "description": "How the speed comparison reads: same within display.speed_same_band_pct, otherwise faster or slower; null without a comparison"},
+            "speed_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the speed pill: good faster, warn slower up to display.speed_bad_above_pct, bad beyond it; neutral when the same, unclassified (D52) or missing"}
           }
         },
         "overdue": {"type": "array", "items": {

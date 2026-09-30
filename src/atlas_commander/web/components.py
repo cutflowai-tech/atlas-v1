@@ -10,6 +10,7 @@ each state; they are never published (the site build does not include this page,
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 from html import escape
 from pathlib import Path
 
@@ -32,7 +33,7 @@ body{background:var(--v-bg)}.cp h1{font:600 22px/1.3 var(--v-display);margin-bot
 """
 
 
-def _row(caption: str, items: list[str]) -> str:
+def _row(caption: str, items: Sequence[str]) -> str:
     return f'<div class="row"><span class="cap" dir="ltr">{escape(caption)}</span>{"".join(items)}</div>'
 
 
@@ -56,10 +57,21 @@ def late_section(loc: Loc) -> str:
     return f'<section id="late-bar"><h2>LateBar (T3.3) · team average 59%</h2>{"".join(rows)}</section>'
 
 
+def labels_section(loc: Loc) -> str:
+    speeds = [ui.speed_pill(-23.3, "faster", "good", loc), ui.speed_pill(12.0, "slower", "warn", loc), ui.speed_pill(30.0, "slower", "warn", loc),
+              ui.speed_pill(43.1, "slower", "bad", loc), ui.speed_pill(2.8, "same", "neutral", loc), ui.speed_pill(-8.0, "faster", "neutral", loc),
+              ui.speed_pill(None, None, "neutral", loc)]
+    rows = [_row("SpeedPill", speeds),
+            _row("TierChip", [ui.tier_chip(tier, loc) for tier in ui.TIERS]),
+            _row("Confidence · card", [ui.confidence_tag(level, loc) or '<span class="cap">(hidden)</span>' for level in ui.CONFIDENCE]),
+            _row("Confidence · profile", [ui.confidence_tag(level, loc, in_profile=True) for level in ui.CONFIDENCE])]
+    return f'<section id="labels"><h2>SpeedPill, TierChip, ConfidenceTag (T3.4)</h2>{"".join(rows)}</section>'
+
+
 def render_components(loc: Loc) -> str:
     loc = loc.isolating()
     body = (f'<main class="cp"><h1>Atlas redesign · components</h1><p>Development only · sample values · {escape(loc.code)} · '
-            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}</main>')
+            f'follows the system light/dark scheme</p>{avatar_section(loc)}{late_section(loc)}{labels_section(loc)}</main>')
     return (f'{site_layout.document_opening(loc.code)}<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<meta name="robots" content="noindex"><title>Atlas components</title><style>{CSS}{PAGE_CSS}</style></head><body>{body}</body></html>')
 

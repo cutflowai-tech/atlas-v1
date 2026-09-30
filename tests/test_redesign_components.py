@@ -9,7 +9,7 @@ from verdict_fixture import verdicts
 
 from atlas_commander.i18n import AR, EN
 from atlas_commander.verdict.config import load_config
-from atlas_commander.verdict.inputs import late_tone
+from atlas_commander.verdict.inputs import late_tone, speed_reading
 from atlas_commander.web import verdict_ui as ui
 from atlas_commander.web.components import render_components
 
@@ -106,6 +106,46 @@ class LateBarTests(unittest.TestCase):
         self.assertEqual(late_tone(None, 0.589, config), "neutral")
         tones = {e["display_name"]: e["metrics"]["late_tone"] for e in verdicts()["editors"]}
         self.assertEqual((tones["Refaat"], tones["Sobhy"], tones["Will"], tones["Samra"]), ("bad", "warn", "good", "neutral"))
+
+
+class LabelTests(unittest.TestCase):
+    """T3.4."""
+
+    def test_speed_pill_texts(self):
+        self.assertIn("<bdi dir=\"ltr\">23%</bdi> faster", ui.speed_pill(-23.3, "faster", "good", EN))
+        self.assertIn('data-tone="bad" data-band="slower"><bdi dir="ltr">43%</bdi> slower', ui.speed_pill(43.1, "slower", "bad", EN))
+        self.assertIn("أبطأ بنسبة <bdi dir=\"ltr\">43%</bdi>", ui.speed_pill(43.1, "slower", "bad", AR))
+        self.assertIn(">Same as team<", ui.speed_pill(2.8, "same", "neutral", EN))
+        self.assertIn("No speed comparison", ui.speed_pill(None, None, "neutral", EN))
+
+    def test_the_engine_reads_the_speed(self):
+        config = load_config()
+        self.assertEqual(speed_reading(-23.3, True, config), {"speed_band": "faster", "speed_tone": "good"})
+        self.assertEqual(speed_reading(30.0, True, config), {"speed_band": "slower", "speed_tone": "warn"})     # warn up to 30%
+        self.assertEqual(speed_reading(30.1, True, config), {"speed_band": "slower", "speed_tone": "bad"})
+        self.assertEqual(speed_reading(4.9, True, config), {"speed_band": "same", "speed_tone": "neutral"})     # under 5%
+        self.assertEqual(speed_reading(-5.0, True, config), {"speed_band": "faster", "speed_tone": "good"})
+        self.assertEqual(speed_reading(43.0, False, config), {"speed_band": "slower", "speed_tone": "neutral"})  # not classified: not judged
+        self.assertEqual(speed_reading(None, False, config), {"speed_band": None, "speed_tone": "neutral"})
+        readings = {e["display_name"]: (e["metrics"]["speed_band"], e["metrics"]["speed_tone"]) for e in verdicts()["editors"]}
+        self.assertEqual((readings["Will"], readings["Refaat"], readings["Anas"], readings["Mohamed Mansour (Office)"], readings["Samra"]),
+                         (("faster", "good"), ("slower", "bad"), ("slower", "warn"), ("same", "neutral"), (None, "neutral")))
+
+    def test_tier_chip_always_has_its_label(self):
+        for tier, text in zip(ui.TIERS, ("Best", "Steady", "Watch", "Weakest", "Low activity"), strict=True):
+            chip = ui.tier_chip(tier, EN)
+            self.assertIn(f'data-tier="{tier}"', chip)
+            self.assertIn(f"<span>{text}</span>", chip)
+        self.assertIn("<span>الأضعف</span>", ui.tier_chip("weakest", AR))
+        with self.assertRaises(ValueError):
+            ui.tier_chip("top", EN)
+
+    def test_confidence_tag_only_low_on_cards_every_level_in_profiles(self):
+        self.assertEqual((ui.confidence_tag("high", EN), ui.confidence_tag("medium", EN)), ("", ""))
+        self.assertIn("Low confidence", ui.confidence_tag("low", EN))
+        self.assertIn("ثقة منخفضة", ui.confidence_tag("low", AR))
+        self.assertIn("Confidence: High", ui.confidence_tag("high", EN, in_profile=True))
+        self.assertIn("الثقة: متوسطة", ui.confidence_tag("medium", AR, in_profile=True))
 
 
 LATE_CHECK = """

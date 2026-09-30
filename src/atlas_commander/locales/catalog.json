@@ -4359,6 +4359,60 @@
    "ar": "لا توجد بيانات مواعيد هذا الشهر",
    "context": "Late-rate bar when the Editor has no deadline-classifiable project in the window",
    "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.faster": {
+   "en": "{pct} faster",
+   "ar": "أسرع بنسبة {pct}",
+   "context": "Speed pill: the Editor is faster than peers on the same Video Type by this percentage",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.slower": {
+   "en": "{pct} slower",
+   "ar": "أبطأ بنسبة {pct}",
+   "context": "Speed pill: the Editor is slower than peers on the same Video Type by this percentage",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.same": {
+   "en": "Same as team",
+   "ar": "مثل الفريق",
+   "context": "Speed pill: within the display band of peers on the same Video Type",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.speed.none": {
+   "en": "No speed comparison",
+   "ar": "لا توجد مقارنة للسرعة",
+   "context": "Speed pill when there is no comparable peer data",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.high": {
+   "en": "High",
+   "ar": "عالية",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.medium": {
+   "en": "Medium",
+   "ar": "متوسطة",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.low": {
+   "en": "Low",
+   "ar": "منخفضة",
+   "context": "Verdict confidence level",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.level": {
+   "en": "Confidence: {level}",
+   "ar": "الثقة: {level}",
+   "context": "Confidence chip in the Editor profile",
+   "status": "Needs Arabic Review"
+  },
+  "ui.v.confidence.low_tag": {
+   "en": "Low confidence",
+   "ar": "ثقة منخفضة",
+   "context": "Tag on a person card, shown only when the verdict's confidence is Low",
+   "status": "Needs Arabic Review"
   }
  }
 }
