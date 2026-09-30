@@ -86,6 +86,21 @@ def weights(config: VerdictConfig, quality_approved: bool) -> dict[str, float]:
     return {**{name: weight / total * rest for name, weight in base.items()}, "quality": config["score.weight_quality"]}
 
 
+@dataclass(frozen=True)
+class Scored:
+    editor_id: str
+    score: float
+    late_rate: float | None
+    completed: int
+
+
+def rank(entries: list[Scored]) -> dict[str, int]:
+    """Spec §4: by score, highest first; ties go to the lower late rate, then to more completed projects (then the ID, so the
+    order is total and deterministic)."""
+    order = sorted(entries, key=lambda e: (-e.score, e.late_rate if e.late_rate is not None else float("inf"), -e.completed, e.editor_id))
+    return {e.editor_id: position for position, e in enumerate(order, start=1)}
+
+
 def score(points: Mapping[str, float | None], config: VerdictConfig, quality_approved: bool) -> tuple[float | None, list[str]]:
     """The weighted score and the dimensions that were missing (their weight is redistributed proportionally)."""
     used = {name: weight for name, weight in weights(config, quality_approved).items() if points.get(name) is not None}

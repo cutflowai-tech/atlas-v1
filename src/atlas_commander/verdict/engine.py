@@ -7,7 +7,7 @@ from typing import Any
 
 from atlas_commander.verdict.config import VerdictConfig, load_config
 from atlas_commander.verdict.inputs import EditorInputs, TeamInputs, median, metrics, msg, normalize
-from atlas_commander.verdict.tiers import Standing, assign_tier, dimension_points, points_above, score, speed_for_verdict
+from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
 VERDICT_VERSION = "verdict-v1.0"
@@ -68,21 +68,19 @@ def editor_verdicts(editors: list[EditorInputs], team: TeamInputs, config: Verdi
         points = dimension_points(rows[e.editor_id], median_completed, config)
         value, missing = score(points, config, e.quality_approved)
         scored[e.editor_id] = (value, points, missing)
-    order = sorted((e for e in ranked if scored[e.editor_id][0] is not None),
-                   key=lambda e: (-(scored[e.editor_id][0] or 0), e.late_rate if e.late_rate is not None else float("inf"), -e.completed, e.editor_id))
-    ranks = {e.editor_id: position for position, e in enumerate(order, start=1)}
+    ranks = rank([Scored(e.editor_id, value, e.late_rate, e.completed) for e in ranked if (value := scored[e.editor_id][0]) is not None])
     out = []
     for e in editors:
         m = rows[e.editor_id]
-        rank = ranks.get(e.editor_id)
-        standing = Standing(in_top_share=rank is not None and rank <= len(order) * config["tier.best_top_share"],
+        position = ranks.get(e.editor_id)
+        standing = Standing(in_top_share=position is not None and position <= len(ranks) * config["tier.best_top_share"],
                             worse_dimensions=_worse_dimensions(m, median_completed, config))
         tier = assign_tier(m, len(e.overdue), config, standing)
-        value, points, _missing = scored.get(e.editor_id, (None, {}, []))
+        value, points, missing = scored.get(e.editor_id, (None, {}, []))
         out.append({
-            "editor_id": e.editor_id, "display_name": e.display_name, "tier": tier, "rank": rank, "ranked_of": len(order), "score": value,
+            "editor_id": e.editor_id, "display_name": e.display_name, "tier": tier, "rank": position, "ranked_of": len(ranks), "score": value,
             "score_parts": {name: round(p, int(config["precision.pct_digits"])) for name, p in points.items() if p is not None},
-            "confidence": "high", "confidence_reasons": [],
+            "confidence": "high", "confidence_reasons": [f"missing_{name}" for name in missing if name != "quality" or e.quality_approved],
             "headline": msg("verdict.headline." + tier), "reasons": [],
             "based_on": [name for name, p in points.items() if p is not None],
             "metrics": m, "overdue": [], "photo_url": None, "finding_ids": list(e.finding_ids), "hidden_finding_ids": [],
