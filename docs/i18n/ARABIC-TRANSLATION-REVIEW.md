@@ -3,7 +3,7 @@
 Generated from `src/atlas_commander/locales/catalog.json` (atlas-i18n-v1) by `python3 -m atlas_commander.i18n review`.
 Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, labels, IDs) are never translated and are not listed.
 
-664 keys: 149 Approved from brief, 362 Implemented conservatively, 153 Needs Arabic Review.
+667 keys: 149 Approved from brief, 362 Implemented conservatively, 156 Needs Arabic Review.
 
 | Key | English | Arabic | Context | Status | Notes |
 |---|---|---|---|---|---|
@@ -53,7 +53,7 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.filter_label` | Filter by Overall Status | التصفية حسب الحالة العامة | Accessible label of the status filter group | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.history.short` | History | السجل | Profile section bar: history | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
 | `ui.history.title` | History | السجل | Profile history section heading | Needs Arabic Review | Redesigned contract 1.5 UI (ui-ux branch). |
-| `ui.iv2.all` | All published findings ({n}) | كل النتائج المنشورة ({n}) | Disclosure listing every other published finding | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.all` | {n} more published findings | {n} نتيجة منشورة أخرى | Summary of the collapsible list of published Intelligence findings below the Top findings on the Editors page; {n} excludes the Top findings and grouped duplicates (redesign T1.5). | Needs Arabic Review |  |
 | `ui.iv2.block.execution_speed_competitive` | Execution speed is competitive under the approved Speed rule | سرعة التنفيذ منافسة وفق قاعدة السرعة المعتمدة | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.block.late_delivery_label_on_on_time_submission` | Late Delivery labels on on-time submissions | مؤشرات التأخير في التسليم على تسليمات تمت في الموعد | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.block.late_despite_typical_execution` | Late projects executed within the other Editors' typical time | مشاريع متأخرة نُفّذت خلال المدة المعتادة لبقية المونتيرين | Intelligence evidence block description | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
@@ -99,11 +99,14 @@ Do not edit by hand. Raw Monday values (Editor names, Video Types, statuses, lab
 | `ui.iv2.rules.mode` | Mode | الوضع | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.not_evaluated` | Examined without a finding | فُحصت دون نتيجة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.parameter` | Parameter | المعامل | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
-| `ui.iv2.rules.published` | Published findings | النتائج المنشورة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.rules.published` | Published findings (all, including grouped duplicates) | النتائج المنشورة (كلها، بما فيها المكررة المجمّعة) | Data & rules: total number of findings in the published Intelligence document (redesign T1.5). | Needs Arabic Review |  |
+| `ui.iv2.rules.scope` | On the Editors page | في صفحة المونتيرين | Data & rules: label of the row that splits the published total into what the Editors page shows (redesign T1.5). | Needs Arabic Review |  |
+| `ui.iv2.rules.scope_value` | {top} top findings + {listed} more · {grouped} duplicates grouped under their main finding | {top} من أهم النتائج + {listed} أخرى · {grouped} مكررة مجمّعة تحت نتيجتها الرئيسية | Data & rules: value of the row that splits the published total (redesign T1.5). | Needs Arabic Review |  |
 | `ui.iv2.rules.title` | Intelligence rules (D53) | قواعد الرؤى التحليلية (D53) | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.value` | Approved value | القيمة المعتمدة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.version` | Intelligence version | إصدار الرؤى التحليلية | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.rules.withheld` | Weak signals kept for review | إشارات محدودة الأدلة محفوظة للمراجعة | Data & rules: Intelligence V2 rules card | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
+| `ui.iv2.scope` | Atlas published {total} findings: the {top} top findings above, these {listed}, and {grouped} duplicates grouped under their main finding (open a finding to see them). | نشر Atlas {total} نتيجة: أهم {top} نتائج أعلاه، وهذه النتائج الـ {listed}، و{grouped} نتائج مكررة مجمّعة تحت نتيجتها الرئيسية (افتح النتيجة لعرضها). | Note inside the list of published findings that reconciles its count with the total on Data & rules (ATLAS-DATA-002, redesign T1.5). | Needs Arabic Review |  |
 | `ui.iv2.short` | Intelligence | رؤى تحليلية | Editor Profile section bar label | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.sub` | The most important evidence-backed findings, ranked. Atlas prefers silence over an unsupported conclusion. | أهم النتائج المدعومة بالأدلة، مرتبة حسب الأهمية. يفضّل Atlas الصمت على استنتاج غير مدعوم. | Intelligence section subtitle | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |
 | `ui.iv2.title` | Intelligence | رؤى تحليلية | Editors overview: Intelligence V2 section heading | Needs Arabic Review | Intelligence V2 (D53), feat/atlas-intelligence-v2. |

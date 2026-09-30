@@ -4027,11 +4027,10 @@
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   },
   "ui.iv2.all": {
-   "en": "All published findings ({n})",
-   "ar": "كل النتائج المنشورة ({n})",
-   "context": "Disclosure listing every other published finding",
-   "status": "Needs Arabic Review",
-   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+   "en": "{n} more published findings",
+   "ar": "{n} نتيجة منشورة أخرى",
+   "context": "Summary of the collapsible list of published Intelligence findings below the Top findings on the Editors page; {n} excludes the Top findings and grouped duplicates (redesign T1.5).",
+   "status": "Needs Arabic Review"
   },
   "ui.iv2.method": {
    "en": "Deterministic rules approved by management (D53). Findings describe what happened and what is associated with it, never a cause; every finding shows its Monday evidence.",
@@ -4223,11 +4222,10 @@
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   },
   "ui.iv2.rules.published": {
-   "en": "Published findings",
-   "ar": "النتائج المنشورة",
-   "context": "Data & rules: Intelligence V2 rules card",
-   "status": "Needs Arabic Review",
-   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+   "en": "Published findings (all, including grouped duplicates)",
+   "ar": "النتائج المنشورة (كلها، بما فيها المكررة المجمّعة)",
+   "context": "Data & rules: total number of findings in the published Intelligence document (redesign T1.5).",
+   "status": "Needs Arabic Review"
   },
   "ui.iv2.rules.withheld": {
    "en": "Weak signals kept for review",
@@ -4277,6 +4275,24 @@
    "context": "Data & rules: Intelligence V2 rules card",
    "status": "Needs Arabic Review",
    "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.scope": {
+   "en": "Atlas published {total} findings: the {top} top findings above, these {listed}, and {grouped} duplicates grouped under their main finding (open a finding to see them).",
+   "ar": "نشر Atlas {total} نتيجة: أهم {top} نتائج أعلاه، وهذه النتائج الـ {listed}، و{grouped} نتائج مكررة مجمّعة تحت نتيجتها الرئيسية (افتح النتيجة لعرضها).",
+   "context": "Note inside the list of published findings that reconciles its count with the total on Data & rules (ATLAS-DATA-002, redesign T1.5).",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.rules.scope": {
+   "en": "On the Editors page",
+   "ar": "في صفحة المونتيرين",
+   "context": "Data & rules: label of the row that splits the published total into what the Editors page shows (redesign T1.5).",
+   "status": "Needs Arabic Review"
+  },
+  "ui.iv2.rules.scope_value": {
+   "en": "{top} top findings + {listed} more · {grouped} duplicates grouped under their main finding",
+   "ar": "{top} من أهم النتائج + {listed} أخرى · {grouped} مكررة مجمّعة تحت نتيجتها الرئيسية",
+   "context": "Data & rules: value of the row that splits the published total (redesign T1.5).",
+   "status": "Needs Arabic Review"
   }
  }
 }

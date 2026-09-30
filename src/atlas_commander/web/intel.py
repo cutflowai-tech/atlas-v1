@@ -42,6 +42,16 @@ def marked_html(text: str, isolate: bool = False) -> Html:
     return Html("".join(out))
 
 
+def finding_scope(doc: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
+    """How the published findings are shown (ATLAS-DATA-002): the Top findings, the other primary findings listed below them, and
+    the duplicates grouped under their cluster's primary finding. The three parts always add up to every published finding."""
+    top_ids = doc["sections"]["top_findings"]["finding_ids"]
+    top = [f for f in doc["findings"] if f["finding_id"] in top_ids]
+    grouped = [f for f in doc["findings"] if f["finding_id"] not in top_ids and (f.get("cluster") or {}).get("suppressed_in_sections")]
+    listed = [f for f in doc["findings"] if f["finding_id"] not in top_ids and not (f.get("cluster") or {}).get("suppressed_in_sections")]
+    return {"top": top, "listed": listed, "grouped": grouped}
+
+
 def tid(finding: Mapping[str, Any]) -> str:
     return "iv2-" + finding["finding_id"].replace(".", "-").replace(":", "-")
 
@@ -120,7 +130,8 @@ def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
     cards = "".join(finding_card(by_id[i], ctx, rank) for rank, i in enumerate(top_ids, start=1))
     body = f'<div class="iv-grid">{cards}</div>' if cards else f'<p class="muted">{loc.t("ui.iv2.none")}</p>'
     groups = []
-    primaries = [f for f in doc["findings"] if not (f.get("cluster") or {}).get("suppressed_in_sections") and f["finding_id"] not in top_ids]
+    scope = finding_scope(doc)
+    primaries = scope["listed"]
     for category in CATEGORY_ORDER:
         rows = [f for f in primaries if f["category"] == category]
         if not rows:
@@ -128,7 +139,10 @@ def overview_section(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
         items = "".join(f'<li><button type="button" class="iv-row" data-drawer="{escape(tid(f))}">{confidence_chip(f, loc)}'
                         f'<span>{marked_html(_text(f, loc)["title"], loc.isolate)}</span></button></li>' for f in rows)
         groups.append(f'<div class="iv-group"><h4>{loc.t("ui.iv2.category." + category)} <span class="muted">{loc.num(len(rows))}</span></h4><ul>{items}</ul></div>')
-    more = (f'<details class="more iv-more"><summary>{loc.t("ui.iv2.all", n=loc.num(len(primaries)))}</summary>{"".join(groups)}</details>' if groups else "")
+    counts = {key: loc.num(len(scope[key])) for key in ("top", "listed", "grouped")}
+    reconcile = f'<p class="note" data-scope="published">{loc.t("ui.iv2.scope", total=loc.num(len(doc["findings"])), **counts)}</p>'
+    more = (f'<details class="more iv-more"><summary>{loc.t("ui.iv2.all", n=counts["listed"])}</summary>{reconcile}{"".join(groups)}</details>'
+            if groups else "")
     withheld = sum("weak_evidence_review_only" in row["reasons"] for row in doc["examined_without_finding"])
     note = loc.t("ui.iv2.method") + (Html(" ") + loc.t("ui.iv2.withheld", n=loc.num(withheld)) if withheld else Html(""))
     return (f'<section class="sec iv" id="intelligence" data-section="intelligence" aria-labelledby="iv-h">'
@@ -215,7 +229,9 @@ def rules_card(doc: Mapping[str, Any] | None, ctx: Ctx) -> str:
     loc = ctx.loc
     rows = "".join(f'<tr><td>{loc.tech(p["name"])}</td><td>{loc.tech(p["value"])}</td><td>{loc.tech(p["decision_id"] or "—")}</td></tr>'
                    for p in doc["parameters"]["parameters"])
+    scope = finding_scope(doc)
     counts = [(loc.t("ui.iv2.rules.published"), loc.num(len(doc["findings"]))),
+              (loc.t("ui.iv2.rules.scope"), loc.t("ui.iv2.rules.scope_value", **{key: loc.num(len(scope[key])) for key in ("top", "listed", "grouped")})),
               (loc.t("ui.iv2.rules.withheld"), loc.num(sum("weak_evidence_review_only" in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.not_evaluated"), loc.num(sum("weak_evidence_review_only" not in r["reasons"] for r in doc["examined_without_finding"]))),
               (loc.t("ui.iv2.rules.version"), loc.tech(doc["intelligence_version"])), (loc.t("ui.iv2.rules.mode"), loc.tech(doc["mode"]))]

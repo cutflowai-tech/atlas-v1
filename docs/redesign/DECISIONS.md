@@ -60,3 +60,13 @@ Checked against the local build of production run `20260929T210734Z-4cb4bfa25596
 - **Repo:** the extract has item IDs, column values and activity logs, but no item name.
 - **Decision:** no ingest change in this redesign (the handoff forbids unrelated API changes). Overdue rows show status, Video Type
   and the item ID, isolated LTR, and open the existing project evidence drawer.
+
+## R4. The 46 vs 55 findings count (ATLAS-DATA-002, T1.5)
+
+- **Cause:** both numbers were right but unlabelled. Data & rules counted every published finding (55). The overview's list,
+  "All published findings (46)", left out the 5 Top findings already shown above it and the 4 duplicates that Intelligence V2
+  groups under their cluster's primary finding (`cluster.suppressed_in_sections`): 55 = 5 + 46 + 4 on the audited snapshot and on
+  production run `20260929T210734Z-4cb4bfa25596`.
+- **Decision:** keep both views and label the scopes. The list reads "46 more published findings" with a note that reconciles
+  it with the total; Data & rules shows "Published findings (all, including grouped duplicates)" and the same split. The split
+  comes from one function, `web.intel.finding_scope`, so the two pages cannot drift apart.
