@@ -14,7 +14,7 @@ from atlas_commander.verdict.config import CONFIG_PATH, ConfigError, config_from
 ROOT = CONFIG_PATH.parents[1]
 DOCUMENT = json.loads(CONFIG_PATH.read_text())
 INTELLIGENCE = json.loads(INTELLIGENCE_CONFIG_PATH.read_text())
-ALLOWED_LITERALS = {0, 1, 100}   # identities and the fraction <-> percent conversion; every threshold comes from the config
+ALLOWED_LITERALS = {0, 1, 2, 100, 3600}   # identities, halves (a median), percent and hour conversions; every threshold is configured
 
 
 class ConfigTests(unittest.TestCase):
