@@ -42,6 +42,8 @@ from atlas_commander.cycles import COMPLETED
 from atlas_commander.i18n import LOCALES
 from atlas_commander.ingest import EXTRACT_NAME, MANIFEST_NAME, Clock, failure_category, ingest_run, new_run_id, tracked_columns, utc_now
 from atlas_commander.ingest_verify import verify
+from atlas_commander.investigation.site import build_site_intelligence, write_document
+from atlas_commander.investigation.site import site_problems as intelligence_problems
 from atlas_commander.pipeline import CycleReconstruction
 from atlas_commander.profile import PROFILE_CONTRACTS, evidence_consistency_errors, profiled_editors
 from atlas_commander.profile_cli import attribution_coverage, build_dashboard_files, build_profiles, reconstruct_extract
@@ -60,8 +62,8 @@ BUILD_METADATA_NAME = "build.json"      # operational metadata, outside the site
 COMPLETE_NAME = "COMPLETE.json"         # completion marker, written last and only after every check passed
 FAILED_NAME = "FAILED.json"             # present only in a build directory whose attempt failed
 ATTEMPTS_DIR = "attempts"               # <build root>/attempts/<attempt_id>.json: one safe result per attempt
-STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "dashboard",
-          "validation", "metadata", "completion")
+STAGES = ("configuration", "lock", "monday_client", "ingestion", "verification", "build_directory", "reconstruction", "profiles", "intelligence",
+          "dashboard", "validation", "metadata", "completion")
 PROFILE_SCHEMAS = dict(PROFILE_CONTRACTS)
 STAGED_NOTE = "Staged build only: it has not been published, and the published dashboard was not modified."
 
@@ -168,6 +170,7 @@ def _sha256(data: bytes) -> str:
 
 # A failure with no more specific category, in a stage after ingestion, is named after that stage.
 STAGE_CATEGORIES = {"reconstruction": "reconstruction", "profiles": "profile_generation", "dashboard": "dashboard_generation",
+                    "intelligence": "dashboard_generation",   # the optional Intelligence V2 artifact is part of site generation
                     "validation": "build_validation", "metadata": "build_metadata", "completion": "build_metadata"}
 
 
@@ -221,7 +224,10 @@ def validate_site(site: Path, result: CycleReconstruction, contract: Mapping[str
     required = site_layout.required_files(editors, contract["contract_version"])   # both languages: a build missing either one is incomplete
     files = _files(site)
     problems += [f"missing required artifact {name}" for name in required if name not in files]
-    problems += [f"unexpected artifact {name}" for name in files if name not in required]
+    optional = site_layout.optional_files(contract["contract_version"])
+    problems += [f"unexpected artifact {name}" for name in files if name not in required and name not in optional]
+    problems += [problem for name in optional if name in files for problem in intelligence_problems(files[name], contract["contract_version"],
+                                                                                                       extract.get("retrieved_at"))]
     problems += [f"empty artifact {name}" for name, path in files.items() if path.stat().st_size == 0]
     if token:
         problems += [f"artifact {name} contains the Monday token" for name, path in files.items() if token in path.read_bytes()]
@@ -416,6 +422,12 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
         generated_at = _iso(clock())
         profiles, pages = build_profiles(reconstruction, contract, site, generated_at, monday_item_url)
 
+        stage = "intelligence"
+        budget.check(stage)
+        intelligence = build_site_intelligence(reconstruction, contract, generated_at, profiles)   # only when config/intelligence-v2.json enables it
+        if intelligence is not None:
+            write_document(site, intelligence)
+
         stage = "dashboard"
         budget.check(stage)
         status_snapshot = build_time_snapshot(
@@ -425,7 +437,7 @@ def _attempt(result: SyncResult, lock: ExitStack, environ: Mapping[str, str] | N
             started_at=result.started_at,
         )
         build_dashboard_files(reconstruction, contract, site, generated_at, profiles, pages, monday_item_url,
-                              status_snapshot=status_snapshot.as_dict())
+                              status_snapshot=status_snapshot.as_dict(), intelligence=intelligence)
 
         stage = "validation"
         budget.check(stage)

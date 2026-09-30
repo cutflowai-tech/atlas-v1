@@ -331,10 +331,13 @@ class SyncRunTests(unittest.TestCase):
             mono.advance(7200)
             return profiles
 
-        with mock.patch.object(sync, "build_profiles", slow_profiles), mock.patch.object(sync, "build_dashboard_files") as dashboard:
+        with (mock.patch.object(sync, "build_profiles", slow_profiles), mock.patch.object(sync, "build_site_intelligence") as intelligence,
+              mock.patch.object(sync, "build_dashboard_files") as dashboard):
             result = self.attempt(monotonic=mono)
-        self.assert_failed_without_marker(result, "dashboard", "timeout")
-        dashboard.assert_not_called()                                        # the next stage never started
+        # The optional Intelligence V2 stage now runs between profiles and the dashboard (its document feeds the pages).
+        self.assert_failed_without_marker(result, "intelligence", "timeout")
+        intelligence.assert_not_called()                                     # the next stage never started
+        dashboard.assert_not_called()
         self.assertEqual(sync.exit_code(result), sync.EXIT_TIMEOUT)
         self.assertGreaterEqual(result.duration_seconds, 7200)
 
@@ -347,7 +350,7 @@ class SyncRunTests(unittest.TestCase):
         mono = Monotonic()
         with mock.patch.object(sync, "build_profiles", side_effect=lambda *a, **k: mono.advance(900) or ([], {})):
             result = sync.run_once({**self.env, MAX_DURATION_ENV: "900"}, transport=self.fake, clock=Clock(), monotonic=mono)
-        self.assertEqual((result.failing_stage, result.error_category), ("dashboard", "timeout"))
+        self.assertEqual((result.failing_stage, result.error_category), ("intelligence", "timeout"))
 
     def test_19_timeout_during_ingestion_is_recorded_safely(self):
         result = self.attempt(max_duration_seconds=30, monotonic=Monotonic(per_call=2))   # budget runs out between Monday requests

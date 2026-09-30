@@ -64,6 +64,8 @@ jobs:
         run: make quality
       - name: Contract 1.5 intelligence framework tests
         run: make intelligence-v15
+      - name: Intelligence V2 investigation layer tests
+        run: make intelligence-v2
       - name: Round 4 distribution analysis tests
         run: make round4-analysis
       - name: Contract 1.3.0 tests
@@ -98,6 +100,8 @@ jobs:
         run: make lock
       - name: Arabic and English presentation tests
         run: make i18n
+      - name: Contract 1.5 Editors app UI tests (including Intelligence V2, EN/AR)
+        run: make ui-v15
       - name: Status dashboard UI tests
         run: make status-ui
       - name: Sync status and data health tests

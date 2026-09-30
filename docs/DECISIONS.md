@@ -2,6 +2,8 @@
 
 These product decisions drive runtime behavior. Each one is encoded in a versioned executable contract (`config/monday-contract-v*.json`), so historical results stay reproducible. Changing a decision requires a new contract version; an approved contract is never edited in place.
 
+> **Status, 2026-09-30 (D53):** D53 approves the Intelligence V2 investigation layer, its parameters and its publication.
+>
 > **Status, 2026-09-29 (D52):** D51 is management-confirmed. D52 approves the round-4 thresholds except Quality N/P and Trend materiality (both still OPEN) and approves production activation of contract 1.5.0.
 >
 > **Implementation status, 2026-09-29 (before D52):** D20–D51 are now encoded in the loadable contract 1.5.0 candidate and its deterministic runtime/profile/publication path. The `Pending contract 1.5.0` wording retained in the decision-round tables records the status when each decision was captured; it is no longer the implementation status. Production is deliberately still pinned to contract 1.4.0. The D49 management attestation resolves the identity gate in `monday-editor-v1.3`; all threshold values remain `null`/`rule_not_approved`. No deployment or production activation is authorized by this log update.
@@ -166,6 +168,42 @@ Source: final management approvals relayed on 2026-09-29 in the Contract 1.5 clo
 production, so the values are recorded in the 1.5.0 configuration itself rather than a new contract version.
 
 
+## D53 — Intelligence V2 investigation layer — approved by Waset management 2026-09-30
+
+**Status: APPROVED (2026-09-30).** Goal of the first production release: *useful but conservative intelligence*. Atlas prefers
+silence over a strong unsupported conclusion. Weak exploratory patterns may exist in review mode; public findings must be
+evidence-backed and defensible. Every value below is recorded in `config/intelligence-v2.json` as `approved` with `decision_id`
+D53, and `atlas_commander.investigation.policy.APPROVING_DECISIONS` accepts only D52 and D53 (D25: the decision and the
+configuration must agree; tests fail if this entry and the configuration disagree).
+
+| # | Approved rule | Configuration |
+|---|---|---|
+| D53.1 | **Scope.** Atlas may publish process-level findings, cross-Editor patterns, system-vs-person context, bottleneck, concentration and workload-association findings, contradictions between metrics, short-runway context, operational risk signals (current facts and historical patterns) and investigation suggestions. Findings keep the statement layers fact / metric / pattern / association / interpretation / hypothesis. Never: correlation as causation, psychological or personality judgements, termination, salary, promotion or disciplinary recommendations, unsupported blame. No KPI for any non-Editor role. | narrative language rules; `ai_guard` |
+| D53.2 | **Group sample floor: 10 projects** in any compared group before a pattern about it is published. Below it: insufficient evidence (review may keep an exploratory signal). | `evidence.minimum_group_projects` = 10 |
+| D53.3 | **Outcome-event floor: 5 relevant outcome events** (for example 5 late deliveries behind a late-delivery concentration). | `evidence.minimum_outcome_events` = 5 |
+| D53.4 | **Shared / system pattern.** At least **3 affected Editors**, each with at least **5 relevant comparable projects**, affected Editors at least **two thirds** of the eligible comparable Editors, a consistent direction, and the same exact Video Type comparison. Two similar Editors are never "systemic". Wording: "This pattern appears across multiple Editors and is more consistent with a shared workflow pattern than an isolated Editor pattern." No root cause unless directly evidenced. | `evidence.minimum_editors_for_breadth` = 3; `evidence.minimum_projects_per_editor_for_breadth` = 5; `evidence.breadth_share` = 2/3 (exact); applied by `pattern.shared_across_editors`, `change.team` and `change.video_type` |
+| D53.5 | **Concentration** only when **both** ratio ≥ **1.25** and absolute share difference ≥ **10 percentage points**. | `concentration.minimum_share_ratio` = 1.25; `concentration.minimum_share_difference` = 0.10 |
+| D53.6 | **Materiality.** A rate difference is material at ≥ **15 percentage points** (absolute); a duration / continuous difference at ≥ **25%** (relative). Sample floors and the median-based guards still apply, so a tiny baseline cannot manufacture a large percentage. This approves Intelligence V2 materiality only: the contract 1.5.0 Trend material-change threshold stays OPEN (open decision 0), because an approved contract is never edited in place. | `evidence.material_rate_difference` = 0.15; `evidence.material_duration_pct` = 25 |
+| D53.7 | **Short runway.** ETA runway = Requested ETA (D19) − entry into In Progress. Short when it is below the defensible typical execution time of the same exact Video Type: the leave-one-out median of the other Editors (D36) at the D52 comparator minimums; otherwise not enough evidence. It is context — the Editor started with unusually limited time — never proof that scheduling caused a late delivery. | `runway.short_rule` = `runway_below_typical_execution` |
+| D53.8 | **Workload** is relative to each Editor's own history. Association split: above / not above the Editor's own historical median (kept). High workload / overload signal: above the **75th percentile** of the Editor's own historical concurrency. Allowed wording: "Higher workload is associated with longer execution time in this sample"; never "caused". | `workload.band_rule` = `above_editor_own_median`; `workload.high_percentile` = 0.75 |
+| D53.9 | **Risk percentile: 75th.** Deterministic signals, not predictions; "resembles historically difficult conditions", never "will be late". Hard facts (already past ETA) rank above historical-similarity signals. | `risk.elapsed_percentile` = 0.75 |
+| D53.10 | **Search-space cap: 40** combinations per pattern detector; the number tested is always published. Expanding it needs a new decision. | `patterns.maximum_combinations` = 40 |
+| D53.11 | **Confidence** is deterministic and explainable, only **Weak / Moderate / Strong**, never a percentage. Factors: sample size (≥ 2 × every minimum), effect replication, consistency / breadth, data completeness (≥ 90%), contradicting evidence, independent support. **Publication:** Strong and Moderate publish when the detector's parameters are approved and its gates pass; Weak is review only, unless it is a direct fact or a data-quality warning. Contradicting evidence is never hidden to raise confidence. | `confidence.sample_multiple` = 2; `confidence.minimum_completeness` = 0.9; engine `publication_filter` (withheld findings are listed as `weak_evidence_review_only`) |
+| D53.12 | **Contradictory evidence** is shown explicitly ("The evidence is mixed"; "the headline deadline result is weak, but execution-speed evidence does not support a simple speed explanation"), never folded into one score, never implying innocence or guilt. | contradicting evidence blocks; `contradiction.*` detectors |
+| D53.13 | **Top 5** findings on the management surface, ranked by the documented lexicographic order (operational impact, affected projects and Editors, magnitude, recency, persistence, confidence, contradictions, whether it changes an obvious interpretation). Importance and confidence stay separate. | `prioritization.top_findings` = 5 |
+| D53.14 | **Duplicate clustering.** Closely overlapping findings (same direction, same Video Types, affected-project Jaccard ≥ 0.8) show as one card; every member stays in the document with its evidence, projects, statement codes and detector version. | `prioritization.duplicate_overlap` = 0.8 |
+| D53.15 | **Publication** of `intelligence-v2.json` (approved_only) as an optional site artifact, and its Top 5 in the product UI (English and Arabic), after the D53 validation on production data. | `publication.include_in_site_build`, `publication.decision_id` = D53 |
+
+Engineering rules kept by this approval (all more conservative than the thresholds alone):
+
+- Every change against a baseline is compared with the other Editors' change over the same periods (difference-in-differences).
+- "Mix explains the gap" is said only when the mix accounts for more than half of the raw gap.
+- Runway patterns are always context, never an Editor weakness.
+- A historical-similarity signal needs the similar projects to have been late more often than their Video Type.
+- A timing pattern must repeat in at least 2 months; a repeated-delay cell must be elevated in both halves of the history.
+
+Source: management approval of the D53 proposals relayed on 2026-09-30 in the Intelligence V2 production instruction.
+
 ## Verified from Monday evidence (no business judgement involved)
 
 - **Video Type mapping `monday-video-type-v1.2`:**
@@ -212,3 +250,5 @@ These defaults are deterministic, versioned and visible in evidence. They exist 
      - use the latest ETA set at or before Ready For Approval (deadline-v1.2, a new contract version);
      - keep D1 but ignore only the changes made when a project enters Revisions.
    - Recommendation: the latest ETA set at or before Ready For Approval. It still honours ETA changes made before the Editor submits, and it cannot be moved by later client revisions.
+7. **Resolved by D53 (2026-09-30).** Intelligence V2 parameters, scope and publication are approved. D53.6 approves Intelligence V2
+   materiality only; the contract Trend materiality in item 0 stays open.

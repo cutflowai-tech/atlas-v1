@@ -149,7 +149,10 @@ def _cairo_time(at: str | None) -> dict[str, Any]:
 
 def _revisions(profile: Mapping[str, Any]) -> dict[str, Any]:
     revisions = profile["revisions"]
-    return {"source": "revisions", "context_only": True, "completed_projects": revisions["completed_projects"],
+    # Contract 1.5 pages show the engine's revision rate; earlier contracts keep their original dashboard document.
+    rate = ({"client_revision_rate": revisions.get("client_revision_rate")}
+            if capabilities(profile["executable_contract_version"]).editor_intelligence else {})
+    return {**rate, "source": "revisions", "context_only": True, "completed_projects": revisions["completed_projects"],
             "monday_item_ids_with_client_revisions": list(revisions.get("monday_item_ids_with_client_revisions") or []),
             "projects_with_client_revisions": revisions["projects_with_client_revisions"],
             "client_revision_events": revisions["client_revision_events"], "internal_revision_events": revisions.get("internal_revision_events"),

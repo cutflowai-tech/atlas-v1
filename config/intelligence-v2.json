@@ -1,0 +1,221 @@
+{
+  "intelligence_v2_version": "intelligence-v2.0.0",
+  "document_schema": "intelligence-v2.schema.json",
+  "requires_capability": "editor_intelligence",
+  "data_capabilities": "config/intelligence-v2-data-capabilities.json",
+  "governance": {
+    "rule": "D25: a parameter is approved only when this file marks it approved AND names the decision that approves it. Approved values that reuse an existing contract rule are read from that contract (from_contract), never copied here.",
+    "modes": {
+      "approved_only": "default and the only publishable mode: a detector runs only when every parameter it needs is approved; otherwise it records its facts under not_evaluated with rule_not_approved",
+      "review": "explicit opt-in for management review (never publishable): unapproved parameters use proposed_value and every finding carries parameter_status proposed_not_approved"
+    },
+    "pending_decision": null,
+    "approved_decision": "D53"
+  },
+  "publication": {
+    "include_in_site_build": true,
+    "mode": "approved_only",
+    "decision_id": "D53",
+    "note": "D53.15: a site build also writes intelligence-v2.json (approved_only) as an optional artifact and the pages show its Top findings in English and Arabic. Setting include_in_site_build to false needs no code change: builds with or without the file both validate, publish and roll back, and the pages are then exactly the pages without Intelligence."
+  },
+  "parameters": {
+    "deadline.minimum_comparator_projects": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "deadline.component.minimum_comparator_sample_size",
+      "meaning": "minimum deadline-classifiable projects of the other Editors for a late-rate comparison"
+    },
+    "deadline.minimum_editor_projects": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "deadline.component.minimum_editor_sample_size",
+      "meaning": "minimum deadline-classifiable projects of the Editor for a late-rate comparison"
+    },
+    "quality.minimum_projects": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "interpretation.quality_component.minimum_project_sample_size",
+      "meaning": "minimum eligible completed projects before label rates are discussed"
+    },
+    "recent_change.minimum_sample": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "interpretation.trend.minimum_sample_size",
+      "meaning": "minimum projects in both the current and the comparison window before a window change is discussed"
+    },
+    "speed.faster_band_pct": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "speed_benchmark.component.faster_band",
+      "meaning": "Editor-vs-comparator median difference below which an exact-Video-Type comparison is Faster"
+    },
+    "speed.minimum_comparator_editors": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "speed_benchmark.minimum_comparator_editor_count",
+      "meaning": "minimum other Editors behind a leave-one-out typical execution time"
+    },
+    "speed.minimum_comparator_projects": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "speed_benchmark.minimum_comparator_sample_size",
+      "meaning": "minimum other-Editor projects behind a leave-one-out typical execution time for one Video Type"
+    },
+    "speed.minimum_editor_projects": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "speed_benchmark.minimum_editor_sample_size",
+      "meaning": "minimum projects an Editor needs in one exact Video Type before their execution time is compared"
+    },
+    "speed.slower_band_pct": {
+      "status": "approved",
+      "decision_id": "D52",
+      "from_contract": "speed_benchmark.component.slower_band",
+      "meaning": "Editor-vs-comparator median difference above which an exact-Video-Type comparison is Slower"
+    },
+    "concentration.minimum_share_difference": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.1,
+      "proposed_value": 0.1,
+      "basis": "and at least 10 percentage points in absolute share, so small groups cannot qualify on ratio alone",
+      "meaning": "outcome share - base share at or above which an outcome is concentrated"
+    },
+    "concentration.minimum_share_ratio": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 1.25,
+      "proposed_value": 1.25,
+      "basis": "outcome share at least 25% above the group's share of the base population",
+      "meaning": "outcome share / base share at or above which an outcome is concentrated in a group"
+    },
+    "confidence.minimum_completeness": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.9,
+      "proposed_value": 0.9,
+      "basis": "evidence is complete enough when at least 90% of eligible projects carry every field the finding needs",
+      "meaning": "share of eligible projects with complete fields needed for strong evidence"
+    },
+    "confidence.sample_multiple": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 2,
+      "proposed_value": 2,
+      "basis": "evidence is stronger when every compared group has at least twice its minimum sample",
+      "meaning": "multiple of the minimum sample that counts as a well-supported group"
+    },
+    "evidence.breadth_share": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": "2/3",
+      "proposed_value": "2/3",
+      "basis": "D53.4: a pattern is shared when the affected Editors are at least two thirds (exactly 2/3) of the qualifying Editors, and at least evidence.minimum_editors_for_breadth of them",
+      "meaning": "share of qualifying Editors that must show a pattern for it to be called shared"
+    },
+    "evidence.material_duration_pct": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 25,
+      "proposed_value": 25,
+      "basis": "mirrors the approved D52 Speed band (25%); the same question as the OPEN Trend materiality (D52)",
+      "meaning": "percentage difference between two median execution times (two groups, or two periods) at or above which the difference is material"
+    },
+    "evidence.material_rate_difference": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.15,
+      "proposed_value": 0.15,
+      "basis": "mirrors the approved D52 Deadline band (15 percentage points); the same question as the OPEN Trend materiality (D52), so approve both together",
+      "meaning": "difference between two rates (two groups, or two periods) at or above which the difference is material"
+    },
+    "evidence.minimum_editors_for_breadth": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 3,
+      "proposed_value": 3,
+      "basis": "a cross-Editor statement needs more than the two comparator Editors of D52",
+      "meaning": "minimum qualifying Editors before a pattern is called shared or confined"
+    },
+    "evidence.minimum_group_projects": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 10,
+      "proposed_value": 10,
+      "basis": "mirrors the D52 Quality and Trend floors (10); used for every compared group (a Video Type, an Editor slice, a workload band)",
+      "meaning": "minimum projects in any group whose rate or median is compared"
+    },
+    "evidence.minimum_outcome_events": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 5,
+      "proposed_value": 5,
+      "basis": "a share of fewer than 5 outcomes (late projects, labels) is not interpreted",
+      "meaning": "minimum outcome events (late projects, label occurrences) behind a concentration or pattern"
+    },
+    "evidence.minimum_projects_per_editor_for_breadth": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 5,
+      "proposed_value": 5,
+      "basis": "mirrors the D52 Speed subject minimum (5 per Video Type)",
+      "meaning": "minimum projects an Editor needs in a slice to count towards breadth"
+    },
+    "patterns.maximum_combinations": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 40,
+      "proposed_value": 40,
+      "basis": "caps the controlled search space of repeated-pattern detection; the number of combinations tested is always published",
+      "meaning": "maximum number of dimension combinations one pattern detector evaluates"
+    },
+    "prioritization.duplicate_overlap": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.8,
+      "proposed_value": 0.8,
+      "basis": "two findings about the same projects (Jaccard overlap at or above 0.8), the same Video Types and the same direction are one fact",
+      "meaning": "affected-project overlap at or above which findings are clustered as duplicates"
+    },
+    "prioritization.top_findings": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 5,
+      "proposed_value": 5,
+      "basis": "a management brief shows at most five findings; everything else stays in its section",
+      "meaning": "maximum findings in Top Findings and the Executive Brief"
+    },
+    "risk.elapsed_percentile": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.75,
+      "proposed_value": 0.75,
+      "basis": "an active project has been in execution longer than the 75th percentile of historical same-Video-Type execution",
+      "meaning": "percentile of historical execution time beyond which active work is a risk signal"
+    },
+    "runway.short_rule": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": "runway_below_typical_execution",
+      "proposed_value": "runway_below_typical_execution",
+      "basis": "a project's runway (Requested ETA - first In Progress) is short when it is below the leave-one-out median execution time of other Editors in the same exact Video Type (the D36 benchmark and D52 minimums); no new number",
+      "meaning": "definition of a short execution runway"
+    },
+    "workload.band_rule": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": "above_editor_own_median",
+      "proposed_value": "above_editor_own_median",
+      "basis": "a project started at high concurrency when the Editor's other open projects at its start exceed that Editor's own median; no universal overload threshold (brief Task 26, HANDOFF §21)",
+      "meaning": "how a project is placed in the low or high concurrent-workload band"
+    },
+    "workload.high_percentile": {
+      "status": "approved",
+      "decision_id": "D53",
+      "value": 0.75,
+      "proposed_value": 0.75,
+      "basis": "D53.8: a materially high current workload is judged against the same Editor's own historical concurrency distribution, never a universal number",
+      "meaning": "percentile of the Editor's own historical concurrent workload above which their current open workload is a high-workload risk signal"
+    }
+  }
+}

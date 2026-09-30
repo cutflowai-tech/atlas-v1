@@ -3367,6 +3367,916 @@
    "ar": "المشاريع حسب حالتها الحالية على Monday",
    "context": "Card subheading",
    "status": "Implemented conservatively"
+  },
+  "ui.nav.editors": {
+   "en": "Editors",
+   "ar": "المونتيرون",
+   "context": "Top navigation: the Editors overview (HANDOFF-V2 §12)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.nav.system": {
+   "en": "Data & rules",
+   "ar": "البيانات والقواعد",
+   "context": "Top navigation: data freshness, rules and coverage",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.back": {
+   "en": "All Editors",
+   "ar": "كل المونتيرين",
+   "context": "Back link from an Editor Profile to the overview",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.data_status": {
+   "en": "Data status and rules",
+   "ar": "حالة البيانات والقواعد",
+   "context": "Tooltip of the data freshness link in the top bar",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.release": {
+   "en": "Release",
+   "ar": "الإصدار",
+   "context": "Data & rules: publication identity row",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.overview_note": {
+   "en": "Cards are in alphabetical order. Filters narrow the list; Atlas never ranks Editors.",
+   "ar": "البطاقات مرتبة أبجديًا. عوامل التصفية تضيّق القائمة فقط؛ Atlas لا يرتّب المونتيرين حسب الأداء.",
+   "context": "Overview: explains order and filtering (no leaderboard, HANDOFF-V2 §24)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.search_label": {
+   "en": "Search Editors",
+   "ar": "ابحث عن مونتير",
+   "context": "Accessible label of the Editor search box",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.search_placeholder": {
+   "en": "Search by name…  ( / )",
+   "ar": "ابحث بالاسم…  ( / )",
+   "context": "Placeholder of the Editor search box; / is the keyboard shortcut",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter_label": {
+   "en": "Filter by Overall Status",
+   "ar": "التصفية حسب الحالة العامة",
+   "context": "Accessible label of the status filter group",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter.all": {
+   "en": "All",
+   "ar": "الكل",
+   "context": "Status filter: no filter",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.filter.none": {
+   "en": "Not classified",
+   "ar": "غير مصنّف",
+   "context": "Status filter: Editors without an Overall Status (not enough evidence or approved logic)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.no_match": {
+   "en": "No Editor matches this search or filter.",
+   "ar": "لا يوجد مونتير يطابق هذا البحث أو التصفية.",
+   "context": "Overview empty state after search/filter",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.card.sample": {
+   "en": "{n} in window · {active} active",
+   "ar": "{n} في الفترة · {active} نشطة",
+   "context": "Editor card subtitle: projects in the current window and Active Work count",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.fact": {
+   "en": "Issues {nrate} · positive {prate} · n={n}",
+   "ar": "المشكلات {nrate} · الإيجابية {prate} · العدد={n}",
+   "context": "Editor card Quality line: scored negative and positive label rates with the sample",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.fact": {
+   "en": "{labels}: {editor} vs {others} · n={n}",
+   "ar": "{labels}: {editor} مقابل {others} · العدد={n}",
+   "context": "Speed fact: this Editor's median vs other Editors' median in one Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.fact_alone": {
+   "en": "{labels}: {editor} · n={n} · no comparison",
+   "ar": "{labels}: {editor} · العدد={n} · بلا مقارنة",
+   "context": "Speed fact when no other Editor is in the Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.fact": {
+   "en": "Late {rate} ({late} of {n})",
+   "ar": "متأخر {rate} ({late} من أصل {n})",
+   "context": "Deadline fact: absolute late rate with counts",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.profile.sub": {
+   "en": "Current window {window} · compared with {cwindow} · data updated {updated}",
+   "ar": "الفترة الحالية {window} · مقارنةً بالفترة {cwindow} · آخر تحديث للبيانات {updated}",
+   "context": "Editor Profile header: the one time window used by every figure (HANDOFF-V2 #24)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.quality": {
+   "en": "scored issue rate · positive {pos} · n={n}",
+   "ar": "نسبة المشكلات المحتسبة · الإيجابية {pos} · العدد={n}",
+   "context": "Profile key figure: Quality",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.deadline": {
+   "en": "late rate · {late} of {n} · other Editors {others}",
+   "ar": "نسبة التأخير · {late} من أصل {n} · المونتيرون الآخرون {others}",
+   "context": "Profile key figure: Deadline, absolute and comparison",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.kpi.work": {
+   "en": "In progress or in revision · {n} awaiting approval",
+   "ar": "قيد التنفيذ أو التعديل · {n} بانتظار الاعتماد",
+   "context": "Profile key figure: Active Work and Awaiting Approval",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.sections_label": {
+   "en": "Profile sections",
+   "ar": "أقسام الملف",
+   "context": "Accessible label of the sticky profile section bar",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.short": {
+   "en": "Recent change",
+   "ar": "التغيّر الأخير",
+   "context": "Profile section bar: Recent Change",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.sub": {
+   "en": "Current window {window} against {cwindow}. Facts only; no judgement without an approved rule.",
+   "ar": "الفترة الحالية {window} مقارنةً بالفترة {cwindow}. حقائق فقط؛ لا حكم دون قاعدة معتمدة.",
+   "context": "Recent Change section subtitle with both windows",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.change.was": {
+   "en": "before: {value} · n={n}",
+   "ar": "سابقًا: {value} · العدد={n}",
+   "context": "Recent Change card: value in the comparison window",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.short": {
+   "en": "Signals",
+   "ar": "المؤشرات",
+   "context": "Profile section bar: signals",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.title": {
+   "en": "Signals in the current window",
+   "ar": "المؤشرات في الفترة الحالية",
+   "context": "Profile: supported facts grouped by direction",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.sub": {
+   "en": "Supported facts only, each with its evidence. These are not Strength or Attention ratings.",
+   "ar": "حقائق مدعومة بالبيانات فقط، ولكل منها أدلتها. هذه ليست تقييمات لنقاط القوة أو لما يحتاج إلى متابعة.",
+   "context": "Profile signals subtitle: no unapproved judgement",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.good": {
+   "en": "Positive signals",
+   "ar": "مؤشرات إيجابية",
+   "context": "Profile signals column: positive facts",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signals.review": {
+   "en": "Worth reviewing",
+   "ar": "تستحق المراجعة",
+   "context": "Profile signals column: facts management may want to look at (never a judgement of the person)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.speed_faster": {
+   "en": "{pct} faster than other Editors in {labels} (n={n})",
+   "ar": "أسرع بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n})",
+   "context": "Signal: approved speed verdict Faster in one Video Type",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.speed_slower": {
+   "en": "{pct} slower than other Editors in {labels} (n={n})",
+   "ar": "أبطأ بنسبة {pct} من المونتيرين الآخرين في {labels} (العدد={n})",
+   "context": "Signal: approved speed verdict Slower in one Video Type (a comparison, not a judgement)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.deadline": {
+   "en": "Deadline {relative}: late {rate} vs {others} for other Editors",
+   "ar": "مواعيد التسليم {relative}: التأخير {rate} مقابل {others} لدى المونتيرين الآخرين",
+   "context": "Signal: approved Deadline component state with both late rates",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.quality_positive": {
+   "en": "Quality component is Positive",
+   "ar": "مكوّن الجودة إيجابي",
+   "context": "Signal: approved Quality state Positive",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.quality_negative": {
+   "en": "Quality component is Negative",
+   "ar": "مكوّن الجودة سلبي",
+   "context": "Signal: approved Quality state Negative",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.signal.label": {
+   "en": "{label} ×{n} · {projects}",
+   "ar": "{label} ×{n} · {projects}",
+   "context": "Signal: a Monday label and how often it occurs",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.sub": {
+   "en": "From Monday Performance labels: one occurrence is one event, no severity weights.",
+   "ar": "من علامات الأداء في Monday: كل ظهور يُحتسب مرة واحدة، دون أوزان للشدة.",
+   "context": "Quality section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.component": {
+   "en": "Quality component",
+   "ar": "مكوّن الجودة",
+   "context": "Quality card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.negative_rate": {
+   "en": "scored issue rate · {n} of {total} projects",
+   "ar": "نسبة المشكلات المحتسبة · {n} من أصل {total} مشروع",
+   "context": "Quality stat: scored negative rate with denominator (HANDOFF-V2 #11)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.quality.positive_rate": {
+   "en": "scored positive rate · {n} of {total} projects",
+   "ar": "نسبة المؤشرات الإيجابية المحتسبة · {n} من أصل {total} مشروع",
+   "context": "Quality stat: scored positive rate with denominator",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.component": {
+   "en": "Speed component",
+   "ar": "مكوّن السرعة",
+   "context": "Speed card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.sample": {
+   "en": "n = {e} this Editor · {t} other Editors' projects · {editors} Editors",
+   "ar": "العدد = {e} لهذا المونتير · {t} مشروع للمونتيرين الآخرين · {editors} مونتير",
+   "context": "Speed row sample sizes (HANDOFF-V2 #15)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.speed.note": {
+   "en": "Each Video Type is compared only within itself; other Editors exclude this Editor.",
+   "ar": "تُقارن كل Video Type بنفسها فقط؛ والمونتيرون الآخرون لا يشملون هذا المونتير.",
+   "context": "Speed section note: segmentation and leave-one-out",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.component": {
+   "en": "Deadline component",
+   "ar": "مكوّن مواعيد التسليم",
+   "context": "Deadline card heading with its state",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.early": {
+   "en": "early · {n} projects",
+   "ar": "مبكر · {n} مشروع",
+   "context": "Deadline stat: early share",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.on_time": {
+   "en": "on time (exactly at ETA) · {n} projects",
+   "ar": "في الموعد (عند الموعد تمامًا) · {n} مشروع",
+   "context": "Deadline stat: on-time share; no tolerance",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.late": {
+   "en": "late · {n} projects",
+   "ar": "متأخر · {n} مشروع",
+   "context": "Deadline stat: late share",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.deadline.unclassified": {
+   "en": "{n} not classified ({no_time} ETA without a time, {no_eta} no ETA).",
+   "ar": "{n} غير مصنّف ({no_time} موعد دون وقت، {no_eta} دون موعد).",
+   "context": "Deadline: unclassified projects and why (never guessed)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.revisions.projects": {
+   "en": "projects with client revisions · of {total} completed",
+   "ar": "مشاريع بها تعديلات من العميل · من أصل {total} مكتمل",
+   "context": "Revision stat with denominator",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.work.sub": {
+   "en": "Items by their current Monday status, as of {date}.",
+   "ar": "العناصر حسب حالتها الحالية في Monday، حتى {date}.",
+   "context": "Current work section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.history.short": {
+   "en": "History",
+   "ar": "السجل",
+   "context": "Profile section bar: history",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.history.title": {
+   "en": "History",
+   "ar": "السجل",
+   "context": "Profile history section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.title": {
+   "en": "Data & evidence",
+   "ar": "البيانات والأدلة",
+   "context": "Profile evidence section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.coverage": {
+   "en": "Data coverage",
+   "ar": "تغطية البيانات",
+   "context": "Profile data coverage card (HANDOFF-V2 #26)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.evidence.excluded_window": {
+   "en": "excluded in the current window",
+   "ar": "مستبعدة في الفترة الحالية",
+   "context": "Coverage stat: projects excluded in the window",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.open_evidence": {
+   "en": "Open evidence",
+   "ar": "عرض الأدلة",
+   "context": "Link opening a component's evidence drawer",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.component_drawer_title": {
+   "en": "{component} evidence · {name}",
+   "ar": "أدلة {component} · {name}",
+   "context": "Drawer title for a component's evidence",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.component_drawer_intro": {
+   "en": "The state, the rule that produced it and every project it was calculated from.",
+   "ar": "الحالة، والقاعدة التي أنتجتها، وكل مشروع حُسبت منه.",
+   "context": "Component evidence drawer introduction (HANDOFF-V2 §18)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rule": {
+   "en": "Rule",
+   "ar": "القاعدة",
+   "context": "Drawer row: rule version and approval",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.period": {
+   "en": "Period",
+   "ar": "الفترة",
+   "context": "Drawer row: date range used",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.calculated": {
+   "en": "Calculated",
+   "ar": "وقت الحساب",
+   "context": "Drawer row: calculation time",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.labels_on_project": {
+   "en": "Monday Performance labels",
+   "ar": "علامات الأداء في Monday",
+   "context": "Project evidence: labels on this project (all classes)",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.sub": {
+   "en": "Shared context across the team. Secondary to each Editor's picture.",
+   "ar": "سياق مشترك على مستوى الفريق، وهو ثانوي مقارنة بصورة كل مونتير.",
+   "context": "Overview: team context section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.labels": {
+   "en": "Labels this month",
+   "ar": "العلامات هذا الشهر",
+   "context": "Team context tab: label activity by class",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.team.labels_sub": {
+   "en": "Monday Performance labels added in {period}, by class.",
+   "ar": "علامات الأداء في Monday التي أُضيفت في {period}، حسب الفئة.",
+   "context": "Team labels tab subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.none_this_month": {
+   "en": "None this month",
+   "ar": "لا شيء هذا الشهر",
+   "context": "Empty state of a label class for the month",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.positive_marker": {
+   "en": "Positive label: {label}",
+   "ar": "علامة إيجابية: {label}",
+   "context": "Timeline marker description",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.context_marker": {
+   "en": "Context label: {label}",
+   "ar": "علامة سياق: {label}",
+   "context": "Timeline marker description",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.legend_positive": {
+   "en": "Positive label added",
+   "ar": "إضافة علامة إيجابية",
+   "context": "Timeline legend",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.timeline.legend_context": {
+   "en": "Context label added",
+   "ar": "إضافة علامة سياق",
+   "context": "Timeline legend",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rules.title": {
+   "en": "Rules in use",
+   "ar": "القواعد المطبّقة",
+   "context": "Data & rules: approval state of each rule",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.rules.pending": {
+   "en": "Not evaluated yet",
+   "ar": "لم يُقيَّم بعد",
+   "context": "Data & rules: judgements without an approved rule",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.presentation.order": {
+   "en": "Editor cards are in alphabetical order and can be filtered by Overall Status; there is no ranking.",
+   "ar": "بطاقات المونتيرين مرتبة أبجديًا ويمكن تصفيتها حسب الحالة العامة؛ ولا يوجد ترتيب حسب الأداء.",
+   "context": "Presentation note: card order",
+   "status": "Needs Arabic Review",
+   "notes": "Redesigned contract 1.5 UI (ui-ux branch)."
+  },
+  "ui.iv2.title": {
+   "en": "Intelligence",
+   "ar": "رؤى تحليلية",
+   "context": "Editors overview: Intelligence V2 section heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.sub": {
+   "en": "The most important evidence-backed findings, ranked. Atlas prefers silence over an unsupported conclusion.",
+   "ar": "أهم النتائج المدعومة بالأدلة، مرتبة حسب الأهمية. يفضّل Atlas الصمت على استنتاج غير مدعوم.",
+   "context": "Intelligence section subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.top": {
+   "en": "Top findings",
+   "ar": "أهم النتائج",
+   "context": "Heading above the (at most five) top findings",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.noticed": {
+   "en": "What Atlas noticed",
+   "ar": "ما لاحظه Atlas",
+   "context": "Finding card: the observed facts",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.meaning": {
+   "en": "What it may mean",
+   "ar": "ما قد يعنيه ذلك",
+   "context": "Finding card: the interpretation, labelled as interpretation",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.matters": {
+   "en": "Why it matters",
+   "ar": "لماذا يهم",
+   "context": "Finding card: management significance",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.investigate": {
+   "en": "Suggested investigation",
+   "ar": "التحقق المقترح",
+   "context": "Finding card: the suggested next step",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.to_check": {
+   "en": "To check",
+   "ar": "للتحقق",
+   "context": "Finding drawer: the hypothesis, stated as something to check",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.question": {
+   "en": "Question for management",
+   "ar": "سؤال للإدارة",
+   "context": "Finding drawer: investigation question",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.confidence": {
+   "en": "Confidence",
+   "ar": "قوة الأدلة",
+   "context": "Finding card: confidence label (never a percentage)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.weak": {
+   "en": "Weak",
+   "ar": "محدودة",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.moderate": {
+   "en": "Moderate",
+   "ar": "متوسطة",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.level.strong": {
+   "en": "Strong",
+   "ar": "قوية",
+   "context": "Confidence level",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.confidence_basis": {
+   "en": "Why this confidence",
+   "ar": "أساس قوة الأدلة",
+   "context": "Finding drawer: confidence factors heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.evidence_line": {
+   "en": "{projects} · {editors}",
+   "ar": "{projects} · {editors}",
+   "context": "Finding card: evidence size (projects and Editors)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.mixed": {
+   "en": "The evidence is mixed. Evidence that qualifies this finding:",
+   "ar": "الأدلة متباينة. أدلة تقيّد هذه النتيجة:",
+   "context": "Finding card: contradicting evidence shown next to the claim (D53.12)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.related": {
+   "en": "+{n} related",
+   "ar": "+{n} مرتبطة",
+   "context": "Finding card: clustered duplicate findings kept for audit",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.cluster": {
+   "en": "Closely overlapping findings grouped with this one",
+   "ar": "نتائج متداخلة مجمّعة مع هذه النتيجة",
+   "context": "Finding drawer: duplicate cluster members (D53.14)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.limitations": {
+   "en": "Limitations",
+   "ar": "حدود التحليل",
+   "context": "Finding drawer: limitations heading",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.detector": {
+   "en": "Detector {detector} · {version}",
+   "ar": "الكاشف {detector} · {version}",
+   "context": "Finding drawer: detector and version (technical)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.none": {
+   "en": "No finding meets the approved evidence rules for this snapshot.",
+   "ar": "لا توجد نتيجة تستوفي قواعد الأدلة المعتمدة في هذه اللقطة.",
+   "context": "Intelligence section empty state",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.all": {
+   "en": "All published findings ({n})",
+   "ar": "كل النتائج المنشورة ({n})",
+   "context": "Disclosure listing every other published finding",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.method": {
+   "en": "Deterministic rules approved by management (D53). Findings describe what happened and what is associated with it, never a cause; every finding shows its Monday evidence.",
+   "ar": "قواعد حتمية اعتمدتها الإدارة (D53). تصف النتائج ما حدث وما يرتبط به، ولا تحدد سببًا أبدًا؛ وتعرض كل نتيجة أدلتها من Monday.",
+   "context": "Intelligence method note",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.withheld": {
+   "en": "{n} weak exploratory signals are kept for review and are not published.",
+   "ar": "{n} إشارة استكشافية محدودة الأدلة محفوظة للمراجعة ولا تُنشر.",
+   "context": "Count of weak findings withheld from publication (D53.11)",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.short": {
+   "en": "Intelligence",
+   "ar": "رؤى تحليلية",
+   "context": "Editor Profile section bar label",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_title": {
+   "en": "Intelligence about this Editor",
+   "ar": "رؤى تحليلية عن هذا المونتير",
+   "context": "Editor Profile: findings about the Editor",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_sub": {
+   "en": "Findings that include this Editor, with their evidence and confidence. Context findings qualify the headline figures; they are not ratings.",
+   "ar": "النتائج التي تشمل هذا المونتير مع أدلتها وقوة أدلتها. نتائج السياق تقيّد الأرقام الرئيسية ولا تُعد تقييمات.",
+   "context": "Editor Profile: Intelligence subtitle",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.editor_none": {
+   "en": "No published finding includes this Editor for this snapshot.",
+   "ar": "لا توجد نتيجة منشورة تشمل هذا المونتير في هذه اللقطة.",
+   "context": "Editor Profile: Intelligence empty state",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.needs_attention": {
+   "en": "Needs attention",
+   "ar": "يحتاج إلى انتباه",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.emerging_risk": {
+   "en": "Emerging risk",
+   "ar": "خطر ناشئ",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.system_pattern": {
+   "en": "System pattern",
+   "ar": "نمط على مستوى النظام",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.hidden_context": {
+   "en": "Hidden context",
+   "ar": "سياق خفي",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.editor_specific_pattern": {
+   "en": "Editor-specific pattern",
+   "ar": "نمط خاص بالمونتير",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.important_improvement": {
+   "en": "Improvement",
+   "ar": "تحسّن",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.category.data_warning": {
+   "en": "Data warning",
+   "ar": "تنبيه بيانات",
+   "context": "Intelligence finding category",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.supporting": {
+   "en": "Supporting evidence",
+   "ar": "الأدلة الداعمة",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.contradicting": {
+   "en": "Contradicting evidence",
+   "ar": "الأدلة المعاكسة",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.role.context": {
+   "en": "Context",
+   "ar": "السياق",
+   "context": "Finding drawer: evidence block role",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.execution_speed_competitive": {
+   "en": "Execution speed is competitive under the approved Speed rule",
+   "ar": "سرعة التنفيذ منافسة وفق قاعدة السرعة المعتمدة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_despite_typical_execution": {
+   "en": "Late projects executed within the other Editors' typical time",
+   "ar": "مشاريع متأخرة نُفّذت خلال المدة المعتادة لبقية المونتيرين",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_projects_with_adequate_runway": {
+   "en": "Late projects that had adequate runway",
+   "ar": "مشاريع متأخرة كانت مهلتها كافية",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_with_short_runway": {
+   "en": "Late projects that started with short runway",
+   "ar": "مشاريع متأخرة بدأت بمهلة قصيرة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_execution_moved_same_way": {
+   "en": "The rest of the team's execution time moved the same way",
+   "ar": "مدة تنفيذ بقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_late_rate_moved_same_way": {
+   "en": "The rest of the team's late rate moved the same way",
+   "ar": "نسبة تأخير بقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.team_negative_label_rate_moved_same_way": {
+   "en": "The rest of the team's Negative label rate moved the same way",
+   "ar": "نسبة المؤشرات السلبية لبقية الفريق تغيّرت في الاتجاه نفسه",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.late_delivery_label_on_on_time_submission": {
+   "en": "Late Delivery labels on on-time submissions",
+   "ar": "مؤشرات التأخير في التسليم على تسليمات تمت في الموعد",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.similar_historical_projects": {
+   "en": "Similar historical projects",
+   "ar": "مشاريع تاريخية مماثلة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.block.workload_by_period": {
+   "en": "Workload in each period",
+   "ar": "عبء العمل في كل فترة",
+   "context": "Intelligence evidence block description",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.title": {
+   "en": "Intelligence rules (D53)",
+   "ar": "قواعد الرؤى التحليلية (D53)",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.published": {
+   "en": "Published findings",
+   "ar": "النتائج المنشورة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.withheld": {
+   "en": "Weak signals kept for review",
+   "ar": "إشارات محدودة الأدلة محفوظة للمراجعة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.not_evaluated": {
+   "en": "Examined without a finding",
+   "ar": "فُحصت دون نتيجة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.version": {
+   "en": "Intelligence version",
+   "ar": "إصدار الرؤى التحليلية",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.mode": {
+   "en": "Mode",
+   "ar": "الوضع",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.parameter": {
+   "en": "Parameter",
+   "ar": "المعامل",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.value": {
+   "en": "Approved value",
+   "ar": "القيمة المعتمدة",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
+  },
+  "ui.iv2.rules.decision": {
+   "en": "Decision",
+   "ar": "القرار",
+   "context": "Data & rules: Intelligence V2 rules card",
+   "status": "Needs Arabic Review",
+   "notes": "Intelligence V2 (D53), feat/atlas-intelligence-v2."
   }
  }
 }
