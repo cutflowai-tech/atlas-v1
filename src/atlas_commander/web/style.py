@@ -317,7 +317,7 @@ SCRIPT = r"""
     document.querySelectorAll('.nav a').forEach(function(a){
       if (a.getAttribute('data-nav') === (name === 'system' ? 'system' : 'team')) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    closeDrawer();
+    closeDrawer(true);
     var state = history.state;
     window.scrollTo(0, state && typeof state.atlasY === 'number' ? state.atlasY : 0);
     spy();
@@ -371,14 +371,17 @@ SCRIPT = r"""
     body.querySelectorAll('iframe[data-report]').forEach(function(f){ f.srcdoc = reports[f.getAttribute('data-report')] || ''; });
     last = trigger; document.body.classList.add('drawer-open'); drawer.setAttribute('aria-hidden', 'false'); drawer.querySelector('.x').focus();
   }
-  function closeDrawer(){
+  // A route change closes the evidence drawer and empties it, so evidence from one page never sits over another
+  // (ATLAS-MOBILE-003); focus then stays with the new page instead of returning to a trigger that is now hidden.
+  function closeDrawer(routeChange){
     if (!document.body.classList.contains('drawer-open')) return;
     document.body.classList.remove('drawer-open'); drawer.setAttribute('aria-hidden', 'true');
     document.querySelectorAll('.mk.is-selected').forEach(function(m){ m.classList.remove('is-selected'); });
+    if (routeChange === true) { body.innerHTML = ''; title.textContent = ''; last = null; return; }
     if (last) last.focus();
   }
-  drawer.querySelector('.x').addEventListener('click', closeDrawer);
-  document.querySelector('.scrim').addEventListener('click', closeDrawer);
+  drawer.querySelector('.x').addEventListener('click', function(){ closeDrawer(); });
+  document.querySelector('.scrim').addEventListener('click', function(){ closeDrawer(); });
   // Profile: highlight the section in view in the sticky section bar.
   var observer = null;
   function spy(){
