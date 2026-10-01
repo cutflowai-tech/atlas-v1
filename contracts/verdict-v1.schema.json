@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/verdict-v1.schema.json",
+  "title": "VerdictDocument",
+  "description": "Optional, independently versioned judgment layer of the redesign (D54): one verdict, tier, rank and confidence per Editor, the team verdict and the decisions for management. Computed at build time from the dashboard and Intelligence V2 documents of the same snapshot; never an input to any metric, component state, Overall Status, Trend or finding. Language-neutral: every sentence is a message key with parameters that the page renders in English or Arabic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["document_version", "verdict_version", "generated_at", "executable_contract_version", "source", "windows", "config", "team",
+               "editors", "decisions", "decision_candidates", "findings", "note"],
+  "properties": {
+    "document_version": {"const": "1.0.0"},
+    "verdict_version": {"type": "string", "pattern": "^verdict-v1\\.[0-9]+$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "executable_contract_version": {"type": "string", "pattern": "^1\\.([5-9]|[1-9][0-9])\\.[0-9]+$"},
+    "source": {
+      "type": "object", "additionalProperties": false, "required": ["retrieved_at", "dashboard_version", "intelligence_version"],
+      "properties": {
+        "retrieved_at": {"type": ["string", "null"], "format": "date-time"},
+        "dashboard_version": {"type": "string"},
+        "intelligence_version": {"type": ["string", "null"], "description": "null when no published Intelligence V2 document was available"}
+      }
+    },
+    "windows": {
+      "type": "object", "additionalProperties": false, "required": ["timezone", "current", "comparison"],
+      "properties": {"timezone": {"const": "Africa/Cairo"}, "current": {"$ref": "#/$defs/window"}, "comparison": {"$ref": "#/$defs/window"}}
+    },
+    "config": {
+      "type": "object", "additionalProperties": false, "required": ["version", "decision_id", "values"],
+      "properties": {"version": {"type": "string"}, "decision_id": {"type": "string", "pattern": "^D[0-9]+$"}, "values": {"type": "object"}}
+    },
+    "team": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/team"}]},
+    "editors": {"type": "array", "items": {"$ref": "#/$defs/editor"}},
+    "decisions": {"type": "array", "maxItems": 5, "items": {"$ref": "#/$defs/decision"}, "description": "The decisions shown on the overview: the candidates in priority order, capped."},
+    "decision_candidates": {"type": "array", "items": {"$ref": "#/$defs/decision"}, "description": "Every generated decision in priority order (shown under More details)."},
+    "findings": {
+      "type": "object", "additionalProperties": false, "required": ["hide_from_overview", "duplicates"],
+      "properties": {
+        "hide_from_overview": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["finding_id", "reason", "editor_id"],
+          "properties": {"finding_id": {"type": "string"}, "reason": {"enum": ["mirrors_team", "duplicate"]}, "editor_id": {"type": ["string", "null"]}}}},
+        "duplicates": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["kept", "hidden", "editor_id", "measure"],
+          "properties": {"kept": {"type": "string"}, "hidden": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+                         "editor_id": {"type": "string"}, "measure": {"type": "string"}}}}
+      }
+    },
+    "note": {"type": "string"}
+  },
+  "$defs": {
+    "window": {
+      "type": "object", "required": ["start_date", "end_date_exclusive"],
+      "properties": {"start_date": {"type": "string", "format": "date"}, "end_date_exclusive": {"type": "string", "format": "date"}}
+    },
+    "msg": {
+      "type": "object", "additionalProperties": false, "required": ["key", "params"],
+      "description": "A sentence as a message key and its parameters; the page owns the English and Arabic templates. Parameter names carry their unit: *_pct is a percentage (85.7), *_rate a fraction, *_hours hours, name/names Monday values, everything else a count or a code.",
+      "properties": {
+        "key": {"type": "string", "pattern": "^verdict\\.[a-z0-9_.]+$"},
+        "params": {"type": "object", "additionalProperties": {"oneOf": [{"type": "string"}, {"type": "number"}, {"type": "array", "items": {"type": "string"}}]}}
+      }
+    },
+    "confidence": {"enum": ["high", "medium", "low"]},
+    "tier": {"enum": ["best", "steady", "watch", "weakest", "low_activity"]},
+    "editor": {
+      "type": "object", "additionalProperties": false,
+      "required": ["editor_id", "display_name", "tier", "rank", "ranked_of", "score", "score_parts", "confidence", "confidence_reasons", "headline", "reasons",
+                   "based_on", "metrics", "overdue", "photo_url", "finding_ids", "hidden_finding_ids"],
+      "properties": {
+        "editor_id": {"type": "string"},
+        "display_name": {"type": "string"},
+        "tier": {"$ref": "#/$defs/tier"},
+        "rank": {"type": ["integer", "null"], "minimum": 1},
+        "ranked_of": {"type": "integer", "minimum": 0},
+        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "score_parts": {"type": "object", "additionalProperties": false, "properties": {
+          "deadlines": {"type": "number"}, "speed": {"type": "number"}, "volume": {"type": "number"}, "quality": {"type": "number"}}},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "confidence_reasons": {"type": "array", "items": {"enum": ["few_projects", "missing_dimension", "missing_deadlines", "missing_speed", "missing_volume",
+                                                                    "missing_quality", "mixed_evidence", "timeline_only"]}},
+        "headline": {"$ref": "#/$defs/msg"},
+        "reasons": {"type": "array", "maxItems": 4, "items": {"$ref": "#/$defs/msg"}},
+        "based_on": {"type": "array", "items": {"enum": ["deadlines", "speed", "volume", "quality"]}},
+        "metrics": {
+          "type": "object", "additionalProperties": false,
+          "required": ["completed", "active", "lifetime_completed", "late_rate", "late_count", "deadline_classifiable", "team_late_rate", "speed_delta_pct",
+                       "speed_label", "speed_classified", "own_speed_delta_pct", "quality", "late_tone", "speed_band", "speed_tone"],
+          "properties": {
+            "completed": {"type": "integer", "minimum": 0},
+            "active": {"type": "integer", "minimum": 0},
+            "lifetime_completed": {"type": "integer", "minimum": 0},
+            "late_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "late_count": {"type": ["integer", "null"], "minimum": 0},
+            "deadline_classifiable": {"type": "integer", "minimum": 0},
+            "team_late_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "speed_delta_pct": {"type": ["number", "null"]},
+            "speed_label": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/msg"}]},
+            "speed_classified": {"type": "boolean", "description": "true when the Video Type comparison meets the approved Speed sample rules (D52)"},
+            "own_speed_delta_pct": {"type": ["number", "null"]},
+            "quality": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/msg"}]},
+            "late_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the late-rate bar: bad above the team rate plus display.late_bad_above_team_pp, warn above the team rate, good otherwise; neutral without a late rate"},
+            "speed_band": {"enum": ["faster", "same", "slower", null], "description": "How the speed comparison reads: same within display.speed_same_band_pct, otherwise faster or slower; null without a comparison"},
+            "speed_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the speed pill: good faster, warn slower up to display.speed_bad_above_pct, bad beyond it; neutral when the same, unclassified (D52) or missing"}
+          }
+        },
+        "overdue": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false,
+          "required": ["project_id", "project_name", "status", "source_url", "requested_eta", "hours_past_eta"],
+          "properties": {"project_id": {"type": "string"}, "project_name": {"$ref": "#/$defs/msg"}, "status": {"type": "string"},
+                         "source_url": {"type": ["string", "null"]}, "requested_eta": {"type": ["string", "null"]},
+                         "hours_past_eta": {"type": ["number", "null"]}}}},
+        "photo_url": {"type": ["string", "null"]},
+        "finding_ids": {"type": "array", "items": {"type": "string"}},
+        "hidden_finding_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "team": {
+      "type": "object", "additionalProperties": false,
+      "required": ["headline", "supporting", "state", "trend", "confidence", "chain", "kpis", "facts"],
+      "properties": {
+        "headline": {"$ref": "#/$defs/msg"},
+        "supporting": {"$ref": "#/$defs/msg"},
+        "state": {"enum": ["on_track", "needs_intervention", "critical"]},
+        "trend": {"enum": ["improving", "flat", "declining"]},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "chain": {"type": "object", "additionalProperties": false, "required": ["fact", "pattern", "conclusion"],
+                  "properties": {"fact": {"$ref": "#/$defs/msg"}, "pattern": {"$ref": "#/$defs/msg"}, "conclusion": {"$ref": "#/$defs/msg"}}},
+        "kpis": {"type": "array", "maxItems": 3, "items": {"type": "object", "additionalProperties": false, "required": ["key", "value", "label", "tone"],
+          "properties": {"key": {"type": "string"}, "value": {"type": "string"}, "label": {"$ref": "#/$defs/msg"}, "tone": {"enum": ["good", "warn", "bad", "neutral"]}}}},
+        "facts": {"type": "object", "description": "The team inputs the verdict used (late rates and counts per window, overdue count, short-runway split)."}
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "type", "horizon", "title", "owner_editor_ids", "owner_role", "confidence", "evidence", "priority", "target"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^dec-[0-9a-f]{12}$"},
+        "type": {"enum": ["overdue_open_work", "weakest_editor", "scheduling_runway", "low_activity", "approve_rule"]},
+        "horizon": {"enum": ["today", "this_week", "ask", "management"]},
+        "title": {"$ref": "#/$defs/msg"},
+        "owner_editor_ids": {"type": "array", "items": {"type": "string"}},
+        "owner_role": {"enum": ["scheduling_owner", "editors_manager", "ceo", null]},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/msg"}},
+        "priority": {"type": "integer", "minimum": 1},
+        "target": {"type": ["string", "null"], "description": "Where the decision's detail lives in the app, e.g. rule:quality"}
+      }
+    }
+  }
+}

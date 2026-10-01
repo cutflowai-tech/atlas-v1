@@ -102,6 +102,8 @@ jobs:
         run: make i18n
       - name: Contract 1.5 Editors app UI tests (including Intelligence V2, EN/AR)
         run: make ui-v15
+      - name: Redesign snapshot, verdict engine and judgment-first UI tests
+        run: make redesign
       - name: Status dashboard UI tests
         run: make status-ui
       - name: Sync status and data health tests

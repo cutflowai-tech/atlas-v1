@@ -7,9 +7,10 @@ exactly as the profile states it, and its CSS class is chosen from that value.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from typing import Any
 
 from atlas_commander.i18n import Html, Loc
@@ -135,9 +136,35 @@ def section_head(title: str, sub: str = "", extra: str = "") -> str:
     return f'<div class="sec-h"><div><h2>{title}</h2>{f"<p>{sub}</p>" if sub else ""}</div>{extra}</div>'
 
 
+_TAG = re.compile(r"<[^>]+>")
+_CELL = re.compile(r"<td(?=[\s>])([^>]*)>")
+_COLSPAN = re.compile(r"colspan=\"?(\d+)")
+
+
+def _labelled(rows: str, labels: Sequence[str]) -> str:
+    """Give every body cell its column header as ``data-label`` so narrow screens can show each row as a stacked record."""
+    def row(match: re.Match[str]) -> str:
+        column = 0
+
+        def cell(found: re.Match[str]) -> str:
+            nonlocal column
+            attrs = found.group(1)
+            span = int(m.group(1)) if (m := _COLSPAN.search(attrs)) else 1
+            label = labels[column] if span == 1 and column < len(labels) else ""
+            column += span
+            return f'<td{attrs} role="cell"' + (f' data-label="{attr(label)}">' if label else ">")
+        return "<tr" + match.group(1) + ' role="row">' + _CELL.sub(cell, match.group(2)) + "</tr>"
+    return re.sub(r"<tr([^>]*)>(.*?)</tr>", row, rows, flags=re.DOTALL)
+
+
 def table(head: Iterable[str], rows: str, empty: str) -> str:
-    heads = "".join(f"<th scope=col>{h}</th>" for h in head)
-    return f'<div class="tbl"><table><thead><tr>{heads}</tr></thead><tbody>{rows or empty}</tbody></table></div>'
+    """A data table. Below 768 px the stylesheet turns each row into a key/value record (ATLAS-MOBILE-001); explicit roles keep
+    the table semantics that ``display: block`` would otherwise remove."""
+    head = list(head)
+    heads = "".join(f'<th scope=col role="columnheader">{h}</th>' for h in head)
+    labels = [unescape(_TAG.sub("", str(h))).strip() for h in head]
+    return (f'<div class="tbl"><table role="table"><thead><tr role="row">{heads}</tr></thead>'
+            f'<tbody>{_labelled(rows or empty, labels)}</tbody></table></div>')
 
 
 def meter(value: float, maximum: float, cls: str = "") -> str:
@@ -173,17 +200,17 @@ def project_evidence(editor_name: str, row: Mapping[str, Any], ctx: Ctx) -> str:
         issue = row["requested_eta_issue"]
         reason = (loc.t(f"eta_issue.{issue}") if loc.has(f"eta_issue.{issue}") else loc.tech(issue)) if issue else loc.t("common.not_classified")
         deadline = loc.t("evidence.deadline_unclassified", reason=reason)
-    set_at = (f' <span class="muted">{loc.t("evidence.eta_set_at", date=loc.date(row["requested_eta_observed_at"]))}</span>'
+    set_at = (f' <span class="muted">{loc.t("evidence.eta_set_at", date=loc.when(row["requested_eta_observed_at"]))}</span>'
               if row.get("requested_eta_observed_at") else "")
     duration = loc.hours(row["duration_seconds"]) + ("" if row["speed_eligible"] else Html(" · " + loc.t("evidence.not_used_for_speed")))
     content = dl([
         (loc.t("field.editor"), loc.src(editor_name)),
         (loc.t("field.monday_item"), item_link(row["monday_item_id"], ctx)),
         (loc.t("field.video_type"), loc.labels(row["cohort_labels"])),
-        (loc.t("field.work_started"), escape(loc.date(row["in_progress_at"]))),
-        (loc.t("field.ready_for_approval"), escape(loc.date(row["ready_for_approval_at"]))),
+        (loc.t("field.work_started"), loc.when(row["in_progress_at"])),
+        (loc.t("field.ready_for_approval"), loc.when(row["ready_for_approval_at"])),
         (loc.t("field.work_duration"), duration),
-        (loc.t("field.requested_eta"), escape(loc.date(row["requested_eta"])) + set_at),
+        (loc.t("field.requested_eta"), loc.when(row["requested_eta"]) + set_at),
         (loc.t("field.deadline"), deadline),
     ])
     ignored = row.get("requested_eta_changes_ignored_after_ready_for_approval") or 0
@@ -217,7 +244,7 @@ def project_list(s: Mapping[str, Any], ctx: Ctx, item_ids: Iterable[str] | None 
         result = row["deadline_result"]
         deadline = (f'<span class="res-{result}">{loc.t(f"result.{result}")} {loc.hours(row["deadline_delta_seconds"], signed=True)}</span>' if result
                     else f'<span class="muted">{loc.t("common.not_classified_lower")}</span>')
-        cells = (f'<span>{escape(loc.date(row["ready_for_approval_at"], False))}</span><span>{loc.labels(row["cohort_labels"])}</span>'
+        cells = (f'<span>{loc.when(row["ready_for_approval_at"], False)}</span><span>{loc.labels(row["cohort_labels"])}</span>'
                  f'<span>{deadline}</span><span class="soft">{loc.comma().join(loc.src(label) for label in row["quality_labels"])}</span>'
                  f'<span class="muted">{loc.hours(row["duration_seconds"])}</span>')
         out.append(f'<button type="button" data-drawer="{escape(project_tid(s["editor_id"], row["monday_item_id"]))}">{cells}</button>')
