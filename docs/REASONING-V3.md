@@ -40,6 +40,8 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `reasoning_input_boundary` | 01 | The one approved input path from Atlas |
 | `enums` | 02 | Strict enums shared by contracts, database and later phases |
 | `contracts` | 02 | `ReasoningCase`, `ReasoningResult`, `ReasoningUpdate`: schemas, typed models, semantic validators |
+| `store.db`, `store.migrate`, `store.repository`, `store.health` | 03 | PostgreSQL connection, migration bootstrap, data access, health |
+| `__main__` | 03+ | Operator commands (`python -m atlas_reasoning ...`) |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -190,3 +192,71 @@ data = case.to_dict()                          # exact round trip
 result = ReasoningResult.from_dict(llm_json)   # raises ContractViolation (with .codes) on any violation
 problems = result_case_errors(result.to_dict(), case.to_dict())
 ```
+
+## 4. Phase 03: canonical state in PostgreSQL
+
+PostgreSQL is the canonical store of Reasoning V3 application state; Honcho (Phase 10) will only ever hold copies of context.
+Every table lives in the PostgreSQL schema `atlas_reasoning`, so the database can be shared and a test database reset by dropping
+one schema. Monday raw data is never copied here: evidence is referenced by Monday item, cycle and event IDs.
+
+### 4.1 Setup
+
+```bash
+python3 -m pip install -r requirements-reasoning.txt          # psycopg 3 (also pulled in by requirements-dev.txt)
+export ATLAS_REASONING_DATABASE_URL=postgresql://atlas@127.0.0.1:5432/atlas_reasoning   # or ..._URL_FILE=/run/secrets/<file>
+PYTHONPATH=src python3 -m atlas_reasoning migrate             # idempotent; works with ATLAS_REASONING_V3 off
+PYTHONPATH=src python3 -m atlas_reasoning db-health           # exit 0 only when reachable, fully migrated and untampered
+```
+
+Local development needs any PostgreSQL 14+ (`brew install postgresql@17`, or `docker run -e POSTGRES_PASSWORD=... -p 5432:5432
+postgres:17`). Tests use a separate, disposable database: `ATLAS_REASONING_TEST_DATABASE_URL` (its name must contain `test`;
+each test drops and re-creates the `atlas_reasoning` schema). Without it the database tests are skipped locally; CI runs a
+`postgres:17` service and sets `ATLAS_REASONING_REQUIRE_DB_TESTS=1`, which turns a missing database into a failure. The
+production sync image does not include psycopg until Reasoning V3 is rolled out (Phase 20); `psycopg` is imported only when a
+database is opened.
+
+### 4.2 Migrations
+
+`src/atlas_reasoning/store/migrations/NNNN_<name>.sql`, applied in order, each in its own transaction under an advisory lock
+(concurrent bootstraps apply each file once). `schema_migrations` records each file's SHA-256; a changed applied file is refused —
+change the schema with a new file. **Number ranges** so parallel branches never collide: `0001–0099` foundation (this work),
+`0100–0199` Chat 2 (Phases 07–09, 15, 17–18), `0200–0299` Chat 3 (Phases 10–14, 16).
+
+### 4.3 Tables (`0001_reasoning_core.sql`)
+
+| Table | Key | Purpose and main constraints |
+|---|---|---|
+| `reasoning_runs` | `run_id` (`run_…`) | One run over one `source_snapshot_id`, with upstream contract, V2, boundary, identity and fingerprint versions; status `started → gated → complete/partial/degraded/failed`; per-action counts |
+| `reasoning_cases` | `case_id` (`rc1_…`), `identity_key` UNIQUE | Stable identity (`case_type`, `subject_type`, `subject_id`, `topic_key`, optional `video_type`/`workflow_stage`/`detector_family`/`signal`) — immutable by trigger; observation state: `last_evidence_fingerprint` (deferred FK to its evidence), `presence`, `absent_since_run_id`, `consecutive_absent_runs` |
+| `reasoning_case_evidence` | (`case_id`, `evidence_fingerprint`) | Each distinct evidence state once: canonical evidence + the `ReasoningCase` document; append-only |
+| `reasoning_case_observations` | (`run_id`, `case_id`) | The Change Gate decision and reason for every known case in every run; CHECKs tie action to fingerprints (unchanged ⇒ same fingerprint and no work; updated ⇒ different fingerprints and a delta; disappeared ⇒ no fingerprint); append-only |
+| `reasoning_work_items` | `work_item_id` (`wi_…`) | Gate output for later phases: `new_result` / `update_result` (LLM) or `lifecycle`; partial UNIQUE: one open LLM item and one open lifecycle item per case; superseding links (deferred FK) |
+| `reasoning_results` | `result_id` (`rr1_…`) | Result identity, `current_version` (deferred FK to the version row), lifecycle, supersession link; partial UNIQUE: one open result per case; `result_id`/`case_id`/`created_at` immutable |
+| `reasoning_result_versions` | (`result_id`, `version`) | Full `ReasoningResult` document per version, the `ReasoningUpdate` that produced it, change kind (`created`/`patched`/`no_change_review`/`lifecycle`), provenance; CHECKs tie the JSON to the columns; append-only |
+| `reasoning_evidence_links` | (`result_id`, `version`, `ref_id`) | Every evidence reference a version cites, resolvable to Monday item, cycle and event IDs and to the case evidence state; append-only |
+| `manager_notes`, `manager_note_revisions` | `note_id` | Phase 12: attributed `manager_interpretation` notes; composite FK keeps a note's case equal to its result's case |
+| `atlas_questions`, `atlas_answers` | `question_id`, `answer_id` | Phase 13: partial UNIQUE one open question per (case, dedup key); answers are `manager_answer`, append-only, with conflict links |
+| `teachings`, `teaching_revisions` | `teaching_id` | Phase 14: scope, type, validity, status as CHECKed enums; company scope ⇔ no scope ID; date ranges ordered |
+| `llm_calls` | `call_id`, `request_id` UNIQUE | Phase 06: provider-call metadata only (never prompts, responses or credentials); append-only |
+| `memory_sync_log` | `sync_id` | Phase 10: one row per (source, session, operation, content hash); canonical rows are written first |
+
+Every status column is a CHECK constraint whose values equal `atlas_reasoning.enums` (`tests/test_reasoning_store.py`).
+
+### 4.4 Data access (`atlas_reasoning.store.repository`)
+
+```python
+store = ReasoningStore(Database(settings.database_url()))
+with store.transaction() as tx:          # one transaction: everything in the block commits together or not at all
+    run_id = tx.create_run(...)
+    tx.insert_case(...); tx.put_case_evidence(...); tx.record_observation(...); tx.create_work_item(...)
+    tx.create_result(result)             # result + version 1 + evidence links, validated against its case
+    tx.append_result_version(new_version, expected_version=n, change_kind=..., update=...)   # VersionConflict on a race
+store.get_result(result_id, version=None); store.result_history(result_id); store.case_debug(case_id)
+```
+
+The store validates every result version against reasoning-v1 and against its case's stored evidence state, and checks what a new
+version may change: identity and `created_at` never; a patch exactly its listed fields (to exactly their values,
+`PATCH_NOT_APPLIED` / `UNPATCHED_FIELD_CHANGED`); a no-change review and a lifecycle version no patchable field. Errors:
+`NotFound`, `VersionConflict`, `ResultConflict`, `CaseIdentityCollision`, `EvidenceCollision`, `ContractViolation`.
+
+Debug: `python -m atlas_reasoning case <case_id> | result <result_id> | run <run_id>`.
