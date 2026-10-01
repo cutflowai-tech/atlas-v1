@@ -9,10 +9,10 @@ the production sync image, never need it.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from atlas_reasoning.settings import ReasoningConfigError
 
@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 SCHEMA = "atlas_reasoning"
 APPLICATION_NAME = "atlas-reasoning"
-_PASSWORD = re.compile(r"(://[^:/@]+:)[^@]*@")
 
 
 class DatabaseError(RuntimeError):
@@ -29,8 +28,19 @@ class DatabaseError(RuntimeError):
 
 
 def redact_url(url: str) -> str:
-    """The URL with any password replaced, safe for logs and health output."""
-    return _PASSWORD.sub(r"\1***@", url)
+    """The URL with any credentials replaced (userinfo password, ``password=`` query parameters), safe for logs and health output."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<unparseable database URL>"
+    netloc = parts.netloc
+    if "@" in netloc:
+        userinfo, host = netloc.rsplit("@", 1)
+        user = userinfo.split(":", 1)[0]
+        netloc = f"{user}:***@{host}" if ":" in userinfo else f"{user}@{host}"
+    query = urlencode([(key, "***" if key.lower() in ("password", "passfile", "sslpassword") else value)
+                       for key, value in parse_qsl(parts.query, keep_blank_values=True)])
+    return urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment))
 
 
 def _driver() -> Any:
@@ -64,7 +74,7 @@ class Database:
             conn = psycopg.connect(self._url, connect_timeout=self.connect_timeout, application_name=APPLICATION_NAME, row_factory=dict_row,
                                    options=f"-c search_path={SCHEMA},public -c statement_timeout={int(self.statement_timeout_ms)}")
         except psycopg.Error as error:
-            raise DatabaseError(f"cannot connect to {self.display_url}: {type(error).__name__}: {redact_url(str(error)).strip()}") from None
+            raise DatabaseError(f"cannot connect to {self.display_url}: {type(error).__name__}: {_scrub(str(error), self._url)}") from None
         return conn
 
     @contextmanager
@@ -76,3 +86,16 @@ class Database:
                 yield conn
         finally:
             conn.close()
+
+
+def _scrub(message: str, url: str) -> str:
+    """A driver message with the URL's password (in any position) removed."""
+    try:
+        password = urlsplit(url).password
+    except ValueError:
+        password = None
+    secrets = [password] if password else []
+    secrets += [value for key, value in parse_qsl(urlsplit(url).query) if key.lower() == "password" and value]
+    for secret in secrets:
+        message = message.replace(secret, "***")
+    return message.strip()

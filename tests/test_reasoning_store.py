@@ -20,7 +20,15 @@ from atlas_reasoning.enums import GateAction, ResultChangeKind, RunStatus, WorkK
 from atlas_reasoning.store.db import Database, DatabaseError, redact_url
 from atlas_reasoning.store.health import REQUIRED_TABLES, database_health
 from atlas_reasoning.store.migrate import MigrationError, apply_migrations, available_migrations
-from atlas_reasoning.store.repository import CaseIdentityCollision, EvidenceCollision, ReasoningStore, ResultConflict, VersionConflict, citations
+from atlas_reasoning.store.repository import (
+    CaseIdentityCollision,
+    EvidenceCollision,
+    ReasoningStore,
+    ResultConflict,
+    VersionConflict,
+    WorkTransitionError,
+    citations,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 LATER = "2026-09-29T00:05:00Z"
@@ -68,6 +76,15 @@ class ConfigTests(unittest.TestCase):
             if re.search(r"^\s*(import psycopg|from psycopg)", text, re.MULTILINE) or re.search(r"\b(INSERT INTO|SELECT \*|UPDATE reasoning_|DELETE FROM)\b", text):
                 offenders.append(str(path.relative_to(ROOT)))
         self.assertEqual(offenders, [])
+
+    def test_every_form_of_database_password_is_redacted(self):
+        for url in ("postgresql://atlas:s3cr3t-pw@db:5432/x", "postgresql://atlas@db/x?password=s3cr3t-pw&sslmode=require",
+                    "postgresql://atlas:p@s3cr3t-pw@db/x", "postgres://:s3cr3t-pw@db/x"):
+            with self.subTest(url=url):
+                shown = redact_url(url)
+                self.assertNotIn("s3cr3t-pw", shown)
+                self.assertNotIn("s3cr3t", shown)
+        self.assertEqual(redact_url("postgresql://atlas@127.0.0.1:5432/atlas_reasoning"), "postgresql://atlas@127.0.0.1:5432/atlas_reasoning")
 
     def test_migration_files_are_numbered_and_in_the_foundation_range(self):
         migrations = available_migrations()
@@ -305,6 +322,12 @@ class VersionHistoryTests(unittest.TestCase):
         self.assertIn("IMMUTABLE_FIELD", caught.exception.codes)
         self.assertEqual(len(self.store.result_history(self.v1["result_id"])), 1)
 
+    def test_a_lifecycle_version_records_no_update(self):
+        lifecycle = {**self.v1, "version": 2, "lifecycle_status": "cooling", "updated_at": LATER}
+        with self.assertRaises(ContractViolation), self.store.transaction() as tx:
+            tx.append_result_version(ReasoningResult.from_dict(lifecycle), expected_version=1, change_kind=ResultChangeKind.LIFECYCLE,
+                                     update=ReasoningUpdate.from_dict(self.update))
+
     def test_stale_writer_gets_a_version_conflict(self):
         v2 = patched(self.v1, self.update)
         with self.store.transaction() as tx:
@@ -420,7 +443,7 @@ class ConcurrencyTests(unittest.TestCase):
             thread.start()
         for thread in threads:
             thread.join()
-        self.assertEqual(outcomes.count("ok"), 1, outcomes)
+        self.assertEqual(sorted(outcomes), ["ResultConflict", "ok"], outcomes)
 
 
 @requires_db
@@ -429,18 +452,44 @@ class WorkItemTests(unittest.TestCase):
         self.store = ReasoningStore(fresh_database())
         self.run_id, self.case = seed(self.store)
 
+    def test_status_transitions_are_guarded(self):
+        fp = self.case["evidence_fingerprint"]
+        with self.store.transaction() as tx:
+            item = tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.NEW,
+                                       result_id=None, base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None,
+                                       case_document=self.case)
+            tx.set_work_item_status(item, WorkStatus.IN_PROGRESS)
+        with self.assertRaises(WorkTransitionError), self.store.transaction() as tx:
+            tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.UPDATED,
+                                result_id=None, base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None,
+                                supersedes=item, case_document=self.case)
+        for status in (WorkStatus.CANCELLED, WorkStatus.SUPERSEDED):
+            with self.subTest(status=status), self.assertRaises(WorkTransitionError), self.store.transaction() as tx:
+                tx.set_work_item_status(item, status)
+        with self.store.transaction() as tx:
+            tx.set_work_item_status(item, WorkStatus.DONE)
+        with self.assertRaises(WorkTransitionError), self.store.transaction() as tx:
+            tx.set_work_item_status(item, WorkStatus.FAILED)
+
+    def test_llm_work_requires_its_case_document(self):
+        with self.assertRaises(psycopg.errors.CheckViolation), self.store.transaction() as tx:
+            tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.NEW, result_id=None,
+                                base_result_version=None, fingerprint_before=None, fingerprint_after=self.case["evidence_fingerprint"], material_delta=None)
+
     def test_one_open_llm_item_per_case_and_superseding(self):
         fp = self.case["evidence_fingerprint"]
         with self.store.transaction() as tx:
             first = tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.NEW, result_id=None,
-                                        base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None)
+                                        base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None,
+                                        case_document=self.case)
         with self.assertRaises(psycopg.errors.UniqueViolation), self.store.transaction() as tx:
             tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.NEW, result_id=None,
-                                base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None)
+                                base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None,
+                                        case_document=self.case)
         with self.store.transaction() as tx:
             second = tx.create_work_item(run_id=self.run_id, case_id=self.case["case_id"], kind=WorkKind.NEW_RESULT, gate_action=GateAction.UPDATED,
                                          result_id=None, base_result_version=None, fingerprint_before=None, fingerprint_after=fp, material_delta=None,
-                                         supersedes=first)
+                                         supersedes=first, case_document=self.case)
         items = {item.work_item_id: item for item in self.store.work_items(case_id=self.case["case_id"])}
         self.assertEqual(items[first].status, WorkStatus.SUPERSEDED)
         self.assertEqual(items[second].status, WorkStatus.PENDING)

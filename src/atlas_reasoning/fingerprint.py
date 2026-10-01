@@ -32,7 +32,7 @@ FINGERPRINT_VERSION = "evidence-fingerprint-v1"
 FINGERPRINT_PREFIX = "ef1_"
 # Parameter and value keys that are operational metadata or display text, never evidence: removed at any depth before hashing.
 VOLATILE_KEYS = frozenset({"retrieved_at", "generated_at", "as_of", "calculated_at", "calculation_time", "start_date", "end_date_exclusive",
-                           "editor_name", "display_name", "group_label"})
+                           "editor_name", "display_name", "group_label", "cohort_label"})
 
 
 class EvidenceError(ValueError):

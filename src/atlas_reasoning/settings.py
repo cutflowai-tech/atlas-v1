@@ -34,6 +34,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit
 
 FLAG_ENV = "ATLAS_REASONING_V3"
 _ON = frozenset({"1", "on", "true", "yes"})
@@ -143,7 +144,9 @@ class OpenRouterSettings:
     base_url: str = DEFAULT_BASE_URL
 
     def __post_init__(self) -> None:
-        if not self.base_url.startswith("https://") and not self.base_url.startswith("http://127.0.0.1"):
+        parts = urlsplit(self.base_url)
+        local = parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost", "::1")   # local test servers only
+        if not (parts.scheme == "https" and parts.hostname) and not local:
             raise ReasoningConfigError(f"{BASE_URL_ENV} must be an https:// URL")
 
 

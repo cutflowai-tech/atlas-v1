@@ -12,7 +12,7 @@ from typing import Any
 
 from atlas_reasoning.case_mapping import CaseCandidate, Contribution
 from atlas_reasoning.contracts import OPPOSITE, evidence_ref_id
-from atlas_reasoning.enums import CONTRACT_VERSION, Direction, MemoryStatus
+from atlas_reasoning.enums import CONFIDENCE_ORDER, CONTRACT_VERSION, ConfidenceLevel, Direction, MemoryStatus
 from atlas_reasoning.fingerprint import EvidenceError, canonical_evidence, evidence_fingerprint
 from atlas_reasoning.frozen import thaw
 from atlas_reasoning.reasoning_input_boundary import STATEMENT_KINDS, EvidenceBlockRef, ReasoningInput
@@ -21,13 +21,22 @@ DIRECTIONAL = (Direction.ADVERSE, Direction.FAVOURABLE)
 
 
 def orientation(contributions: Iterable[Contribution]) -> Direction:
-    """The direction of the highest-ranked adverse or favourable finding of the case; ``mixed`` / ``neutral`` when there is none.
-    Ranking is Intelligence V2's own lexicographic order, which depends only on each finding's own evidence."""
-    ordered = sorted(contributions, key=lambda row: (row.finding.rank is None, row.finding.rank or 0, row.member_key))
-    for row in ordered:
-        if row.finding.direction in DIRECTIONAL:
-            return Direction(row.finding.direction)
-    return Direction.MIXED if any(row.finding.direction == Direction.MIXED for row in ordered) else Direction.NEUTRAL
+    """The case's direction: adverse or favourable, whichever side has more findings (then the stronger best upstream
+    confidence); ``mixed`` when the two sides tie or only mixed findings exist, ``neutral`` otherwise. It depends only on the
+    findings' own direction and confidence — never on Intelligence V2 ranks or finding IDs, which move with the window."""
+    rows = list(contributions)
+    strength = {}
+    for side in DIRECTIONAL:
+        levels = [CONFIDENCE_ORDER.index(ConfidenceLevel(row.finding.confidence_level)) for row in rows if row.finding.direction == side
+                  and row.finding.confidence_level in {level.value for level in ConfidenceLevel}]
+        count = sum(1 for row in rows if row.finding.direction == side)
+        strength[side] = (count, max(levels, default=-1))
+    adverse, favourable = strength[Direction.ADVERSE], strength[Direction.FAVOURABLE]
+    if adverse != favourable:
+        return Direction.ADVERSE if adverse > favourable else Direction.FAVOURABLE
+    if adverse[0] or any(row.finding.direction == Direction.MIXED for row in rows):
+        return Direction.MIXED
+    return Direction.NEUTRAL
 
 
 def _finding_ref(row: Contribution) -> dict[str, Any]:

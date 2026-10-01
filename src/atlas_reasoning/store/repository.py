@@ -66,6 +66,13 @@ class EvidenceCollision(StoreError):
     """The same evidence fingerprint was stored with different canonical evidence."""
 
 
+def _unique_violation() -> type[Exception]:
+    import psycopg
+
+    error: type[Exception] = psycopg.errors.UniqueViolation
+    return error
+
+
 def new_run_id() -> str:
     return f"run_{uuid.uuid4().hex}"
 
@@ -121,6 +128,21 @@ class WorkItemRow:
     fingerprint_before: str | None
     fingerprint_after: str | None
     material_delta: Mapping[str, Any] | None
+    case_document: Mapping[str, Any] | None = None
+
+
+# Allowed work-item status transitions: new status -> statuses it may come from. Anything else is refused (WorkTransitionError).
+WORK_TRANSITIONS = {
+    WorkStatus.IN_PROGRESS: (WorkStatus.PENDING,),
+    WorkStatus.PENDING: (WorkStatus.IN_PROGRESS,),
+    WorkStatus.DONE: (WorkStatus.PENDING, WorkStatus.IN_PROGRESS),
+    WorkStatus.FAILED: (WorkStatus.PENDING, WorkStatus.IN_PROGRESS),
+    WorkStatus.CANCELLED: (WorkStatus.PENDING,),
+}
+
+
+class WorkTransitionError(StoreError):
+    """A work item cannot move to the requested status from its current one."""
 
 
 @dataclass(frozen=True)
@@ -141,7 +163,7 @@ def _case_row(row: Mapping[str, Any]) -> CaseRow:
 def _work_row(row: Mapping[str, Any]) -> WorkItemRow:
     return WorkItemRow(row["work_item_id"], row["run_id"], row["case_id"], WorkKind(row["kind"]), GateAction(row["gate_action"]), WorkStatus(row["status"]),
                        row["requires_llm"], row["result_id"], row["base_result_version"], row["fingerprint_before"], row["fingerprint_after"],
-                       row["material_delta"])
+                       row["material_delta"], row.get("case_document"))
 
 
 def citations(result: Mapping[str, Any]) -> dict[str, list[str]]:
@@ -312,29 +334,55 @@ class StoreTransaction:
 
     def create_work_item(self, *, run_id: str, case_id: str, kind: WorkKind, gate_action: GateAction, result_id: str | None,
                          base_result_version: int | None, fingerprint_before: str | None, fingerprint_after: str | None,
-                         material_delta: Mapping[str, Any] | None, supersedes: str | None = None) -> str:
-        """Create a pending work item. ``supersedes`` closes an older open item of the same case in the same transaction."""
+                         material_delta: Mapping[str, Any] | None, supersedes: str | None = None,
+                         case_document: Mapping[str, Any] | None = None) -> str:
+        """Create a pending work item. LLM work carries the exact case document of the run that created it (its snapshot and
+        Intelligence V2 finding IDs). ``supersedes`` closes an older *pending* item of the same case in the same transaction; an
+        item already in progress is never superseded."""
         work_item_id = new_work_item_id()
         if supersedes is not None:
             # One open item per case and kind of work (partial unique index): close the old one before inserting its replacement.
             # The superseded_by foreign key is deferred, so it may name the replacement before the replacement row exists.
             closed = self._exec("""UPDATE reasoning_work_items SET status = 'superseded', superseded_by = %s, updated_at = now()
-                                   WHERE work_item_id = %s AND status = ANY(%s)""", (work_item_id, supersedes, list(OPEN_WORK)))
+                                   WHERE work_item_id = %s AND status = 'pending'""", (work_item_id, supersedes))
             if closed.rowcount != 1:
-                raise StoreError(f"work item {supersedes} is not open and cannot be superseded")
+                raise WorkTransitionError(f"work item {supersedes} is not pending and cannot be superseded")
         self._exec("""INSERT INTO reasoning_work_items (work_item_id, run_id, case_id, kind, gate_action, status, requires_llm, result_id,
-                                                               base_result_version, fingerprint_before, fingerprint_after, material_delta)
-                             VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s, %s::jsonb)""",
+                                                               base_result_version, fingerprint_before, fingerprint_after, material_delta,
+                                                               case_document)
+                             VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)""",
                           (work_item_id, run_id, case_id, kind, gate_action, kind in (WorkKind.NEW_RESULT, WorkKind.UPDATE_RESULT), result_id,
-                           base_result_version, fingerprint_before, fingerprint_after, _json(material_delta) if material_delta is not None else None))
+                           base_result_version, fingerprint_before, fingerprint_after, _json(material_delta) if material_delta is not None else None,
+                           _json(case_document) if case_document is not None else None))
         return work_item_id
 
     def set_work_item_status(self, work_item_id: str, status: WorkStatus, *, error: str | None = None) -> None:
+        """Move a work item along ``WORK_TRANSITIONS`` (superseding is only done by ``create_work_item``)."""
+        allowed = WORK_TRANSITIONS.get(status)
+        if allowed is None:
+            raise WorkTransitionError(f"a work item cannot be set to {status} directly")
         updated = self._exec("""UPDATE reasoning_work_items SET status = %s, last_error = COALESCE(%s, last_error),
-                                              attempts = attempts + CASE WHEN %s IN ('done', 'failed') THEN 1 ELSE 0 END, updated_at = now()
-                                       WHERE work_item_id = %s""", (status, error, status, work_item_id))
+                                       attempts = attempts + CASE WHEN %s IN ('done', 'failed') THEN 1 ELSE 0 END, updated_at = now()
+                                WHERE work_item_id = %s AND status = ANY(%s)""", (status, error, status, work_item_id, list(allowed)))
         if updated.rowcount != 1:
-            raise NotFound(f"work item {work_item_id} does not exist")
+            row = self._one("SELECT status FROM reasoning_work_items WHERE work_item_id = %s", (work_item_id,))
+            if row is None:
+                raise NotFound(f"work item {work_item_id} does not exist")
+            raise WorkTransitionError(f"work item {work_item_id} is {row['status']}; it cannot become {status}")
+
+    def unreasoned_cases(self) -> list[dict[str, Any]]:
+        """Present cases whose current evidence has neither an open result reasoned on it nor open LLM work — for example after a
+        failed or cancelled work item. The Change Gate never re-creates such work for unchanged evidence (zero LLM work); the
+        resume / reliability phase uses this list."""
+        return self._all("""SELECT c.case_id, c.last_evidence_fingerprint, r.result_id, v.evidence_fingerprint AS result_fingerprint
+                            FROM reasoning_cases c
+                            LEFT JOIN reasoning_results r ON r.case_id = c.case_id AND r.lifecycle_status = ANY(%s)
+                            LEFT JOIN reasoning_result_versions v ON v.result_id = r.result_id AND v.version = r.current_version
+                            WHERE c.presence = 'present'
+                              AND v.evidence_fingerprint IS DISTINCT FROM c.last_evidence_fingerprint
+                              AND NOT EXISTS (SELECT 1 FROM reasoning_work_items w WHERE w.case_id = c.case_id AND w.requires_llm
+                                              AND w.status = ANY(%s))
+                            ORDER BY c.case_id""", (list(OPEN_LIFECYCLE), list(OPEN_WORK)))
 
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         clauses: list[str] = []
@@ -400,14 +448,19 @@ class StoreTransaction:
         document, case_document = self._validated(result)
         if result.version != 1:
             raise ContractViolation("ReasoningResult", [f"VERSION_SEQUENCE: a new result starts at version 1, not {result.version}"])
+        self._exec("SELECT case_id FROM reasoning_cases WHERE case_id = %s FOR UPDATE", (result.case_id,))   # serialize creators per case
         if self.open_result(result.case_id) is not None:
             raise ResultConflict(f"case {result.case_id} already has an open result")
         superseded = document["superseded_by"] or {}
-        self._exec("""INSERT INTO reasoning_results (result_id, case_id, current_version, lifecycle_status, superseded_by_case_id,
-                                                            superseded_by_result_id, created_at, updated_at)
-                             VALUES (%s, %s, 1, %s, %s, %s, %s, %s)""",
-                          (result.result_id, result.case_id, result.lifecycle_status, superseded.get("case_id"), superseded.get("result_id"),
-                           result.created_at, result.updated_at))
+        try:
+            with self.conn.transaction():
+                self._exec("""INSERT INTO reasoning_results (result_id, case_id, current_version, lifecycle_status, superseded_by_case_id,
+                                                                    superseded_by_result_id, created_at, updated_at)
+                                     VALUES (%s, %s, 1, %s, %s, %s, %s, %s)""",
+                                  (result.result_id, result.case_id, result.lifecycle_status, superseded.get("case_id"), superseded.get("result_id"),
+                                   result.created_at, result.updated_at))
+        except _unique_violation() as error:
+            raise ResultConflict(f"case {result.case_id} already has an open result, or result {result.result_id} exists") from error
         self._insert_version(document, case_document, ResultChangeKind.CREATED, None, run_id, work_item_id, "created")
 
     def append_result_version(self, result: ReasoningResult, *, expected_version: int, change_kind: ResultChangeKind,
@@ -416,6 +469,8 @@ class StoreTransaction:
         """Append ``result`` as the version after ``expected_version``. Raises ``VersionConflict`` when another writer got there first."""
         if change_kind == ResultChangeKind.CREATED:
             raise ContractViolation("ReasoningResult", ["VERSION_SEQUENCE: use create_result for version 1"])
+        if change_kind == ResultChangeKind.LIFECYCLE and update is not None:
+            raise ContractViolation("ReasoningUpdate", ["ACTION_MISMATCH: a lifecycle version records no ReasoningUpdate"])
         if change_kind in (ResultChangeKind.PATCHED, ResultChangeKind.NO_CHANGE_REVIEW) and update is None:
             raise ContractViolation("ReasoningUpdate", ["ACTION_MISMATCH: a patched or reviewed version records its ReasoningUpdate"])
         document, case_document = self._validated(result)

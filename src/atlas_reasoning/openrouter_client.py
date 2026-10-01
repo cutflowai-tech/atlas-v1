@@ -20,6 +20,7 @@ Live calls happen only when explicitly requested (``python -m atlas_reasoning pr
 
 from __future__ import annotations
 
+import http.client
 import json
 import socket
 import urllib.error
@@ -113,7 +114,7 @@ class OpenRouterTransport:
             if isinstance(error.reason, (TimeoutError, socket.timeout)):
                 raise ProviderTimeout(f"no response within {timeout:g}s") from None
             raise ProviderNetworkError(self._clean(f"cannot reach OpenRouter: {error.reason}")) from None
-        except OSError as error:
+        except (OSError, http.client.HTTPException) as error:
             raise ProviderNetworkError(self._clean(f"cannot reach OpenRouter: {type(error).__name__}: {error}")) from None
         return self._response(request, model, result)
 

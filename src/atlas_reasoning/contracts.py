@@ -233,8 +233,16 @@ def result_semantic_errors(result: Mapping[str, Any]) -> list[str]:
 
 def update_semantic_errors(update: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
-    changed = [row.get("field") for row in update.get("changed_fields") or [] if isinstance(row, Mapping)]
-    preserved = list(update.get("preserved_fields") or [])
+    raw_changed = update.get("changed_fields")
+    raw_preserved = update.get("preserved_fields")
+    # Only well-typed names take part (anything else is a schema error already): malformed input never crashes validation.
+    changed = [row.get("field") for row in raw_changed if isinstance(row, Mapping) and isinstance(row.get("field"), str)] \
+        if isinstance(raw_changed, list) else []
+    preserved = [name for name in raw_preserved if isinstance(name, str)] if isinstance(raw_preserved, list) else []
+    malformed = [row for row in raw_changed if not (isinstance(row, Mapping) and isinstance(row.get("field"), str))] if isinstance(raw_changed, list) else []
+    malformed += [name for name in raw_preserved if not isinstance(name, str)] if isinstance(raw_preserved, list) else []
+    if malformed or not isinstance(raw_changed, list) or not isinstance(raw_preserved, list):
+        errors.append("SCHEMA_INVALID: changed_fields and preserved_fields must be lists naming fields as strings")
     for name in [*changed, *preserved]:
         if name in IMMUTABLE_RESULT_FIELDS:
             errors.append(f"IMMUTABLE_FIELD: {name} is not patchable")
@@ -253,8 +261,8 @@ def update_semantic_errors(update: Mapping[str, Any]) -> list[str]:
         errors.append("ACTION_MISMATCH: a no_change update changes nothing")
     if action == UpdateAction.PATCH and not changed:
         errors.append("ACTION_MISMATCH: a patch changes at least one field")
-    for row in update.get("changed_fields") or []:
-        if isinstance(row, Mapping) and row.get("field") in PATCHABLE_FIELDS:
+    for row in raw_changed if isinstance(raw_changed, list) else []:
+        if isinstance(row, Mapping) and isinstance(row.get("field"), str) and row["field"] in PATCHABLE_FIELDS:
             errors.extend(f"INVALID_FIELD_VALUE: {row['field']}: {error}" for error in field_value_errors(str(row["field"]), row.get("value")))
     return errors
 

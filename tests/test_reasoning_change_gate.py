@@ -108,6 +108,18 @@ class FingerprintTests(unittest.TestCase):
         self.assertEqual({k: d["evidence_fingerprint"] for k, d in later.items()}, expected)
         self.assertNotEqual(next(iter(later.values()))["source_snapshot_id"], snapshots.reasoning_input().snapshot.source_snapshot_id)
 
+    def test_orientation_and_fingerprint_ignore_v2_ranks_and_labels(self):
+        expected = {k: (d["orientation"], d["evidence_fingerprint"]) for k, d in documents(payload_with(rows())).items()}
+        changed = rows()
+        ranks = list(range(1, len(changed) + 1))
+        random.Random(11).shuffle(ranks)
+        for rank, row in zip(ranks, changed):
+            row["importance"]["rank"] = rank
+            for statement in row["statements"]:
+                if "cohort_label" in statement["params"]:
+                    statement["params"]["cohort_label"] = "Renamed Video Type"
+        self.assertEqual({k: (d["orientation"], d["evidence_fingerprint"]) for k, d in documents(payload_with(changed)).items()}, expected)
+
     def test_fingerprint_is_verifiable_from_the_case_itself(self):
         document = documents(snapshots.reasoning_input())[DEADLINE_12]
         tampered = copy.deepcopy(document)
@@ -356,6 +368,62 @@ class ChangeGateTests(unittest.TestCase):
         self.assertEqual((decision.action, decision.reason_code, decision.work_item_id), (GateAction.UNCHANGED, REAPPEARED_SAME_EVIDENCE, None))
         self.assertEqual(self.store.get_case(case_id).presence, "present")
         self.assertEqual(len(self.store.observations(case_id=case_id)), 4)
+
+    def test_work_items_carry_the_document_of_their_own_run(self):
+        """Review finding: evidence F, then G, then F again with new snapshot and finding IDs: the work targets snapshot 3's document."""
+        run_gate(payload_with(rows(), "snap-1"), self.store, now=T0)
+        changed = rows()
+        for statement in first_change_editor(changed)["statements"]:
+            statement["params"]["current"] = 0.8125
+        run_gate(payload_with(changed, "snap-2"), self.store, now=T1)
+        renamed = rows()
+        for i, row in enumerate(renamed):
+            row["finding_id"] = f"{row['finding_type']}:{i:016x}"
+        report = run_gate(payload_with(renamed, "snap-3"), self.store, now="2026-09-28T02:10:00Z")
+        decision = self._decisions(report)[DEADLINE_12]
+        self.assertEqual(decision.action, GateAction.UPDATED)
+        with self.store.transaction() as tx:
+            item = tx.open_work_item(decision.case_id, requires_llm=True)
+            case = case_for_work(tx, item)
+        self.assertEqual(case.source_snapshot_id, "snap-3")
+        current_ids = {row["finding_id"] for row in renamed}
+        self.assertTrue({f.finding_id for f in case.findings} <= current_ids)
+        self.assertTrue({ref.finding_id for ref in case.current_evidence.references} <= current_ids)
+
+    def test_in_progress_work_is_never_superseded_and_unreasoned_cases_are_listed(self):
+        first = run_gate(self.payload, self.store, now=T0)
+        case_id = self._decisions(first)[DEADLINE_12].case_id
+        with self.store.transaction() as tx:
+            item = tx.open_work_item(case_id, requires_llm=True)
+            tx.set_work_item_status(item.work_item_id, WorkStatus.IN_PROGRESS)
+        changed = rows()
+        for statement in first_change_editor(changed)["statements"]:
+            statement["params"]["current"] = 0.8125
+        report = run_gate(payload_with(changed, "snapshot-2"), self.store, now=T1)
+        decision = self._decisions(report)[DEADLINE_12]
+        self.assertIsNone(decision.work_item_id)
+        self.assertEqual(decision.detail["in_progress_work_item_id"], item.work_item_id)
+        with self.store.transaction() as tx:
+            self.assertEqual(tx.open_work_item(case_id, requires_llm=True).status, WorkStatus.IN_PROGRESS)
+            tx.set_work_item_status(item.work_item_id, WorkStatus.FAILED, error="provider outage")
+            unreasoned = {row["case_id"] for row in tx.unreasoned_cases()}
+        self.assertIn(case_id, unreasoned, "failed work leaves the case listed for the resume phase")
+        again = run_gate(payload_with(changed, "snapshot-2"), self.store, now="2026-09-28T02:10:00Z")
+        self.assertEqual(again.llm_work_item_ids, (), "unchanged evidence never creates work, even after a failure")
+
+    def test_reappearance_cancels_stale_lifecycle_work(self):
+        first = run_gate(self.payload, self.store, now=T0)
+        case_id = self._decisions(first)[DEADLINE_12].case_id
+        without = [r for r in rows() if r["scope"].get("editor_id") != "editor-label-12"]
+        run_gate(payload_with(without), self.store, now=T1)
+        lifecycle = [i for i in self.store.work_items(case_id=case_id) if i.kind == WorkKind.LIFECYCLE]
+        self.assertEqual([i.status for i in lifecycle], [WorkStatus.PENDING])
+        back = run_gate(self.payload, self.store, now="2026-09-28T02:10:00Z")
+        self.assertEqual(self._decisions(back)[DEADLINE_12].detail["cancelled_lifecycle_work_item_id"], lifecycle[0].work_item_id)
+        self.assertEqual([i.status for i in self.store.work_items(case_id=case_id) if i.kind == WorkKind.LIFECYCLE], [WorkStatus.CANCELLED])
+        run_gate(payload_with(without), self.store, now="2026-09-28T03:10:00Z")
+        self.assertEqual(sum(1 for i in self.store.work_items(case_id=case_id, open_only=True) if i.kind == WorkKind.LIFECYCLE), 1,
+                         "a later disappearance gets a fresh lifecycle item")
 
     def test_concurrent_gates_serialize(self):
         reports, errors = [], []

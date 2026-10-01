@@ -1,6 +1,7 @@
 """Reasoning V3 Phase 06: the provider gateway for GPT-5.6 Sol through OpenRouter (``REV/06``). No test makes a live call."""
 
 import ast
+import http.client
 import json
 import logging
 import os
@@ -286,7 +287,8 @@ class OpenRouterTransportTests(unittest.TestCase):
     def test_network_failures(self):
         for error, expected in ((TimeoutError("timed out"), ProviderTimeout), (TimeoutError(), ProviderTimeout),
                                 (urllib.error.URLError(TimeoutError()), ProviderTimeout), (urllib.error.URLError("refused"), ProviderNetworkError),
-                                (ConnectionResetError("reset"), ProviderNetworkError)):
+                                (ConnectionResetError("reset"), ProviderNetworkError), (http.client.IncompleteRead(b"partial"), ProviderNetworkError),
+                                (http.client.RemoteDisconnected("closed"), ProviderNetworkError)):
             with self.subTest(error=type(error).__name__):
                 transport, _ = self.transport(raise_=error)
                 with self.assertRaises(expected):
@@ -329,8 +331,11 @@ class SettingsTests(unittest.TestCase):
             self.assertNotIn(SECRET, str(caught.exception))
         with self.assertRaises(settings.ReasoningConfigError):
             settings.openrouter_settings({})
-        with self.assertRaises(settings.ReasoningConfigError):
-            settings.openrouter_settings({"OPENROUTER_API_KEY": SECRET, "ATLAS_REASONING_OPENROUTER_BASE_URL": "http://evil.example/api"})
+        for url in ("http://evil.example/api", "http://127.0.0.1.evil.example/api", "http://localhost.evil.example/api", "ftp://openrouter.ai"):
+            with self.subTest(url=url), self.assertRaises(settings.ReasoningConfigError):
+                settings.openrouter_settings({"OPENROUTER_API_KEY": SECRET, "ATLAS_REASONING_OPENROUTER_BASE_URL": url})
+        for url in ("https://openrouter.ai/api/v1", "http://127.0.0.1:8080/api/v1", "http://localhost:9/api"):
+            self.assertEqual(settings.openrouter_settings({"OPENROUTER_API_KEY": SECRET, "ATLAS_REASONING_OPENROUTER_BASE_URL": url}).base_url, url)
 
 
 class IsolationTests(unittest.TestCase):

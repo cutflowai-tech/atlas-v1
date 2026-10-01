@@ -21,6 +21,7 @@ Phase 07+ use ``case_for_work`` to obtain the exact ``ReasoningCase`` (with prev
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -133,6 +134,10 @@ def _changed_work(tx: StoreTransaction, run_id: str, case: PreparedCase, gate_ac
         kind, base_fp, base_version, result_id = WorkKind.NEW_RESULT, None, None, None
     else:
         kind, base_fp, base_version, result_id = WorkKind.UPDATE_RESULT, result.evidence_fingerprint, result.version, result.result_id
+    if pending is not None and pending.status == WorkStatus.IN_PROGRESS:
+        # Never pull work out from under a running worker: the resume phase picks up the newer evidence afterwards
+        # (StoreTransaction.unreasoned_cases).
+        return None, None, {"work": "deferred: an item for this case is in progress", "in_progress_work_item_id": pending.work_item_id}
     if base_fp == case.fingerprint:
         if pending is not None:
             tx.set_work_item_status(pending.work_item_id, WorkStatus.CANCELLED, error="evidence returned to the open result's state")
@@ -143,7 +148,7 @@ def _changed_work(tx: StoreTransaction, run_id: str, case: PreparedCase, gate_ac
         delta = material_delta(base, case.canonical, fingerprint_before=base_fp, fingerprint_after=case.fingerprint)
     work_item_id = tx.create_work_item(run_id=run_id, case_id=case.case_id, kind=kind, gate_action=gate_action, result_id=result_id,
                                        base_result_version=base_version, fingerprint_before=base_fp, fingerprint_after=case.fingerprint,
-                                       material_delta=delta, supersedes=pending.work_item_id if pending else None)
+                                       material_delta=delta, supersedes=pending.work_item_id if pending else None, case_document=case.document)
     detail = {"work": kind.value, "result_id": result_id, "base_fingerprint": base_fp}
     if pending is not None:
         detail["superseded_work_item_id"] = pending.work_item_id
@@ -193,6 +198,10 @@ def run_gate(payload: ReasoningInput, store: ReasoningStore, *, now: str | None 
                     decision = GateDecision(case_id, row.identity_key, GateAction.UPDATED, REAPPEARED_CHANGED if reappeared else EVIDENCE_CHANGED,
                                             case.fingerprint, previous, work_item_id, kind, {**detail, "material_delta": delta})
                 tx.mark_case_present(case_id, run_id, case.fingerprint)
+                stale = tx.open_work_item(case_id, requires_llm=False)
+                if stale is not None and stale.status == WorkStatus.PENDING:
+                    tx.set_work_item_status(stale.work_item_id, WorkStatus.CANCELLED, error=f"case present again in run {run_id}")
+                    decision = dataclasses.replace(decision, detail={**decision.detail, "cancelled_lifecycle_work_item_id": stale.work_item_id})
             _record(tx, run_id, decision)
             decisions.append(decision)
         for case_id, row in sorted(known.items()):
@@ -229,10 +238,11 @@ def _record(tx: StoreTransaction, run_id: str, decision: GateDecision) -> None:
 
 def case_for_work(tx: StoreTransaction, work_item: WorkItemRow) -> ReasoningCase:
     """The exact ReasoningCase a work item asks to reason about: the evidence state it targets, with the previous result and the
-    material delta from the evidence that result was reasoned on (Phase 07 analyst / Phase 08 update input)."""
-    if work_item.fingerprint_after is None:
+    material delta from the evidence that result was reasoned on (Phase 07 analyst / Phase 08 update input). The document is the
+    one built in the run that created the item, so its snapshot ID and finding IDs resolve in that run's Intelligence V2 document."""
+    if work_item.fingerprint_after is None or work_item.case_document is None:
         raise ValueError(f"work item {work_item.work_item_id} ({work_item.kind}) has no evidence state to reason about")
-    document = dict(tx.get_case_evidence(work_item.case_id, work_item.fingerprint_after)["case_document"])
+    document = dict(work_item.case_document)   # this run's document: its snapshot and Intelligence V2 finding IDs
     document["previous_result_id"] = work_item.result_id
     document["previous_result_version"] = work_item.base_result_version
     document["material_delta"] = dict(work_item.material_delta) if work_item.material_delta is not None else None

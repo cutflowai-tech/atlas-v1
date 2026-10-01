@@ -370,3 +370,17 @@ class EnumModuleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MalformedPatchTests(unittest.TestCase):
+    """Review finding: LLM-shaped malformed patches are rejected with ContractViolation, never crash validation."""
+
+    def test_malformed_field_lists_are_violations(self):
+        update = factory.update_dict()
+        for mutate in (lambda u: u.__setitem__("preserved_fields", 5), lambda u: u.__setitem__("preserved_fields", [["a"]]),
+                       lambda u: u["changed_fields"].append({"field": ["title"], "value": 1}), lambda u: u.__setitem__("changed_fields", "title"),
+                       lambda u: u["changed_fields"].append("title")):
+            bad = copy.deepcopy(update)
+            mutate(bad)
+            with self.subTest(update=bad.get("changed_fields")), self.assertRaises(ContractViolation):
+                ReasoningUpdate.from_dict(bad)

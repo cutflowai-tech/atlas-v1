@@ -136,7 +136,7 @@ boundary payload (Phases 04–05), never by an LLM.
 | `case_id`, `identity_version`, `identity_key`, `subject_type`, `subject_id`, `topic_key`, `identity_dimensions`, `case_type` | Stable identity (§5); `case_id` = `rc1_` + 32 hex |
 | `scope` | Current breadth: affected Editors, Video Types, project count, windows (not identity) |
 | `source_snapshot_id`, `upstream_contract_version`, `upstream` | Which snapshot and upstream versions the case was built from |
-| `orientation` | Direction of the highest-ranked adverse/favourable finding (`mixed`/`neutral` when none) |
+| `orientation` | Adverse or favourable, whichever side has more findings, then the stronger best upstream confidence; `mixed` on a tie or with only mixed findings, `neutral` otherwise. Never depends on V2 ranks or finding IDs |
 | `supporting_findings`, `contradicting_findings` | `FindingRef`s: V2 `finding_id` (this snapshot), stable `member_key`, type, direction, category, evidence level, upstream confidence, sample size, rank. Contradicting = opposite direction to the orientation |
 | `current_evidence.statements` | Every V2 statement of the contributing findings, typed (`source_fact` / `deterministic_derived_value` / `upstream_interpretation`) |
 | `current_evidence.references` | One `EvidenceReference` per Monday record: stable `ref_id` (`ev1_` + 24 hex), member, role, evidence code, item, cycle, Editor, Video Type, event IDs, source timestamps, values |
@@ -347,7 +347,7 @@ other two left the window).
   exclusions, every evidence record (Monday item, cycle, Editor, Video Type, event IDs, source timestamps, values used); plus the
   case orientation;
 - **excluded**: generated prose, V2 `finding_id` and rank, analysis-window dates, snapshot/release IDs, `created_at` and other
-  operational timestamps (`retrieved_at`, `generated_at`, …), request IDs, display names (`editor_name`, `group_label`), previous
+  operational timestamps (`retrieved_at`, `generated_at`, …), request IDs, display names (`editor_name`, `group_label`, `cohort_label`), previous
   LLM wording, manager and memory context;
 - **normalized**: keys sorted; event IDs, timestamps, limitations and exclusions sorted; statements read in canonical order
   (evidence level, code); floats rounded to 6 decimals; compact key-sorted JSON.
@@ -382,8 +382,15 @@ the fingerprints are equal (property-tested):
 
 - The whole gate runs in one transaction under an advisory lock (concurrent gates serialize), recording the run, new cases, each
   new evidence state once, one observation per known case (decision, reason code, detail, fingerprints, delta) and the work items.
-- At most one open LLM work item per case: newer evidence supersedes a pending item, keeping the older base so the delta always
-  starts from what the open result says. Pending LLM work of a case that disappears is left to the lifecycle / reliability phases.
+- At most one open LLM work item per case: newer evidence supersedes a *pending* item, keeping the older base so the delta always
+  starts from what the open result says. An item already `in_progress` is never superseded (the decision records it as deferred).
+  Work-item status changes follow `WORK_TRANSITIONS` (`WorkTransitionError` otherwise).
+- Each LLM work item stores the case document of the run that created it, so its snapshot ID and V2 finding IDs resolve in that
+  run's Intelligence V2 document (evidence states are stored once per fingerprint, documents per work item).
+- A case present again cancels its pending `lifecycle` item. Pending LLM work of a case that disappears is left to the lifecycle /
+  reliability phases.
+- `unchanged` never creates work, even when an earlier item failed or was cancelled. `StoreTransaction.unreasoned_cases()` lists
+  present cases whose current evidence has neither an open result reasoned on it nor open LLM work: the resume phase (18) uses it.
 - **Running the same snapshot twice creates no work item at all on the second run** (`test_same_snapshot_twice_creates_zero_work_on_the_second_run`).
 - `case_for_work(tx, work_item)` returns the exact `ReasoningCase` for a work item: the evidence state it targets, with
   `previous_result_id/version` and the material delta (validated, fingerprint verified). Phases 07/08 use it as their input.
@@ -417,7 +424,7 @@ outcomes = gateway.call_many([request_a, request_b, request_c])   # one CallOutc
 
 | Concern | Behaviour |
 |---|---|
-| Configuration | Environment only (`settings`): `OPENROUTER_API_KEY` or `OPENROUTER_API_KEY_FILE`; `ATLAS_REASONING_MODEL` must equal the pinned `openai/gpt-5.6-sol` unless `ATLAS_REASONING_ALLOW_MODEL_OVERRIDE=on`; `ATLAS_REASONING_OPENROUTER_BASE_URL` (https only); bounded limits below. The key is excluded from every `repr` |
+| Configuration | Environment only (`settings`): `OPENROUTER_API_KEY` or `OPENROUTER_API_KEY_FILE`; `ATLAS_REASONING_MODEL` must equal the pinned `openai/gpt-5.6-sol` unless `ATLAS_REASONING_ALLOW_MODEL_OVERRIDE=on`; `ATLAS_REASONING_OPENROUTER_BASE_URL` (https; plain http only to 127.0.0.1/localhost/::1 for local test servers); bounded limits below. The key is excluded from every `repr` |
 | Model | `settings.PINNED_MODEL = "openai/gpt-5.6-sol"` (OpenRouter slug verified 2026-10-01; supports structured outputs) |
 | Structured output | `response_format: json_schema` (strict) with `provider.require_parameters: true`; the schema is the reasoning-v1 contract with `$ref`s inlined (`structured.contract_output`); the response is always re-validated locally against the real contract schema |
 | Raw reasoning | requested with `reasoning.exclude: true`; never stored or returned |
@@ -426,7 +433,7 @@ outcomes = gateway.call_many([request_a, request_b, request_c])   # one CallOutc
 | Backoff | `ATLAS_REASONING_LLM_BACKOFF_SECONDS` × 2^(retry−1) plus ≤ 25 % jitter, capped by `ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS` (default 2 s, 60 s) |
 | Rate limits | HTTP 429 → `rate_limited`, retried after `max(backoff, Retry-After)` (capped) |
 | Concurrency | `ATLAS_REASONING_LLM_CONCURRENCY` provider attempts in flight across all callers (default 4, 1–32); a slot is released while waiting to retry |
-| Request IDs | `req_<32 hex>` per call unless the context names one; sent as `X-Request-Id`; recorded |
+| Request IDs | `req_<32 hex>` per call unless the context names one (a caller-supplied ID must be unique per logical call: `llm_calls.request_id` is unique, and a duplicate's metadata is only logged); sent as `X-Request-Id`; recorded |
 | Logs | logger `atlas_reasoning.gateway`: request ID, purpose, model, case ID, attempt, error class, status; never prompts, responses or credentials (redacted again before logging) |
 | Call metadata | one `llm_calls` row per call: run, case, work item, request ID, provider, model, purpose, prompt version, snapshot, fingerprint, status, provider status, error class, attempts, retries, latency, input/output tokens, provider response ID. A recording failure is logged and never loses the result |
 | Failure isolation | `call_many` returns one outcome per request; a provider error or even a transport bug (`internal_error`) in one case never affects another |

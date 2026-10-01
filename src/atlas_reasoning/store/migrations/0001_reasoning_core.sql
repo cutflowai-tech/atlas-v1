@@ -134,12 +134,15 @@ CREATE TABLE reasoning_work_items (
     fingerprint_before  text CHECK (fingerprint_before ~ '^ef1_[0-9a-f]{64}$'),
     fingerprint_after   text CHECK (fingerprint_after ~ '^ef1_[0-9a-f]{64}$'),
     material_delta      jsonb CHECK (material_delta IS NULL OR jsonb_typeof(material_delta) = 'object'),
+    case_document       jsonb CHECK (case_document IS NULL OR (case_document ->> 'case_id' = case_id
+                                                                AND case_document ->> 'evidence_fingerprint' = fingerprint_after)),
     superseded_by       text REFERENCES reasoning_work_items (work_item_id) DEFERRABLE INITIALLY DEFERRED,
     attempts            integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
     last_error          text,
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now(),
     CHECK (requires_llm = (kind IN ('new_result', 'update_result'))),
+    CHECK (requires_llm = (case_document IS NOT NULL)),
     CHECK ((status = 'superseded') = (superseded_by IS NOT NULL)),
     CHECK (kind <> 'new_result' OR (result_id IS NULL AND fingerprint_after IS NOT NULL)),
     CHECK (kind <> 'update_result' OR (result_id IS NOT NULL AND base_result_version IS NOT NULL AND fingerprint_before IS NOT NULL
