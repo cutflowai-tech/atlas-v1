@@ -231,6 +231,7 @@ class WorkStatus(StrEnum):
     DONE = "done"
     FAILED = "failed"
     SUPERSEDED = "superseded"
+    CANCELLED = "cancelled"
 
 
 OPEN_WORK = (WorkStatus.PENDING, WorkStatus.IN_PROGRESS)

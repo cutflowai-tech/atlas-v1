@@ -8,7 +8,7 @@ an Editor's late-rate deterioration, their mix-adjusted lateness and a contradic
 Editor's deadline case. The LLM never clusters findings.
 
 Within a case each finding has a ``member_key``: its type, its scope and its categorical discriminators (the statement parameters
-named in ``DISCRIMINATORS``, and its supporting evidence kinds). It is stable across runs while the finding keeps reporting the
+named in ``DISCRIMINATORS``, and its supporting evidence kinds), read from its statements in canonical order. It is stable across runs while the finding keeps reporting the
 same thing, whatever its values, window or ``finding_id``. Two findings of one case with the same member key would be ambiguous;
 that never happens with the current detectors (tested) and, if it ever did, the second one is keyed with a content hash and the
 mapping reports a warning.
@@ -28,7 +28,7 @@ from typing import Any
 from atlas_reasoning.case_identity import CaseIdentity, CaseIdentityError, assert_no_collisions, build_identity
 from atlas_reasoning.enums import CaseType, SubjectType, TopicKey
 from atlas_reasoning.frozen import thaw
-from atlas_reasoning.reasoning_input_boundary import ReasoningInput, UpstreamFinding
+from atlas_reasoning.reasoning_input_boundary import ReasoningInput, UpstreamFinding, UpstreamStatement
 
 MAPPING_VERSION = "case-mapping-v1"
 # Categorical statement parameters that tell two findings of one type apart. Never numbers, dates or wording.
@@ -57,8 +57,17 @@ class TopicRule:
     description: str = ""
 
 
+LEVEL_ORDER = ("fact", "metric", "pattern", "association", "interpretation", "hypothesis")
+
+
+def ordered_statements(finding: UpstreamFinding) -> list[UpstreamStatement]:
+    """A finding's statements in a canonical order (evidence level, code, parameters), whatever order the document lists them in."""
+    return sorted(finding.statements, key=lambda s: (LEVEL_ORDER.index(s.level) if s.level in LEVEL_ORDER else len(LEVEL_ORDER), s.code,
+                                                     json.dumps(thaw(s.params), sort_keys=True)))
+
+
 def _param(finding: UpstreamFinding, name: str) -> Any:
-    for statement in finding.statements:
+    for statement in ordered_statements(finding):
         if name in statement.params:
             return statement.params[name]
     return None
@@ -155,7 +164,8 @@ def member_key(finding: UpstreamFinding) -> str:
                                                                 ("stage", scope.stage), ("monday_item_id", scope.monday_item_id)) if value is not None)
     codes = ",".join(sorted({block.code for block in finding.supporting_evidence}))
     discriminators = ";".join(f"{name}={value}" for name in DISCRIMINATORS if isinstance(value := _param(finding, name), (str, bool)))
-    first = finding.statements[0].code if finding.statements else ""
+    statements = ordered_statements(finding)
+    first = statements[0].code if statements else ""
     return f"{finding.finding_type}|{scope_part}|{codes}|{discriminators}|{first}"
 
 

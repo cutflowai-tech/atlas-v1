@@ -5,6 +5,8 @@
     python -m atlas_reasoning case <case_id>          everything stored about one case
     python -m atlas_reasoning result <result_id>      every version of one result
     python -m atlas_reasoning run <run_id>            one run and its Change Gate decisions
+    python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
+    python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
 
 The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE).
 """
@@ -15,9 +17,11 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from atlas_reasoning import settings
+from atlas_reasoning.reasoning_input_boundary import ReasoningInputError
 from atlas_reasoning.store.db import Database, DatabaseError
 
 
@@ -72,12 +76,44 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_inspect(args: argparse.Namespace) -> int:
+    from atlas_reasoning.change_gate import prepare_cases
+    from atlas_reasoning.reasoning_input_boundary import load_reasoning_input
+
+    payload = load_reasoning_input(Path(args.site_dir))
+    mapping, prepared = prepare_cases(payload, payload.snapshot.generated_at)
+    _print({"source_snapshot_id": payload.snapshot.source_snapshot_id, "mapping_version": mapping.mapping_version, "unmapped": list(mapping.unmapped),
+            "warnings": list(mapping.warnings),
+            "cases": [{"case_id": case.case_id, "identity_key": case.document["identity_key"], "case_type": case.document["case_type"],
+                       "orientation": case.document["orientation"], "evidence_fingerprint": case.fingerprint,
+                       "supporting": [row["member_key"] for row in case.document["supporting_findings"]],
+                       "contradicting": [row["member_key"] for row in case.document["contradicting_findings"]],
+                       "references": len(case.document["current_evidence"]["references"])} for case in prepared.values()]})
+    return 0
+
+
+def cmd_gate(args: argparse.Namespace) -> int:
+    from atlas_reasoning.change_gate import run_gate
+    from atlas_reasoning.reasoning_input_boundary import load_reasoning_input
+    from atlas_reasoning.store.repository import ReasoningStore
+
+    settings.require_enabled()
+    report = run_gate(load_reasoning_input(Path(args.site_dir)), ReasoningStore(_database()))
+    output = report.to_dict()
+    for decision in output["decisions"]:
+        decision["detail"].pop("material_delta", None)
+    _print(output)
+    return 0
+
+
 COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "migrate": (cmd_migrate, "apply pending database migrations"),
     "db-health": (cmd_db_health, "check the Reasoning V3 database"),
     "case": (cmd_case, "show one case"),
     "result": (cmd_result, "show every version of one result"),
     "run": (cmd_run, "show one run and its gate decisions"),
+    "inspect": (cmd_inspect, "show the cases of a built site without a database"),
+    "gate": (cmd_gate, "run the Change Gate on a built site"),
 }
 
 
@@ -92,6 +128,8 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("result_id")
         elif name == "run":
             command.add_argument("run_id")
+        elif name in ("inspect", "gate"):
+            command.add_argument("site_dir")
     return root
 
 
@@ -99,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         return COMMANDS[args.command][0](args)
-    except (settings.ReasoningConfigError, settings.ReasoningDisabled, DatabaseError) as error:
+    except (settings.ReasoningConfigError, settings.ReasoningDisabled, DatabaseError, ReasoningInputError) as error:
         print(json.dumps({"error": type(error).__name__, "message": str(error)}), file=sys.stderr)
         return 2
 

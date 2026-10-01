@@ -50,6 +50,7 @@ from atlas_reasoning.enums import (
     TopicKey,
     UpdateAction,
 )
+from atlas_reasoning.fingerprint import fingerprint_errors
 from atlas_reasoning.frozen import FrozenMap, freeze, thaw
 
 CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "contracts"
@@ -186,6 +187,9 @@ def case_semantic_errors(case: Mapping[str, Any]) -> list[str]:
             errors.append(f"UNKNOWN_MEMBER: statement {statement['code']} names unknown finding {statement['member_key']}")
         if STATEMENT_KIND_BY_LEVEL[EvidenceLevel(statement["level"])] != statement["kind"]:
             errors.append(f"STATEMENT_KIND_MISMATCH: a {statement['level']} statement is not a {statement['kind']}")
+    for block in evidence["blocks"]:
+        if block["member_key"] not in members:
+            errors.append(f"UNKNOWN_MEMBER: evidence block {block['evidence_code']} names unknown finding {block['member_key']}")
     ref_ids = [ref["ref_id"] for ref in evidence["references"]]
     if len(ref_ids) != len(set(ref_ids)):
         errors.append("DUPLICATE_REF: evidence reference IDs must be unique")
@@ -204,7 +208,7 @@ def case_semantic_errors(case: Mapping[str, Any]) -> list[str]:
 
 # Later foundation phases register deterministic recomputation checks here (case identity, evidence fingerprint), so a case whose
 # case_id or fingerprint does not match its own content is rejected.
-CASE_CHECKS: list[Callable[[Mapping[str, Any]], list[str]]] = [identity_errors]
+CASE_CHECKS: list[Callable[[Mapping[str, Any]], list[str]]] = [identity_errors, fingerprint_errors]
 
 
 def _extension_errors(case: Mapping[str, Any]) -> list[str]:
@@ -401,6 +405,7 @@ class FindingRef:
     confidence: ConfidenceLevel
     sample_size: int
     rank: int | None
+    limitations: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -429,8 +434,19 @@ class EvidenceReference:
 
 
 @dataclass(frozen=True)
+class EvidenceBlock:
+    member_key: str
+    role: EvidenceRole
+    evidence_code: str
+    sample: FrozenMap
+    comparison: FrozenMap
+    exclusions: tuple[FrozenMap, ...]
+
+
+@dataclass(frozen=True)
 class CurrentEvidence:
     statements: tuple[CaseStatement, ...]
+    blocks: tuple[EvidenceBlock, ...]
     references: tuple[EvidenceReference, ...]
 
 

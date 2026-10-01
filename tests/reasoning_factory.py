@@ -39,7 +39,8 @@ def _ref(member: str, finding_id: str, role: str, code: str, item: str, values: 
 
 def _finding(member: str, finding_id: str, finding_type: str, direction: str, category: str, level: str, confidence: str, sample: int, rank: int) -> dict[str, Any]:
     return {"finding_id": finding_id, "member_key": member, "finding_type": finding_type, "direction": direction, "category": category,
-            "evidence_level": level, "confidence": confidence, "sample_size": sample, "rank": rank}
+            "evidence_level": level, "confidence": confidence, "sample_size": sample, "rank": rank,
+            "limitations": ["attributed_projects_only", "video_type_is_the_only_complexity_control"]}
 
 
 def case_dict() -> dict[str, Any]:
@@ -61,6 +62,16 @@ def case_dict() -> dict[str, Any]:
          "params": {"observed_rate": 0.6, "expected_rate": 0.3626}},
         {"member_key": MEMBER_ON_TIME, "level": "pattern", "kind": "deterministic_derived_value", "code": "editor_outcome_concentrated",
          "params": {"outcome": "not_late_delivery", "group": "4", "share_ratio": 1.4}},
+    ]
+    blocks = [
+        {"member_key": MEMBER_CHANGE, "role": "supporting", "evidence_code": "late_rate_current", "sample": {"projects": 16},
+         "comparison": {"late": 11, "late_rate": 0.6875}, "exclusions": []},
+        {"member_key": MEMBER_CHANGE, "role": "supporting", "evidence_code": "late_rate_comparison", "sample": {"projects": 10},
+         "comparison": {"late": 5, "late_rate": 0.5}, "exclusions": []},
+        {"member_key": MEMBER_MIX, "role": "supporting", "evidence_code": "mix_adjusted_late_rate", "sample": {"projects": 30},
+         "comparison": {"expected_rate": 0.3626, "observed_rate": 0.6}, "exclusions": [{"reason": "eta_missing", "projects": 2}]},
+        {"member_key": MEMBER_ON_TIME, "role": "supporting", "evidence_code": "not_late_delivery_by_video_type", "sample": {"group_projects": 18},
+         "comparison": {"group": {"rate": 0.83}, "population": {"rate": 0.59}}, "exclusions": []},
     ]
     case = {
         "contract_version": "reasoning-v1",
@@ -87,7 +98,7 @@ def case_dict() -> dict[str, Any]:
             _finding(MEMBER_ON_TIME, "concentration.positive:0c1d2e3f4a5b6c7d", "concentration.positive", "favourable", "editor_specific_pattern",
                      "pattern", "moderate", 18, 27),
         ],
-        "current_evidence": {"statements": statements, "references": references},
+        "current_evidence": {"statements": statements, "blocks": blocks, "references": references},
         "previous_result_id": RESULT_ID,
         "previous_result_version": 1,
         "evidence_fingerprint": "ef1_" + "2" * 64,
@@ -103,9 +114,11 @@ def case_dict() -> dict[str, Any]:
 def seal_case(case: dict[str, Any]) -> dict[str, Any]:
     """Recompute the deterministic fields a case derives from its own content (identity, fingerprint)."""
     from atlas_reasoning.case_identity import build_identity
+    from atlas_reasoning.fingerprint import canonical_evidence, evidence_fingerprint
 
     identity = build_identity(case["subject_type"], case["subject_id"], case["topic_key"], case["case_type"], case["identity_dimensions"])
     case.update({key: value for key, value in identity.to_dict().items() if key in case})
+    case["evidence_fingerprint"] = evidence_fingerprint(canonical_evidence(case))
     return case
 
 

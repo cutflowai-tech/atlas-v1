@@ -27,8 +27,8 @@
   }
  ],
  "contract_version": "reasoning-v1",
- "evidence_fingerprint_after": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
- "evidence_fingerprint_before": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
+ "evidence_fingerprint_after": "ef1_ab55d943523abc3b3a0a5d2a849f18545e07070354ed4bd46cffa3d0997df19c",
+ "evidence_fingerprint_before": "ef1_ab55d943523abc3b3a0a5d2a849f18545e07070354ed4bd46cffa3d0997df19c",
  "preserved_fields": [
   "title",
   "reasoning_summary",

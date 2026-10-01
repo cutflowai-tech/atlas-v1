@@ -43,7 +43,7 @@
     },
     "finding_ref": {
       "type": "object", "additionalProperties": false,
-      "required": ["finding_id", "member_key", "finding_type", "direction", "category", "evidence_level", "confidence", "sample_size", "rank"],
+      "required": ["finding_id", "member_key", "finding_type", "direction", "category", "evidence_level", "confidence", "sample_size", "rank", "limitations"],
       "properties": {
         "finding_id": {"$ref": "#/$defs/finding_id"},
         "member_key": {"$ref": "#/$defs/member_key"},
@@ -53,7 +53,20 @@
         "evidence_level": {"$ref": "#/$defs/evidence_level"},
         "confidence": {"$ref": "#/$defs/confidence_level"},
         "sample_size": {"type": "integer", "minimum": 0},
-        "rank": {"type": ["integer", "null"], "minimum": 1}
+        "rank": {"type": ["integer", "null"], "minimum": 1},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "evidence_block": {
+      "type": "object", "additionalProperties": false, "required": ["member_key", "role", "evidence_code", "sample", "comparison", "exclusions"],
+      "description": "What one Intelligence V2 evidence block compared: group sizes, compared values and exclusions (its records are references).",
+      "properties": {
+        "member_key": {"$ref": "#/$defs/member_key"},
+        "role": {"$ref": "#/$defs/evidence_role"},
+        "evidence_code": {"type": "string", "minLength": 1},
+        "sample": {"type": "object"},
+        "comparison": {"type": "object"},
+        "exclusions": {"type": "array", "items": {"type": "object"}}
       }
     },
     "case_statement": {

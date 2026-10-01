@@ -52,9 +52,10 @@
     "supporting_findings": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/finding_ref"}, "minItems": 1},
     "contradicting_findings": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/finding_ref"}},
     "current_evidence": {
-      "type": "object", "additionalProperties": false, "required": ["statements", "references"],
+      "type": "object", "additionalProperties": false, "required": ["statements", "blocks", "references"],
       "properties": {
         "statements": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_statement"}, "minItems": 1},
+        "blocks": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_block"}, "minItems": 1},
         "references": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_reference"}, "minItems": 1}
       }
     },

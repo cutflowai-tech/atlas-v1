@@ -44,6 +44,10 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `__main__` | 03+ | Operator commands (`python -m atlas_reasoning ...`) |
 | `case_identity` | 04 | Deterministic `case_id` from normalized identity dimensions |
 | `case_mapping` | 04 | Intelligence V2 findings → case candidates (topic rules, member keys) |
+| `case_builder` | 05 | Case candidate → base `ReasoningCase` document |
+| `fingerprint` | 05 | Canonical evidence and `evidence_fingerprint` |
+| `delta` | 05 | Material delta between two evidence states |
+| `change_gate` | 05 | Change Gate service, persisted decisions, `case_for_work` |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -325,3 +329,59 @@ identity of the showcase snapshot so an accidental rule change fails CI.
 **Replay.** Rebuilding the showcase snapshot with the analysis windows moved forward 1 and 7 days changes every Intelligence V2
 `finding_id` (0 of 30 reused) while every issue still present keeps its `case_id` (15 of 17 cases persist with identical IDs; the
 other two left the window).
+
+## 6. Phase 05: evidence fingerprint, material delta and the Change Gate
+
+### 6.1 Evidence fingerprint (`fingerprint`)
+
+`canonical_evidence(case_document)` derives, from the `ReasoningCase` document alone, exactly what is hashed:
+
+- **included**, per contributing finding (keyed by member key): type, direction, category, evidence level, upstream confidence level,
+  sample size, limitation codes, every statement's parameters (the metric values), every evidence block's sample, comparison and
+  exclusions, every evidence record (Monday item, cycle, Editor, Video Type, event IDs, source timestamps, values used); plus the
+  case orientation;
+- **excluded**: generated prose, V2 `finding_id` and rank, analysis-window dates, snapshot/release IDs, `created_at` and other
+  operational timestamps (`retrieved_at`, `generated_at`, …), request IDs, display names (`editor_name`, `group_label`), previous
+  LLM wording, manager and memory context;
+- **normalized**: keys sorted; event IDs, timestamps, limitations and exclusions sorted; statements read in canonical order
+  (evidence level, code); floats rounded to 6 decimals; compact key-sorted JSON.
+
+`evidence_fingerprint = "ef1_" + sha256(canonical JSON)`. A case whose fingerprint does not match its own evidence fails the
+contract (`FINGERPRINT_MISMATCH`), so any holder can verify it. Tested: same snapshot → same fingerprints; findings, statements,
+records, event IDs and limitations shuffled → same; renamed Editors, moved windows, new snapshot ID, new finding IDs, new wording →
+same.
+
+### 6.2 Material delta (`delta.material_delta(before, after)`)
+
+Computed from two canonical evidence documents; every difference appears in at least one list, so the delta is empty exactly when
+the fingerprints are equal (property-tested):
+
+| Field | Content |
+|---|---|
+| `added_findings`, `removed_findings` | member keys joining / leaving the case |
+| `added_evidence`, `removed_evidence` | supporting/context records: `ref_id`, member, role, evidence code, Monday item, cycle |
+| `changed_values` | every other changed leaf with `path`, `before`, `after` (statement parameters such as `statements/metric:late_rate_changed/current`, block samples/comparisons, record values, limitations, direction, sample size) |
+| `changed_confidence` | upstream confidence level per finding, before/after |
+| `added_contradictions`, `removed_contradictions` | contradicting evidence records (`kind: evidence`) and findings that started/stopped opposing the orientation (`kind: finding`) |
+| `orientation_change` | before/after when the case orientation flipped |
+
+### 6.3 Change Gate (`change_gate.run_gate(payload, store)`)
+
+| Decision | Condition | Reason codes | Work item |
+|---|---|---|---|
+| `new` | case_id never observed | `first_observation` | `new_result` (LLM) |
+| `unchanged` | same fingerprint as last observed | `same_evidence_fingerprint`, `reappeared_same_evidence` | **none** |
+| `updated` | different fingerprint | `evidence_changed`, `reappeared_evidence_changed` | `update_result` with the delta from the open result's evidence (`fingerprint_before` = what the result says); `new_result` when there is no open result; none (and a pending item cancelled) when the evidence is back to the result's state |
+| `disappeared` | known case absent from the snapshot | `not_in_snapshot` (first run absent), `still_absent` (with `absent_runs`) | `lifecycle` (no LLM) the first time; the result is never deleted or resolved by the gate |
+
+- The whole gate runs in one transaction under an advisory lock (concurrent gates serialize), recording the run, new cases, each
+  new evidence state once, one observation per known case (decision, reason code, detail, fingerprints, delta) and the work items.
+- At most one open LLM work item per case: newer evidence supersedes a pending item, keeping the older base so the delta always
+  starts from what the open result says. Pending LLM work of a case that disappears is left to the lifecycle / reliability phases.
+- **Running the same snapshot twice creates no work item at all on the second run** (`test_same_snapshot_twice_creates_zero_work_on_the_second_run`).
+- `case_for_work(tx, work_item)` returns the exact `ReasoningCase` for a work item: the evidence state it targets, with
+  `previous_result_id/version` and the material delta (validated, fingerprint verified). Phases 07/08 use it as their input.
+
+Commands: `python -m atlas_reasoning inspect <site_dir>` (cases, members, fingerprints; no database, flag not needed);
+`python -m atlas_reasoning gate <site_dir>` (requires `ATLAS_REASONING_V3=on`); `python -m atlas_reasoning run <run_id>` (the
+persisted decisions).

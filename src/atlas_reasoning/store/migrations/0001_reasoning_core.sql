@@ -127,7 +127,7 @@ CREATE TABLE reasoning_work_items (
     case_id             text NOT NULL REFERENCES reasoning_cases (case_id),
     kind                text NOT NULL CHECK (kind IN ('new_result', 'update_result', 'lifecycle')),
     gate_action         text NOT NULL CHECK (gate_action IN ('new', 'updated', 'disappeared')),
-    status              text NOT NULL CHECK (status IN ('pending', 'in_progress', 'done', 'failed', 'superseded')),
+    status              text NOT NULL CHECK (status IN ('pending', 'in_progress', 'done', 'failed', 'superseded', 'cancelled')),
     requires_llm        boolean NOT NULL,
     result_id           text REFERENCES reasoning_results (result_id),
     base_result_version integer CHECK (base_result_version >= 1),
