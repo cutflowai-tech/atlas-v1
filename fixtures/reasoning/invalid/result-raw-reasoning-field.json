@@ -1,0 +1,95 @@
+{
+ "alternative_explanations": [
+  {
+   "evidence_refs": [],
+   "explanation": "Class B briefs may have arrived with shorter runway this month.",
+   "requires_context": true
+  }
+ ],
+ "case_id": "rc1_85be69a8a15b185b438dff95366a922c",
+ "confidence": {
+  "level": "moderate",
+  "rationale": "Moderate upstream evidence; the sample is small for the current window."
+ },
+ "contract_version": "reasoning-v1",
+ "counter_evidence": [
+  {
+   "evidence_refs": [
+    "ev1_a5d92210660a126b665c8aa4"
+   ],
+   "statement": "Class A projects are mostly delivered on time."
+  }
+ ],
+ "created_at": "2026-09-28T00:05:00Z",
+ "evidence_fingerprint": "ef1_ab55d943523abc3b3a0a5d2a849f18545e07070354ed4bd46cffa3d0997df19c",
+ "interpretation": {
+  "evidence_refs": [
+   "ev1_564a539237a67903c806d3fb",
+   "ev1_a5d92210660a126b665c8aa4"
+  ],
+  "statement": "The deterioration appears specific to non-Class-A work rather than general."
+ },
+ "lifecycle_status": "active",
+ "limitations": [
+  "Video Type is the only complexity control."
+ ],
+ "management_significance": {
+  "evidence_refs": [
+   "ev1_564a539237a67903c806d3fb"
+  ],
+  "statement": "Worth a conversation about Class B scheduling before drawing conclusions."
+ },
+ "model_metadata": {
+  "model": "openai/gpt-5.6-sol",
+  "provider": "openrouter",
+  "request_ids": [
+   "req-0001"
+  ]
+ },
+ "observation": {
+  "evidence_refs": [
+   "ev1_564a539237a67903c806d3fb",
+   "ev1_6a756fe8abca40b23036202d"
+  ],
+  "statement": "11 of 16 deadline-classifiable projects in the current window were late, against 5 of 10 before."
+ },
+ "prompt_version": "analyst-v1",
+ "questions_for_management": [
+  {
+   "expected_context_type": "assignment_context",
+   "reason": "Runway and assignment context are not in Monday.",
+   "text": "Did Class B assignments change in September?"
+  }
+ ],
+ "raw_reasoning": "hidden chain of thought",
+ "reasoning_summary": "The late rate rose by 19 points while the other Editors improved, and the gap remains after matching the Video Type and runway mix; on-time work concentrates in Class A, so the issue is not uniform.",
+ "result_id": "rr1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "source_snapshot_id": "snapshot-2d34f7d8a849219ee08b",
+ "suggested_investigations": [
+  {
+   "evidence_refs": [
+    "ev1_564a539237a67903c806d3fb"
+   ],
+   "text": "Compare runway of the late Class B projects with earlier months."
+  }
+ ],
+ "superseded_by": null,
+ "supporting_evidence": [
+  {
+   "evidence_refs": [
+    "ev1_564a539237a67903c806d3fb",
+    "ev1_6a756fe8abca40b23036202d"
+   ],
+   "statement": "The late rate rose from 50% to 69%."
+  },
+  {
+   "evidence_refs": [
+    "ev1_153b57036069275f9766659f"
+   ],
+   "statement": "On the same mix the other Editors were late about 36% of the time."
+  }
+ ],
+ "title": "Ahmed's late deliveries rose in the current window",
+ "updated_at": "2026-09-28T00:05:00Z",
+ "version": 1
+}

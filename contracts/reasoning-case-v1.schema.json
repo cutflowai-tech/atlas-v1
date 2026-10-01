@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/reasoning-case-v1.schema.json",
+  "title": "ReasoningCaseV1",
+  "description": "One management issue, deterministically identified, with the deterministic evidence that currently supports or contradicts it. Built only from the reasoning input boundary; never by an LLM. Semantic invariants (identity, fingerprint, references) are in atlas_reasoning.contracts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "case_id", "case_type", "identity_version", "identity_key", "subject_type", "subject_id", "topic_key", "identity_dimensions",
+               "scope", "source_snapshot_id", "upstream_contract_version", "upstream", "orientation", "supporting_findings", "contradicting_findings",
+               "current_evidence", "previous_result_id", "previous_result_version", "evidence_fingerprint", "material_delta", "manager_context",
+               "memory_context", "created_at"],
+  "properties": {
+    "contract_version": {"$ref": "reasoning-common-v1.schema.json#/$defs/contract_version"},
+    "case_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_id"},
+    "case_type": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_type"},
+    "identity_version": {"const": "case-identity-v1"},
+    "identity_key": {"type": "string", "minLength": 1, "maxLength": 600, "description": "The normalized identity dimensions the case_id is hashed from, kept for debugging."},
+    "subject_type": {"$ref": "reasoning-common-v1.schema.json#/$defs/subject_type"},
+    "subject_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "topic_key": {"$ref": "reasoning-common-v1.schema.json#/$defs/topic_key"},
+    "identity_dimensions": {
+      "type": "object", "additionalProperties": false,
+      "description": "Optional identity dimensions, present only when the topic rule makes them part of the topic.",
+      "properties": {
+        "video_type": {"type": "string", "minLength": 1, "maxLength": 200},
+        "workflow_stage": {"type": "string", "minLength": 1, "maxLength": 200},
+        "detector_family": {"type": "string", "minLength": 1, "maxLength": 200},
+        "signal": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false, "required": ["affected_editor_ids", "affected_video_type_keys", "affected_project_count", "windows"],
+      "description": "How wide the issue currently is (changes with evidence; never part of identity).",
+      "properties": {
+        "affected_editor_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "affected_video_type_keys": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "affected_project_count": {"type": "integer", "minimum": 0},
+        "windows": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "source_snapshot_id": {"type": "string", "minLength": 1},
+    "upstream_contract_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "upstream": {
+      "type": "object", "additionalProperties": false, "required": ["intelligence_version", "intelligence_document_version", "boundary_version"],
+      "properties": {
+        "intelligence_version": {"type": "string", "minLength": 1},
+        "intelligence_document_version": {"type": "string", "minLength": 1},
+        "boundary_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "orientation": {"$ref": "reasoning-common-v1.schema.json#/$defs/direction"},
+    "supporting_findings": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/finding_ref"}, "minItems": 1},
+    "contradicting_findings": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/finding_ref"}},
+    "current_evidence": {
+      "type": "object", "additionalProperties": false, "required": ["statements", "blocks", "references"],
+      "properties": {
+        "statements": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_statement"}, "minItems": 1},
+        "blocks": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_block"}, "minItems": 1},
+        "references": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_reference"}, "minItems": 1}
+      }
+    },
+    "previous_result_id": {"oneOf": [{"$ref": "reasoning-common-v1.schema.json#/$defs/result_id"}, {"type": "null"}]},
+    "previous_result_version": {"type": ["integer", "null"], "minimum": 1},
+    "evidence_fingerprint": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_fingerprint"},
+    "material_delta": {"oneOf": [{"$ref": "reasoning-common-v1.schema.json#/$defs/material_delta"}, {"type": "null"}]},
+    "manager_context": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/context_item"}},
+    "memory_context": {"$ref": "reasoning-common-v1.schema.json#/$defs/memory_context"},
+    "created_at": {"$ref": "reasoning-common-v1.schema.json#/$defs/timestamp"}
+  }
+}

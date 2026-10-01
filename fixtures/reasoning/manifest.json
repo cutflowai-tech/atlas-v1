@@ -1,0 +1,41 @@
+{
+ "valid": {
+  "valid/case.json": "ReasoningCase",
+  "valid/result.json": "ReasoningResult",
+  "valid/update.json": "ReasoningUpdate"
+ },
+ "invalid": {
+  "invalid/case-bad-subject-type.json": {
+   "contract": "ReasoningCase",
+   "code": "INVALID_ENUM"
+  },
+  "invalid/case-unknown-field.json": {
+   "contract": "ReasoningCase",
+   "code": "UNKNOWN_FIELD"
+  },
+  "invalid/result-bad-lifecycle.json": {
+   "contract": "ReasoningResult",
+   "code": "INVALID_ENUM"
+  },
+  "invalid/result-observation-without-evidence.json": {
+   "contract": "ReasoningResult",
+   "code": "MISSING_EVIDENCE"
+  },
+  "invalid/result-raw-reasoning-field.json": {
+   "contract": "ReasoningResult",
+   "code": "UNKNOWN_FIELD"
+  },
+  "invalid/result-without-supporting-evidence.json": {
+   "contract": "ReasoningResult",
+   "code": "MISSING_EVIDENCE"
+  },
+  "invalid/update-missing-field-accounting.json": {
+   "contract": "ReasoningUpdate",
+   "code": "FIELD_ACCOUNTING"
+  },
+  "invalid/update-patches-case-id.json": {
+   "contract": "ReasoningUpdate",
+   "code": "IMMUTABLE_FIELD"
+  }
+ }
+}

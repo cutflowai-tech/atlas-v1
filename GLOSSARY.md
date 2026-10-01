@@ -65,7 +65,7 @@ The category of video a project is, which defines which projects may be compared
 _Avoid_: Project type, format
 
 **Team Benchmark**:
-The typical Editor Work Time of the other Editors for one Video Type, never including the Editor being viewed (contract 1.5.0, D36); descriptive, never a target. The active contract 1.4.0 still includes the viewed Editor (D7) until 1.5.0 is activated.
+The typical Editor Work Time of the other Editors for one Video Type, never including the Editor being viewed (contract 1.5.0, D36); descriptive, never a target. Under contract 1.4.0 (the default when `ATLAS_CONTRACT_VERSION` is unset) the benchmark still includes the viewed Editor (D7).
 _Avoid_: SLA, standard time, expected time
 
 **Active Work**:

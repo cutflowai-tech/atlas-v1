@@ -1,0 +1,138 @@
+{
+ "description": "Every case identity of the showcase snapshot (atlas_commander.demo, contract 1.5.0, demo.GENERATED_AT). Changing it means existing cases would get new identities: only with a new IDENTITY_VERSION.",
+ "identity_version": "case-identity-v1",
+ "cases": {
+  "case-identity-v1|workflow_stage|post_editor|post_editor_delay": {
+   "case_id": "rc1_0a7091cdf39a2d037217f1b78d0ea835",
+   "case_type": "workflow_pattern",
+   "member_keys": [
+    "bottleneck.post_editor|kind=stage;stage=post_editor|on_time_submissions_delivered_after_eta||on_time_submissions_delivered_after_eta"
+   ]
+  },
+  "case-identity-v1|team|team|deadline": {
+   "case_id": "rc1_325a694fc74adcd86213ddca6c37bcd3",
+   "case_type": "team_pattern",
+   "member_keys": [
+    "pattern.time|kind=team|late_rate_by_start_weekday|dimension=start_weekday;value=Friday|time_bucket_elevated"
+   ]
+  },
+  "case-identity-v1|data_source|monday|data_quality|signal=video_type_not_benchmark_eligible": {
+   "case_id": "rc1_3f352bce1571e5e1c805e1aa3a0634d4",
+   "case_type": "data_quality",
+   "member_keys": [
+    "data.video_type_not_benchmark_eligible|kind=data|video_type_not_benchmark_eligible||data_video_type_not_benchmark_eligible"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-15|deadline": {
+   "case_id": "rc1_5109c37fef5022d112d2fdddbdc1ee7a",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "change.editor|kind=editor;editor_id=editor-label-15|late_rate_comparison,late_rate_current|measure=late_rate;against=comparison|late_rate_changed",
+    "change.editor|kind=editor;editor_id=editor-label-15|late_rate_current,late_rate_history|measure=late_rate;against=history|late_rate_changed",
+    "concentration.positive|kind=editor;editor_id=editor-label-15;cohort_key=4|not_late_delivery_by_video_type|outcome=not_late_delivery;dimension=video_type;group=4|editor_outcome_concentrated",
+    "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-15|mix_adjusted_late_rate||mix_adjusted_late_rate"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-15|speed": {
+   "case_id": "rc1_53f9bca03bd567b1115d9428d4646fb6",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "editor.speed_pattern|kind=editor;editor_id=editor-label-15|speed_4,speed_5|verdict=slower|speed_slower_than_comparable_team"
+   ]
+  },
+  "case-identity-v1|data_source|monday|data_quality|signal=deadline_not_classifiable": {
+   "case_id": "rc1_5b141cddd4a3ae5372d3285534957b54",
+   "case_type": "data_quality",
+   "member_keys": [
+    "data.deadline_not_classifiable|kind=data|deadline_not_classifiable||data_deadline_not_classifiable"
+   ]
+  },
+  "case-identity-v1|video_type|4|deadline": {
+   "case_id": "rc1_6678934334996c31d0466d73877bab3b",
+   "case_type": "video_type_pattern",
+   "member_keys": [
+    "pattern.repeated_delay|kind=video_type;cohort_key=4|late_rate_runway_cell|dimension=runway;value=short;cohort_key=4|repeated_delay_combination"
+   ]
+  },
+  "case-identity-v1|video_type|5|deadline": {
+   "case_id": "rc1_720c3f86d1a47b6576e013559bbe691e",
+   "case_type": "video_type_pattern",
+   "member_keys": [
+    "concentration.negative|kind=video_type;cohort_key=5|late_delivery_by_video_type|outcome=late_delivery;dimension=video_type;group=5|outcome_concentrated",
+    "pattern.shared_across_editors|kind=video_type;cohort_key=5|late_delivery_inside_vs_outside_by_editor|measure=late_delivery;cohort_key=5|late_delivery_elevated_across_editors"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-13|speed": {
+   "case_id": "rc1_75265797e00945141ce556057926ea51",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "editor.speed_pattern|kind=editor;editor_id=editor-label-13|speed_4|verdict=faster|speed_faster_than_comparable_team"
+   ]
+  },
+  "case-identity-v1|video_type|5|quality": {
+   "case_id": "rc1_7658fc3bddfc90787796c6b551c320f6",
+   "case_type": "video_type_pattern",
+   "member_keys": [
+    "concentration.negative|kind=video_type;cohort_key=5|negative_quality_label_by_video_type|outcome=negative_quality_label;dimension=video_type;group=5|outcome_concentrated",
+    "concentration.positive|kind=video_type;cohort_key=5|positive_quality_label_by_video_type|outcome=positive_quality_label;dimension=video_type;group=5|outcome_concentrated"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-12|deadline": {
+   "case_id": "rc1_85be69a8a15b185b438dff95366a922c",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|measure=late_rate;against=comparison|late_rate_changed",
+    "change.editor|kind=editor;editor_id=editor-label-12|late_rate_current,late_rate_history|measure=late_rate;against=history|late_rate_changed",
+    "concentration.positive|kind=editor;editor_id=editor-label-12;cohort_key=4|not_late_delivery_by_video_type|outcome=not_late_delivery;dimension=video_type;group=4|editor_outcome_concentrated",
+    "contradiction.bad_headline|kind=editor;editor_id=editor-label-12|headline_late_rate||headline_late_rate_above_peers",
+    "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-12|mix_adjusted_late_rate||mix_adjusted_late_rate"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-12|speed": {
+   "case_id": "rc1_8847155a8f6f83f9945b8143eb3db07a",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "editor.speed_pattern|kind=editor;editor_id=editor-label-12|speed_4,speed_5|verdict=faster|speed_faster_than_comparable_team"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-12|hidden_signal": {
+   "case_id": "rc1_b875a8d13c34d490fbee19cb620b85e3",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "contradiction.hidden_risk|kind=editor;editor_id=editor-label-12|current_window_projects||favourable_headline"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-14|deadline": {
+   "case_id": "rc1_c5bb58dd8a48b8de1709492c39837c96",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "contradiction.bad_headline|kind=editor;editor_id=editor-label-14|headline_late_rate||headline_late_rate_above_peers"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-6|deadline": {
+   "case_id": "rc1_ebc18a30779655ac57f0b34a2dae6108",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "change.editor|kind=editor;editor_id=editor-label-6|late_rate_comparison,late_rate_current|measure=late_rate;against=comparison|late_rate_changed",
+    "change.editor|kind=editor;editor_id=editor-label-6|late_rate_current,late_rate_history|measure=late_rate;against=history|late_rate_changed",
+    "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-6|mix_adjusted_late_rate||mix_adjusted_late_rate"
+   ]
+  },
+  "case-identity-v1|workflow_stage|pre_editor|runway": {
+   "case_id": "rc1_eebd36fbe8dcc842c5d4b9c9af951552",
+   "case_type": "workflow_pattern",
+   "member_keys": [
+    "bottleneck.pre_editor_runway|kind=stage;stage=pre_editor|late_projects_with_short_runway||late_projects_with_short_runway"
+   ]
+  },
+  "case-identity-v1|editor|editor-label-13|deadline": {
+   "case_id": "rc1_fb361860958de45be448e7104ffb676e",
+   "case_type": "editor_pattern",
+   "member_keys": [
+    "change.editor|kind=editor;editor_id=editor-label-13|late_rate_comparison,late_rate_current|measure=late_rate;against=comparison|late_rate_changed",
+    "change.editor|kind=editor;editor_id=editor-label-13|late_rate_current,late_rate_history|measure=late_rate;against=history|late_rate_changed",
+    "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-13|mix_adjusted_late_rate||mix_adjusted_late_rate"
+   ]
+  }
+ }
+}

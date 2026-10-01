@@ -62,19 +62,19 @@ The explicit rollback in §5 must also work against a publication made before th
 4. A 1.4.0 publication exists that you can roll back to (the current publication is pinned regardless of age). Record its
    `ATTEMPT_ID` from `status --json` → `current_publication.attempt_id` **before** activating.
 
-### 4.2 Activation change set (a reviewed code change plus configuration)
+### 4.2 Activation change set (code already shipped; the host configuration is the switch)
 
-Setting `ATLAS_CONTRACT_VERSION=1.5.0` alone is refused ("not allowed for production sync"). Activation needs a reviewed commit,
-through the same merge → promotion → deploy path, that changes exactly:
+The reviewed code change shipped with D52, so a deployed release accepts `ATLAS_CONTRACT_VERSION=1.5.0` without further code
+changes. A release built before D52 refuses it ("not allowed for production sync"); deploy a D52 or later release first.
 
-| File | Line today | Activation change |
+| File | Current value | Role in activation |
 |---|---|---|
-| `src/atlas_sync/config.py` | `PRODUCTION_CONTRACT_VERSIONS = ("1.4.0",)` | `("1.4.0", "1.5.0")` — both allowed, so rollback is a configuration change |
-| `src/atlas_sync/config.py` (module docstring) | "production accepts only 1.4.0" | document both versions |
+| `src/atlas_sync/config.py` | `PRODUCTION_CONTRACT_VERSIONS = ("1.4.0", "1.5.0")` | done (D52): both allowed, so rollback is a configuration change |
+| `src/atlas_sync/config.py` (module docstring) | "production accepts 1.4.0 (default) and 1.5.0" | done (D52) |
 | `src/atlas_commander/runtime.py` | `ACTIVE_CONTRACT_VERSION = "1.4.0"` | leave at 1.4.0 until 1.5 has run successfully in production; change in a later release |
 | `deploy/production/compose.yaml` | `${ATLAS_CONTRACT_VERSION:-1.4.0}` | keep the 1.4.0 default (explicit opt-in only) |
 | `deploy/production/atlas.env.example` | `ATLAS_CONTRACT_VERSION=1.4.0` | unchanged in the repository |
-| host `/etc/waset-atlas/atlas.env` | `ATLAS_CONTRACT_VERSION=1.4.0` | `ATLAS_CONTRACT_VERSION=1.5.0` (the actual activation switch) |
+| host `/etc/waset-atlas/atlas.env` | `ATLAS_CONTRACT_VERSION=1.4.0` or `1.5.0` | `ATLAS_CONTRACT_VERSION=1.5.0` is the actual activation switch |
 
 The systemd unit and timer carry no contract version and do not change.
 

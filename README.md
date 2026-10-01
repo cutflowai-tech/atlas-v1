@@ -58,7 +58,7 @@ The command:
 - writes every raw response once, read-only, outside git;
 - produces `extract.json` (the pipeline input) and `manifest.json` (window, per-window page counts, SHA-256 of every raw file, and which items have provably complete history).
 
-Without `MONDAY_API_TOKEN` it stops with `MISSING_ACCESS` and writes nothing.
+The token may instead be read from a file with `MONDAY_API_TOKEN_FILE` (set one, never both). Without either it stops with `MISSING_ACCESS` and writes nothing.
 
 Before using a run, verify it offline (it rechecks every SHA-256, window completeness below the API cap, window tiling, duplicate log IDs, item snapshots and history-completeness claims):
 
@@ -108,6 +108,6 @@ The dashboard is organised in three layers:
 - **Metric engine** (`cycles`, `metrics`, `quality`, `pipeline`): unchanged.
 - **Summary layer** (`dashboard.py`, `dashboard_html.py`): reads only Editor Profile documents. Every figure names the profile field it comes from.
 - **Management rules** (`management.py`): holds the not-yet-approved rules, such as overall status, score, needs-attention, trend, workload capacity and recommendations. Each is shown as "Rule not approved yet" and never gets a value until a rule is approved in a new contract version.
-- **Contract 1.5.0 interpretation layer (inactive candidate):** with `--contract 1.5.0` the profiles and pages add the D23–D51 layer (Overall Status lookup, component states and reasons, Recent Change, Cairo windows, evidence drill-down) from `interpretation_policy.py`, `intelligence.py` and `interpretation_html.py`. Production stays on 1.4.0; see `docs/CONTRACT-1.5-ACTIVATION.md` before any activation.
+- **Contract 1.5.0 interpretation layer (production opt-in, D52):** with `--contract 1.5.0` the profiles and pages add the D23–D52 layer (Overall Status lookup, component states and reasons, Recent Change, Cairo windows, evidence drill-down) from `interpretation_policy.py`, `intelligence.py` and `interpretation_html.py`. Production sync accepts 1.4.0 (the default) and 1.5.0 when `ATLAS_CONTRACT_VERSION=1.5.0`; see `docs/CONTRACT-1.5-ACTIVATION.md` to switch or roll back.
 
 Write the output outside git, like the raw extract: it contains real Monday data.
