@@ -104,6 +104,8 @@ jobs:
         run: make ui-v15
       - name: Redesign snapshot, verdict engine and judgment-first UI tests
         run: make redesign
+      - name: Reasoning V3 foundation tests (boundary, contracts, state, identity, change gate, gateway)
+        run: make reasoning
       - name: Status dashboard UI tests
         run: make status-ui
       - name: Sync status and data health tests
