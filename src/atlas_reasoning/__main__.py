@@ -7,8 +7,12 @@
     python -m atlas_reasoning run <run_id>            one run and its Change Gate decisions
     python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
     python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
+    python -m atlas_reasoning provider-health [--dry-run] [--record]
+                                                      check the OpenRouter configuration (--dry-run: no network call) or make
+                                                      one minimal structured call to the pinned model (--record: into llm_calls)
 
-The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE).
+The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE); the OpenRouter key from
+OPENROUTER_API_KEY (or OPENROUTER_API_KEY_FILE). Neither is ever printed.
 """
 
 from __future__ import annotations
@@ -106,6 +110,52 @@ def cmd_gate(args: argparse.Namespace) -> int:
     return 0
 
 
+HEALTH_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["ok"], "properties": {"ok": {"type": "boolean"}}}
+
+
+def cmd_provider_health(args: argparse.Namespace) -> int:
+    from atlas_reasoning.gateway import MemoryRecorder, ReasoningGateway
+    from atlas_reasoning.openrouter_client import OpenRouterTransport
+    from atlas_reasoning.provider import CallContext, Message, ProviderError, ProviderRequest
+    from atlas_reasoning.structured import schema_output
+
+    limits = settings.gateway_settings()
+    report: dict[str, Any] = {"provider": "openrouter", "model": limits.model, "pinned_model": settings.PINNED_MODEL, "timeout_seconds": limits.timeout_seconds,
+                              "max_retries": limits.max_retries, "concurrency": limits.concurrency}
+    try:
+        router = settings.openrouter_settings()
+        report.update(api_key_configured=True, base_url=router.base_url)
+    except settings.ReasoningConfigError as error:
+        report.update(ok=False, api_key_configured=False, error=str(error))
+        _print(report)
+        return 1
+    if args.dry_run:
+        report.update(ok=True, live_call=False)
+        _print(report)
+        return 0
+    recorder: Any = MemoryRecorder()
+    if args.record:
+        from atlas_reasoning.store.calls import StoreCallRecorder
+        from atlas_reasoning.store.repository import ReasoningStore
+
+        recorder = StoreCallRecorder(ReasoningStore(_database()))
+    gateway = ReasoningGateway(OpenRouterTransport(router), limits, recorder=recorder, secrets=(router.api_key,))
+    request = ProviderRequest(CallContext(purpose="provider_health"), (Message("user", 'Reply with the JSON object {"ok": true} and nothing else.'),),
+                              schema_output("atlas_health", HEALTH_SCHEMA), max_output_tokens=200, reasoning_effort="low")
+    try:
+        response = gateway.call(request)
+        report.update(ok=response.parsed == {"ok": True}, live_call=True, request_id=response.request_id, response_model=response.model,
+                      input_tokens=response.input_tokens, output_tokens=response.output_tokens)
+    except ProviderError as error:
+        report.update(ok=False, live_call=True, error_class=error.error_class, provider_status=error.provider_status, error=str(error))
+    calls = getattr(recorder, "calls", [])
+    if calls:
+        report["latency_ms"] = calls[-1].latency_ms
+        report["attempts"] = calls[-1].attempts
+    _print(report)
+    return 0 if report["ok"] else 1
+
+
 COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "migrate": (cmd_migrate, "apply pending database migrations"),
     "db-health": (cmd_db_health, "check the Reasoning V3 database"),
@@ -114,6 +164,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "run": (cmd_run, "show one run and its gate decisions"),
     "inspect": (cmd_inspect, "show the cases of a built site without a database"),
     "gate": (cmd_gate, "run the Change Gate on a built site"),
+    "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
 }
 
 
@@ -130,6 +181,9 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("run_id")
         elif name in ("inspect", "gate"):
             command.add_argument("site_dir")
+        elif name == "provider-health":
+            command.add_argument("--dry-run", action="store_true", help="validate configuration only; no network call")
+            command.add_argument("--record", action="store_true", help="record the call in llm_calls")
     return root
 
 

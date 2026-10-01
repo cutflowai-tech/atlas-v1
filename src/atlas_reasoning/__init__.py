@@ -11,4 +11,9 @@ Reasoning V3 sits after Intelligence V2 and never feeds back into it:
 - PostgreSQL holds the canonical Reasoning V3 state (``store``). LLM output is never the source of truth for any fact.
 """
 
+import logging
+
 REASONING_PACKAGE_VERSION = "reasoning-v3-foundation-1"
+
+# A library logs; the application decides where logs go.
+logging.getLogger("atlas_reasoning").addHandler(logging.NullHandler())

@@ -48,6 +48,12 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `fingerprint` | 05 | Canonical evidence and `evidence_fingerprint` |
 | `delta` | 05 | Material delta between two evidence states |
 | `change_gate` | 05 | Change Gate service, persisted decisions, `case_for_work` |
+| `provider` | 06 | Provider-neutral request/response types, `Transport` protocol, error taxonomy, redaction |
+| `gateway` | 06 | Retries, backoff, rate limits, concurrency, structured-output validation, call records, isolation |
+| `openrouter_client` | 06 | OpenRouter transport (the only module that knows OpenRouter) |
+| `fake_provider` | 06 | Scripted offline transport for tests |
+| `structured` | 06 | Structured-output descriptions from the reasoning-v1 schemas |
+| `store.calls` | 06 | Persists call metadata to `llm_calls` |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -385,3 +391,94 @@ the fingerprints are equal (property-tested):
 Commands: `python -m atlas_reasoning inspect <site_dir>` (cases, members, fingerprints; no database, flag not needed);
 `python -m atlas_reasoning gate <site_dir>` (requires `ATLAS_REASONING_V3=on`); `python -m atlas_reasoning run <run_id>` (the
 persisted decisions).
+
+## 7. Phase 06: the provider gateway (GPT-5.6 Sol through OpenRouter)
+
+Transport only: no prompt, no reasoning, no merge. Domain modules (contracts, identity, mapping, fingerprint, delta, Change Gate,
+store) neither import the gateway nor mention OpenRouter (`tests/test_reasoning_gateway.py::IsolationTests`).
+
+```python
+from atlas_reasoning import settings
+from atlas_reasoning.gateway import ReasoningGateway
+from atlas_reasoning.openrouter_client import OpenRouterTransport
+from atlas_reasoning.provider import CallContext, Message, ProviderRequest, ProviderError
+from atlas_reasoning.store.calls import StoreCallRecorder
+from atlas_reasoning.structured import contract_output
+
+router = settings.openrouter_settings()
+gateway = ReasoningGateway(OpenRouterTransport(router), settings.gateway_settings(), recorder=StoreCallRecorder(store),
+                           secrets=(router.api_key,))
+request = ProviderRequest(CallContext(purpose="analyst", run_id=..., case_id=..., work_item_id=..., prompt_version="analyst-v1",
+                                      source_snapshot_id=..., evidence_fingerprint=...),
+                          (Message("system", ...), Message("user", ...)), contract_output("reasoning-update-v1.schema.json"))
+response = gateway.call(request)               # response.parsed is validated JSON, or a ProviderError subclass is raised
+outcomes = gateway.call_many([request_a, request_b, request_c])   # one CallOutcome per request; failures are isolated
+```
+
+| Concern | Behaviour |
+|---|---|
+| Configuration | Environment only (`settings`): `OPENROUTER_API_KEY` or `OPENROUTER_API_KEY_FILE`; `ATLAS_REASONING_MODEL` must equal the pinned `openai/gpt-5.6-sol` unless `ATLAS_REASONING_ALLOW_MODEL_OVERRIDE=on`; `ATLAS_REASONING_OPENROUTER_BASE_URL` (https only); bounded limits below. The key is excluded from every `repr` |
+| Model | `settings.PINNED_MODEL = "openai/gpt-5.6-sol"` (OpenRouter slug verified 2026-10-01; supports structured outputs) |
+| Structured output | `response_format: json_schema` (strict) with `provider.require_parameters: true`; the schema is the reasoning-v1 contract with `$ref`s inlined (`structured.contract_output`); the response is always re-validated locally against the real contract schema |
+| Raw reasoning | requested with `reasoning.exclude: true`; never stored or returned |
+| Timeouts | `ATLAS_REASONING_LLM_TIMEOUT_SECONDS` per attempt (default 120, 5–600) |
+| Retries | `ATLAS_REASONING_LLM_MAX_RETRIES` after the first attempt (default 3, 0–6); only retryable errors |
+| Backoff | `ATLAS_REASONING_LLM_BACKOFF_SECONDS` × 2^(retry−1) plus ≤ 25 % jitter, capped by `ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS` (default 2 s, 60 s) |
+| Rate limits | HTTP 429 → `rate_limited`, retried after `max(backoff, Retry-After)` (capped) |
+| Concurrency | `ATLAS_REASONING_LLM_CONCURRENCY` provider attempts in flight across all callers (default 4, 1–32); a slot is released while waiting to retry |
+| Request IDs | `req_<32 hex>` per call unless the context names one; sent as `X-Request-Id`; recorded |
+| Logs | logger `atlas_reasoning.gateway`: request ID, purpose, model, case ID, attempt, error class, status; never prompts, responses or credentials (redacted again before logging) |
+| Call metadata | one `llm_calls` row per call: run, case, work item, request ID, provider, model, purpose, prompt version, snapshot, fingerprint, status, provider status, error class, attempts, retries, latency, input/output tokens, provider response ID. A recording failure is logged and never loses the result |
+| Failure isolation | `call_many` returns one outcome per request; a provider error or even a transport bug (`internal_error`) in one case never affects another |
+
+Error taxonomy (`provider.ProviderError.error_class`; retryable marked ✓): `timeout` ✓, `rate_limited` ✓, `provider_unavailable`
+✓ (5xx, `finish_reason=error`), `network_error` ✓, `malformed_response` ✓, `invalid_structured_output` ✓, `authentication` (401),
+`quota_exceeded` (402), `bad_request` (400/404/413/422), `content_filtered` (403, `finish_reason=content_filter`), `truncated`
+(`finish_reason=length`), `configuration`, `internal_error`.
+
+Health check: `python -m atlas_reasoning provider-health --dry-run` validates configuration without any network call;
+`python -m atlas_reasoning provider-health [--record]` makes one minimal structured call to the pinned model (only when an operator
+runs it). CI never makes a live call: tests use `fake_provider.FakeProvider`, an injected HTTP function, or a local HTTP server.
+
+## 8. Stable public interfaces
+
+Later phases build on these. They are covered by tests and documented here; change them only together with their tests and a
+note in this section.
+
+| Interface | Module | Use |
+|---|---|---|
+| `build_reasoning_input`, `load_reasoning_input`, `ReasoningInput` and its parts | `reasoning_input_boundary` | The only way to read Atlas |
+| `ReasoningCase`, `ReasoningResult`, `ReasoningUpdate` (`from_dict`, `to_dict`, `validated`) | `contracts` | Construct and validate the three objects |
+| `case_errors`, `result_errors`, `update_errors`, `result_case_errors`, `update_result_errors`, `update_case_errors`, `ContractViolation` | `contracts` | Validation with stable error codes |
+| `PATCHABLE_FIELDS`, `IMMUTABLE_RESULT_FIELDS`, `new_result_id`, `evidence_ref_id` | `contracts` | Patch rules and identifiers |
+| All enums | `enums` | Shared vocabulary (also the DB CHECKs) |
+| `build_identity`, `CaseIdentity`, `IDENTITY_VERSION` | `case_identity` | Deterministic case identity |
+| `map_cases`, `map_findings`, `CaseMapping`, `CaseCandidate`, `TOPIC_RULES` | `case_mapping` | Findings → cases |
+| `canonical_evidence`, `evidence_fingerprint`, `FINGERPRINT_VERSION` | `fingerprint` | Evidence state |
+| `material_delta`, `is_empty`, `summary` | `delta` | What changed |
+| `run_gate`, `GateReport`, `prepare_cases`, `case_for_work` | `change_gate` | Gate and work-item input |
+| `ReasoningStore`, `StoreTransaction` (runs, cases, evidence, observations, work items, results, versions, evidence links, LLM calls), exceptions | `store.repository` | Canonical state |
+| `Database`, `apply_migrations`, `database_health` | `store.db`, `store.migrate`, `store.health` | Infrastructure |
+| `ReasoningGateway`, `CallOutcome`, `CallRecord`, `MemoryRecorder` | `gateway` | Provider calls |
+| `ProviderRequest`, `CallContext`, `Message`, `StructuredOutput`, `ProviderResponse`, `ProviderError` and subclasses, `Transport` | `provider` | Provider-neutral types |
+| `contract_output`, `schema_output`, `inline_schema` | `structured` | Structured output |
+| `FakeProvider`, `FakeReply`, `FakeError` | `fake_provider` | Offline tests |
+| `StoreCallRecorder` | `store.calls` | Persist call metadata |
+| `settings.reasoning_enabled`, `require_enabled`, `gateway_settings`, `openrouter_settings`, `database_url` | `settings` | Configuration |
+
+**Do not depend on** (internal, may change): SQL text and table internals beyond the documented columns (use the repository);
+`StoreTransaction._exec/_one/_all`; private helpers (`_finding`, `_param`, `_leaves`, …); the exact text of error messages (use
+error codes and classes); the internal shape of `canonical_evidence` beyond "hashing it gives the fingerprint" (use
+`material_delta`); `OpenRouterTransport.body`; the member-key string format (treat it as opaque, compare for equality);
+`fixtures/reasoning/*` examples (regenerated from `tests/reasoning_factory.py`).
+
+## 9. Ownership after the foundation
+
+| Owner | Phases | Builds on | Adds (migrations in its range) |
+|---|---|---|---|
+| Chat 2 | 07–09, later 17 (and 15, 18 when assigned) | `change_gate.case_for_work`, work items (`new_result` / `update_result` / `lifecycle`), `StoreTransaction.create_result` / `append_result_version` (change kinds `created`, `patched`, `no_change_review`, `lifecycle`), `ReasoningGateway` + `contract_output`, observations' reason codes (`reappeared_same_evidence` for lifecycle) | prompts, analyst/update orchestration, patch merger, lifecycle policy; migrations `0100`–`0199` |
+| Chat 3 | 10–14, 16 | `manager_notes`, `atlas_questions`, `atlas_answers`, `teachings`, `memory_sync_log` tables; `ReasoningCase.manager_context` / `memory_context`; `NoteSource`, `QuestionState`, `Teaching*` enums; read APIs of the store | Honcho client, memory assembler, notes/Q&A/Teach Atlas services and UI, reasoning-first dashboard; migrations `0200`–`0299` |
+
+Rules for both: never write to upstream Atlas; read Atlas only through `reasoning_input_boundary`; never let an LLM set
+`case_id`, a fingerprint, a gate decision or a lifecycle status; persist to PostgreSQL before any memory sync; keep
+`ATLAS_REASONING_V3` off-by-default behaviour byte-identical (`tests/test_reasoning_boundary.py`).
