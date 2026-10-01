@@ -1,8 +1,9 @@
 # Atlas V1 deterministic rules
 
 These rules are the authoritative baseline until superseded by a later approved
-contract version. **Rules 1–11 below are the production rules of the active contract 1.4.0.** Contract 1.5.0 exists in the
-repository as an inactive candidate; where it differs, the section *Contract 1.5.0 (candidate, not active)* at the end states the
+contract version. **Rules 1–11 below are the rules of contract 1.4.0, the default contract** (`ACTIVE_CONTRACT_VERSION`, used
+when `ATLAS_CONTRACT_VERSION` is unset). Contract 1.5.0 is approved for production by D52 and runs only when a deployment opts in
+with `ATLAS_CONTRACT_VERSION=1.5.0`; where it differs, the section *Contract 1.5.0 (production opt-in)* at the end states the
 1.5 rule and its decision, and neither rule set silently overrides the other. The active executable configuration is
 `config/monday-contract-v1.4.json` (contract version `1.4.0`), which keeps every
 contract 1.3.0 rule except the deadline Requested ETA selection (D19: the ETA is
@@ -32,11 +33,13 @@ the historical baseline for reproducibility; under it label ID `8` is unresolved
 10. **Evidence is mandatory.** Every metric stores source record IDs, event IDs, field values, formula/rule version, and calculation time.
 11. **AI is not authoritative.** AI can summarize, investigate, recommend, or flag anomalies. It cannot invent facts or overwrite deterministic source-derived values.
 
-## Contract 1.5.0 (candidate, not active)
+## Contract 1.5.0 (production opt-in)
 
-`config/monday-contract-v1.5.json` encodes D20–D51 (`docs/DECISIONS.md`; `docs/HANDOFF-V2.md` is the product source). It is loadable
-and fully tested but **not active**: `ACTIVE_CONTRACT_VERSION` and `PRODUCTION_CONTRACT_VERSIONS` stay `1.4.0`, and production sync
-refuses 1.5.0. Activation is a separate, explicitly approved step (`docs/CONTRACT-1.5-ACTIVATION.md`). Under 1.5.0 these rules
+`config/monday-contract-v1.5.json` encodes D20–D52 (`docs/DECISIONS.md`; `docs/HANDOFF-V2.md` is the product source). D52 approved
+its production activation: `PRODUCTION_CONTRACT_VERSIONS = ("1.4.0", "1.5.0")` in `src/atlas_sync/config.py`, so production sync
+accepts both. `ACTIVE_CONTRACT_VERSION` and the Compose default stay `1.4.0`; a deployment runs 1.5.0 only when its environment sets
+`ATLAS_CONTRACT_VERSION=1.5.0`, and switching back to 1.4.0 is a configuration change. Contracts 1.0.0–1.3.0 stay loadable for
+reproducing history but production sync refuses them. The switch and rollback procedure is `docs/CONTRACT-1.5-ACTIVATION.md`. Under 1.5.0 these rules
 replace the corresponding 1.4.0 rules above; every other rule above applies unchanged.
 
 - **Rule 3 (Editor identity), D48–D51.** An Editor is resolved by the exact `(source_label_id, logged_name)` tuple, never by the

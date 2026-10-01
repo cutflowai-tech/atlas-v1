@@ -115,7 +115,9 @@ persistent across downtime, and applies one stable 0–10 minute randomized dela
 start a second copy of an already-active oneshot service, and Task 6 also refuses any competing
 production operation with exit 75. Missed timer intervals are not replayed as a catch-up storm.
 
-The Compose service binds only `127.0.0.1:18000` by default. To expose the target public URL
+The Compose service binds only `127.0.0.1:18000` by default (`ATLAS_HTTP_BIND`:`ATLAS_HTTP_PORT` in `atlas.env`). Port mapping:
+host `127.0.0.1:18000` → `atlas-web` container port `8080` (nginx `listen 8080`; fixed, not configurable). Host-side `curl`
+checks use 18000; checks run inside the container (`docker exec`, the image healthcheck) use 8080. To expose the target public URL
 `https://atlas.wasetco.com`, provision the approved host reverse proxy and a valid TLS certificate,
 then proxy that hostname to `http://127.0.0.1:18000`. TLS termination, DNS, certificate renewal, and
 internet firewall rules are host prerequisites and are intentionally not embedded in this repository.
@@ -287,8 +289,9 @@ missed interval produces at most one activation, not one activation per missed h
 
 ## 10a. Contract 1.5.0 activation and rollback
 
-Production runs contract 1.4.0. Activating the contract 1.5.0 candidate, its fresh ingest, smoke test and rollback to 1.4.0 follow
-[`CONTRACT-1.5-ACTIVATION.md`](CONTRACT-1.5-ACTIVATION.md) and require the recorded approval described there.
+Production sync accepts contract 1.4.0 and 1.5.0 (`PRODUCTION_CONTRACT_VERSIONS`); the code and Compose default is 1.4.0, and the
+host runs 1.5.0 only when `/etc/waset-atlas/atlas.env` sets `ATLAS_CONTRACT_VERSION=1.5.0` (approved by D52). Switching to 1.5.0,
+its fresh ingest, smoke test and rollback to 1.4.0 follow [`CONTRACT-1.5-ACTIVATION.md`](CONTRACT-1.5-ACTIVATION.md).
 
 ## 10b. Intelligence V2 publication (D53) and its rollback
 
