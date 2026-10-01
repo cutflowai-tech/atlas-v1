@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/reasoning-update-v1.schema.json",
+  "title": "ReasoningUpdateV1",
+  "description": "A patch to one version of an existing ReasoningResult, never a regenerated result. It accounts for every patchable field as either changed (with its new value) or preserved, and explains why. Python applies the patch (Phase 08); identity, lifecycle, provenance and timestamps are not patchable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "case_id", "result_id", "base_version", "action", "changed_fields", "preserved_fields", "change_rationale",
+               "evidence_fingerprint_before", "evidence_fingerprint_after"],
+  "properties": {
+    "contract_version": {"$ref": "reasoning-common-v1.schema.json#/$defs/contract_version"},
+    "case_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_id"},
+    "result_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/result_id"},
+    "base_version": {"type": "integer", "minimum": 1, "description": "The result version this patch was produced against (optimistic concurrency)."},
+    "action": {"$ref": "reasoning-common-v1.schema.json#/$defs/update_action"},
+    "changed_fields": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["field", "value"],
+        "properties": {"field": {"$ref": "reasoning-common-v1.schema.json#/$defs/patchable_field"}, "value": {}}
+      }
+    },
+    "preserved_fields": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/patchable_field"}, "uniqueItems": true},
+    "change_rationale": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"},
+    "evidence_fingerprint_before": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_fingerprint"},
+    "evidence_fingerprint_after": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_fingerprint"}
+  }
+}

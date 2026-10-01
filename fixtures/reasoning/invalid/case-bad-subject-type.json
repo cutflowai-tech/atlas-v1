@@ -1,0 +1,264 @@
+{
+ "case_id": "rc1_00000000000000000000000000000000",
+ "case_type": "editor_pattern",
+ "contract_version": "reasoning-v1",
+ "contradicting_findings": [
+  {
+   "category": "editor_specific_pattern",
+   "confidence": "moderate",
+   "direction": "favourable",
+   "evidence_level": "pattern",
+   "finding_id": "concentration.positive:0c1d2e3f4a5b6c7d",
+   "finding_type": "concentration.positive",
+   "member_key": "concentration.positive|kind=editor;editor_id=editor-label-12;cohort_key=4|not_late_delivery_by_video_type|editor_outcome_concentrated",
+   "rank": 27,
+   "sample_size": 18
+  }
+ ],
+ "created_at": "2026-09-28T00:05:00Z",
+ "current_evidence": {
+  "references": [
+   {
+    "cycle_id": "cycle:5091110326:1101",
+    "editor_id": "editor-label-12",
+    "event_ids": [
+     "1101-start",
+     "1101-ready",
+     "1101-eta"
+    ],
+    "evidence_code": "late_rate_current",
+    "finding_id": "change.editor:1f35caa3e91fe30c",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "monday_item_id": "1101",
+    "ref_id": "ev1_564a539237a67903c806d3fb",
+    "role": "supporting",
+    "source_timestamps": [
+     "2026-09-01T08:00:00Z",
+     "2026-09-02T10:00:00Z"
+    ],
+    "values": {
+     "deadline_result": "late",
+     "delta_seconds": 14400
+    },
+    "video_type_key": "4"
+   },
+   {
+    "cycle_id": "cycle:5091110326:1102",
+    "editor_id": "editor-label-12",
+    "event_ids": [
+     "1102-start",
+     "1102-ready",
+     "1102-eta"
+    ],
+    "evidence_code": "late_rate_current",
+    "finding_id": "change.editor:1f35caa3e91fe30c",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "monday_item_id": "1102",
+    "ref_id": "ev1_6a756fe8abca40b23036202d",
+    "role": "supporting",
+    "source_timestamps": [
+     "2026-09-01T08:00:00Z",
+     "2026-09-02T10:00:00Z"
+    ],
+    "values": {
+     "deadline_result": "late",
+     "delta_seconds": 3600
+    },
+    "video_type_key": "4"
+   },
+   {
+    "cycle_id": "cycle:5091110326:1001",
+    "editor_id": "editor-label-12",
+    "event_ids": [
+     "1001-start",
+     "1001-ready",
+     "1001-eta"
+    ],
+    "evidence_code": "late_rate_comparison",
+    "finding_id": "change.editor:1f35caa3e91fe30c",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "monday_item_id": "1001",
+    "ref_id": "ev1_9c9830e4b10170b31e898676",
+    "role": "supporting",
+    "source_timestamps": [
+     "2026-09-01T08:00:00Z",
+     "2026-09-02T10:00:00Z"
+    ],
+    "values": {
+     "deadline_result": "on_time",
+     "delta_seconds": 0
+    },
+    "video_type_key": "4"
+   },
+   {
+    "cycle_id": "cycle:5091110326:1101",
+    "editor_id": "editor-label-12",
+    "event_ids": [
+     "1101-start",
+     "1101-ready",
+     "1101-eta"
+    ],
+    "evidence_code": "mix_adjusted_late_rate",
+    "finding_id": "person.mix_adjusted_deadline:5b9e0d1c2a3f4e6d",
+    "member_key": "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-12|mix_adjusted_late_rate|mix_adjusted_late_rate",
+    "monday_item_id": "1101",
+    "ref_id": "ev1_153b57036069275f9766659f",
+    "role": "supporting",
+    "source_timestamps": [
+     "2026-09-01T08:00:00Z",
+     "2026-09-02T10:00:00Z"
+    ],
+    "values": {
+     "deadline_result": "late",
+     "expected_probability": 0.36
+    },
+    "video_type_key": "4"
+   },
+   {
+    "cycle_id": "cycle:5091110326:1003",
+    "editor_id": "editor-label-12",
+    "event_ids": [
+     "1003-start",
+     "1003-ready",
+     "1003-eta"
+    ],
+    "evidence_code": "not_late_delivery_by_video_type",
+    "finding_id": "concentration.positive:0c1d2e3f4a5b6c7d",
+    "member_key": "concentration.positive|kind=editor;editor_id=editor-label-12;cohort_key=4|not_late_delivery_by_video_type|editor_outcome_concentrated",
+    "monday_item_id": "1003",
+    "ref_id": "ev1_a5d92210660a126b665c8aa4",
+    "role": "supporting",
+    "source_timestamps": [
+     "2026-09-01T08:00:00Z",
+     "2026-09-02T10:00:00Z"
+    ],
+    "values": {
+     "deadline_result": "early",
+     "outcome": true
+    },
+    "video_type_key": "4"
+   }
+  ],
+  "statements": [
+   {
+    "code": "late_rate_changed",
+    "kind": "deterministic_derived_value",
+    "level": "metric",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "params": {
+     "against": "comparison",
+     "baseline": 0.5,
+     "current": 0.6875,
+     "difference": 0.1875,
+     "measure": "late_rate"
+    }
+   },
+   {
+    "code": "change_deteriorating",
+    "kind": "deterministic_derived_value",
+    "level": "pattern",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "params": {
+     "status": "deteriorating"
+    }
+   },
+   {
+    "code": "change_differs_from_team",
+    "kind": "upstream_interpretation",
+    "level": "interpretation",
+    "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+    "params": {}
+   },
+   {
+    "code": "mix_adjusted_late_rate",
+    "kind": "deterministic_derived_value",
+    "level": "pattern",
+    "member_key": "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-12|mix_adjusted_late_rate|mix_adjusted_late_rate",
+    "params": {
+     "expected_rate": 0.3626,
+     "observed_rate": 0.6
+    }
+   },
+   {
+    "code": "editor_outcome_concentrated",
+    "kind": "deterministic_derived_value",
+    "level": "pattern",
+    "member_key": "concentration.positive|kind=editor;editor_id=editor-label-12;cohort_key=4|not_late_delivery_by_video_type|editor_outcome_concentrated",
+    "params": {
+     "group": "4",
+     "outcome": "not_late_delivery",
+     "share_ratio": 1.4
+    }
+   }
+  ]
+ },
+ "evidence_fingerprint": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
+ "identity_dimensions": {},
+ "identity_key": "editor:editor-label-12:deadline",
+ "identity_version": "case-identity-v1",
+ "manager_context": [
+  {
+   "author": "manager@example.com",
+   "body": "Class A projects were reassigned to Ahmed in September.",
+   "recorded_at": "2026-09-20T09:00:00Z",
+   "source_id": "note-1",
+   "source_type": "manager_interpretation"
+  }
+ ],
+ "material_delta": null,
+ "memory_context": {
+  "items": [],
+  "status": "not_requested"
+ },
+ "orientation": "adverse",
+ "previous_result_id": "rr1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "previous_result_version": 1,
+ "scope": {
+  "affected_editor_ids": [
+   "editor-label-12"
+  ],
+  "affected_project_count": 4,
+  "affected_video_type_keys": [
+   "4",
+   "5"
+  ],
+  "windows": [
+   "all_history",
+   "current"
+  ]
+ },
+ "source_snapshot_id": "snapshot-2d34f7d8a849219ee08b",
+ "subject_id": "editor-label-12",
+ "subject_type": "employee",
+ "supporting_findings": [
+  {
+   "category": "needs_attention",
+   "confidence": "moderate",
+   "direction": "adverse",
+   "evidence_level": "pattern",
+   "finding_id": "change.editor:1f35caa3e91fe30c",
+   "finding_type": "change.editor",
+   "member_key": "change.editor|kind=editor;editor_id=editor-label-12|late_rate_comparison,late_rate_current|late_rate_changed",
+   "rank": 2,
+   "sample_size": 26
+  },
+  {
+   "category": "editor_specific_pattern",
+   "confidence": "moderate",
+   "direction": "adverse",
+   "evidence_level": "pattern",
+   "finding_id": "person.mix_adjusted_deadline:5b9e0d1c2a3f4e6d",
+   "finding_type": "person.mix_adjusted_deadline",
+   "member_key": "person.mix_adjusted_deadline|kind=editor;editor_id=editor-label-12|mix_adjusted_late_rate|mix_adjusted_late_rate",
+   "rank": 14,
+   "sample_size": 30
+  }
+ ],
+ "topic_key": "deadline",
+ "upstream": {
+  "boundary_version": "reasoning-input-v1",
+  "intelligence_document_version": "2.0.0",
+  "intelligence_version": "intelligence-v2.0.0"
+ },
+ "upstream_contract_version": "1.5.0"
+}

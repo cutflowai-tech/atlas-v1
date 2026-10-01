@@ -1,0 +1,40 @@
+{
+ "action": "patch",
+ "base_version": 1,
+ "case_id": "rc1_00000000000000000000000000000000",
+ "change_rationale": "Two more late projects arrived; the direction is unchanged, the sample is still small.",
+ "changed_fields": [
+  {
+   "field": "confidence",
+   "value": {
+    "level": "weak",
+    "rationale": "The newest window adds only two projects."
+   }
+  },
+  {
+   "field": "observation",
+   "value": {
+    "evidence_refs": [
+     "ev1_564a539237a67903c806d3fb",
+     "ev1_6a756fe8abca40b23036202d"
+    ],
+    "statement": "12 of 18 deadline-classifiable projects in the current window were late."
+   }
+  }
+ ],
+ "contract_version": "reasoning-v1",
+ "evidence_fingerprint_after": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
+ "evidence_fingerprint_before": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
+ "preserved_fields": [
+  "reasoning_summary",
+  "supporting_evidence",
+  "counter_evidence",
+  "interpretation",
+  "alternative_explanations",
+  "limitations",
+  "management_significance",
+  "questions_for_management",
+  "suggested_investigations"
+ ],
+ "result_id": "rr1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

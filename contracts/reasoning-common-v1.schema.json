@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/reasoning-common-v1.schema.json",
+  "title": "ReasoningCommonV1",
+  "description": "Shared definitions of the Reasoning V3 contracts (reasoning-v1): identifiers, enums, evidence references, claims and the material delta. Every enum mirrors atlas_reasoning.enums and the PostgreSQL CHECK constraints.",
+  "$defs": {
+    "contract_version": {"const": "reasoning-v1"},
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "case_id": {"type": "string", "pattern": "^rc1_[0-9a-f]{32}$", "description": "Deterministic case identity (atlas_reasoning.case_identity). Never produced by an LLM; never a hash of evidence values."},
+    "result_id": {"type": "string", "pattern": "^rr1_[0-9a-f]{32}$"},
+    "ref_id": {"type": "string", "pattern": "^ev1_[0-9a-f]{24}$", "description": "Stable reference to one deterministic evidence record of a case."},
+    "evidence_fingerprint": {"type": "string", "pattern": "^ef1_[0-9a-f]{64}$", "description": "SHA-256 of the case's canonical deterministic evidence (atlas_reasoning.evidence)."},
+    "member_key": {"type": "string", "minLength": 1, "maxLength": 400, "description": "Stable key of one Intelligence V2 finding inside a case: stays the same across runs while the finding's type, scope and evidence kinds do."},
+    "finding_id": {"type": "string", "minLength": 1, "maxLength": 200, "description": "The Intelligence V2 finding_id in this snapshot (changes with the analysis window; never used as identity)."},
+    "short_text": {"type": "string", "minLength": 1, "maxLength": 400},
+    "text": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "subject_type": {"enum": ["editor", "team", "video_type", "workflow_stage", "project", "data_source"]},
+    "case_type": {"enum": ["editor_pattern", "team_pattern", "video_type_pattern", "workflow_pattern", "open_work_risk", "project_risk", "data_quality"]},
+    "topic_key": {"enum": ["deadline", "speed", "quality", "workload", "runway", "post_editor_delay", "workflow_time", "component_conflict", "hidden_signal", "open_work_risk", "data_quality"]},
+    "direction": {"enum": ["adverse", "favourable", "mixed", "neutral"]},
+    "confidence_level": {"enum": ["weak", "moderate", "strong"]},
+    "evidence_level": {"enum": ["fact", "metric", "pattern", "association", "interpretation", "hypothesis"]},
+    "statement_kind": {"enum": ["source_fact", "deterministic_derived_value", "upstream_interpretation"]},
+    "evidence_role": {"enum": ["supporting", "contradicting", "context"]},
+    "lifecycle_status": {"enum": ["new", "active", "updated", "cooling", "resolved", "superseded"]},
+    "gate_action": {"enum": ["unchanged", "new", "updated", "disappeared"]},
+    "update_action": {"enum": ["patch", "no_change"]},
+    "note_source": {"enum": ["manager_interpretation", "manager_answer", "management_teaching", "atlas_question", "prior_reasoning_summary"]},
+    "question_state": {"enum": ["open", "answered", "dismissed", "superseded"]},
+    "expected_context_type": {"enum": ["business_rule", "workflow_context", "assignment_context", "client_context", "temporary_situation", "data_correction", "other"]},
+    "memory_status": {"enum": ["not_requested", "available", "degraded", "unavailable"]},
+    "patchable_field": {
+      "enum": ["title", "observation", "reasoning_summary", "supporting_evidence", "counter_evidence", "interpretation", "alternative_explanations",
+               "confidence", "limitations", "management_significance", "questions_for_management", "suggested_investigations"],
+      "description": "The only ReasoningResult fields a ReasoningUpdate may change. Identity, lifecycle, provenance and timestamps are set deterministically, never by a patch."
+    },
+    "evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/ref_id"}, "uniqueItems": true},
+    "required_evidence_refs": {"type": "array", "items": {"$ref": "#/$defs/ref_id"}, "uniqueItems": true, "minItems": 1},
+    "claim": {
+      "type": "object", "additionalProperties": false, "required": ["statement", "evidence_refs"],
+      "description": "A visible conclusion. It must cite at least one deterministic evidence reference of its case.",
+      "properties": {"statement": {"$ref": "#/$defs/text"}, "evidence_refs": {"$ref": "#/$defs/required_evidence_refs"}}
+    },
+    "finding_ref": {
+      "type": "object", "additionalProperties": false,
+      "required": ["finding_id", "member_key", "finding_type", "direction", "category", "evidence_level", "confidence", "sample_size", "rank"],
+      "properties": {
+        "finding_id": {"$ref": "#/$defs/finding_id"},
+        "member_key": {"$ref": "#/$defs/member_key"},
+        "finding_type": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)+$"},
+        "direction": {"$ref": "#/$defs/direction"},
+        "category": {"type": "string", "minLength": 1},
+        "evidence_level": {"$ref": "#/$defs/evidence_level"},
+        "confidence": {"$ref": "#/$defs/confidence_level"},
+        "sample_size": {"type": "integer", "minimum": 0},
+        "rank": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "case_statement": {
+      "type": "object", "additionalProperties": false, "required": ["member_key", "level", "kind", "code", "params"],
+      "properties": {
+        "member_key": {"$ref": "#/$defs/member_key"},
+        "level": {"$ref": "#/$defs/evidence_level"},
+        "kind": {"$ref": "#/$defs/statement_kind"},
+        "code": {"type": "string", "minLength": 1},
+        "params": {"type": "object"}
+      }
+    },
+    "evidence_reference": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ref_id", "member_key", "finding_id", "role", "evidence_code", "monday_item_id", "cycle_id", "editor_id", "video_type_key", "event_ids", "source_timestamps", "values"],
+      "properties": {
+        "ref_id": {"$ref": "#/$defs/ref_id"},
+        "member_key": {"$ref": "#/$defs/member_key"},
+        "finding_id": {"$ref": "#/$defs/finding_id"},
+        "role": {"$ref": "#/$defs/evidence_role"},
+        "evidence_code": {"type": "string", "minLength": 1},
+        "monday_item_id": {"type": "string", "minLength": 1},
+        "cycle_id": {"type": ["string", "null"]},
+        "editor_id": {"type": ["string", "null"]},
+        "video_type_key": {"type": ["string", "null"]},
+        "event_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1},
+        "source_timestamps": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1},
+        "values": {"type": "object"}
+      }
+    },
+    "evidence_key": {
+      "type": "object", "additionalProperties": false, "required": ["ref_id", "member_key", "role", "evidence_code", "monday_item_id", "cycle_id"],
+      "properties": {
+        "ref_id": {"$ref": "#/$defs/ref_id"},
+        "member_key": {"$ref": "#/$defs/member_key"},
+        "role": {"$ref": "#/$defs/evidence_role"},
+        "evidence_code": {"type": "string", "minLength": 1},
+        "monday_item_id": {"type": "string", "minLength": 1},
+        "cycle_id": {"type": ["string", "null"]}
+      }
+    },
+    "contradiction_change": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "member_key", "ref_id"],
+      "description": "A contradiction that appeared or disappeared: a whole finding opposing the case orientation (ref_id null) or one contradicting evidence record.",
+      "properties": {"kind": {"enum": ["finding", "evidence"]}, "member_key": {"$ref": "#/$defs/member_key"}, "ref_id": {"oneOf": [{"$ref": "#/$defs/ref_id"}, {"type": "null"}]}}
+    },
+    "value_change": {
+      "type": "object", "additionalProperties": false, "required": ["member_key", "path", "before", "after"],
+      "properties": {"member_key": {"type": ["string", "null"]}, "path": {"type": "string", "minLength": 1}, "before": {}, "after": {}}
+    },
+    "confidence_change": {
+      "type": "object", "additionalProperties": false, "required": ["member_key", "before", "after"],
+      "properties": {"member_key": {"$ref": "#/$defs/member_key"}, "before": {"$ref": "#/$defs/confidence_level"}, "after": {"$ref": "#/$defs/confidence_level"}}
+    },
+    "material_delta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["delta_version", "fingerprint_before", "fingerprint_after", "orientation_change", "added_findings", "removed_findings", "added_evidence", "removed_evidence",
+                   "changed_values", "changed_confidence", "added_contradictions", "removed_contradictions"],
+      "description": "Exactly what changed in a case's deterministic evidence between two fingerprints (atlas_reasoning.delta). Every difference between the two canonical evidence documents appears in exactly one list.",
+      "properties": {
+        "delta_version": {"const": "material-delta-v1"},
+        "fingerprint_before": {"$ref": "#/$defs/evidence_fingerprint"},
+        "fingerprint_after": {"$ref": "#/$defs/evidence_fingerprint"},
+        "orientation_change": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["before", "after"],
+                                                            "properties": {"before": {"$ref": "#/$defs/direction"}, "after": {"$ref": "#/$defs/direction"}}}]},
+        "added_findings": {"type": "array", "items": {"$ref": "#/$defs/member_key"}},
+        "removed_findings": {"type": "array", "items": {"$ref": "#/$defs/member_key"}},
+        "added_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence_key"}},
+        "removed_evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence_key"}},
+        "changed_values": {"type": "array", "items": {"$ref": "#/$defs/value_change"}},
+        "changed_confidence": {"type": "array", "items": {"$ref": "#/$defs/confidence_change"}},
+        "added_contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction_change"}},
+        "removed_contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction_change"}}
+      }
+    },
+    "context_item": {
+      "type": "object", "additionalProperties": false, "required": ["source_type", "source_id", "body", "author", "recorded_at"],
+      "description": "Attributed management context (a note, an answer, a teaching). Context, never deterministic evidence.",
+      "properties": {
+        "source_type": {"$ref": "#/$defs/note_source"},
+        "source_id": {"type": "string", "minLength": 1},
+        "body": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "author": {"type": ["string", "null"]},
+        "recorded_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "memory_item": {
+      "type": "object", "additionalProperties": false, "required": ["source_type", "memory_ref", "session_key", "body", "recorded_at"],
+      "properties": {
+        "source_type": {"$ref": "#/$defs/note_source"},
+        "memory_ref": {"type": "string", "minLength": 1},
+        "session_key": {"type": "string", "minLength": 1},
+        "body": {"type": "string", "minLength": 1, "maxLength": 8000},
+        "recorded_at": {"oneOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      }
+    },
+    "memory_context": {
+      "type": "object", "additionalProperties": false, "required": ["status", "items"],
+      "properties": {"status": {"$ref": "#/$defs/memory_status"}, "items": {"type": "array", "items": {"$ref": "#/$defs/memory_item"}}}
+    }
+  }
+}
