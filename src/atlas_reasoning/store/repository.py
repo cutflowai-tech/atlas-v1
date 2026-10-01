@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from atlas_reasoning import case_identity as identity
 from atlas_reasoning.contracts import (
     CLAIM_FIELDS,
     CLAIM_LIST_FIELDS,
@@ -57,8 +58,8 @@ class ResultConflict(StoreError):
     """The case already has an open result."""
 
 
-class CaseIdentityCollision(StoreError):
-    """Two different identity keys produced the same case_id, or one identity key two case_ids."""
+class CaseIdentityCollision(StoreError, identity.CaseIdentityCollision):
+    """The database already holds this case_id with another identity key, or this identity key under another case_id."""
 
 
 class EvidenceCollision(StoreError):

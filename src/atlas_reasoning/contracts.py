@@ -20,7 +20,7 @@ import hashlib
 import json
 import types
 import uuid
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
 from datetime import datetime
 from enum import StrEnum
@@ -33,6 +33,7 @@ from jsonschema.exceptions import ValidationError
 from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 
+from atlas_reasoning.case_identity import identity_errors
 from atlas_reasoning.enums import (
     CONFIDENCE_ORDER,
     CaseType,
@@ -203,7 +204,7 @@ def case_semantic_errors(case: Mapping[str, Any]) -> list[str]:
 
 # Later foundation phases register deterministic recomputation checks here (case identity, evidence fingerprint), so a case whose
 # case_id or fingerprint does not match its own content is rejected.
-CASE_CHECKS: list[Any] = []
+CASE_CHECKS: list[Callable[[Mapping[str, Any]], list[str]]] = [identity_errors]
 
 
 def _extension_errors(case: Mapping[str, Any]) -> list[str]:

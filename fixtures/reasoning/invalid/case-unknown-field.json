@@ -1,5 +1,5 @@
 {
- "case_id": "rc1_00000000000000000000000000000000",
+ "case_id": "rc1_85be69a8a15b185b438dff95366a922c",
  "case_type": "editor_pattern",
  "chain_of_thought": "...",
  "contract_version": "reasoning-v1",
@@ -195,7 +195,7 @@
  },
  "evidence_fingerprint": "ef1_2222222222222222222222222222222222222222222222222222222222222222",
  "identity_dimensions": {},
- "identity_key": "editor:editor-label-12:deadline",
+ "identity_key": "case-identity-v1|editor|editor-label-12|deadline",
  "identity_version": "case-identity-v1",
  "manager_context": [
   {

@@ -6,7 +6,7 @@
    "requires_context": true
   }
  ],
- "case_id": "rc1_00000000000000000000000000000000",
+ "case_id": "rc1_85be69a8a15b185b438dff95366a922c",
  "confidence": {
   "level": "moderate",
   "rationale": "Moderate upstream evidence; the sample is small for the current window."

@@ -315,6 +315,12 @@ def _block(row: Mapping[str, Any]) -> EvidenceBlockRef:
                             tuple(_record(record) for record in row.get("records") or ()))
 
 
+def upstream_finding(row: Mapping[str, Any]) -> UpstreamFinding:
+    """One finding of an already validated Intelligence V2 document, as the boundary types it (used by ``build_reasoning_input``;
+    exposed for tests and tools that work on single findings)."""
+    return _finding(row)
+
+
 def _finding(row: Mapping[str, Any]) -> UpstreamFinding:
     statements = [_statement(item) for item in row["statements"]]
     scope = row["scope"]

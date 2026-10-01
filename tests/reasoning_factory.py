@@ -102,6 +102,10 @@ def case_dict() -> dict[str, Any]:
 
 def seal_case(case: dict[str, Any]) -> dict[str, Any]:
     """Recompute the deterministic fields a case derives from its own content (identity, fingerprint)."""
+    from atlas_reasoning.case_identity import build_identity
+
+    identity = build_identity(case["subject_type"], case["subject_id"], case["topic_key"], case["case_type"], case["identity_dimensions"])
+    case.update({key: value for key, value in identity.to_dict().items() if key in case})
     return case
 
 

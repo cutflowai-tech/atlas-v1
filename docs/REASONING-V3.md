@@ -42,6 +42,8 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `contracts` | 02 | `ReasoningCase`, `ReasoningResult`, `ReasoningUpdate`: schemas, typed models, semantic validators |
 | `store.db`, `store.migrate`, `store.repository`, `store.health` | 03 | PostgreSQL connection, migration bootstrap, data access, health |
 | `__main__` | 03+ | Operator commands (`python -m atlas_reasoning ...`) |
+| `case_identity` | 04 | Deterministic `case_id` from normalized identity dimensions |
+| `case_mapping` | 04 | Intelligence V2 findings → case candidates (topic rules, member keys) |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -260,3 +262,66 @@ version may change: identity and `created_at` never; a patch exactly its listed 
 `NotFound`, `VersionConflict`, `ResultConflict`, `CaseIdentityCollision`, `EvidenceCollision`, `ContractViolation`.
 
 Debug: `python -m atlas_reasoning case <case_id> | result <result_id> | run <run_id>`.
+
+## 5. Phase 04: stable case identity
+
+`case_id` answers *what management issue is this about?* — never *what does the data look like now?*. It is computed by Python
+(`atlas_reasoning.case_identity`), never by an LLM, from:
+
+| Dimension | Source | Example |
+|---|---|---|
+| `subject_type` | the finding's scope kind (`editor`, `team`, `video_type`, `workflow_stage` (V2 `stage`), `project`, `data_source` (V2 `data`)) | `editor` |
+| `subject_id` | the scope's Editor ID, Video Type key, stage, Monday item ID, `team`, or `monday` for data warnings | `editor-label-12` |
+| `topic_key` | the topic rule of the finding type (`case_mapping.TOPIC_RULES`) | `deadline` |
+| optional `video_type`, `workflow_stage`, `detector_family`, `signal` | only where the rule makes it part of the topic: `signal` for open-work risk signals and for each data warning code | `signal=past_eta` |
+
+Excluded, always: rates, counts, sample sizes, dates and windows, confidence, rank, severity, wording, finding order, Intelligence
+V2 `finding_id` (it hashes the analysis window and changes daily), evidence values, request IDs and LLM output.
+
+**Construction.** Each component is normalized (NFC, whitespace collapsed and trimmed, lower case; empty is an error), percent-
+encoded and joined into `identity_key` = `case-identity-v1|<subject_type>|<subject_id>|<topic_key>[|<dimension>=<value>…]` (fixed
+dimension order; the encoding is injective). `case_id = "rc1_" + sha256(identity_key)[:32]`. Both, and every dimension, are stored
+in `reasoning_cases` for debugging. A case whose `case_id` or `identity_key` does not follow from its own dimensions fails the
+contract (`CASE_ID_MISMATCH`, registered in `contracts.CASE_CHECKS`).
+
+**Collisions.** Within a run, two identity keys with one `case_id` stop the run (`CaseIdentityCollision`); the database refuses a
+`case_id` or `identity_key` already held by another identity. Nothing is ever merged silently.
+
+**Topic rules** (`TOPIC_RULES`, `case-mapping-v1`):
+
+| Finding type(s) | Topic |
+|---|---|
+| `change.editor`, `change.team`, `change.video_type` | by `measure`: `late_rate` → deadline, `median_execution` → speed, `negative_label_rate` → quality |
+| `person.mix_adjusted_deadline`, `contradiction.bad_headline`, `pattern.repeated_delay`, `pattern.time` | deadline |
+| `concentration.negative` / `.positive` | by `outcome`: (not) late delivery → deadline; negative/positive label → quality |
+| `pattern.shared_across_editors` | by `measure`: late delivery → deadline; short runway → runway |
+| `editor.speed_pattern` | speed |
+| `editor.label_pattern`, `pattern.repeated_quality` | quality |
+| `workload.association`, `workload.overload_pattern` | workload |
+| `bottleneck.pre_editor_runway` | runway (subject: stage `pre_editor`) |
+| `bottleneck.post_editor` | post_editor_delay |
+| `workflow.time_map` | workflow_time |
+| `contradiction.metric_conflict` | component_conflict |
+| `contradiction.hidden_risk` | hidden_signal |
+| `risk.open_work` | open_work_risk + `signal` (case type `open_work_risk`) |
+| `risk.historical_similarity` | open_work_risk, subject = the project (case type `project_risk`) |
+| `data.<code>` | data_quality + `signal=<code>` (case type `data_quality`) |
+
+`case_type` follows the subject (`editor_pattern`, `team_pattern`, `video_type_pattern`, `workflow_pattern`, `project_risk`,
+`data_quality`) unless the rule names one. A finding of an unknown type, or with a parameter value its rule does not know, is
+reported in `CaseMapping.unmapped` with the reason — never guessed. A test requires a rule for every registered detector.
+
+**Many findings, one case.** All findings with the same identity form one case: in the showcase snapshot, Editor
+`editor-label-12`'s deadline case holds two late-rate changes (against history and against the comparison window), the mix-adjusted
+lateness, an on-time concentration and the contradiction that qualifies the late headline. Within a case each finding has a
+**member key** (type, scope, categorical discriminators such as `measure`/`against`/`outcome`, supporting evidence kinds, first
+statement code): stable while the finding reports the same thing, whatever its values or window.
+
+**New case vs update.** A new case exists exactly when subject, topic or a rule-declared dimension differs. Different findings
+within the topic, new evidence, new values, new confidence or a moved window update the existing case (Phase 05 decides whether
+that is material). Changing the rules requires a new `IDENTITY_VERSION`; `fixtures/reasoning/case-identity-showcase.json` pins every
+identity of the showcase snapshot so an accidental rule change fails CI.
+
+**Replay.** Rebuilding the showcase snapshot with the analysis windows moved forward 1 and 7 days changes every Intelligence V2
+`finding_id` (0 of 30 reused) while every issue still present keeps its `case_id` (15 of 17 cases persist with identical IDs; the
+other two left the window).
