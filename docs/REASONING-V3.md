@@ -54,6 +54,9 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `fake_provider` | 06 | Scripted offline transport for tests |
 | `structured` | 06 | Structured-output descriptions from the reasoning-v1 schemas |
 | `store.calls` | 06 | Persists call metadata to `llm_calls` |
+| `analyst`, `prompts/analyst-v1.md` | 07 | New-case reasoning: bounded canonical case input, versioned prompt, analyst output schema, result assembly |
+| `output_checks` | 07 | Deterministic checks of model text against its case (no invented numbers) |
+| `engine` | 07–09 | Work-item processing: claim, gateway call, validated persistence, failure isolation |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -489,3 +492,19 @@ error codes and classes); the internal shape of `canonical_evidence` beyond "has
 Rules for both: never write to upstream Atlas; read Atlas only through `reasoning_input_boundary`; never let an LLM set
 `case_id`, a fingerprint, a gate decision or a lifecycle status; persist to PostgreSQL before any memory sync; keep
 `ATLAS_REASONING_V3` off-by-default behaviour byte-identical (`tests/test_reasoning_boundary.py`).
+
+## 10. Phase 07: the analyst reasoning engine (new cases)
+
+One bounded `ReasoningCase` (a `new_result` work item, `change_gate.case_for_work`) becomes one `ReasoningResult` version 1.
+
+| Concern | Behaviour |
+|---|---|
+| Prompt | `src/atlas_reasoning/prompts/analyst-v1.md`, `analyst.ANALYST_PROMPT_VERSION = "analyst-v1"`; a test pins its SHA-256, so the text cannot change without a new version. Rules: use only the case; no invented numbers, people, projects, events or metrics; cite `ref_id`s; keep observation / supporting / counter-evidence / interpretation / alternatives (hypotheses needing context: `requires_context`) / limitations apart; handle counter-evidence; confidence never above the upstream ceiling; ask management when context is missing; no HR, personality, health, salary, termination or unsupported blame judgements; `reasoning_summary` is an explicit summary, never hidden reasoning |
+| Input | `analyst.analyst_input(case)`: identity (no `case_id`), scope, orientation, findings, typed statements, evidence blocks, citable references, manager and memory context, evidence provenance. Canonical order and compact key-sorted JSON; volatile values (V2 finding IDs and ranks, snapshot ID, case creation time, event IDs) are left out, so equivalent cases give byte-identical prompts. Larger than `MAX_INPUT_CHARS` (400 000, about 100k tokens; the largest showcase case is about 152 000) → `CaseTooLarge`, never truncated |
+| Output | The model returns only the analyst fields (`PATCHABLE_FIELDS`), strict structured output (`analyst.analyst_output_schema()`, taken from `reasoning-result-v1`). Python adds `result_id`, `case_id`, version 1, lifecycle `new`, snapshot, fingerprint, `model_metadata` (provider, answering model, request ID), `prompt_version`, timestamps. Any other field (an ID, a lifecycle, `chain_of_thought`, …) is `UNKNOWN_FIELD` |
+| Validation | Inside the gateway call (so failures are retried within its bounds and recorded): field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value, optionally as a percentage, at the precision written). Re-validated before persisting |
+| Model | The answering model must be the configured one (pinned `openai/gpt-5.6-sol`); anything else fails the item (`work:MODEL_SUBSTITUTED`) |
+| Persistence | `engine.ReasoningEngine`: claim (`pending → in_progress`), one gateway call per item via `call_many`, then `create_result` + evidence links + `done` in one transaction. Any failure rolls back and marks only that item `failed` (`provider:<class>`, `contract:<codes>`, `work:<code>`, `store:<error>`) |
+
+Command: `python -m atlas_reasoning reason <run_id>` (needs `ATLAS_REASONING_V3=on`, the OpenRouter key and the database) processes
+every pending work item and prints the engine report. Tests: `tests/test_reasoning_analyst.py` (fake transport `tests/reasoning_fakes.py`).

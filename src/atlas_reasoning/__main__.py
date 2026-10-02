@@ -7,6 +7,8 @@
     python -m atlas_reasoning run <run_id>            one run and its Change Gate decisions
     python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
     python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
+    python -m atlas_reasoning reason <run_id>         reason about every pending work item through OpenRouter (needs
+                                                      ATLAS_REASONING_V3=on and the OpenRouter key)
     python -m atlas_reasoning provider-health [--dry-run] [--record]
                                                       check the OpenRouter configuration (--dry-run: no network call) or make
                                                       one minimal structured call to the pinned model (--record: into llm_calls)
@@ -110,6 +112,23 @@ def cmd_gate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reason(args: argparse.Namespace) -> int:
+    from atlas_reasoning.engine import ReasoningEngine
+    from atlas_reasoning.gateway import ReasoningGateway
+    from atlas_reasoning.openrouter_client import OpenRouterTransport
+    from atlas_reasoning.store.calls import StoreCallRecorder
+    from atlas_reasoning.store.repository import ReasoningStore
+
+    settings.require_enabled()
+    router, limits = settings.openrouter_settings(), settings.gateway_settings()
+    store = ReasoningStore(_database())
+    store.get_run(args.run_id)
+    gateway = ReasoningGateway(OpenRouterTransport(router), limits, recorder=StoreCallRecorder(store), secrets=(router.api_key,))
+    report = ReasoningEngine(store, gateway).process_run(args.run_id)
+    _print(report.to_dict())
+    return 0 if not report.failed else 1
+
+
 HEALTH_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["ok"], "properties": {"ok": {"type": "boolean"}}}
 
 
@@ -164,6 +183,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "run": (cmd_run, "show one run and its gate decisions"),
     "inspect": (cmd_inspect, "show the cases of a built site without a database"),
     "gate": (cmd_gate, "run the Change Gate on a built site"),
+    "reason": (cmd_reason, "reason about the pending work items of a run"),
     "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
 }
 
@@ -177,7 +197,7 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("case_id")
         elif name == "result":
             command.add_argument("result_id")
-        elif name == "run":
+        elif name in ("run", "reason"):
             command.add_argument("run_id")
         elif name in ("inspect", "gate"):
             command.add_argument("site_dir")
