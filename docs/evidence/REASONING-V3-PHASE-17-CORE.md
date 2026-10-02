@@ -80,3 +80,23 @@ The card-linking acceptance test is **`DEFERRED_TO_PHASE17_UI_AFTER_PHASE16`**: 
 result-card interface; no placeholder was invented. The brief persists canonical `result_id`s only (`executive_statement_refs`).
 
 ## 6. Verification
+
+Independent review rounds: (1) `93ab8b5` → 6 reproduced findings (2 high), fixed in `4613b68`; (2) re-review of `4613b68` → remaining
+lifecycle / ranking bypasses and false positives (valid sentences refused; prompt not stating the new rules), fixed in `6ea941f`;
+(3) final check of `6ea941f` → no critical bypass; residual narrow bypasses and false positives, fixed in `f16cfc2`. All reviewer probes
+(`scratchpad/review/probe1–7`) behave as expected at `f16cfc2`: every bypass refused, every expected-valid sentence accepted. Accepted
+residuals (low): vague quantities ("most editors"), lowercase names, "Editor one" (`REASONING-V3-EXECUTIVE.md` §10).
+
+Local verification at `f16cfc26add2745c97d16e4af5db508d2cf790c4` (PostgreSQL 17, `ATLAS_REASONING_REQUIRE_DB_TESTS=1`):
+
+| Check | Result |
+|---|---|
+| `make test` (lint, typecheck, every suite incl. golden regressions, DB tests forced on) | PASS, 1 382 tests, exit 0; only the 3 Docker image tests skipped (need `ATLAS_RUN_DOCKER_TESTS=1`) |
+| `make reasoning` (Reasoning V3 suite incl. Phase 15 guardrail regressions) | PASS, 457 tests (380 before this branch + 77 new) |
+| Phase 17 core: `tests/test_reasoning_executive.py`, `tests/test_reasoning_executive_store.py` | PASS, 57 + 20 |
+| Migration: clean apply, repeat = 0, `db-health` ok | PASS (`test_migration_is_clean_repeatable_and_healthy`, `test_reasoning_store.MigrationTests`) |
+| ruff, mypy (152 source files) | PASS |
+| Dashboard unchanged / UI-inert | PASS (`IsolationTests`; all dashboard, UI, i18n and redesign suites green) |
+| Live provider gate | Not required: the request uses only strict-schema keywords and the pinned model path already verified live by Phase 15 (`maxItems` is not sent) |
+
+Exact-head CI: recorded on the Draft PR.
