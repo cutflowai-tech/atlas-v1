@@ -133,6 +133,8 @@ _NUMBER_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 
                  "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
                  "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100, "dozen": 12,
                  "thousand": 1000}
+# Every number word, "one" included (names of quantities, never of people or entities).
+NUMBER_WORDS = frozenset({*_NUMBER_WORDS, "one", "zero", "none", "first", "second", "third", "fourth", "fifth", "half", "both", "single"})
 _TENS = ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
 _UNITS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
 _WORD = re.compile(r"\b(?:(" + "|".join(_TENS) + r")[-\s](" + "|".join(_UNITS) + r")|(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) +

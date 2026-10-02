@@ -48,7 +48,7 @@ from typing import Any
 
 from atlas_reasoning import contracts
 from atlas_reasoning.enums import CONFIDENCE_ORDER, ConfidenceLevel, EvidenceRole
-from atlas_reasoning.output_checks import unsupported_number_errors
+from atlas_reasoning.output_checks import NUMBER_WORDS, unsupported_number_errors
 from atlas_reasoning.settings import model_identity_matches
 
 VALIDATOR_VERSION = "reasoning-guardrails-v1"
@@ -449,7 +449,8 @@ def _attributed(text: str) -> bool:
 
 def _known_word(word: str, vocab: CaseVocabulary, attributed: bool) -> bool:
     key = _norm(word.removesuffix("'s"))
-    known = key in vocab.words or key in ATLAS_VOCABULARY or key in STOPWORDS or key in _MONTHS_DAYS
+    # Number words ("Two projects were excluded") are quantities, never names; the number rule grounds them.
+    known = key in vocab.words or key in ATLAS_VOCABULARY or key in STOPWORDS or key in _MONTHS_DAYS or key in NUMBER_WORDS
     return known or (attributed and key in vocab.context_words)
 
 

@@ -449,6 +449,9 @@ class ReviewFindingTests(unittest.TestCase):
         ("interpretation", "The data confirms the pattern.", "CONFIDENCE_EXCEEDED"),
     )
     ACCEPTED = (
+        # Live OpenRouter compatibility gate (2026-10-02): a real analyst answer began a limitation with a number word; a quantity is
+        # never a name (the number itself is still grounded by the number rule).
+        ("limitations", "Two projects were excluded from the analysis because ETA data was missing."),
         ("suggested_investigations", "Worth asking the team lead to review the briefs."),
         ("interpretation", "The results in the current window are worse than before."),
         ("interpretation", "Two moderate findings lead to the interpretation that the pattern is real."),
