@@ -112,3 +112,11 @@ existing abstractions: `HonchoClient`, `MemorySyncService` (PostgreSQL sync log 
 | — | Cleanup: Honcho has no per-message delete; the synthetic copies were retired (`atlas_retired`) and verified excluded from live reads. They remain only in `waset-atlas-test` under the synthetic IDs above (and one earlier synthetic Atlas-question record from the coordinator's smoke, also retired) | done |
 
 The Phase 15 merge gate's live items are therefore PASS.
+
+### Final independent review (after the live gates)
+
+Diff `e058fc4..HEAD` reviewed: no secret file, `.env` (git-ignored, untracked) or authorization data in Git; the evidence holds only
+request IDs, models, token counts, latencies and synthetic IDs; the live-gate fix does not weaken safety (invented names and numbers
+still refused); provider pinning, model identity, strict output and redirect refusal unchanged; no memory / Honcho code changed;
+the engine still commits only candidates `validate_candidate` accepted. One low finding — exempting "zero" from the name rule let
+"Zero projects were late." pass (0 is always an allowed value) — fixed by removing "zero" from the exemption, with a regression test.
