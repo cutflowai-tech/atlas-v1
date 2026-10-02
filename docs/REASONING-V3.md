@@ -492,6 +492,8 @@ error codes and classes); the internal shape of `canonical_evidence` beyond "has
 | Chat 2 | 07–09, later 17 (and 15, 18 when assigned) | `change_gate.case_for_work`, work items (`new_result` / `update_result` / `lifecycle`), `StoreTransaction.create_result` / `append_result_version` (change kinds `created`, `patched`, `no_change_review`, `lifecycle`), `ReasoningGateway` + `contract_output`, observations' reason codes (`reappeared_same_evidence` for lifecycle) | prompts, analyst/update orchestration, patch merger, lifecycle policy; migrations `0100`–`0199` |
 | Chat 3 | 10–14, 16 | `manager_notes`, `atlas_questions`, `atlas_answers`, `teachings`, `memory_sync_log` tables; `ReasoningCase.manager_context` / `memory_context`; `NoteSource`, `QuestionState`, `Teaching*` enums; read APIs of the store | Honcho client, memory assembler, notes/Q&A/Teach Atlas services and UI, reasoning-first dashboard; migrations `0200`–`0299` |
 
+Chat 3's memory and human-context layer is documented in [`REASONING-V3-MEMORY.md`](REASONING-V3-MEMORY.md).
+
 Rules for both: never write to upstream Atlas; read Atlas only through `reasoning_input_boundary`; never let an LLM set
 `case_id`, a fingerprint, a gate decision or a lifecycle status; persist to PostgreSQL before any memory sync; keep
 `ATLAS_REASONING_V3` off-by-default behaviour byte-identical (`tests/test_reasoning_boundary.py`).

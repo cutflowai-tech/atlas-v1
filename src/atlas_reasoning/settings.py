@@ -170,3 +170,63 @@ def openrouter_settings(env: Mapping[str, str] | None = None) -> OpenRouterSetti
     key = secret_value(env, OPENROUTER_KEY_ENV, OPENROUTER_KEY_FILE_ENV)
     assert key is not None
     return OpenRouterSettings(api_key=key, base_url=(env.get(BASE_URL_ENV, "").strip() or DEFAULT_BASE_URL).rstrip("/"))
+
+
+# --- Phase 10: Honcho contextual memory -------------------------------------------------------------------------------------
+#
+# ATLAS_REASONING_MEMORY          off       ``on`` synchronizes canonical human context to Honcho and retrieves memory from it.
+#                                           Off: everything stays in PostgreSQL; the context assembler uses canonical context only.
+# ATLAS_REASONING_ENVIRONMENT     *         development / test / staging / production. One Honcho workspace per environment.
+# HONCHO_API_KEY                  *         Honcho API key, or
+# HONCHO_API_KEY_FILE             *         a file holding it. Set one, never both.
+# ATLAS_HONCHO_BASE_URL           https://api.honcho.dev   (https; plain http only to 127.0.0.1/localhost/::1)
+# ATLAS_HONCHO_TIMEOUT_SECONDS    10        Per request (1-60). Memory never blocks reasoning for long.
+#
+# ``*`` Required only when ATLAS_REASONING_MEMORY=on. Tests and CI never need a Honcho key (they use fake_honcho).
+
+MEMORY_FLAG_ENV = "ATLAS_REASONING_MEMORY"
+ENVIRONMENT_ENV = "ATLAS_REASONING_ENVIRONMENT"
+HONCHO_KEY_ENV = "HONCHO_API_KEY"
+HONCHO_KEY_FILE_ENV = "HONCHO_API_KEY_FILE"
+HONCHO_BASE_URL_ENV = "ATLAS_HONCHO_BASE_URL"
+DEFAULT_HONCHO_BASE_URL = "https://api.honcho.dev"
+ENVIRONMENTS = ("development", "test", "staging", "production")
+WORKSPACE_PREFIX = "waset-atlas"
+
+
+def memory_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Whether Honcho memory is used at all. Default OFF; PostgreSQL stays canonical either way."""
+    return flag(os.environ if env is None else env, MEMORY_FLAG_ENV)
+
+
+@dataclass(frozen=True)
+class HonchoSettings:
+    api_key: str = field(repr=False)
+    environment: str = "development"
+    base_url: str = DEFAULT_HONCHO_BASE_URL
+    timeout_seconds: float = 10.0
+
+    def __post_init__(self) -> None:
+        if self.environment not in ENVIRONMENTS:
+            raise ReasoningConfigError(f"{ENVIRONMENT_ENV} must be one of {', '.join(ENVIRONMENTS)}")
+        parts = urlsplit(self.base_url)
+        local = parts.scheme == "http" and parts.hostname in ("127.0.0.1", "localhost", "::1")   # local test servers only
+        if not (parts.scheme == "https" and parts.hostname) and not local:
+            raise ReasoningConfigError(f"{HONCHO_BASE_URL_ENV} must be an https:// URL")
+
+    @property
+    def workspace_id(self) -> str:
+        """One workspace per environment, so test or staging memory can never reach production reasoning."""
+        return f"{WORKSPACE_PREFIX}-{self.environment}"
+
+
+def honcho_settings(env: Mapping[str, str] | None = None) -> HonchoSettings:
+    env = os.environ if env is None else env
+    environment = env.get(ENVIRONMENT_ENV, "").strip().lower()
+    if not environment:
+        raise ReasoningConfigError(f"{ENVIRONMENT_ENV} is not set (one Honcho workspace per environment)")
+    key = secret_value(env, HONCHO_KEY_ENV, HONCHO_KEY_FILE_ENV)
+    assert key is not None
+    return HonchoSettings(api_key=key, environment=environment,
+                          base_url=(env.get(HONCHO_BASE_URL_ENV, "").strip() or DEFAULT_HONCHO_BASE_URL).rstrip("/"),
+                          timeout_seconds=_number(env, "ATLAS_HONCHO_TIMEOUT_SECONDS", 10.0, 1, 60))
