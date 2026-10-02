@@ -447,6 +447,7 @@ class ReviewFindingTests(unittest.TestCase):
         ("interpretation", "José missed the deadlines.", "UNKNOWN_PERSON"),
         ("interpretation", "A strong pattern is evident.", "CONFIDENCE_EXCEEDED"),
         ("interpretation", "The data confirms the pattern.", "CONFIDENCE_EXCEEDED"),
+        ("observation", "Zero projects were late.", "UNKNOWN_ENTITY"),        # final review: the number-word exemption excludes "zero"
     )
     ACCEPTED = (
         # Live OpenRouter compatibility gate (2026-10-02): a real analyst answer began a limitation with a number word; a quantity is
