@@ -185,8 +185,8 @@ bounded length (notes and answers 8000). It is escaped when rendered (`human_con
 
 ### 3.2 Write API (`management_api`) and card fragment (`human_context_html`)
 
-Atlas serves a static site, so the API is a transport-neutral handler (`ManagementAPI.handle(Request) -> Response`) for Phase 16/20
-to mount behind the authenticating proxy; it is not mounted in this pass.
+Atlas serves a static site, so the API is a transport-neutral handler (`ManagementAPI.handle(Request) -> Response`). Phase 16 mounts it
+in `web_app` behind the authenticating proxy ([`REASONING-V3-DASHBOARD.md`](REASONING-V3-DASHBOARD.md)); production rollout is Phase 20's.
 
 | Concern | Rule |
 |---|---|
