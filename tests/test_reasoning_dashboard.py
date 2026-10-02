@@ -993,6 +993,31 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(json.loads(call(self.app, "GET", f"/api/reasoning/read/links?locale=fr&{query}")[2]), {"error": "INVALID_LOCALE", "message": None})
         self.assertEqual(call(self.app, "GET", "/api/reasoning/read/links")[0], 400)
 
+    def test_a_refused_first_reasoning_is_counted_and_never_shown(self):
+        """Cross-review M1 (validation variant): a first analyst answer refused by the Phase 15 guardrails is a failed first reasoning;
+        the refused candidate's text appears nowhere."""
+        report = run_gate(snapshots.reasoning_input(), self.store, now=self.t[0])
+        case_id = next(d.case_id for d in report.decisions if d.identity_key == DEADLINE_12)
+
+        def refused(payload):
+            answer = analyst_answer(payload)
+            answer["title"] = "REFUSED FIRST CANDIDATE"
+            answer["interpretation"]["statement"] = "The Editor is lazy and should be fired."
+            return answer
+
+        self.transport.script(case_id, refused, refused)
+        self.engine.process_run(report.run_id)
+        self.assertTrue(self.store.failed_candidates(case_id=case_id))
+        home = self.service.home()
+        self.assertEqual(home.to_dict()["first_reasoning_failed_by_class"]["validation"], 1)
+        self.assertNotIn(case_id, {card.case_id for card in home.current})
+        for locale in ("en", "ar"):
+            page = call(self.app, "GET", f"/reasoning/{locale}/")[2].decode()
+            self.assertIn('data-state="first_reasoning_failed"', page)
+            self.assertNotIn("REFUSED FIRST CANDIDATE", page)
+            self.assertNotIn("lazy", page)
+        self.assertNotIn("REFUSED FIRST CANDIDATE", call(self.app, "GET", "/api/reasoning/read/results")[2].decode())
+
     def test_first_reasoning_failures_are_never_shown_as_nothing(self):
         """Cross-review M1: a first run whose reasoning all fails (provider down) is a degraded state, not an empty one."""
         for case_id in [d.case_id for d in run_gate(snapshots.reasoning_input(), self.store, now=self.t[0]).decisions]:
