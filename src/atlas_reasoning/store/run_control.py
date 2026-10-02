@@ -39,6 +39,11 @@ def open_pass(tx: StoreTransaction, *, run_id: str, kind: str, policy_version: s
     return pass_id
 
 
+def release_call(tx: StoreTransaction, pass_id: str) -> None:
+    """Give back one unit whose call never reached the provider (refused by the breaker or a budget before any request)."""
+    tx._exec("UPDATE reasoning_run_passes SET calls_used = calls_used - 1 WHERE pass_id = %s AND calls_used > 0", (pass_id,))
+
+
 def acquire_call(tx: StoreTransaction, pass_id: str) -> bool:
     """Atomically spend one provider call of the pass's budget; False when it is exhausted (the CHECK makes overspending impossible)."""
     row = tx._one("""UPDATE reasoning_run_passes SET calls_used = calls_used + 1
@@ -114,11 +119,16 @@ def open_llm_items(tx: StoreTransaction, run_id: str) -> int:
 
 def retry_candidates(tx: StoreTransaction, run_id: str, failed_work_item_id: str | None = None) -> list[dict[str, Any]]:
     """Present cases of ``run_id`` whose current evidence is not reasoned, with no open LLM work, whose latest LLM item (of any run)
-    belongs to this run and failed on that same evidence state — the only work resume may retry. ``attempt`` = attempts so far (the first
-    one plus earlier retries of the same evidence state). The same predicate decides whether a run has resumable failures."""
+    belongs to this run and failed on that same evidence state — the only work resume may retry. ``attempt`` = items so far for that
+    evidence state (the first plus its retries: the lineage sequence); ``spent`` = those that failed after reaching the provider (a
+    refusal — ``REFUSALS``: breaker or budget, no request sent — spends no attempt). The same predicate decides whether a run has
+    resumable failures."""
     return tx._all("""
         SELECT w.*, c.last_evidence_fingerprint,
-               1 + (SELECT count(*) FROM reasoning_work_retries r WHERE r.case_id = w.case_id AND r.evidence_fingerprint = w.fingerprint_after) AS attempt
+               1 + (SELECT count(*) FROM reasoning_work_retries r WHERE r.case_id = w.case_id AND r.evidence_fingerprint = w.fingerprint_after) AS attempt,
+               (CASE WHEN w.last_error = ANY(%s) THEN 0 ELSE 1 END)
+               + (SELECT count(*) FROM reasoning_work_retries r WHERE r.case_id = w.case_id AND r.evidence_fingerprint = w.fingerprint_after
+                    AND NOT (r.failure = ANY(%s))) AS spent
         FROM reasoning_cases c
         JOIN LATERAL (SELECT * FROM reasoning_work_items i WHERE i.case_id = c.case_id AND i.requires_llm
                       ORDER BY i.created_at DESC, i.work_item_id DESC LIMIT 1) w ON true
@@ -129,7 +139,18 @@ def retry_candidates(tx: StoreTransaction, run_id: str, failed_work_item_id: str
                           WHERE r.case_id = c.case_id AND r.lifecycle_status IN ('new', 'active', 'updated', 'cooling')
                             AND v.evidence_fingerprint = c.last_evidence_fingerprint)
           AND (%s::text IS NULL OR w.work_item_id = %s::text)
-        ORDER BY w.case_id""", (run_id, failed_work_item_id, failed_work_item_id))
+        ORDER BY w.case_id""", (list(REFUSALS), list(REFUSALS), run_id, failed_work_item_id, failed_work_item_id))
+
+
+# Failures of calls refused before any provider request (Phase 18-B ``reliability.CallRefused``): they spend no retry attempt.
+REFUSALS = ("provider:circuit_open", "provider:budget_exhausted")
+# Hard bound on a lineage (refusals included), so repeated resumes during a long outage cannot grow without limit.
+LINEAGE_FACTOR = 4
+
+
+def eligible(row: Mapping[str, Any], max_attempts: int) -> bool:
+    """Attempts left: fewer than ``max_attempts`` spent, and the lineage below its hard bound."""
+    return int(row["spent"]) < max_attempts and int(row["attempt"]) < max_attempts * LINEAGE_FACTOR
 
 
 def create_retry(tx: StoreTransaction, run_id: str, failed_work_item_id: str, *, max_attempts: int, pass_id: str) -> str | None:
@@ -139,7 +160,7 @@ def create_retry(tx: StoreTransaction, run_id: str, failed_work_item_id: str, *,
     retry of the same failed item, or of the same attempt, impossible."""
     tx.lock_gate()
     rows = retry_candidates(tx, run_id, failed_work_item_id)
-    if not rows or int(rows[0]["attempt"]) + 1 > max_attempts:
+    if not rows or not eligible(rows[0], max_attempts):
         return None
     failed = rows[0]
     attempt = int(failed["attempt"]) + 1

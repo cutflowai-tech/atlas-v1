@@ -19,12 +19,15 @@ from reasoning_fakes import ScriptedAnalyst, analyst_answer, gateway
 
 from atlas_reasoning.change_gate import run_gate
 from atlas_reasoning.engine import ReasoningEngine
+from atlas_reasoning.enums import WorkStatus
 from atlas_reasoning.executive import ExecutiveSynthesizer
 from atlas_reasoning.fake_honcho import FakeHoncho
+from atlas_reasoning.gateway import ReasoningGateway
 from atlas_reasoning.provider import ProviderUnavailable
 from atlas_reasoning.reasoning_context import HumanContext
 from atlas_reasoning.reliability_metrics import METRICS_VERSION, Backlog, LatencyMetrics, RunRows, build_report
 from atlas_reasoning.reliability_report import main as report_main
+from atlas_reasoning.settings import GatewaySettings
 from atlas_reasoning.store.calls import StoreCallRecorder
 from atlas_reasoning.store.executive import ExecutiveStore
 from atlas_reasoning.store.reliability_metrics import reliability_report
@@ -346,6 +349,61 @@ class PipelineMetricsTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"ATLAS_REASONING_DATABASE_URL": os.environ[TEST_DB_ENV]}), contextlib.redirect_stdout(out):
             self.assertEqual(report_main(["--run", "run_" + "0" * 32]), 1)
         self.assertFalse(json.loads(out.getvalue())["ok"])
+
+
+    # --- Phase 18 reconciliation (18-A orchestration in the telemetry) -----------------------------------------------------------
+
+    def orchestrator(self, budget=None):
+        from atlas_reasoning.run_control import OrchestrationPolicy, RunOrchestrator
+        engine = ReasoningEngine(self.store, ReasoningGateway(self.analyst, GatewaySettings(max_retries=1, backoff_seconds=0, max_backoff_seconds=0,
+                                                                                            concurrency=1),
+                                                              recorder=StoreCallRecorder(self.store), sleep=lambda seconds: None), retries=1,
+                                 context=HumanContext(self.store, self.honcho, env={}))
+        return RunOrchestrator(engine, policy=OrchestrationPolicy(max_calls_per_pass=budget))
+
+    def test_passes_budget_and_retries_are_reported(self):
+        report = self.gate()
+        total = len(self.llm_work(report))
+        self.orchestrator(budget=3).run(report.run_id)
+        self.orchestrator().resume(report.run_id)
+        orchestration = self.metrics(report.run_id)["orchestration"]
+        self.assertEqual((orchestration["passes"], orchestration["by_kind"]), (2, {"initial": 1, "resume": 1}))
+        self.assertEqual((orchestration["budgeted_passes"], orchestration["budget_limit"]), (1, 3))
+        self.assertEqual((orchestration["budget_calls_used"], orchestration["admitted"], orchestration["deferred"]), (total, total, total - 3))
+        self.assertEqual((orchestration["last_status"], orchestration["last_reasons"], orchestration["retries_created"]), ("complete", [], 0))
+
+    def test_a_deferred_item_called_again_in_a_later_pass_is_not_a_reask(self):
+        report = self.gate()
+        case_id = self.case_id(report)
+        refusing = lambda payload: {**analyst_answer(payload), "interpretation": {**analyst_answer(payload)["interpretation"], "statement": REFUSED_TEXT}}
+        self.analyst.script(case_id, refusing)
+        from atlas_reasoning.work_priority import prioritize
+        position = [row.case_id for row in prioritize(self.engine.pending_work())].index(case_id)
+        first = self.orchestrator(budget=position + 1).run(report.run_id)          # its re-ask is refused by the budget: deferred
+        self.assertIn("work:BUDGET_EXHAUSTED", {o.error for o in first.outcomes if o.case_id == case_id})
+        self.orchestrator().resume(report.run_id)                                  # a fresh first call in a new pass
+        validation = self.metrics(report.run_id)["validation"]
+        self.assertEqual((validation["refused_candidates"], validation["corrective_reasks"]), (1, 0))
+
+    def test_refusals_before_any_request_are_not_provider_failures(self):
+        report = self.gate()
+        item = self.engine.pending_work()[0]
+        with self.store.transaction() as tx:
+            tx.set_work_item_status(item.work_item_id, WorkStatus.IN_PROGRESS)
+            tx.set_work_item_status(item.work_item_id, WorkStatus.FAILED, error="provider:circuit_open")
+        metrics = self.metrics(report.run_id)
+        self.assertEqual(metrics["work"]["refused_before_call"], 1)
+        inputs = metrics["status_inputs"]
+        self.assertEqual((inputs["refused_work_items"], inputs["provider_failed_work_items"], inputs["other_failed_work_items"]), (1, 0, 0))
+
+    def test_a_driver_error_in_the_operator_report_is_json_without_detail(self):
+        import psycopg
+        out = io.StringIO()
+        error = psycopg.errors.QueryCanceled("canceling statement due to statement timeout: SELECT secret_column")
+        with mock.patch.dict(os.environ, {"ATLAS_REASONING_DATABASE_URL": os.environ[TEST_DB_ENV]}), contextlib.redirect_stdout(out), \
+                mock.patch("atlas_reasoning.store.reliability_metrics.reliability_report", side_effect=error):
+            self.assertEqual(report_main(["--latest", "1"]), 1)
+        self.assertEqual(json.loads(out.getvalue()), {"ok": False, "error": "QueryCanceled"})
 
 
 if __name__ == "__main__":

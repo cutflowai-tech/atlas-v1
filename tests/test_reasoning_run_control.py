@@ -8,22 +8,27 @@ import random
 import threading
 import unittest
 from typing import Any
+from unittest import mock
 
 import psycopg
 import reasoning_snapshots as snapshots
 from reasoning_db import fresh_database, requires_db
 from reasoning_engine_support import DEADLINE_12, changed_rows, payload_with, times
+from reasoning_executive_support import ScriptedExecutive
 from reasoning_fakes import ScriptedAnalyst, analyst_answer, gateway
 
 from atlas_reasoning.change_gate import run_gate
 from atlas_reasoning.engine import ENGINE_LOCK_KEY, ReasoningEngine
 from atlas_reasoning.enums import GateAction, RunStatus, WorkKind, WorkStatus
+from atlas_reasoning.executive import ExecutiveSynthesizer
 from atlas_reasoning.gateway import ReasoningGateway
 from atlas_reasoning.provider import ProviderAuthError, ProviderUnavailable
-from atlas_reasoning.run_control import OrchestrationPolicy, RunOrchestrator
-from atlas_reasoning.settings import GatewaySettings
+from atlas_reasoning.reliability import CallBudget, CircuitBreaker, ProviderControls
+from atlas_reasoning.run_control import OrchestrationPolicy, RunOrchestrator, SettingsReliability, executive_call_budget
+from atlas_reasoning.settings import GatewaySettings, ReasoningConfigError, ReliabilitySettings
 from atlas_reasoning.store import run_control as sql
 from atlas_reasoning.store.calls import StoreCallRecorder
+from atlas_reasoning.store.executive import ExecutiveStore
 from atlas_reasoning.store.health import database_health
 from atlas_reasoning.store.migrate import apply_migrations
 from atlas_reasoning.store.repository import ReasoningStore, WorkItemRow
@@ -420,6 +425,122 @@ class RunControlTests(unittest.TestCase):
         health = database_health(db)
         self.assertTrue(health["ok"], health)
         self.assertIn("0600_run_control.sql", health["applied"])
+
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@requires_db
+class ReconciliationTests(unittest.TestCase):
+    """Phase 18 B→C→A reconciliation: one budget per call path, refusals retryable without spending attempts, one shared ProviderControls
+    per process, clean refusal accounting."""
+
+    def setUp(self):
+        self.store = ReasoningStore(fresh_database())
+        self.transport = ScriptedAnalyst()
+        self.clock = _Clock()
+        self.controls = ProviderControls(4, breaker=CircuitBreaker(1, 60, monotonic=self.clock))
+        self.gateway = ReasoningGateway(self.transport, GatewaySettings(max_retries=1, backoff_seconds=0, max_backoff_seconds=0, concurrency=4),
+                                        recorder=StoreCallRecorder(self.store), sleep=lambda seconds: None, controls=self.controls)
+        self.engine = ReasoningEngine(self.store, self.gateway, retries=1)
+        self.t = times(8)
+        self.runs = 0
+
+    def gate(self, payload: Any = None) -> Any:
+        report = run_gate(payload or snapshots.reasoning_input(), self.store, now=self.t[self.runs])
+        self.runs += 1
+        return report
+
+    def calls(self, purposes: tuple[str, ...] = ("analyst", "update")) -> int:
+        with self.store.transaction() as tx:
+            return int(tx._one("SELECT count(*) AS n FROM llm_calls WHERE purpose = ANY(%s)", (list(purposes),))["n"])
+
+    def test_one_budget_unit_per_provider_call(self):
+        first = self.gate()
+        report = RunOrchestrator(self.engine, policy=OrchestrationPolicy(max_calls_per_pass=5)).run(first.run_id)
+        with self.store.transaction() as tx:
+            used = tx._one("SELECT calls_used FROM reasoning_run_passes WHERE pass_id = %s", (report.pass_id,))["calls_used"]
+        self.assertEqual((used, self.calls(), len(self.transport.requests)), (5, 5, 5))       # one unit = one call = one provider request
+        with self.assertRaises(ValueError):                                                     # never two budgets on the case path
+            RunOrchestrator(ReasoningEngine(self.store, self.gateway.with_budget(CallBudget(10))))
+        RunOrchestrator(self.engine).resume(first.run_id)
+        model = ScriptedExecutive()
+        executive_gateway = ReasoningGateway(model, GatewaySettings(max_retries=0, backoff_seconds=0, max_backoff_seconds=0),
+                                             recorder=StoreCallRecorder(self.store), sleep=lambda seconds: None, controls=self.controls)
+        budget = executive_call_budget(ReliabilitySettings(run_call_budget=1, executive_call_budget=3))
+        self.assertIsNone(budget.limit)                                                        # the run limit is the pass budget's, never charged here
+        outcome = ExecutiveSynthesizer(ExecutiveStore(self.store), executive_gateway, budget=budget).synthesize(first.run_id)
+        self.assertEqual((outcome.llm_calls, budget.used, self.calls(("executive",)), len(model.requests)), (1, 1, 1, 1))
+
+    def test_an_open_circuit_defers_work_without_a_call_an_audit_row_or_an_attempt(self):
+        first = self.gate()
+        pending = prioritize(self.engine.pending_work())
+        self.transport.script(pending[0].case_id, *OUTAGE)                                    # threshold 1: the first outage opens the circuit
+        engine = ReasoningEngine(self.store, ReasoningGateway(self.transport, GatewaySettings(max_retries=1, backoff_seconds=0, max_backoff_seconds=0,
+                                                                                               concurrency=1),
+                                                              recorder=StoreCallRecorder(self.store), sleep=lambda seconds: None, controls=self.controls),
+                                 retries=1)
+        report = RunOrchestrator(engine).run(first.run_id)
+        self.assertEqual(self.controls.breaker.state.value, "open")
+        deferred = [o for o in report.outcomes if o.error == "work:CIRCUIT_OPEN"]
+        self.assertEqual(len(deferred), len(pending) - 1)
+        self.assertEqual((report.status, report.reasons), ("failed", ("provider_outage",)))   # nothing usable yet: an outage (documented)
+        with self.store.transaction() as tx:
+            self.assertEqual(int(tx._one("SELECT count(*) AS n FROM memory_injections")["n"]), 1)     # only the call that was made
+            self.assertEqual(sql.retries(tx), [])
+            used = tx._one("SELECT calls_used FROM reasoning_run_passes WHERE pass_id = %s", (report.pass_id,))["calls_used"]
+        self.assertEqual(used, 1)                                                              # deferred items spent nothing
+        self.assertIn(first.run_id, RunOrchestrator(engine).incomplete_runs())
+        self.clock.now += 61                                                                   # cooldown over: a half-open probe is allowed
+        resumed = RunOrchestrator(engine).resume(first.run_id)
+        self.assertEqual(resumed.status, "complete")
+        self.assertEqual(self.controls.breaker.state.value, "closed")
+        with self.store.transaction() as tx:                                                   # one unit per logical call, across passes
+            charged = sum(int(row["calls_used"]) for row in sql.passes(tx, first.run_id))
+        self.assertEqual(charged, self.calls())
+
+    def test_gateway_refusals_are_retryable_refunded_and_spend_no_attempt(self):
+        first = self.gate()
+        target = prioritize(self.engine.pending_work())[0]
+        self.controls.breaker.record(self.controls.breaker.admit(), "timeout")                  # opened; the engine's pre-check is bypassed below
+        with mock.patch.object(ReasoningEngine, "_circuit_open", return_value=False):
+            report = RunOrchestrator(self.engine, policy=OrchestrationPolicy(max_calls_per_pass=3, max_attempts=1)).run(first.run_id)
+        refused = [o for o in report.outcomes if o.error == "provider:circuit_open"]
+        self.assertTrue(refused)
+        with self.store.transaction() as tx:
+            used = tx._one("SELECT calls_used FROM reasoning_run_passes WHERE pass_id = %s", (report.pass_id,))["calls_used"]
+        self.assertEqual((used, self.calls()), (0, 0))                                         # every refused unit refunded; no llm_calls row
+        self.assertEqual((report.status, report.reasons), ("failed", ("provider_outage",)))   # paused provider, nothing usable yet
+        self.assertIn(first.run_id, RunOrchestrator(self.engine, policy=OrchestrationPolicy(max_attempts=1)).incomplete_runs())
+        self.clock.now += 61
+        resumed = RunOrchestrator(self.engine, policy=OrchestrationPolicy(max_attempts=1)).resume(first.run_id)  # max_attempts 1: refusals spend none
+        self.assertTrue(resumed.retries)
+        self.assertIn(target.case_id, {o.case_id for o in resumed.outcomes if o.change_kind == "created"})
+        policy = OrchestrationPolicy()
+        self.assertTrue(policy.is_retryable("provider:circuit_open") and policy.is_retryable("provider:budget_exhausted"))
+        self.assertFalse(policy.is_retryable("provider:executive_budget_exhausted"))
+
+    def test_the_runtime_shares_one_provider_control_and_reads_the_run_budget(self):
+        from atlas_reasoning.reasoning_runtime import build_runtime
+        seen: list[Any] = []
+        runtime = build_runtime(self.store, self.transport, env={"ATLAS_REASONING_RUN_CALL_BUDGET": "2"}, recorder=StoreCallRecorder(self.store),
+                                reviewer_factory=lambda gateway: seen.append(gateway))
+        self.assertEqual(runtime.orchestrator.reliability.reasoning_call_budget(), 2)
+        self.assertIs(runtime.engine.gateway.controls, runtime.controls)
+        self.assertIs(seen[0].controls, runtime.controls)                                      # the reviewer shares it
+        self.assertIsNone(runtime.engine.gateway.budget)
+        first = self.gate()
+        report = runtime.orchestrator.run(first.run_id)
+        self.assertEqual((report.calls_used, report.status), (2, "partial"))
+        self.assertEqual(SettingsReliability(ReliabilitySettings()).reasoning_call_budget(), None)
+        with self.assertRaises(ReasoningConfigError):                                          # a malformed limit fails at start
+            build_runtime(self.store, self.transport, env={"ATLAS_REASONING_BREAKER_THRESHOLD": "abc"})
 
 
 if __name__ == "__main__":

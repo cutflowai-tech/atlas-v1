@@ -25,7 +25,8 @@ later: RunOrchestrator.resume(run_id) — same pass, plus bounded retry work for
 | `work_priority` | Deterministic priority from canonical V2 data on the work item's case document (`priority`, `prioritize`, `high_importance`) |
 | `run_control` | `RunOrchestrator` (`run`, `resume`, `incomplete_runs`), `OrchestrationPolicy`, `ReliabilityPolicy` protocol, `PassBudget`, `PassReport` |
 | `store/run_control` | All orchestration SQL: passes, atomic budget, retry candidates and lineage, run status |
-| `engine` (changed) | `process_work(items, budget=)`, the `CallBudget` protocol, `BUDGET_EXHAUSTED`, public `fail`; `process_run` unchanged |
+| `engine` (changed) | `process_work(items, budget=)`, the `CallBudget` protocol (`acquire`, `release`), `BUDGET_EXHAUSTED`, `CIRCUIT_OPEN`, public `fail`; `process_run` unchanged |
+| `reasoning_runtime` | `build_runtime` / `ReasoningRuntime`: one shared `ProviderControls` per process, the pass budget from 18-B settings, executive synthesis on its own budget |
 | migration `0600_run_control.sql` | `reasoning_run_passes`, `reasoning_work_retries` (additive; health lists both) |
 
 ## 2. Priority (`work_priority`)
@@ -92,24 +93,34 @@ process is closed `interrupted`.
 - One open LLM work item per case (existing partial unique index); claims are guarded status transitions (`pending → in_progress`).
 - One retry per failed item, one per (case, evidence state, attempt): unique keys.
 
-## 7. Interfaces for the rest of Phase 18
+## 7. Reconciliation with 18-B and 18-C (integration `7686faf`)
 
-**Required from 18-B (provider reliability)** — consumed through narrow seams, no configuration name invented here:
+Merged with a merge commit (no rebase); no textual conflict. The combined behaviour:
 
-| Need | Seam |
+| Item | Resolution |
 |---|---|
-| The per-pass reasoning-call budget | an object with `reasoning_call_budget() -> int | None`, passed as `RunOrchestrator(..., reliability=)` |
-| Executive-synthesis budget | not consumed here; executive synthesis is scheduled by the integration (below) |
-| Error taxonomy | `ProviderError.error_class` stays the retry key (`provider:<class>`); a new class (e.g. circuit open / paused) must be added to `OrchestrationPolicy.retryable` if work failed by it should be resumed |
-| Circuit-breaker pause | when the breaker opens, the gateway should fail fast with a provider error class; the pass then ends `partial` (retryable) or `failed` (`provider_outage`) and `resume` continues later |
+| One budget per call path (18-B review of #42, item 1) | Case reasoning (analyst, update, corrective re-asks, the optional reviewer) is charged only by the pass budget (`PassBudget`, atomic in PostgreSQL). Executive synthesis is charged only by a fresh 18-B `CallBudget(None, executive_limit=…)` per synthesis (`run_control.executive_call_budget`). `RunOrchestrator` refuses an engine whose gateway carries a `CallBudget`. Tested: one unit = one `llm_calls` row = one logical call |
+| Refusals retryable (item 2) | `provider:circuit_open` and `provider:budget_exhausted` are in `DEFAULT_RETRYABLE`; as refusals (no request sent) they spend no retry attempt (`store.run_control.REFUSALS`; a lineage stays below `4 × max_attempts` so repeated resumes during a long outage cannot grow without bound). A budget refusal is never read as a provider outage |
+| Settings adapter and shared controls (item 3) | `SettingsReliability(ReliabilitySettings)` gives the pass budget from `run_call_budget` (`ATLAS_REASONING_RUN_CALL_BUDGET`). `reasoning_runtime.build_runtime` reads the settings once (a malformed value fails the command at start), creates one `ProviderControls.from_settings` per process and passes it to the one `ReasoningGateway` used by case reasoning, the reviewer and executive synthesis. `python -m atlas_reasoning reason <run_id> [--resume] [--no-executive]` uses it and runs executive synthesis when `executive_ready` |
+| Clean refusal accounting | An open breaker defers the item (`work:CIRCUIT_OPEN`, back to `pending`) **before** the human-context audit row, without a budget unit or an attempt. A call the gateway itself refuses (a race with the breaker, or a budget) refunds its pass-budget unit (`PassBudget.release`) and fails the item `provider:<class>` (retryable). Telemetry separates these refusals from provider failures |
 
-**Provided to 18-C (analytics/reporting)** — read-only: `reasoning_run_passes` (kind, policy version, budget, calls used, admitted, deferred,
-retries, run status, reasons, counts incl. `unchanged_cases`, `high_priority_admitted`, `recovered`, outcome, times),
-`reasoning_work_retries` (lineage, attempt, failure), `reasoning_runs.status`/`error`, existing `llm_calls`, and `PassReport.to_dict()`.
+Disposition of the published non-blocking notes:
 
-**Executive handoff**: `PassReport.executive_ready` is true when the run is `complete` or `degraded` and no LLM work is open anywhere —
-the point at which `ExecutiveSynthesizer.synthesize(run_id)` (unchanged) should run. A `partial` or `failed` run is not ready; resume
-first. The final Phase 18 integration wires it (with 18-B's executive budget).
+| Note | Disposition |
+|---|---|
+| #42: no `SKIP LOCKED`; no operator pause/cancel API | Accepted: compare-and-set claims suffice; budget deferral, the breaker and resume cover pausing (REV/18 asks for no API) |
+| #41 M1: `reliability_settings()` re-read per request | Mitigated: the runtime validates every Phase 18 variable once at start, so a malformed value fails `reason` before any work. Residual (documented): 18-B modules still re-read the environment per request, so a value changed mid-process applies to later requests |
+| #41 L2: a half-open probe left in flight on `BaseException` | Not required for safe combined behaviour (such an exception ends the process; state is per process). 18-B follow-up |
+| #41 L3: audit row before a refused call | Fixed for an open breaker (pre-check before the audit row). Residual race (the breaker opens between the pre-check and the call) leaves one audit row without an `llm_calls` row: documented low |
+| #41 L4: executive budget wording | In the wired runtime the executive budget is per synthesis (a fresh `CallBudget` per `synthesize`), which matches the settings text |
+| #41 note 1: which items get funded depended on threads | Resolved: the 18-B budget is no longer on the case path; 18-A admits a deterministic priority prefix |
+| #41 note 2: refusals counted as provider failures | Fixed: `work.refused_before_call`, `StatusInputs.refused_work_items`; `provider_failed_work_items` excludes them |
+| #40 note 1: re-asks after a budget deferral | Fixed: corrective re-asks are counted per (work item, orchestration pass) |
+| #40 note 2: raw psycopg errors in the operator report | Fixed: JSON `{"ok": false, "error": "<class>"}` (class only), exit 1 |
+| #40 note 3: 18-A tables in telemetry | Fixed: `orchestration` metrics per run (passes by kind, budgets and calls charged, admitted, deferred, retries by failure class, interrupted passes, last status and reasons) |
+
+Interfaces now: 18-C reads `reasoning_run_passes` / `reasoning_work_retries` (`RunMetrics.orchestration`); the executive handoff is wired
+(`ReasoningRuntime.synthesize`, called by `reason` when `PassReport.executive_ready`).
 
 ## 8. Tests
 
@@ -130,4 +141,6 @@ second retry / overspending, migration repeatability and health; duplicate-free 
 - The budget counts the engine's logical provider calls (one per `gateway.call`, corrective re-asks included); the gateway's own
   transport retries inside one call are 18-B's to bound and count. Calls of the optional Phase 15 reviewer are not counted.
 - With a budget, a re-ask can be refused after the first call of an admitted item succeeded; the item is then failed resumably.
-- No CLI command yet: the final Phase 18 integration wires `RunOrchestrator` into `python -m atlas_reasoning reason`.
+- The optional reviewer's call is charged to the pass budget, but a reviewer call refused by the gateway is not refunded (the reviewer
+  fails safe, refusing the candidate).
+- The breaker is per process (18-B); separate processes each have their own.

@@ -89,6 +89,8 @@ class RunRows:
     refusals: tuple[Mapping[str, Any], ...] = ()               # one per refused candidate: work_item_id, purpose, attempt, error_codes
     executive: tuple[Mapping[str, Any], ...] = ()              # one per executive_brief_runs row: decision, failure_class, llm_calls
     memory: tuple[tuple[str, int], ...] = ()                   # memory_status -> injected calls
+    passes: tuple[Mapping[str, Any], ...] = ()                 # Phase 18-A: one per orchestration pass (counters, status, reasons)
+    retries: tuple[Mapping[str, Any], ...] = ()                # Phase 18-A: one per retry work item of the run: failure_class, attempt
 
     @staticmethod
     def merged(parts: Iterable[RunRows]) -> RunRows:
@@ -98,7 +100,8 @@ class RunRows:
         return RunRows(None, tuple(row for part in items for row in part.calls), tuple(row for part in items for row in part.work),
                        _merge(*(part.observations for part in items)), _merge(*(part.versions for part in items)),
                        tuple(row for part in items for row in part.refusals), tuple(row for part in items for row in part.executive),
-                       _merge(*(part.memory for part in items)))
+                       _merge(*(part.memory for part in items)), tuple(row for part in items for row in part.passes),
+                       tuple(row for part in items for row in part.retries))
 
 
 # --- metrics -----------------------------------------------------------------------------------------------------------------
@@ -198,6 +201,7 @@ class WorkMetrics:
     updates: int = 0
     no_change_reviews: int = 0
     failures_by_class: tuple[tuple[str, int], ...] = ()
+    refused: int = 0                                           # failed by a pre-request refusal (breaker / budget), counted in ``failed``
 
     @staticmethod
     def of(work: Sequence[Mapping[str, Any]], versions: Sequence[tuple[str, int]]) -> WorkMetrics:
@@ -209,13 +213,14 @@ class WorkMetrics:
             open=sum(_count(by_status, status) for status in OPEN_WORK), done=_count(by_status, "done"), failed=len(failed),
             closed_without_call=sum(1 for row in llm if row["status"] == "done" and not row["has_call"]),
             new_results=_count(versions, "created"), updates=_count(versions, "patched"), no_change_reviews=_count(versions, "no_change_review"),
-            failures_by_class=_counts(row["error_class"] for row in failed))
+            failures_by_class=_counts(row["error_class"] for row in failed), refused=sum(1 for row in failed if row.get("refused")))
 
     def to_dict(self) -> dict[str, Any]:
         statuses = {status: 0 for status in KNOWN_WORK_STATUSES} | dict(self.by_status)
         return {"llm_work_items": self.llm_work_items, "lifecycle_work_items": self.lifecycle_work_items, "by_status": statuses, "open": self.open,
                 "done": self.done, "failed": self.failed, "closed_without_call": self.closed_without_call, "new_results": self.new_results,
-                "updates": self.updates, "no_change_reviews": self.no_change_reviews, "failures_by_class": dict(self.failures_by_class)}
+                "updates": self.updates, "no_change_reviews": self.no_change_reviews, "failures_by_class": dict(self.failures_by_class),
+                "refused_before_call": self.refused}
 
 
 @dataclass(frozen=True)
@@ -230,7 +235,8 @@ class ValidationMetrics:
 
     @staticmethod
     def of(refusals: Sequence[Mapping[str, Any]], calls: Sequence[Mapping[str, Any]], work: Sequence[Mapping[str, Any]]) -> ValidationMetrics:
-        per_item = Counter(row["work_item_id"] for row in calls if row["purpose"] in REASONING_PURPOSES and row["work_item_id"])
+        # Per (work item, orchestration pass): a deferred item processed again in a later pass starts afresh — not a re-ask.
+        per_item = Counter((row["work_item_id"], row.get("pass_id")) for row in calls if row["purpose"] in REASONING_PURPOSES and row["work_item_id"])
         return ValidationMetrics(
             refused_candidates=len(refusals), corrective_reasks=sum(count - 1 for count in per_item.values()),
             failed_work_items=sum(1 for row in work if row["requires_llm"] and row["status"] == "failed" and row["error_class"] == "validation"),
@@ -300,6 +306,43 @@ class MemoryMetrics:
 
 
 @dataclass(frozen=True)
+class OrchestrationMetrics:
+    """Phase 18-A orchestration of the run (``reasoning_run_passes``, ``reasoning_work_retries``): passes by kind, the pass budgets and
+    the calls charged to them, admitted and deferred work, retries created (by the failure class they retry), and the last finished pass's
+    status and reason codes. ``budgeted_passes`` = passes with a limit; ``budget_limit`` sums only those."""
+
+    passes: int = 0
+    by_kind: tuple[tuple[str, int], ...] = ()
+    budgeted_passes: int = 0
+    budget_limit: int = 0
+    budget_calls_used: int = 0
+    admitted: int = 0
+    deferred: int = 0
+    retries_created: int = 0
+    retries_by_failure_class: tuple[tuple[str, int], ...] = ()
+    interrupted_passes: int = 0
+    last_status: str | None = None
+    last_reasons: tuple[str, ...] = ()
+
+    @staticmethod
+    def of(passes: Sequence[Mapping[str, Any]], retries: Sequence[Mapping[str, Any]]) -> OrchestrationMetrics:
+        finished = [row for row in passes if row.get("outcome") == "finished"]
+        budgeted = [row for row in passes if row.get("call_budget") is not None]
+        last = finished[-1] if finished else None
+        return OrchestrationMetrics(
+            len(passes), _counts(str(row["kind"]) for row in passes), len(budgeted), sum(int(row["call_budget"]) for row in budgeted),
+            sum(int(row["calls_used"]) for row in passes), sum(int(row["admitted"]) for row in passes), sum(int(row["deferred"]) for row in passes),
+            len(retries), _counts(row["failure_class"] for row in retries), sum(1 for row in passes if row.get("outcome") == "interrupted"),
+            str(last["run_status"]) if last is not None and last.get("run_status") else None, tuple(last["reasons"]) if last is not None else ())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"passes": self.passes, "by_kind": {"initial": 0, "resume": 0} | dict(self.by_kind), "budgeted_passes": self.budgeted_passes,
+                "budget_limit": self.budget_limit, "budget_calls_used": self.budget_calls_used, "admitted": self.admitted, "deferred": self.deferred,
+                "retries_created": self.retries_created, "retries_by_failure_class": dict(self.retries_by_failure_class),
+                "interrupted_passes": self.interrupted_passes, "last_status": self.last_status, "last_reasons": list(self.last_reasons)}
+
+
+@dataclass(frozen=True)
 class StatusInputs:
     """Facts a run-status policy needs (Phase 18-A decides complete / partial / degraded / failed; nothing here does). Counts are
     of the run's LLM work items unless named otherwise."""
@@ -308,7 +351,8 @@ class StatusInputs:
     open_work_items: int = 0
     done_work_items: int = 0
     failed_work_items: int = 0
-    provider_failed_work_items: int = 0
+    provider_failed_work_items: int = 0                        # failed at the provider (refusals before any request excluded)
+    refused_work_items: int = 0                                # failed because the breaker / a budget refused the call (no request)
     validation_failed_work_items: int = 0
     other_failed_work_items: int = 0
     committed_versions: int = 0                                # new results + updates + no-change reviews
@@ -332,22 +376,23 @@ class RunMetrics:
     gate: GateMetrics
     executive: ExecutiveMetrics
     memory: MemoryMetrics
+    orchestration: OrchestrationMetrics = field(default_factory=OrchestrationMetrics)
 
     @staticmethod
     def of(rows: RunRows) -> RunMetrics:
         return RunMetrics(dict(rows.run) if rows.run is not None else None, ProviderMetrics.of(rows.calls), WorkMetrics.of(rows.work, rows.versions),
                           ValidationMetrics.of(rows.refusals, rows.calls, rows.work), GateMetrics(rows.observations),
-                          ExecutiveMetrics.of(rows.executive), MemoryMetrics(rows.memory))
+                          ExecutiveMetrics.of(rows.executive), MemoryMetrics(rows.memory), OrchestrationMetrics.of(rows.passes, rows.retries))
 
     @property
     def status_inputs(self) -> StatusInputs:
         work, failures = self.work, dict(self.work.failures_by_class)
-        provider_failed, validation_failed = failures.get("provider", 0), failures.get("validation", 0)
+        provider_failed, validation_failed = failures.get("provider", 0) - work.refused, failures.get("validation", 0)
         decisions = dict(self.executive.by_decision)
         return StatusInputs(
             llm_work_items=work.llm_work_items, open_work_items=work.open, done_work_items=work.done, failed_work_items=work.failed,
-            provider_failed_work_items=provider_failed, validation_failed_work_items=validation_failed,
-            other_failed_work_items=work.failed - provider_failed - validation_failed,
+            provider_failed_work_items=provider_failed, refused_work_items=work.refused, validation_failed_work_items=validation_failed,
+            other_failed_work_items=work.failed - provider_failed - work.refused - validation_failed,
             committed_versions=work.new_results + work.updates + work.no_change_reviews, provider_failed_calls=self.provider.total.failed,
             executive_failed_runs=decisions.get("failed", 0), executive_ok_runs=self.executive.synthesis_runs - decisions.get("failed", 0),
             memory_degraded_calls=self.memory.degraded_calls)
@@ -355,7 +400,7 @@ class RunMetrics:
     def to_dict(self) -> dict[str, Any]:
         return {"run": dict(self.run) if self.run is not None else None, "provider_calls": self.provider.to_dict(), "work": self.work.to_dict(),
                 "validation": self.validation.to_dict(), "gate": self.gate.to_dict(), "executive": self.executive.to_dict(),
-                "memory": self.memory.to_dict(), "status_inputs": self.status_inputs.to_dict()}
+                "memory": self.memory.to_dict(), "orchestration": self.orchestration.to_dict(), "status_inputs": self.status_inputs.to_dict()}
 
 
 @dataclass(frozen=True)

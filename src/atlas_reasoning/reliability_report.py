@@ -35,6 +35,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.dump({"ok": False, "error": f"{type(error).__name__}: {error}"}, sys.stdout, sort_keys=True)
         print()
         return 1
+    except Exception as error:
+        if type(error).__module__.split(".")[0] != "psycopg":
+            raise
+        # A driver error raised by a query (e.g. a statement timeout): its class only — the message may quote SQL or server detail.
+        json.dump({"ok": False, "error": type(error).__name__}, sys.stdout, sort_keys=True)
+        print()
+        return 1
     json.dump(report.to_dict(), sys.stdout, indent=1, sort_keys=True, ensure_ascii=False)
     print()
     return 0

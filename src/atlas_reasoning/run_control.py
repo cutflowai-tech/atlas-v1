@@ -52,6 +52,8 @@ from typing import Any, Protocol
 from atlas_reasoning import lifecycle
 from atlas_reasoning.engine import BUDGET_EXHAUSTED, ENGINE_LOCK_KEY, ReasoningEngine, WorkOutcome
 from atlas_reasoning.enums import GateAction, RunStatus, WorkStatus
+from atlas_reasoning.reliability import CallBudget
+from atlas_reasoning.settings import ReliabilitySettings
 from atlas_reasoning.store import run_control as sql
 from atlas_reasoning.store.repository import ReasoningStore
 from atlas_reasoning.work_priority import PRIORITY_VERSION, prioritize, priority
@@ -59,19 +61,37 @@ from atlas_reasoning.work_priority import PRIORITY_VERSION, prioritize, priority
 LOG = logging.getLogger("atlas_reasoning.run_control")
 POLICY_VERSION = f"run-control-v1/{PRIORITY_VERSION}"
 
-# Failures worth another attempt on the same evidence: transient provider classes (``provider.ProviderError.error_class``), a worker that
-# died or was interrupted, a budget that ran out, and transient store errors. Never: validation refusals (the guardrails already
+# Failures worth another attempt on the same evidence: transient provider classes (``provider.ProviderError.error_class``), calls the
+# Phase 18-B controls refused before any request (``circuit_open``, ``budget_exhausted``: they spend no attempt, ``sql.REFUSALS``), a
+# worker that died or was interrupted, a budget that ran out, and transient store errors. Never: validation refusals (the guardrails already
 # re-asked; Phase 15), authentication / quota / bad request / content filter / truncation / configuration (an operator must act),
 # contract or internal errors (bugs).
 DEFAULT_RETRYABLE = frozenset({"provider:timeout", "provider:rate_limited", "provider:provider_unavailable", "provider:network_error",
-                               "provider:malformed_response", "provider:invalid_structured_output", f"work:{BUDGET_EXHAUSTED}", "work:INTERRUPTED",
-                               "work:STALE_CLAIM", "store:"})
+                               "provider:malformed_response", "provider:invalid_structured_output", "provider:circuit_open", "provider:budget_exhausted",
+                               f"work:{BUDGET_EXHAUSTED}", "work:INTERRUPTED", "work:STALE_CLAIM", "store:"})
 
 
 class ReliabilityPolicy(Protocol):
     """What orchestration needs from the reliability configuration (Phase 18-B owns the configuration itself). ``None`` = no limit."""
 
     def reasoning_call_budget(self) -> int | None: ...
+
+
+@dataclass(frozen=True)
+class SettingsReliability:
+    """``ReliabilityPolicy`` over Phase 18-B's ``settings.ReliabilitySettings``: the pass budget is ``run_call_budget``
+    (``ATLAS_REASONING_RUN_CALL_BUDGET``; unset = unlimited). The executive limit is not used here (``executive_call_budget``)."""
+
+    settings: ReliabilitySettings
+
+    def reasoning_call_budget(self) -> int | None:
+        return self.settings.run_call_budget
+
+
+def executive_call_budget(settings: ReliabilitySettings) -> CallBudget:
+    """The Phase 18-B ``CallBudget`` for executive synthesis only: its executive limit, and no run limit (case reasoning is charged by the
+    pass budget, so no provider call is ever charged twice)."""
+    return CallBudget(None, executive_limit=settings.executive_call_budget)
 
 
 @dataclass(frozen=True)
@@ -106,6 +126,10 @@ class PassBudget:
         with self.store.transaction() as tx:
             return sql.acquire_call(tx, self.pass_id)
 
+    def release(self) -> None:
+        with self.store.transaction() as tx:
+            sql.release_call(tx, self.pass_id)
+
 
 @dataclass(frozen=True)
 class PassReport:
@@ -137,6 +161,10 @@ class _Classification:
 
 class RunOrchestrator:
     def __init__(self, engine: ReasoningEngine, *, policy: OrchestrationPolicy | None = None, reliability: ReliabilityPolicy | None = None) -> None:
+        # One budget per call path: case reasoning is charged by the pass budget, so the engine's gateway must not also carry a Phase 18-B
+        # ``CallBudget`` (every call would be charged twice). Executive synthesis uses ``executive_call_budget``.
+        if getattr(engine.gateway, "budget", None) is not None:
+            raise ValueError("the engine's gateway carries a CallBudget; case reasoning is charged by the orchestration pass budget only")
         self.engine = engine
         self.store: ReasoningStore = engine.store
         self.policy = policy or OrchestrationPolicy()
@@ -214,7 +242,7 @@ class RunOrchestrator:
         """Failures of the run that resume will retry: the shared candidate predicate, a retryable error and attempts left."""
         with self.store.transaction() as tx:
             candidates = sql.retry_candidates(tx, run_id)
-        return [row for row in candidates if self.policy.is_retryable(row["last_error"]) and int(row["attempt"]) < self.policy.max_attempts]
+        return [row for row in candidates if self.policy.is_retryable(row["last_error"]) and sql.eligible(row, self.policy.max_attempts)]
 
     def _create_retries(self, run_id: str, pass_id: str) -> list[str]:
         created = []
@@ -240,7 +268,8 @@ class RunOrchestrator:
         eligible = {row["work_item_id"] for row in self._eligible(run_id)}
         mine = [row for row in outcomes if row.work_item_id in run_items]
         attempted = [row for row in mine if row.status == WorkStatus.FAILED or row.change_kind is not None]
-        if attempted and not usable and all(row.status == WorkStatus.FAILED and (row.error or "").startswith("provider:") for row in attempted):
+        if attempted and not usable and all(row.status == WorkStatus.FAILED and (row.error or "").startswith("provider:")
+                                            and row.error != "provider:budget_exhausted" for row in attempted):     # a budget is no outage
             return _Classification(RunStatus.FAILED, ["provider_outage"])     # nothing reasoned and nothing usable: no usable run
         reasons = []
         if any(item.status in (WorkStatus.PENDING, WorkStatus.IN_PROGRESS) for item in items):

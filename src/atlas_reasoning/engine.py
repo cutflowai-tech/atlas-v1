@@ -50,6 +50,7 @@ from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, W
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import Message, ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext, PreparedCase
+from atlas_reasoning.reliability import BreakerState
 from atlas_reasoning.reviewer import CandidateReviewer
 from atlas_reasoning.settings import validation_retries
 from atlas_reasoning.store.db import DatabaseError
@@ -132,13 +133,18 @@ def error_code(error: BaseException) -> str:
 
 class CallBudget(Protocol):
     """Phase 18: the provider-call budget of one orchestration pass (``run_control``). ``acquire`` reserves one reasoning call and
-    returns False when the budget is spent; it must be safe to call from several worker threads."""
+    returns False when the budget is spent; ``release`` gives back a unit whose call never reached the provider (a refusal). Both must
+    be safe to call from several worker threads."""
 
     def acquire(self) -> bool: ...
+
+    def release(self) -> None: ...
 
 
 # A call the budget refused: the item returns to ``pending`` with this outcome code (deferred to a later pass; no attempt spent).
 BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+# A call not started because the shared circuit breaker (Phase 18-B) is open: deferred the same way, before any audit row.
+CIRCUIT_OPEN = "CIRCUIT_OPEN"
 
 
 class EngineBusy(RuntimeError):
@@ -245,7 +251,11 @@ class ReasoningEngine:
         while True:
             attempt += 1
             if budget is not None and not budget.acquire():      # before the audit row: a refused call leaves no trace of a call
-                return self._defer(item)
+                return self._defer(item, BUDGET_EXHAUSTED)
+            if self._circuit_open():                             # the provider is paused: no audit row, no unit, no attempt
+                if budget is not None:
+                    budget.release()
+                return self._defer(item, CIRCUIT_OPEN)
             try:
                 request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
                 self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
@@ -255,6 +265,8 @@ class ReasoningEngine:
             try:
                 response = self.gateway.call(request)
             except ProviderError as error:
+                if budget is not None and not getattr(error, "provider_called", True):
+                    budget.release()      # refused before any request (Phase 18-B breaker / budget): the pass spent nothing
                 return self._fail(item, error)
             outcome, report = self._complete(ready, request, response, result_id, attempt, prepared, budget)
             if outcome is not None:
@@ -354,7 +366,7 @@ class ReasoningEngine:
             report = guardrails.validate_candidate(candidate, case, expected, extra=extra)
             if report.ok and self.reviewer is not None and self.reviewer.applies(case):
                 if budget is not None and not budget.acquire():   # the reviewer's call is a provider call too (Phase 18 budget)
-                    return self._defer(item), None
+                    return self._defer(item, BUDGET_EXHAUSTED), None
                 review_id = new_request_id()      # the reviewer sees the same human context: its call is audited like any other
                 self.context.record(prepared, purpose=reviewer.REVIEW_PURPOSE, request_id=review_id, run_id=item.run_id,
                                     work_item_id=item.work_item_id, result_id=previous.result_id if previous else None)
@@ -415,15 +427,22 @@ class ReasoningEngine:
                  result.version)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, result.version, kind.value)
 
-    def _defer(self, item: WorkItemRow) -> WorkOutcome:
-        """Phase 18: the budget refused a call. The claimed item goes back to ``pending`` (nothing was committed for it) for a later pass."""
-        LOG.info("work item deferred (budget) work_item_id=%s case_id=%s", item.work_item_id, item.case_id)
+    def _circuit_open(self) -> bool:
+        """Whether the shared circuit breaker (``reliability.ProviderControls``) is open now. Half-open lets the gateway's probe through."""
+        controls = getattr(self.gateway, "controls", None)
+        breaker = getattr(controls, "breaker", None) if controls is not None else None
+        return breaker is not None and breaker.state == BreakerState.OPEN
+
+    def _defer(self, item: WorkItemRow, code: str = BUDGET_EXHAUSTED) -> WorkOutcome:
+        """Phase 18: a call was not started (budget spent, or the circuit open). The claimed item goes back to ``pending`` (nothing was
+        committed for it) for a later pass; it spends no retry attempt."""
+        LOG.info("work item deferred work_item_id=%s case_id=%s reason=%s", item.work_item_id, item.case_id, code)
         try:
             with self.store.transaction() as tx:
                 tx.set_work_item_status(item.work_item_id, WorkStatus.PENDING)
         except DatabaseError as failure:
             LOG.error("work item not deferred work_item_id=%s error=%s", item.work_item_id, error_code(failure))
-        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.PENDING.value, item.result_id, None, None, f"work:{BUDGET_EXHAUSTED}")
+        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.PENDING.value, item.result_id, None, None, f"work:{code}")
 
     def fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         """Mark ``item`` failed with the content-free code of ``error`` (its own transaction); never touches a committed result."""
