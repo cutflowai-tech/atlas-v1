@@ -32,6 +32,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from atlas_reasoning.http_safety import open_no_redirect
 from atlas_reasoning.memory import (
     ATLAS_PEER,
     MemoryBackendError,
@@ -59,30 +60,11 @@ Http = Callable[[str, str, Mapping[str, str], bytes | None, float], HttpResult]
 MAX_RESPONSE_BYTES = 4 * 1024 * 1024
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Never follow a redirect: urllib would resend the ``Authorization`` header to wherever it points (another host, plain http)."""
-
-    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
-        return None
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect)
-
-
-def _read_bounded(response: Any) -> bytes:
-    body = response.read(MAX_RESPONSE_BYTES + 1) or b""
-    if len(body) > MAX_RESPONSE_BYTES:
-        raise MemoryUnavailable(f"Honcho returned more than {MAX_RESPONSE_BYTES} bytes")
-    return bytes(body)
-
-
 def urllib_http(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> HttpResult:
+    """One request. A redirect is never followed (the Honcho key would be re-sent to its target); the body is bounded."""
     request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
-    try:
-        with _OPENER.open(request, timeout=timeout) as response:
-            return HttpResult(response.status, _read_bounded(response))
-    except urllib.error.HTTPError as error:     # including a 3xx that was not followed
-        return HttpResult(error.code, _read_bounded(error))
+    status, _, payload = open_no_redirect(request, timeout=timeout, limit=MAX_RESPONSE_BYTES)
+    return HttpResult(status, payload)
 
 
 class HonchoClient:

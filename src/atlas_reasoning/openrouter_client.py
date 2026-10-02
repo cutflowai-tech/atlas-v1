@@ -30,9 +30,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from atlas_reasoning.frozen import freeze, thaw
+from atlas_reasoning.http_safety import open_no_redirect
 from atlas_reasoning.provider import (
     ProviderAuthError,
     ProviderBadRequest,
+    ProviderConfigError,
     ProviderContentFiltered,
     ProviderError,
     ProviderNetworkError,
@@ -63,12 +65,10 @@ Http = Callable[[str, Mapping[str, str], bytes, float], HttpResult]
 
 
 def urllib_http(url: str, headers: Mapping[str, str], body: bytes, timeout: float) -> HttpResult:
+    """One POST. A redirect is never followed (the API key would be re-sent to its target); the body is bounded."""
     request = urllib.request.Request(url, data=body, headers=dict(headers), method="POST")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return HttpResult(response.status, {k.lower(): v for k, v in response.headers.items()}, response.read())
-    except urllib.error.HTTPError as error:
-        return HttpResult(error.code, {k.lower(): v for k, v in (error.headers or {}).items()}, error.read() or b"")
+    status, response_headers, payload = open_no_redirect(request, timeout=timeout)
+    return HttpResult(status, {k.lower(): v for k, v in (response_headers or {}).items()}, payload)
 
 
 def _retry_after(headers: Mapping[str, str]) -> float | None:
@@ -159,6 +159,8 @@ class OpenRouterTransport:
         message = self._clean(str(error.get("message") or f"HTTP {result.status}"))
         status = code if 400 <= code < 600 else result.status
         kwargs: dict[str, Any] = {"status": status}
+        if 300 <= result.status < 400:
+            return ProviderConfigError(f"OpenRouter answered with a redirect (HTTP {result.status}); redirects are never followed", **kwargs)
         if status == 429:
             return ProviderRateLimited(f"rate limited: {message}", retry_after=_retry_after(result.headers), **kwargs)
         if status == 408:

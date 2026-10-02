@@ -51,6 +51,24 @@ class HtmlTests(unittest.TestCase):
         self.assertIn("No manager interpretation yet.", note_panel("rr1_y", [], csrf_token="t"))
         self.assertIn('<textarea', note_panel("rr1_y", [], csrf_token="t"))
 
+    def test_note_edit_control_and_revision_history_are_escaped_and_attributed(self):
+        # 07-14 integration gate (REV/12 #3-4, #10): every note can be edited on the card and its audit history is visible.
+        note = Note("mn_1", "rr1_x", "rc1_x", "deputy@example.com", "Current <b>view</b>", 2, "2026-09-30T10:00:00.000000Z",
+                    "2026-09-30T11:00:00.000000Z")
+        history = {"mn_1": [{"revision": 1, "body": 'First <script>alert("x")</script>', "author": "boss@example.com",
+                             "recorded_at": "2026-09-30T10:00:00.000000Z"},
+                            {"revision": 2, "body": "Current <b>view</b>", "author": "deputy@example.com", "recorded_at": "2026-09-30T11:00:00.000000Z"}]}
+        html = note_panel("rr1_x", [note], csrf_token="t", history=history)
+        self.assertIn('action="/api/reasoning/notes/mn_1" data-method="PUT"', html)
+        self.assertIn('name="expected_revision" value="2"', html)
+        self.assertIn(">Current &lt;b&gt;view&lt;/b&gt;</textarea>", html)
+        self.assertIn("Edit history", html)
+        self.assertIn("First &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;", html)
+        self.assertIn("boss@example.com", html)
+        self.assertNotIn("<script>", html)
+        self.assertNotIn("<b>view", html)
+        self.assertEqual(html.count('class="mi-revision"'), 1)          # only earlier revisions are listed as history
+
 
 @requires_db
 class NoteTests(unittest.TestCase):
