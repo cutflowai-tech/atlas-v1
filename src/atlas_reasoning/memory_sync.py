@@ -173,7 +173,3 @@ def result_summary_records(tx: StoreTransaction, result_id: str) -> list[MemoryR
         sessions.append(subject)
     return [summary_record(result, session) for session in sessions]
 
-
-def default_sync_service(store: ReasoningStore, backend: MemoryBackend | None) -> MemorySyncService:
-    """A sync service with a resolver for every canonical source of memory (used by ``retry`` and the operator command)."""
-    return MemorySyncService(store, backend)

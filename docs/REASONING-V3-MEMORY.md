@@ -107,9 +107,69 @@ from a result's title, management summary and confidence level only, never from 
 Phases 07–09 call `MemorySyncService.sync_result(result_id)` after committing a result version to copy its management summary to
 the result session and its subject session.
 
-## 2. Tests
+## 2. Phase 11: the scoped memory context assembler
+
+`memory_context.MemoryContextAssembler` (migration `0201_memory_injections.sql`) decides what human context and memory one
+reasoning call may see.
+
+```python
+from atlas_reasoning.honcho_client import backend_from_env
+from atlas_reasoning.human_context import context_sources          # Phases 12-14 register their canonical sources here
+from atlas_reasoning.memory_context import MemoryContextAssembler, budget_from_env
+
+assembler = MemoryContextAssembler(store, backend_from_env(), sources=context_sources(), budget=budget_from_env())
+context = assembler.assemble(case_document)                        # from change_gate.case_for_work
+enriched_case = context.apply(case_document)                       # manager_context + memory_context filled; evidence untouched
+assembler.record(context, purpose="analyst", request_id=request_id, run_id=..., work_item_id=..., result_id=...)
+```
+
+### 2.1 Scope rules
+
+| Case subject | Memory sessions in scope |
+|---|---|
+| Editor | its results' `result:` sessions, `editor:<subject>`, `video-type:` of its Video Types, `global:teachings` |
+| Team | its results, its Video Types, `team:editors`, `global:teachings`; **no** `editor:` session unless the caller names Editors the case includes (`explicit_editor_ids` ⊆ `scope.affected_editor_ids`) |
+| Video Type | its results, `video-type:<subject>` (+ affected types), `global:teachings` |
+| Workflow stage | its results, `workflow:<stage>`, its Video Types, `global:teachings` |
+| Project / data source | its results, its Video Types, `global:teachings` |
+
+An Editor case can never be widened to another Editor (`explicit_editor_ids` outside the case is an error). Sessions outside the
+scope are never read.
+
+### 2.2 What is injected
+
+- `manager_context` (canonical): items from the registered `ContextSource`s read from PostgreSQL (notes, answers, teachings).
+  Always available; never depends on Honcho.
+- `memory_context` (remembered): items read from in-scope sessions, kept only when provably current: the metadata names the
+  session it was read from (`memory_wrong_session` otherwise), a live `memory_sync_log` row produced exactly this copy with this
+  content hash (`memory_not_canonical`), and the source is still valid (`memory_not_current`: a stale result version, a
+  disabled/expired teaching, the analyst's own previous result).
+- Deduplicated: one item per canonical source (canonical wins) and per normalized body text (`duplicate`).
+- Ordered deterministically: scope (result → this case → Editor → Video Type/workflow/client → team → company), source type
+  (teaching, interpretation, answer, prior reasoning, question), newest first, source ID.
+- Budgeted (`MemoryBudget`, `budget_from_env`): total 3000 tokens, 500 per item (longer items are cut and marked truncated), 24
+  items, per source: teachings 1200, interpretations 800, answers 800, prior reasoning 600, questions 0. Tokens are estimated as
+  `ceil(characters / 4)`. Overrides: `ATLAS_REASONING_MEMORY_TOTAL_TOKENS`, `..._ITEM_TOKENS`, `..._MAX_ITEMS`,
+  `ATLAS_REASONING_MEMORY_<SOURCE_TYPE>_TOKENS`.
+- Every dropped item is counted by reason in `dropped`.
+
+### 2.3 Degraded mode and audit
+
+A backend failure (or bug) during retrieval returns the canonical context with `memory_context.status = degraded` and the error
+class as `degraded_reason`; with memory off the status is `not_requested`. `record()` writes one append-only `memory_injections`
+row per call: case, result, run, work item, gateway `request_id` (unique), purpose, status, sessions read, budget, every selected
+item (position, source type and ID, origin, scope, session, memory reference, content hash, tokens, truncation), drop counts and
+the SHA-256 of the serialized context.
+
+## 3. Tests
 
 `tests/test_reasoning_memory.py` (Phase 10): session naming and Honcho-safe IDs, pseudonymous peers, wrong-session refusal,
 raw-data leakage refusal, provenance, the Honcho client's request sequence, caching, per-environment workspace, error mapping and
 key redaction, read filtering, settings; with PostgreSQL: mock write/read, duplicate handling, replacement of edited content,
 outage → failed → retry, stale content never re-sent, backend bugs isolated, memory off, and immutable log identity.
+
+`tests/test_reasoning_memory_context.py` (Phase 11): scope rules (Editor, team with and without explicit Editors, no widening of
+an Editor case), stable order under shuffled input, deduplication, budget enforcement and truncation, budget configuration; with
+PostgreSQL: cross-Editor isolation (other Editors' sessions are never read), forged and mis-sessioned copies dropped, team-case
+isolation, previous-result and stale-version exclusion, degraded mode (outage, rejection, backend bug, memory off), provenance
+completeness and the injection audit (append-only, unique request), deterministic serialization, and evidence/identity unchanged.

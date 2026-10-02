@@ -52,6 +52,7 @@ def seed_result(store: ReasoningStore, case: dict[str, Any] | None = None, *, qu
     run_id = seed_case(store, case)
     result = factory.result_dict(case)
     result["result_id"] = new_result_id()
+    result["title"] = f"{case['subject_id']} {case['topic_key']}: {result['title']}"
     if questions is not None:
         result["questions_for_management"] = questions
     with store.transaction() as tx:

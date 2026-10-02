@@ -9,7 +9,9 @@ from atlas_reasoning.store.migrate import applied_migrations, available_migratio
 
 REQUIRED_TABLES = ("reasoning_runs", "reasoning_cases", "reasoning_case_evidence", "reasoning_case_observations", "reasoning_work_items",
                    "reasoning_results", "reasoning_result_versions", "reasoning_evidence_links", "manager_notes", "manager_note_revisions",
-                   "atlas_questions", "atlas_answers", "teachings", "teaching_revisions", "llm_calls", "memory_sync_log", "schema_migrations")
+                   "atlas_questions", "atlas_answers", "teachings", "teaching_revisions", "llm_calls", "memory_sync_log", "schema_migrations",
+                   # Chat 3 (migrations 0200-0299)
+                   "memory_injections")
 
 
 def database_health(db: Database) -> dict[str, Any]:

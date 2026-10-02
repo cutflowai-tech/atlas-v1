@@ -180,10 +180,10 @@ def cmd_memory_health(args: argparse.Namespace) -> int:
 
 def cmd_memory_sync(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
-    from atlas_reasoning.memory_sync import default_sync_service
+    from atlas_reasoning.human_context import sync_service
 
     backend = backend_from_env()
-    outcomes = default_sync_service(_store(), backend).retry(limit=args.limit)
+    outcomes = sync_service(_store(), backend).retry(limit=args.limit)
     _print({"memory_enabled": backend is not None, "outcomes": [outcome.__dict__ for outcome in outcomes]})
     return 0 if all(outcome.status != "failed" for outcome in outcomes) else 1
 
