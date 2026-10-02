@@ -41,14 +41,15 @@ from atlas_reasoning.enums import CONTRACT_VERSION, EvidenceLevel, LifecycleStat
 from atlas_reasoning.frozen import freeze
 from atlas_reasoning.output_checks import unsupported_number_errors
 from atlas_reasoning.provider import CallContext, Message, ProviderRequest, ProviderResponse, StructuredOutput
+from atlas_reasoning.settings import reliability_settings
 from atlas_reasoning.structured import inline_schema
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 ANALYST_PROMPT_VERSION = "analyst-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
 ANALYST_PURPOSE = "analyst"
 ANALYST_INPUT_VERSION = "analyst-input-v1"
-MAX_INPUT_CHARS = 400_000   # about 100k tokens; the largest showcase case is about 152k characters (256 references)
-MAX_OUTPUT_TOKENS = 16_000   # reasoning tokens count against it on OpenRouter; a full card is a few thousand visible tokens
+MAX_INPUT_CHARS = 400_000   # default of ATLAS_REASONING_MAX_INPUT_CHARS (Phase 18); about 100k tokens; the largest showcase case is ~152k
+MAX_OUTPUT_TOKENS = 16_000   # default of ATLAS_REASONING_MAX_OUTPUT_TOKENS; reasoning tokens count against it on OpenRouter
 REASONING_EFFORT = "medium"
 
 # Placeholders used only to validate model output before Python assigns the real provenance.
@@ -119,10 +120,22 @@ def analyst_input(case: ReasoningCase | Mapping[str, Any]) -> dict[str, Any]:
     return {"input_version": ANALYST_INPUT_VERSION, **case_evidence_input(document)}
 
 
-def bounded_json(payload: Mapping[str, Any]) -> str:
+def max_input_chars() -> int:
+    """The configured input limit (Phase 18: ``ATLAS_REASONING_MAX_INPUT_CHARS``, default ``MAX_INPUT_CHARS``)."""
+    return reliability_settings().max_input_chars
+
+
+def max_output_tokens() -> int:
+    """The configured output budget (Phase 18: ``ATLAS_REASONING_MAX_OUTPUT_TOKENS``, default ``MAX_OUTPUT_TOKENS``)."""
+    return reliability_settings().max_output_tokens
+
+
+def bounded_json(payload: Mapping[str, Any], *, limit: int | None = None) -> str:
+    """The compact canonical JSON of ``payload``, refused (``CaseTooLarge``) — never truncated — above the configured limit."""
     text = canonical_json(payload)
-    if len(text) > MAX_INPUT_CHARS:
-        raise CaseTooLarge(f"the case input is {len(text)} characters; the limit is {MAX_INPUT_CHARS}")
+    limit = max_input_chars() if limit is None else limit
+    if len(text) > limit:
+        raise CaseTooLarge(f"the case input is {len(text)} characters; the limit is {limit}")
     return text
 
 
@@ -227,7 +240,7 @@ def candidate_from_response(case: ReasoningCase, response: ProviderResponse, *, 
 def analyst_request(case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:
     context = CallContext(purpose=ANALYST_PURPOSE, run_id=run_id, case_id=case.case_id, work_item_id=work_item_id, prompt_version=ANALYST_PROMPT_VERSION,
                           source_snapshot_id=case.source_snapshot_id, evidence_fingerprint=case.evidence_fingerprint)
-    return ProviderRequest(context, analyst_messages(case), analyst_output(case), max_output_tokens=MAX_OUTPUT_TOKENS, reasoning_effort=REASONING_EFFORT)
+    return ProviderRequest(context, analyst_messages(case), analyst_output(case), max_output_tokens=max_output_tokens(), reasoning_effort=REASONING_EFFORT)
 
 
 def result_from_response(case: ReasoningCase, response: ProviderResponse, *, provider: str, result_id: str, now: str) -> ReasoningResult:

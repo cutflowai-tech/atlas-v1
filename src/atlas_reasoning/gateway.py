@@ -14,13 +14,18 @@ in tests) with:
   persists it to ``llm_calls``; a recorder failure is logged and never loses the call's result;
 - **safe logs**: request ID, purpose, model, attempt, error class and status only — never prompts, responses or credentials;
 - **failure isolation**: ``call_many`` runs independent requests concurrently and returns one ``CallOutcome`` per request; one
-  failing case never affects another.
+  failing case never affects another;
+- **Phase 18 admission** (``reliability``): before any attempt, an optional circuit breaker and an optional per-run ``CallBudget`` may
+  refuse the call (a non-retryable ``reliability.CallRefused``: nothing sent, nothing spent, no ``llm_calls`` row); gateways built with
+  the same ``ProviderControls`` share one capacity semaphore and one breaker. Without controls or a budget the gateway behaves exactly
+  as before.
 
 No domain logic here: the gateway neither builds prompts nor interprets results.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import random
@@ -44,6 +49,7 @@ from atlas_reasoning.provider import (
     Transport,
     redact,
 )
+from atlas_reasoning.reliability import Admission, CallBudget, ProviderControls, raise_for
 from atlas_reasoning.settings import GatewaySettings
 
 LOG = logging.getLogger("atlas_reasoning.gateway")
@@ -120,13 +126,37 @@ class ReasoningGateway:
     def __init__(self, transport: Transport, settings: GatewaySettings | None = None, *, recorder: CallRecorder | None = None,
                  sleep: Callable[[float], None] = time.sleep, monotonic: Callable[[], float] = time.monotonic,
                  jitter: Callable[[], float] = random.random, clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-                 secrets: Sequence[str] = ()) -> None:
+                 secrets: Sequence[str] = (), controls: ProviderControls | None = None, budget: CallBudget | None = None) -> None:
         self.transport = transport
         self.settings = settings or GatewaySettings()
         self.recorder = recorder
         self._sleep, self._monotonic, self._jitter, self._clock = sleep, monotonic, jitter, clock
-        self._slots = threading.BoundedSemaphore(self.settings.concurrency)
+        # Shared controls (Phase 18): one capacity semaphore (and breaker) for every gateway of the process that uses them; without
+        # them this gateway has its own capacity, as before.
+        self.controls = controls
+        self._slots: threading.BoundedSemaphore = controls.capacity if controls is not None else threading.BoundedSemaphore(self.settings.concurrency)
+        self.budget = budget
         self._secrets = tuple(secret for secret in secrets if secret)
+
+    def with_budget(self, budget: CallBudget | None) -> ReasoningGateway:
+        """The same gateway (transport, settings, recorder, capacity, breaker) charging ``budget`` for each logical call."""
+        view = copy.copy(self)
+        view.budget = budget
+        return view
+
+    def _admit(self, context: CallContext) -> Admission | None:
+        """Breaker, then budget; both before any provider request. Raises ``reliability.CallRefused`` (never retryable)."""
+        breaker = self.controls.breaker if self.controls is not None else None
+        admission = breaker.admit() if breaker is not None else None
+        if self.budget is not None:
+            decision = self.budget.acquire(context.purpose)
+            try:
+                raise_for(decision)
+            except ProviderError:
+                if breaker is not None and admission is not None:
+                    breaker.release(admission)
+                raise
+        return admission
 
     @property
     def model(self) -> str:
@@ -141,9 +171,15 @@ class ReasoningGateway:
         return min(wait, self.settings.max_backoff_seconds)
 
     def call(self, request: ProviderRequest) -> ProviderResponse:
-        """One logical call (with retries). Returns the response or raises the last ``ProviderError``; recorded either way."""
+        """One logical call (with retries). Returns the response or raises the last ``ProviderError``; recorded either way. A call refused
+        before any attempt (breaker, budget: ``reliability.CallRefused``) makes no request and writes no record."""
         context = request.context if request.context.request_id else replace(request.context, request_id=new_request_id())
         request = replace(request, context=context)
+        try:
+            admission = self._admit(context)
+        except ProviderError as refused:
+            self._log(logging.WARNING, "call refused before any attempt", context, error_class=refused.error_class)
+            raise
         started_at, start = self._clock(), self._monotonic()
         attempts, response, error = 0, None, None
         while True:
@@ -161,6 +197,9 @@ class ReasoningGateway:
             if not error.retryable or attempts > self.settings.max_retries:
                 break
             self._sleep(self.backoff(attempts, error.retry_after))
+        breaker = self.controls.breaker if self.controls is not None else None
+        if breaker is not None and admission is not None:
+            breaker.record(admission, None if response is not None else (error.error_class if error else "internal_error"))
         latency_ms = round((self._monotonic() - start) * 1000)
         self._record(CallRecord(
             request_id=context.request_id, provider=self.transport.provider_name, model=response.model if response else self.model, purpose=context.purpose,

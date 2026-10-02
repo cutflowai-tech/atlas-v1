@@ -61,7 +61,8 @@ from atlas_reasoning.executive_contracts import (
 from atlas_reasoning.frozen import freeze, thaw
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import CallContext, Message, ProviderError, ProviderRequest, ProviderResponse, StructuredOutput
-from atlas_reasoning.settings import validation_retries
+from atlas_reasoning.reliability import CallBudget
+from atlas_reasoning.settings import reliability_settings, validation_retries
 from atlas_reasoning.store.repository import VersionConflict
 
 LOG = logging.getLogger("atlas_reasoning.executive")
@@ -71,8 +72,8 @@ EXECUTIVE_PURPOSE = "executive"
 EXECUTIVE_INPUT_VERSION = "executive-input-v1"
 POLICY_VERSION = "executive-policy-v1"
 MAX_INPUT_RESULTS = 60          # results per brief; the rest are counted in omitted_results, never cited
-MAX_INPUT_CHARS = 300_000       # refused, never truncated, beyond this
-MAX_OUTPUT_TOKENS = 16_000
+MAX_INPUT_CHARS = 300_000       # default of ATLAS_REASONING_EXECUTIVE_MAX_INPUT_CHARS (Phase 18); refused, never truncated, beyond it
+MAX_OUTPUT_TOKENS = 16_000      # default of ATLAS_REASONING_EXECUTIVE_MAX_OUTPUT_TOKENS
 REASONING_EFFORT = "medium"
 RESOLVED_LOOKBACK_RUNS = 3      # resolved results stay in the input for the run that resolved them and the next two
 
@@ -206,8 +207,9 @@ def executive_input(rows: Iterable[CanonicalResult], *, policy: InputPolicy | No
     kept, omitted = ordered[: policy.max_results], len(ordered) - min(len(ordered), policy.max_results)
     payload = {"input_version": EXECUTIVE_INPUT_VERSION, "results": [_result_input(row) for row in kept], "omitted_results": omitted}
     text = canonical_json(payload)
-    if len(text) > MAX_INPUT_CHARS:
-        raise InputTooLarge(f"the executive input is {len(text)} characters; the limit is {MAX_INPUT_CHARS}")
+    limit = reliability_settings().executive_max_input_chars
+    if len(text) > limit:
+        raise InputTooLarge(f"the executive input is {len(text)} characters; the limit is {limit}")
     frozen = freeze(payload)
     return ExecutiveInput(frozen, input_fingerprint(payload),
                           tuple((row.result.result_id, row.result.version, row.lifecycle_status) for row in kept), omitted)
@@ -260,7 +262,8 @@ def executive_output() -> StructuredOutput:
 
 def executive_request(inp: ExecutiveInput, *, run_id: str) -> ProviderRequest:
     context = CallContext(purpose=EXECUTIVE_PURPOSE, run_id=run_id, prompt_version=EXECUTIVE_PROMPT_VERSION)
-    return ProviderRequest(context, executive_messages(inp), executive_output(), max_output_tokens=MAX_OUTPUT_TOKENS, reasoning_effort=REASONING_EFFORT)
+    return ProviderRequest(context, executive_messages(inp), executive_output(),
+                           max_output_tokens=reliability_settings().executive_max_output_tokens, reasoning_effort=REASONING_EFFORT)
 
 
 @dataclass(frozen=True)
@@ -326,8 +329,9 @@ class SynthesisOutcome:
 
 class ExecutiveSynthesizer:
     def __init__(self, store: Any, gateway: ReasoningGateway, *, clock: Callable[[], str] = utc_now, brief_ids: Callable[[], str] = new_brief_id,
-                 policy: InputPolicy | None = None, retries: int | None = None) -> None:
-        self.store, self.gateway, self.clock, self.brief_ids = store, gateway, clock, brief_ids
+                 policy: InputPolicy | None = None, retries: int | None = None, budget: CallBudget | None = None) -> None:
+        # Phase 18: a run's ``CallBudget`` (with its executive limit) is charged for every executive model call; no budget = as before.
+        self.store, self.gateway, self.clock, self.brief_ids = store, gateway.with_budget(budget) if budget is not None else gateway, clock, brief_ids
         self.policy = policy or InputPolicy()
         self.retries = validation_retries() if retries is None else retries
 
@@ -372,6 +376,9 @@ class ExecutiveSynthesizer:
             try:
                 response = self.gateway.call(request)
             except ProviderError as error:
+                if not getattr(error, "provider_called", True):   # refused before any request (budget / breaker): not a model call
+                    calls -= 1
+                    request_ids.pop()
                 return self._failed(run_id, inp, current, f"provider:{error.error_class}", calls=calls, request_ids=request_ids)
             candidate = self._candidate(inp, provenance, response)
             with self.store.transaction() as tx:

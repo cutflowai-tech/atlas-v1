@@ -16,7 +16,16 @@ ATLAS_REASONING_LLM_TIMEOUT_SECONDS       120       Per attempt (5-600).
 ATLAS_REASONING_LLM_MAX_RETRIES           3         Retries after the first attempt (0-6).
 ATLAS_REASONING_LLM_BACKOFF_SECONDS       2         First backoff; doubles per retry (0-60).
 ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS   60        Longest single wait, including Retry-After (0-600).
-ATLAS_REASONING_LLM_CONCURRENCY           4         Provider requests in flight at once (1-32).
+ATLAS_REASONING_LLM_CONCURRENCY           4         Provider requests in flight at once (1-32), per gateway or per shared
+                                                    ``reliability.ProviderControls`` (one process).
+ATLAS_REASONING_RUN_CALL_BUDGET           unset     Logical provider calls one run may start (1-100000); unset = unlimited.
+ATLAS_REASONING_EXECUTIVE_CALL_BUDGET     3         Logical provider calls one executive synthesis may start (1-10).
+ATLAS_REASONING_MAX_INPUT_CHARS           400000    Analyst / update / reviewer input size (20000-2000000); larger is refused.
+ATLAS_REASONING_MAX_OUTPUT_TOKENS         16000     Analyst / update output budget (1000-64000).
+ATLAS_REASONING_EXECUTIVE_MAX_INPUT_CHARS 300000    Executive synthesis input size (20000-2000000); larger is refused.
+ATLAS_REASONING_EXECUTIVE_MAX_OUTPUT_TOKENS 16000   Executive synthesis output budget (1000-64000).
+ATLAS_REASONING_BREAKER_THRESHOLD         5         Consecutive provider-outage failures that open the circuit (1-100).
+ATLAS_REASONING_BREAKER_COOLDOWN_SECONDS  60        Open-circuit pause before one half-open probe (1-3600).
 ========================================  ========  ==============================================
 
 ``*`` Required only by commands that use the database (migrate, db-health, gate, debug lookups).
@@ -175,6 +184,42 @@ def gateway_settings(env: Mapping[str, str] | None = None) -> GatewaySettings:
         backoff_seconds=_number(env, "ATLAS_REASONING_LLM_BACKOFF_SECONDS", 2.0, 0, 60),
         max_backoff_seconds=_number(env, "ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS", 60.0, 0, 600),
         concurrency=int(_number(env, "ATLAS_REASONING_LLM_CONCURRENCY", 4, 1, 32, integer=True)),
+    )
+
+
+# --- Phase 18: reliability limits (``reliability`` consumes them) ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ReliabilitySettings:
+    """Phase 18 operational limits. Every default equals the behaviour before Phase 18 (no run budget; the same size limits); the breaker
+    applies only where ``reliability.ProviderControls`` is wired in. No value here is, or may hold, a credential."""
+
+    run_call_budget: int | None = None            # logical calls per run; None = unlimited
+    executive_call_budget: int = 3                # logical calls per executive synthesis (1 + up to 2 corrective re-asks)
+    max_input_chars: int = 400_000                # analyst / update / reviewer input (refused, never truncated, beyond it)
+    max_output_tokens: int = 16_000
+    executive_max_input_chars: int = 300_000
+    executive_max_output_tokens: int = 16_000
+    breaker_threshold: int = 5                    # consecutive provider-outage failures that open the circuit
+    breaker_cooldown_seconds: float = 60.0        # open → half-open after this pause
+
+    def to_dict(self) -> dict[str, object]:
+        return {name: getattr(self, name) for name in self.__dataclass_fields__}
+
+
+def reliability_settings(env: Mapping[str, str] | None = None) -> ReliabilitySettings:
+    env = os.environ if env is None else env
+    budget = env.get("ATLAS_REASONING_RUN_CALL_BUDGET", "").strip()
+    return ReliabilitySettings(
+        run_call_budget=int(_number(env, "ATLAS_REASONING_RUN_CALL_BUDGET", 0, 1, 100_000, integer=True)) if budget else None,
+        executive_call_budget=int(_number(env, "ATLAS_REASONING_EXECUTIVE_CALL_BUDGET", 3, 1, 10, integer=True)),
+        max_input_chars=int(_number(env, "ATLAS_REASONING_MAX_INPUT_CHARS", 400_000, 20_000, 2_000_000, integer=True)),
+        max_output_tokens=int(_number(env, "ATLAS_REASONING_MAX_OUTPUT_TOKENS", 16_000, 1_000, 64_000, integer=True)),
+        executive_max_input_chars=int(_number(env, "ATLAS_REASONING_EXECUTIVE_MAX_INPUT_CHARS", 300_000, 20_000, 2_000_000, integer=True)),
+        executive_max_output_tokens=int(_number(env, "ATLAS_REASONING_EXECUTIVE_MAX_OUTPUT_TOKENS", 16_000, 1_000, 64_000, integer=True)),
+        breaker_threshold=int(_number(env, "ATLAS_REASONING_BREAKER_THRESHOLD", 5, 1, 100, integer=True)),
+        breaker_cooldown_seconds=_number(env, "ATLAS_REASONING_BREAKER_COOLDOWN_SECONDS", 60.0, 1, 3600),
     )
 
 
