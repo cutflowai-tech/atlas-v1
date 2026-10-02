@@ -29,9 +29,10 @@ def mark(tx: StoreTransaction, sync_id: str, status: MemorySyncStatus, *, backen
          error_class: str | None = None, attempted: bool = True) -> None:
     tx._exec("""UPDATE memory_sync_log SET status = %s, backend = COALESCE(%s, backend), external_ref = COALESCE(%s, external_ref),
                        error_class = %s, attempts = attempts + %s, last_attempt_at = CASE WHEN %s THEN now() ELSE last_attempt_at END,
-                       synced_at = CASE WHEN %s = 'synced' THEN now() ELSE NULL END, updated_at = now()
+                       synced_at = CASE WHEN %s = 'synced' THEN now() ELSE NULL END,
+                       retired_at = CASE WHEN %s = 'synced' THEN NULL ELSE retired_at END, updated_at = now()
                 WHERE sync_id = %s""",
-             (status, backend, external_ref, error_class, 1 if attempted else 0, attempted, status, sync_id))
+             (status, backend, external_ref, error_class, 1 if attempted else 0, attempted, status, status, sync_id))
 
 
 def live_copies(tx: StoreTransaction, source_type: str, source_id: str, session_key: str | None = None) -> list[dict[str, Any]]:

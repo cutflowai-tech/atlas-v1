@@ -13,7 +13,8 @@
     python -m atlas_reasoning memory-health [--dry-run]
                                                       check the Honcho memory configuration (--dry-run: no network call) or
                                                       get-or-create the environment's workspace
-    python -m atlas_reasoning memory-sync [--limit N] re-send pending or failed memory copies, rebuilt from canonical rows
+    python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, then re-send pending or failed memory
+                                                      copies rebuilt from canonical rows
 
 The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE); the OpenRouter key from
 OPENROUTER_API_KEY (or OPENROUTER_API_KEY_FILE). Neither is ever printed.
@@ -181,10 +182,15 @@ def cmd_memory_health(args: argparse.Namespace) -> int:
 def cmd_memory_sync(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.human_context import sync_service
+    from atlas_reasoning.teach_atlas import TeachAtlas
 
     backend = backend_from_env()
-    outcomes = sync_service(_store(), backend).retry(limit=args.limit)
-    _print({"memory_enabled": backend is not None, "outcomes": [outcome.__dict__ for outcome in outcomes]})
+    store = _store()
+    service = sync_service(store, backend)
+    retired = TeachAtlas(store, service).retire_expired()       # copies of teachings whose validity ended
+    outcomes = service.retry(limit=args.limit)
+    _print({"memory_enabled": backend is not None, "expired_teaching_copies_retired": retired,
+            "outcomes": [outcome.__dict__ for outcome in outcomes]})
     return 0 if all(outcome.status != "failed" for outcome in outcomes) else 1
 
 

@@ -208,3 +208,87 @@ def get_answer(tx: StoreTransaction, answer_id: str) -> dict[str, Any]:
     if row is None:
         raise NotFound(f"answer {answer_id} does not exist")
     return row
+
+
+# --- Teach Atlas (Phase 14) ---------------------------------------------------------------------------------------------------
+
+TEACHING_FIELDS = ("body", "scope_type", "scope_id", "teaching_type", "validity_mode", "valid_from", "valid_until", "status", "author",
+                   "affects_source_data")
+
+
+def _snapshot(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {name: (iso(row[name]) if name in ("valid_from", "valid_until") else row[name]) for name in TEACHING_FIELDS}
+
+
+def insert_teaching(tx: StoreTransaction, values: Mapping[str, Any]) -> dict[str, Any]:
+    row = tx._one("""INSERT INTO teachings (teaching_id, body, scope_type, scope_id, teaching_type, validity_mode, valid_from, valid_until, status,
+                                            author, affects_source_data)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active', %s, %s) RETURNING *""",
+                  (new_id("tch"), values["body"], values["scope_type"], values["scope_id"], values["teaching_type"], values["validity_mode"],
+                   values["valid_from"], values["valid_until"], values["author"], values["affects_source_data"]))
+    assert row is not None
+    tx._exec("INSERT INTO teaching_revisions (teaching_id, revision, snapshot, author, recorded_at) VALUES (%s, 1, %s::jsonb, %s, %s)",
+             (row["teaching_id"], _json(_snapshot(row)), values["author"], row["updated_at"]))
+    return row
+
+
+def update_teaching(tx: StoreTransaction, teaching_id: str, *, expected_revision: int, changes: Mapping[str, Any], by: str | None,
+                    status_change: bool = False) -> dict[str, Any] | None:
+    """Apply ``changes`` as the next revision; ``None`` when the teaching is not at ``expected_revision``."""
+    allowed = {"body", "teaching_type", "validity_mode", "valid_from", "valid_until", "status", "author", "affects_source_data"}
+    assert set(changes) <= allowed
+    sets = [f"{name} = %s" for name in changes] + ["revision = revision + 1", "updated_at = greatest(now(), updated_at)"]
+    params: list[Any] = list(changes.values())
+    if status_change:
+        sets += ["status_changed_by = %s", "status_changed_at = now()"]
+        params.append(by)
+    row = tx._one(f"UPDATE teachings SET {', '.join(sets)} WHERE teaching_id = %s AND revision = %s RETURNING *",
+                  (*params, teaching_id, expected_revision))
+    if row is not None:
+        tx._exec("INSERT INTO teaching_revisions (teaching_id, revision, snapshot, author, recorded_at) VALUES (%s, %s, %s::jsonb, %s, %s)",
+                 (teaching_id, row["revision"], _json(_snapshot(row)), by, row["updated_at"]))
+    return row
+
+
+def get_teaching(tx: StoreTransaction, teaching_id: str, *, lock: bool = False) -> dict[str, Any]:
+    row = tx._one(f"SELECT * FROM teachings WHERE teaching_id = %s{' FOR UPDATE' if lock else ''}", (teaching_id,))
+    if row is None:
+        raise NotFound(f"teaching {teaching_id} does not exist")
+    return row
+
+
+def teachings(tx: StoreTransaction, *, statuses: Sequence[str] | None = None, scope_type: str | None = None) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if statuses is not None:
+        clauses.append("status = ANY(%s)")
+        params.append(list(statuses))
+    if scope_type is not None:
+        clauses.append("scope_type = %s")
+        params.append(scope_type)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return tx._all(f"SELECT * FROM teachings {where} ORDER BY created_at, teaching_id", params)
+
+
+def teaching_revisions(tx: StoreTransaction, teaching_id: str) -> list[dict[str, Any]]:
+    return tx._all("SELECT * FROM teaching_revisions WHERE teaching_id = %s ORDER BY revision", (teaching_id,))
+
+
+def raise_review_flag(tx: StoreTransaction, *, teaching_id: str, revision: int, summary: str, raised_by: str | None) -> dict[str, Any] | None:
+    """Open an engineering review flag for a teaching unless one is already open; returns the new flag or ``None``."""
+    return tx._one("""INSERT INTO engineering_review_flags (flag_id, source_type, source_id, source_revision, summary, raised_by)
+                      VALUES (%s, 'management_teaching', %s, %s, %s, %s)
+                      ON CONFLICT (source_type, source_id) WHERE status <> 'resolved' DO NOTHING RETURNING *""",
+                   (f"erf_{uuid.uuid4().hex}", teaching_id, revision, summary, raised_by))
+
+
+def review_flags(tx: StoreTransaction, *, open_only: bool = False, teaching_id: str | None = None) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if open_only:
+        clauses.append("status <> 'resolved'")
+    if teaching_id is not None:
+        clauses.append("source_id = %s")
+        params.append(teaching_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return tx._all(f"SELECT * FROM engineering_review_flags {where} ORDER BY created_at, flag_id", params)

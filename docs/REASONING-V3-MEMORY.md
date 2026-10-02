@@ -238,7 +238,40 @@ API: `GET /results/{result_id}/questions`, `GET /questions/{question_id}`, `POST
 `POST /questions/{question_id}/dismiss {"reason"?}`. Fragment: `human_context_html.question_panel` (question, why it matters,
 expected context, state, answer history with conflict badges, answer/dismiss controls; all text escaped).
 
-## 5. Tests
+## 5. Phase 14: Teach Atlas
+
+`teach_atlas.TeachAtlas` (tables `teachings`, `teaching_revisions` from `0001`; migration `0203_teach_atlas.sql` adds
+`affects_source_data`, status audit columns, the archive/scope/revision guard trigger, no-delete, and `engineering_review_flags`).
+
+| Field | Values |
+|---|---|
+| scope | `company` (no `scope_id`), `editor`, `video_type`, `workflow`, `client`, `specific_result` (the result must exist) |
+| type | `business_rule`, `context`, `correction`, `interpretation`, `temporary_situation` |
+| validity | `until_changed` (from creation, no end), `date_range` (`valid_from`..`valid_until`; a date-only end includes that day), `current_period` (the current calendar month, UTC) |
+| status | `active`, `disabled`, `archived` (final; stays readable) |
+
+- **Canonical first.** Create/edit/status change commit the teaching and an append-only revision snapshot, then sync. An effective
+  teaching (active and `valid_from <= now < valid_until`) has one live copy in its scope's session (`global:teachings`,
+  `editor:`, `video-type:`, `workflow:`, `client:`, `result:`); disabling, archiving or a teaching not yet in effect retires
+  copies; `retire_expired()` (run by `python -m atlas_reasoning memory-sync`) retires copies whose validity ended.
+- **Expiry.** `TeachingContextSource` injects only effective teachings, relevant to the case scope: company always; Editor
+  teachings for that Editor's cases (and team cases that explicitly include the Editor); Video Type and workflow teachings when the
+  case involves them; specific-result teachings for that result's case. A remembered copy is checked again (effective, relevant,
+  same revision), so an expired teaching is never injected even while its copy is still live. Client teachings are stored, synced
+  and listed but not injected: cases carry no client dimension yet.
+- **Edits** use optimistic concurrency (`TeachingConflict`, 409); the scope is immutable (database trigger) — a teaching for another
+  subject is a new teaching. Every change is a new revision.
+- **Evidence is never rewritten.** Human-context modules contain no write to any `reasoning_*` table (static test), and a test
+  digests every case, evidence, observation, result, version, link and work-item row before and after teaching: unchanged.
+- **Corrections** must state `affects_source_data`. When true, an engineering review flag is opened (one open flag per teaching;
+  `GET /api/reasoning/review-flags`), and the teaching reaches reasoning labelled: "Management reports that upstream source data may
+  be wrong here; engineering is reviewing it. The deterministic evidence has not been changed."
+
+API: `GET /teachings[?status=&scope_type=]`, `POST /teachings`, `PUT /teachings/{id}`, `POST /teachings/{id}/enable|disable|archive`,
+`GET /teachings/{id}/history`, `GET /review-flags`. Page: `human_context_html.teach_atlas_page` (form with scope, type, validity and
+the data-issue checkbox; list showing source, scope, type, validity, status, author/revision and actions; all text escaped).
+
+## 6. Tests
 
 `tests/test_reasoning_memory.py` (Phase 10): session naming and Honcho-safe IDs, pseudonymous peers, wrong-session refusal,
 raw-data leakage refusal, provenance, the Honcho client's request sequence, caching, per-environment workspace, error mapping and
@@ -262,3 +295,13 @@ and sync, no duplicate open question across repeated runs and versions, one ques
 idempotent, no answers, not re-asked), supersession, answer persistence/attribution/sync and idempotence, suppression of answered
 questions, state and append-only triggers, conflicting answers preserved and flagged in context, answer reuse for the same Editor
 only, answers surviving a Honcho outage; HTML escaping; API answer/dismiss routes.
+
+`tests/test_reasoning_teach_atlas.py` (Phase 14): validity windows and scope sessions, page rendering and escaping; with
+PostgreSQL: create → persist → sync, scope isolation (company, Editor, Video Type, specific result, client, team with and without
+explicit Editors), expiration and temporary validity (date range, current period, not yet in effect, remembered copies of expired
+teachings, `retire_expired`), disable/enable/archive (archive final and auditable; triggers), edit history and conflicts, scope
+immutability, corrections and engineering review flags with evidence tables byte-identical, Honcho outage; static check that no
+human-context module or migration writes evidence tables; API routes.
+
+CI: all of these run in the existing `make reasoning` step (`tests/test_reasoning_*.py`) against the CI PostgreSQL service. No test
+needs Honcho or a Honcho key.

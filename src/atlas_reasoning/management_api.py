@@ -29,6 +29,14 @@ GET         /results/{result_id}/questions          questions of the result's ca
 GET         /questions/{question_id}                one question with its answer history
 POST        /questions/{question_id}/answers        answer ``{"body"}`` (a differing later answer is kept as a conflict)
 POST        /questions/{question_id}/dismiss        dismiss ``{"reason"?}``
+GET         /teachings[?status=&scope_type=]        Teach Atlas: teachings (with effective flag)
+POST        /teachings                              teach ``{"body", "scope_type", "scope_id"?, "teaching_type",
+                                                    "validity_mode", "valid_from"?, "valid_until"?, "affects_source_data"?}``
+PUT         /teachings/{teaching_id}                edit ``{"expected_revision", "body"?, "teaching_type"?, "validity_mode"?,
+                                                    "valid_from"?, "valid_until"?, "affects_source_data"?}``
+POST        /teachings/{teaching_id}/enable         (also ``/disable``, ``/archive``; archive is final)
+GET         /teachings/{teaching_id}/history        every revision snapshot
+GET         /review-flags                           open engineering review flags raised by corrections
 ==========  ======================================  ==================================================
 """
 
@@ -39,6 +47,7 @@ import hmac
 import json
 import os
 import re
+import urllib.parse
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -47,6 +56,7 @@ from atlas_reasoning.atlas_questions import AtlasQuestions, QuestionClosed
 from atlas_reasoning.manager_notes import ManagerNotes, NoteConflict
 from atlas_reasoning.settings import ReasoningConfigError, secret_value
 from atlas_reasoning.store.repository import NotFound
+from atlas_reasoning.teach_atlas import TeachAtlas, TeachingConflict
 from atlas_reasoning.user_text import InvalidText
 
 PREFIX = "/api/reasoning"
@@ -109,6 +119,9 @@ class ApiError(Exception):
         self.status, self.code = status, code
 
 
+TEACHING_EDIT = ("body", "teaching_type", "validity_mode", "valid_from", "valid_until", "affects_source_data")
+TEACHING_CREATE = ("body", "scope_type", "scope_id", "teaching_type", "validity_mode", "valid_from", "valid_until", "affects_source_data")
+
 Handler = Callable[[dict[str, str], dict[str, Any], str], Any]
 
 
@@ -125,10 +138,12 @@ _ID = r"(?P<{}>[A-Za-z0-9_]{{1,80}})"
 
 
 class ManagementAPI:
-    def __init__(self, settings: ApiSettings, *, notes: ManagerNotes, questions: AtlasQuestions | None = None) -> None:
+    def __init__(self, settings: ApiSettings, *, notes: ManagerNotes, questions: AtlasQuestions | None = None,
+                 teachings: TeachAtlas | None = None) -> None:
         self.settings = settings
         self.notes = notes
         self.questions = questions
+        self.teachings = teachings
         self.routes: list[Route] = []
         self.add("GET", "/csrf", lambda params, body, actor: {"token": self.csrf_token(actor)})
         self.add("GET", "/results/{result_id}/notes", lambda p, b, a: {"notes": [n.to_dict() for n in notes.for_result(p["result_id"])]})
@@ -141,6 +156,14 @@ class ManagementAPI:
             self.add("GET", "/questions/{question_id}", lambda p, b, a: {"question": questions.get(p["question_id"]).to_dict()})
             self.add("POST", "/questions/{question_id}/answers", self._answer, fields={"body"}, required={"body"})
             self.add("POST", "/questions/{question_id}/dismiss", self._dismiss, fields={"reason"})
+        if teachings is not None:
+            self.add("GET", "/teachings", self._list_teachings)
+            self.add("POST", "/teachings", self._create_teaching, fields=set(TEACHING_CREATE), required={"body", "scope_type", "teaching_type", "validity_mode"})
+            self.add("PUT", "/teachings/{teaching_id}", self._update_teaching, fields={"expected_revision", *TEACHING_EDIT}, required={"expected_revision"})
+            for status, action in (("active", "enable"), ("disabled", "disable"), ("archived", "archive")):
+                self.add("POST", f"/teachings/{{teaching_id}}/{action}", self._status_handler(status))
+            self.add("GET", "/teachings/{teaching_id}/history", lambda p, b, a: {"revisions": teachings.history(p["teaching_id"])})
+            self.add("GET", "/review-flags", lambda p, b, a: {"flags": teachings.review_flags()})
 
     def add(self, method: str, template: str, handler: Handler, *, fields: set[str] | frozenset[str] = frozenset(),
             required: set[str] | frozenset[str] = frozenset()) -> None:
@@ -190,6 +213,8 @@ class ManagementAPI:
             return Response(404, {"error": "NOT_FOUND", "message": None})
         except NoteConflict:
             return Response(409, {"error": "CONFLICT", "message": "the item changed since it was read; reload and retry"})
+        except TeachingConflict:
+            return Response(409, {"error": "CONFLICT", "message": "the teaching changed or is archived; reload and retry"})
         except QuestionClosed:
             return Response(409, {"error": "QUESTION_CLOSED", "message": "the question is no longer open"})
         except ValueError as error:
@@ -209,6 +234,9 @@ class ManagementAPI:
         if route is None:
             raise ApiError(405, "METHOD_NOT_ALLOWED")
         params = route.pattern.match(path).groupdict()  # type: ignore[union-attr]
+        query = request.path.split("?", 1)[1] if "?" in request.path else ""
+        for key, values in urllib.parse.parse_qs(query, max_num_fields=10).items():
+            params[f"query.{key}"] = values[-1]
         body: dict[str, Any] = {}
         if method != "GET":
             body = self._check_write(request, headers, actor)
@@ -242,3 +270,32 @@ class ManagementAPI:
     def _dismiss(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
         assert self.questions is not None
         return {"question": self.questions.dismiss(params["question_id"], author=actor, reason=body.get("reason")).to_dict()}
+
+    def _list_teachings(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+        assert self.teachings is not None
+        status = params.get("query.status")
+        found = self.teachings.list_teachings(statuses=[status] if status else None, scope_type=params.get("query.scope_type") or None)
+        return {"teachings": [teaching.to_dict() for teaching in found]}
+
+    def _status_handler(self, status: str) -> Handler:
+        def handler(params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+            assert self.teachings is not None
+            return self._write(self.teachings.set_status(params["teaching_id"], status, author=actor))
+        return handler
+
+    @staticmethod
+    def _write(written: Any) -> Any:
+        return {"teaching": written.teaching.to_dict(), "engineering_review_flag": written.review_flag,
+                "memory_sync": [outcome.status for outcome in written.sync]}
+
+    def _create_teaching(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+        assert self.teachings is not None
+        return self._write(self.teachings.create(author=actor, **{name: body.get(name) for name in TEACHING_CREATE}))
+
+    def _update_teaching(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+        assert self.teachings is not None
+        revision = body["expected_revision"]
+        if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+            raise ApiError(400, "INVALID_FIELD", "expected_revision must be a positive integer")
+        return self._write(self.teachings.update(params["teaching_id"], expected_revision=revision, author=actor,
+                                                 **{name: body.get(name) for name in TEACHING_EDIT}))

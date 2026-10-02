@@ -75,8 +75,9 @@ class MemorySyncService:
             row = memory_log.claim(tx, record, backend_name)
             if row is None:
                 return SyncOutcome(**base, status="busy")
-            if row["status"] == MemorySyncStatus.SYNCED:
+            if row["status"] == MemorySyncStatus.SYNCED and row["retired_at"] is None:
                 return SyncOutcome(**base, status="duplicate", sync_id=row["sync_id"], external_ref=row["external_ref"])
+            # A retired copy of the same content (a teaching disabled, then enabled again) is written again.
             if self.backend is None:
                 memory_log.mark(tx, row["sync_id"], MemorySyncStatus.SKIPPED, backend=None, attempted=False)
                 return SyncOutcome(**base, status="skipped", sync_id=row["sync_id"])
