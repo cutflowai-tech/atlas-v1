@@ -157,6 +157,23 @@ class ExecutiveStoreTests(unittest.TestCase):
         self.assertEqual([(c["status"], c["prompt_version"], c["case_id"]) for c in calls], [("succeeded", "executive-v1", None)])
         self.assertEqual(brief.generator.request_ids, (calls[0]["request_id"],))
 
+    def test_persisted_references_resolve_to_phase16_canonical_cards(self):
+        # Reconciliation guard: every persisted statement reference and input version is a canonical result Phase 16 can open.
+        from atlas_reasoning import dashboard_routes
+
+        first = self.run_snapshot()
+        self.synthesizer.synthesize(first.run_id)
+        brief = self.current()
+        with self.executive_store.transaction() as tx:
+            refs = tx.statement_refs(brief.brief_id, brief.version)
+            inputs = tx.brief_inputs(brief.brief_id, brief.version)
+        self.assertTrue(refs)
+        with self.store.transaction() as tx:
+            for row in inputs:
+                dashboard_routes.parse_result_id(row["result_id"])
+                self.assertEqual(tx.get_result(row["result_id"], row["result_version"]).result_id, row["result_id"])
+        self.assertLessEqual({row["result_id"] for row in refs}, {row["result_id"] for row in inputs})
+
     def test_identical_input_makes_zero_model_calls_and_preserves_the_brief(self):
         first = self.run_snapshot()
         self.synthesizer.synthesize(first.run_id)

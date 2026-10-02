@@ -562,6 +562,28 @@ class ChatAReviewTests(unittest.TestCase):
         self.assertNotEqual(executive_input(settled).fingerprint, executive_input(standard_rows()).fingerprint)
 
 
+class Phase16CompatibilityTests(unittest.TestCase):
+    """Reconciliation with Phase 16 (integration 3931b21): the brief's result identity is the one Phase 16 cards accept. Nothing here maps
+    or links anything (the Phase 17 UI is deferred); it only guards that a later UI can map persisted IDs without changing the brief."""
+
+    def test_brief_result_ids_are_phase16_card_ids(self):
+        from atlas_reasoning import dashboard_routes
+        from atlas_reasoning.executive_contracts import brief_schema
+
+        self.assertEqual(brief_schema()["$defs"]["result_id"]["pattern"], dashboard_routes.RESULT_ID.pattern)
+        brief = ExecutiveBrief.from_dict(candidate()[0])
+        for result_id in brief.referenced_result_ids:
+            self.assertEqual(dashboard_routes.parse_result_id(result_id), result_id)
+        for pinned in brief.input_results:     # the version a later link may pin (Phase 16 docs §8.5)
+            self.assertIsInstance(pinned.result_version, int)
+            self.assertGreaterEqual(pinned.result_version, 1)
+
+    def test_the_brief_stores_no_presentation_address(self):
+        text = json.dumps(candidate()[0])
+        for address in ("/reasoning/", "#result-", "#ev-", "http://", "https://"):
+            self.assertNotIn(address, text)
+
+
 class IdentityTests(unittest.TestCase):
     def test_a_substituted_model_is_refused_and_not_retried(self):
         report = check(prov=provenance(model="openai/gpt-5.6-sol-pro"))

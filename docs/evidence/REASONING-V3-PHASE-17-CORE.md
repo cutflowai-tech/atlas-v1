@@ -116,3 +116,27 @@ reference was already refused as not in the input, so this is hygiene) — `test
 The prompt `executive-v1` is unchanged (it already forbids citing any identifier other than `result_ids`).
 
 Exact-head CI of the fix head: recorded on the Draft PR.
+
+## 8. Reconciliation with Phase 16 (POST_PHASE16_INTEGRATION_SHA)
+
+| Item | Value |
+|---|---|
+| Pre-reconciliation Phase 17 head | `82504f8308d914d78e72f92198c26c0d717b11cc` |
+| Merged | `origin/integration` = `3931b21554427316dbd09bcb04e58994ae57cc99` (merge of PR #37; its tree is identical to the reviewed Phase 16 head `a7d9cff`) |
+| Reconciliation merge commit | `c10de79a7d293cdbe0416a76c1b16229382be98e`, parents `82504f8` + `3931b21`, `--no-ff`, no rebase / squash / force-push |
+| Textual conflicts | **None**. The two changes share no file: `diff(3931b21, merge)` is byte-identical to the reviewed Phase 17 delta `diff(fd4b140, 82504f8)`, and `diff(82504f8, merge)` to the Phase 16 delta `diff(fd4b140, 3931b21)` — nothing reverted, nothing altered |
+| Semantic compatibility fixes | None needed. Added guard tests only: `Phase16CompatibilityTests` (the brief's `result_id` pattern is Phase 16's `dashboard_routes.RESULT_ID`; every referenced ID passes `parse_result_id`; input versions are positive integers for `card_path(..., version=n)`; the brief stores no `/reasoning/`, `#result-`, `#ev-` or URL) and DB `test_persisted_references_resolve_to_phase16_canonical_cards` (every persisted statement reference and input row is a canonical result version Phase 16 can open) |
+| Migrations (fresh schema, CLI) | Run 1 applied 9: `0001, 0100, 0101, 0200, 0201, 0202, 0203, 0300, 0500` (no `0400`); run 2 applied 0; `db-health` ok (no pending, problems or missing tables); recorded `0500` checksum = file SHA-256 `c26573c0…259f`; 5 executive tables present |
+
+Compatibility review of the merged tree:
+
+- **Identity.** Statements persist canonical `rr1_` result IDs only, and every input row carries its `result_version`. This is exactly what
+  Phase 16's handoff (`docs/REASONING-V3-DASHBOARD.md` §8.5: `result_links`, `result_states`, `card_path(..., version=n)`) consumes. A
+  later UI can map them without any change to brief persistence. No URL or anchor is derived or stored in the core.
+- **Guardrails.** Phase 16 changed neither `guardrails.py` nor `output_checks.py`; Phase 17's additions there are unchanged and the Phase 15
+  suite passes on the merged tree.
+- **UI-inert.** Nothing in the merged `src/` (Phase 16 dashboard, routes, read API, web app, ManagementAPI included) imports the executive
+  core (`IsolationTests.test_executive_core_is_ui_inert`); `home_page(lead_html=)` and the Phase 16 routes are untouched.
+- **Reasoning V3 off.** The executive core adds no import-time requirement (psycopg is loaded only when a database is opened) and nothing
+  runs it; the flag-off byte-identity tests and Phase 16's refusal to start with the flag off are unchanged.
+- **Deferred.** Phase 17 UI remains unimplemented: `PHASE17_CORE_COMPLETE`, not `PHASE17_COMPLETE`.
