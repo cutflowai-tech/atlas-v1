@@ -64,6 +64,12 @@ class MemoryRejected(MemoryBackendError):
     error_class = "memory_rejected"
 
 
+class MemoryNotFound(MemoryRejected):
+    """The session or message does not exist (yet). Reading it means "no memory"; it is not an outage."""
+
+    error_class = "memory_not_found"
+
+
 class MemoryPolicyError(ValueError):
     """A memory record violates the session policy or the leakage rules; it is never sent."""
 

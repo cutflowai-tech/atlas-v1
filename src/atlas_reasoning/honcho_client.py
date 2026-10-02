@@ -7,13 +7,15 @@ Calls (``Authorization: Bearer <key>``, JSON):
 ``POST /v3/workspaces/{w}/peers``                                      get or create a peer (``atlas``, ``manager-<hash>``)
 ``POST /v3/workspaces/{w}/sessions``                                   get or create a session (with its peer)
 ``POST /v3/workspaces/{w}/sessions/{s}/messages``                      write one memory copy (content + provenance metadata)
+``GET  /v3/workspaces/{w}/sessions/{s}/messages/{m}``                  read one copy's metadata (before retiring it)
 ``PUT  /v3/workspaces/{w}/sessions/{s}/messages/{m}``                  retire a copy (metadata ``atlas_retired: true``)
 ``POST /v3/workspaces/{w}/sessions/{s}/messages/list?reverse=true``    read the newest copies of one session
 =====================================================================  ===============================================
 
 Every get-or-create is idempotent and cached per client. Errors map to ``memory.MemoryUnavailable`` (network, timeout, 408, 429,
-5xx: retry later) or ``memory.MemoryRejected`` (401/403/4xx: the request itself is wrong); messages are redacted and never contain
-the key. Live calls happen only when ``ATLAS_REASONING_MEMORY=on`` and a key is configured; tests inject ``http`` or use
+5xx: retry later) or ``memory.MemoryRejected`` (401/403/4xx: the request itself is wrong; 404 is ``MemoryNotFound``, which ``read``
+and ``retire`` treat as "no memory" — a session nothing was written to yet is not an outage); messages are redacted and never
+contain the key. Live calls happen only when ``ATLAS_REASONING_MEMORY=on`` and a key is configured; tests inject ``http`` or use
 ``fake_honcho``.
 """
 
@@ -33,6 +35,7 @@ from typing import Any
 from atlas_reasoning.memory import (
     ATLAS_PEER,
     MemoryBackendError,
+    MemoryNotFound,
     MemoryRecord,
     MemoryRejected,
     MemoryUnavailable,
@@ -108,6 +111,8 @@ class HonchoClient:
             raise MemoryUnavailable(f"Honcho unavailable (HTTP {result.status})")
         if result.status in (401, 403):
             raise MemoryRejected(f"Honcho refused the credentials (HTTP {result.status})")
+        if result.status == 404:
+            raise MemoryNotFound("Honcho has no such session or message")
         if not 200 <= result.status < 300:
             raise MemoryRejected(f"Honcho refused the request (HTTP {result.status})")
         try:
@@ -155,20 +160,25 @@ class HonchoClient:
         return str(rows[0]["id"])
 
     def retire(self, session_key: str, memory_ref: str) -> None:
+        """Mark one copy retired (Honcho has no per-message delete): its own metadata plus ``atlas_retired: true``."""
         session_id = honcho_session_id(session_key)
         path = f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/{urllib.parse.quote(memory_ref, safe='')}"
-        current = self._call("POST", f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/list", {"filters": {"id": memory_ref}},
-                             {"page": 1, "size": 1})
-        metadata: dict[str, Any] = {}
-        items = current.get("items") if isinstance(current, Mapping) else None
-        if isinstance(items, list) and items and isinstance(items[0], Mapping) and isinstance(items[0].get("metadata"), Mapping):
-            metadata = dict(items[0]["metadata"])
+        try:
+            current = self._call("GET", path)
+        except MemoryNotFound:
+            return          # nothing left to retire
+        metadata = dict(current["metadata"]) if isinstance(current, Mapping) and isinstance(current.get("metadata"), Mapping) else {}
+        if isinstance(current, Mapping) and current.get("id") not in (None, memory_ref):
+            raise MemoryUnavailable("Honcho returned a different message")
         self._call("PUT", path, {"metadata": {**metadata, "atlas_retired": True}})
 
     def read(self, session_key: str, *, limit: int) -> Sequence[RetrievedMemory]:
         session_id = honcho_session_id(session_key)
-        page = self._call("POST", f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/list", {},
-                          {"reverse": "true", "page": 1, "size": max(1, min(100, limit))})
+        try:
+            page = self._call("POST", f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/list", {},
+                              {"reverse": "true", "page": 1, "size": max(1, min(100, limit))})
+        except MemoryNotFound:
+            return []       # a session nothing was ever written to: no memory, not an outage
         if page is None:
             return []
         items = page.get("items") if isinstance(page, Mapping) else None

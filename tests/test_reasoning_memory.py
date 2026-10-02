@@ -193,6 +193,25 @@ class HonchoClientTests(unittest.TestCase):
         self.assertEqual([(m.memory_ref, m.source_type, m.source_id) for m in found], [("m2", "manager_interpretation", "n2")])
         self.assertIn("reverse=true", http.requests[-1][1])
 
+    def test_retire_keeps_the_copy_provenance_and_marks_it_retired(self):
+        sid = honcho_session_id(editor_session("e1"))
+        current = {"id": "m1", "content": "x", "metadata": {"source_type": "manager_answer", "source_id": "aa_1"}}
+        http = FakeHttp({("GET", r"/messages/m1$"): HttpResult(200, json.dumps(current).encode())})
+        client(http).retire(editor_session("e1"), "m1")
+        method, url, _, body = http.requests[-1]
+        self.assertEqual((method, url.split("api.honcho.dev")[1]), ("PUT", f"/v3/workspaces/waset-atlas-test/sessions/{sid}/messages/m1"))
+        self.assertEqual(body, {"metadata": {"source_type": "manager_answer", "source_id": "aa_1", "atlas_retired": True}})
+        other = FakeHttp({("GET", r"/messages/m1$"): HttpResult(200, json.dumps({**current, "id": "m9"}).encode())})
+        with self.assertRaises(MemoryUnavailable):
+            client(other).retire(editor_session("e1"), "m1")
+        self.assertNotIn("PUT", [m for m, _, _, _ in other.requests])
+
+    def test_a_session_never_written_is_empty_not_an_outage(self):
+        http = FakeHttp({("POST", r"/messages/list"): HttpResult(404, b"{}"), ("GET", r"/messages/m1$"): HttpResult(404, b"{}")})
+        self.assertEqual(client(http).read(editor_session("new-editor"), limit=5), [])
+        client(http).retire(editor_session("new-editor"), "m1")
+        self.assertNotIn("PUT", [m for m, _, _, _ in http.requests])
+
     def test_policy_is_enforced_before_any_request(self):
         http = FakeHttp()
         with self.assertRaises(MemoryPolicyError):
