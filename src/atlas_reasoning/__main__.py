@@ -10,6 +10,10 @@
     python -m atlas_reasoning provider-health [--dry-run] [--record]
                                                       check the OpenRouter configuration (--dry-run: no network call) or make
                                                       one minimal structured call to the pinned model (--record: into llm_calls)
+    python -m atlas_reasoning memory-health [--dry-run]
+                                                      check the Honcho memory configuration (--dry-run: no network call) or
+                                                      get-or-create the environment's workspace
+    python -m atlas_reasoning memory-sync [--limit N] re-send pending or failed memory copies, rebuilt from canonical rows
 
 The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE); the OpenRouter key from
 OPENROUTER_API_KEY (or OPENROUTER_API_KEY_FILE). Neither is ever printed.
@@ -156,6 +160,34 @@ def cmd_provider_health(args: argparse.Namespace) -> int:
     return 0 if report["ok"] else 1
 
 
+def cmd_memory_health(args: argparse.Namespace) -> int:
+    from atlas_reasoning.honcho_client import HonchoClient
+
+    report: dict[str, Any] = {"memory_enabled": settings.memory_enabled()}
+    if not report["memory_enabled"]:
+        report.update(ok=True, note=f"{settings.MEMORY_FLAG_ENV} is off: canonical context only, nothing is sent to Honcho")
+        _print(report)
+        return 0
+    honcho = settings.honcho_settings()
+    report.update(api_key_configured=True, base_url=honcho.base_url, environment=honcho.environment, workspace=honcho.workspace_id)
+    if args.dry_run:
+        report.update(ok=True, live_call=False)
+    else:
+        report.update(HonchoClient(honcho).health(), live_call=True)
+    _print(report)
+    return 0 if report["ok"] else 1
+
+
+def cmd_memory_sync(args: argparse.Namespace) -> int:
+    from atlas_reasoning.honcho_client import backend_from_env
+    from atlas_reasoning.memory_sync import default_sync_service
+
+    backend = backend_from_env()
+    outcomes = default_sync_service(_store(), backend).retry(limit=args.limit)
+    _print({"memory_enabled": backend is not None, "outcomes": [outcome.__dict__ for outcome in outcomes]})
+    return 0 if all(outcome.status != "failed" for outcome in outcomes) else 1
+
+
 COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "migrate": (cmd_migrate, "apply pending database migrations"),
     "db-health": (cmd_db_health, "check the Reasoning V3 database"),
@@ -165,6 +197,8 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "inspect": (cmd_inspect, "show the cases of a built site without a database"),
     "gate": (cmd_gate, "run the Change Gate on a built site"),
     "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
+    "memory-health": (cmd_memory_health, "check the Honcho memory configuration or connectivity"),
+    "memory-sync": (cmd_memory_sync, "re-send pending or failed memory copies"),
 }
 
 
@@ -184,6 +218,10 @@ def parser() -> argparse.ArgumentParser:
         elif name == "provider-health":
             command.add_argument("--dry-run", action="store_true", help="validate configuration only; no network call")
             command.add_argument("--record", action="store_true", help="record the call in llm_calls")
+        elif name == "memory-health":
+            command.add_argument("--dry-run", action="store_true", help="validate configuration only; no network call")
+        elif name == "memory-sync":
+            command.add_argument("--limit", type=int, default=100)
     return root
 
 
