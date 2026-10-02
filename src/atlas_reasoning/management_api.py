@@ -69,7 +69,10 @@ SECURITY_HEADERS = {"Content-Type": "application/json; charset=utf-8", "Cache-Co
 
 
 def _identity(value: str) -> str:
-    return value.strip().casefold()
+    """The comparable form of an identity: ASCII identities case-insensitively (``Boss@x`` is ``boss@x``); any other identity exactly.
+    Never ``casefold``: it maps distinct identities together (``ß`` → ``ss``), which would share an allow-list entry and a CSRF token."""
+    value = value.strip()
+    return value.lower() if value.isascii() else value
 
 
 @dataclass(frozen=True)
@@ -233,13 +236,13 @@ class ManagementAPI:
         actor = self._authorize(request)
         headers = {key.lower(): value for key, value in request.headers.items()}
         path = request.path.split("?", 1)[0]
-        matched = [route for route in self.routes if route.pattern.match(path)]
+        matched = [route for route in self.routes if route.pattern.fullmatch(path)]
         if not matched:
             raise ApiError(404, "NOT_FOUND")
         route = next((route for route in matched if route.method == method), None)
         if route is None:
             raise ApiError(405, "METHOD_NOT_ALLOWED")
-        params = route.pattern.match(path).groupdict()  # type: ignore[union-attr]
+        params = route.pattern.fullmatch(path).groupdict()  # type: ignore[union-attr]
         query = request.path.split("?", 1)[1] if "?" in request.path else ""
         for key, values in urllib.parse.parse_qs(query, max_num_fields=10).items():
             params[f"query.{key}"] = values[-1]

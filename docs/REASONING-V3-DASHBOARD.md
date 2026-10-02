@@ -109,6 +109,7 @@ escaped on output and always labelled management context.
 | State | Canonical signal | Shown |
 |---|---|---|
 | No results yet | no `reasoning_results` | empty state + link to the deterministic dashboard |
+| First reasoning failed / pending | present cases with no result whose latest LLM work item is `failed` / `pending`, `in_progress` (status and error class only) | home banners with the counts (`Home.first_reasoning_failed` / `_pending`); the empty state then says no card is validated yet, never "nothing to reason about" |
 | Newer evidence not yet reasoned | case `last_evidence_fingerprint` ≠ card's fingerprint (case present) | notice `evidence_changed`; the trace names the newer fingerprint |
 | Update queued | latest LLM work item `pending` / `in_progress` | notice `update_pending` |
 | Provider failure, previous card kept | latest LLM work item `failed`, `last_error` `provider:*` | notice `provider_failed`; card = last valid version |
@@ -141,12 +142,19 @@ Phase 17 (ExecutiveBrief) must consume these and must not depend on page markup 
    `GET /api/reasoning/read/results/<result_id>/evidence`.
 4. **History.** `history_path(locale, result_id)`; data `DashboardService.history(result_id)` or `GET …/results/<result_id>/history`.
 5. **Executive statements with `result_ids`.** `dashboard_routes.result_links(locale, result_ids)` → `[{result_id, card, evidence, history}]`
-   (order kept, duplicates removed, non-canonical IDs refused with `InvalidRoute`); existence against canonical state:
-   `DashboardService.existing(result_ids)` or `GET /api/reasoning/read/links?locale=<l>&result_id=<id>[&result_id=…]` (404
-   `UNKNOWN_RESULT` if any is unknown). Statements must link to cards this way, never by title or position.
-6. **Home insertion point.** `dashboard_html.home_page(home, ctx, lead_html=...)` places trusted, server-rendered HTML above
-   `<section id="reasoning-results">` (after the page title and any memory banner). Phase 16 never passes it; Phase 17 may own it for an
-   executive overview. Phase 16 creates no executive home, navigation or brief.
+   (order kept, duplicates removed, non-canonical IDs — including any with a trailing newline — refused with `InvalidRoute`). State
+   against canonical storage: `DashboardService.result_states(result_ids)` → per ID `{result_id, exists, lifecycle_status, current_version,
+   superseded_by}` (`existing()` is the set of those that exist), or `GET /api/reasoning/read/links?locale=<l>&result_id=<id>[&…]`, which
+   returns that state per ID plus the three addresses for each existing result (200; one unknown ID never hides the others; malformed ID
+   400 `INVALID_RESULT_ID`, unknown locale 400 `INVALID_LOCALE`). A statement pinned to the result version it was synthesized from opens
+   that version with `card_path(locale, result_id, version=n)` / `evidence_path(..., version=n)` and can say the card has moved on when
+   `current_version` differs, or name its replacement from `superseded_by`. Statements must link to cards this way, never by title or
+   position.
+6. **Home insertion point.** `dashboard_html.home_page(home, ctx, lead_html=...)` places server-rendered HTML above
+   `<section id="reasoning-results">` (after the page title and the status banners). **It is inserted as HTML, so it must be built only
+   from escaped content** (`dashboard_html.esc`, `dashboard_i18n.t`, `dashboard_routes` addresses): model-written executive text is never
+   trusted HTML. `web_app` does not pass it yet; wiring a provider into `ReasoningWebApp` is the Phase 17 UI's change. Phase 16 creates no
+   executive home, navigation or brief.
 
 ## 9. Configuration
 
@@ -166,10 +174,10 @@ Phase 17 (ExecutiveBrief) must consume these and must not depend on page markup 
 
 | Concern | Rule (tested) |
 |---|---|
-| Authentication | actor from the proxy only (`REMOTE_USER`, or the configured header); never body or query |
+| Authentication | actor from the proxy only (`REMOTE_USER`, or the configured header); never body or query. A value with a comma or control character is no actor. Identities compare case-insensitively when ASCII, exactly otherwise (no `casefold` collisions such as `ß`/`ss`) |
 | Authorization | `management_api.authorize_actor` for every page, read and write route (401 / 403 pages and codes) |
 | CSRF / Origin / JSON | unchanged `ManagementAPI` rules for every write; token bound to the actor; bodies read to at most `max_body_bytes + 1` |
-| XSS | every stored, model and identifier value escaped; IDs in URLs must be canonical (`rr1_…`, `ev1_…`) or are percent-encoded; operator URLs validated (no `javascript:`, no protocol-relative, no quotes/spaces) |
+| XSS | every stored, model and identifier value escaped; IDs in URLs must be canonical (`rr1_…`, `ev1_…`, checked with full matches) or are percent-encoded (also every ID in a human-context form action, so a form posts only to its own route); operator URLs validated (no `javascript:`, no protocol-relative, no quotes/spaces) |
 | Headers | `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; …; frame-ancestors 'none'` (no inline code), `no-store`, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` |
 | Leakage | errors are plain pages / JSON codes; no exception text, database URL, key or work-item error string reaches a page; failed-candidate codes are not shown |
 | Script | `dashboard.js` uses `textContent` only, no `innerHTML`/`eval`, reads no reasoning data, computes nothing |
@@ -218,7 +226,10 @@ version's `updated_at` (a lifecycle-only version moves it).
   can make the embedded history name a newer current version than the card (reloading shows the new card).
 - The home card's "Updated" time is the current version's `updated_at`, which a lifecycle-only version also moves; the card's
   "What changed" says which version last changed the content.
-- The proxy must overwrite (not append to) the actor header in both `-` and `_` spellings and the app must listen only on the
-  proxy-facing interface (Phase 20).
+- The proxy must overwrite (not append to) the actor header, must not pass client headers spelled with underscores (nginx
+  `underscores_in_headers off`, its default: WSGI servers map `X-Atlas-User` and `X_Atlas_User` to the same key), and the app must
+  listen only on the proxy-facing interface (Phase 20).
+- Save errors show the API's stable error code (for example `CSRF_TOKEN_INVALID`) after the localized "Not saved" in both languages: it is
+  a machine code for support, not prose.
 - "What changed" counts come from the stored material delta of the patch's work item; versions written by tools that do not record a
   work item show the stored rationale and fields only.

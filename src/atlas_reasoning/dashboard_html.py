@@ -10,7 +10,8 @@ The only script is the external ``/reasoning/assets/dashboard.js`` (form submiss
 collapsed section a link points into); the pages work for reading without it. No credential ever reaches a page.
 
 Phase 17 insertion point: ``home_page(..., lead_html=...)`` places server-rendered HTML above ``<section id="reasoning-results">``.
-Phase 16 never passes it; it exists so a later executive overview can lead the home page without changing the cards.
+It is inserted as HTML, so it must be built only from escaped content (``esc``, ``dashboard_i18n.t``, ``dashboard_routes`` addresses);
+model-written text is never trusted HTML. Phase 16 never passes it.
 """
 
 from __future__ import annotations
@@ -158,7 +159,7 @@ def _ref_links(refs: Sequence[str], result_id: str, ctx: PageContext, version: i
     page = "" if same_page else routes.evidence_path(ctx.locale, result_id, version=version)
     links = []
     for ref in refs:
-        if EVIDENCE_REF.match(ref):
+        if EVIDENCE_REF.fullmatch(ref):
             links.append(f'<a class="rv-ref" href="{esc(page)}#ev-{esc(ref)}">{_code(ref)}</a>')
         else:
             links.append(f'<span class="rv-ref rv-ref-broken">{_code(ref)}</span>')
@@ -244,8 +245,16 @@ def home_page(home: Home, ctx: PageContext, *, lead_html: str = "") -> str:
     """The reasoning-first home. ``lead_html`` is the reserved Phase 17 insertion point (trusted, server-rendered HTML only)."""
     backlog = (f'<p class="rv-banner" role="status" data-state="memory_backlog">{ctx.t("home.memory_backlog", n=home.memory_backlog)}</p>'
                if home.memory_backlog else "")
+    if home.first_reasoning_failed:
+        backlog += (f'<p class="rv-banner" role="status" data-state="first_reasoning_failed">'
+                    f'{ctx.t("home.first_failed", n=home.first_reasoning_failed)}</p>')
+    if home.first_reasoning_pending:
+        backlog += (f'<p class="rv-banner" role="status" data-state="first_reasoning_pending">'
+                    f'{ctx.t("home.first_pending", n=home.first_reasoning_pending)}</p>')
     if not home.current and not home.history:
-        cards = f'<p class="rv-empty" data-state="empty">{ctx.t("home.empty")}</p>'
+        waiting = home.first_reasoning_failed or home.first_reasoning_pending
+        cards = (f'<p class="rv-empty" data-state="{"empty_unreasoned" if waiting else "empty"}">'
+                 f'{ctx.t("home.empty_unreasoned" if waiting else "home.empty")}</p>')
     else:
         current = ('<ol class="rv-cards">' + "".join(card_summary(card, ctx) for card in home.current) + "</ol>" if home.current
                    else f'<p class="rv-empty" data-state="no_current">{ctx.t("home.empty_current")}</p>')

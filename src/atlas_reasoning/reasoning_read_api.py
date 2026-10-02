@@ -16,7 +16,7 @@ GET         /results                                     home: current cards, re
 GET         /results/{result_id}[?version=n]             one card (current or version ``n``) with its human context
 GET         /results/{result_id}/evidence[?version=n]    evidence drill-down: result → case → V2 findings → metrics → Monday IDs
 GET         /results/{result_id}/history                 versions and lifecycle transitions
-GET         /links?locale=en&result_id=…[&result_id=…]   card / evidence / history addresses for result IDs (Phase 17 linking)
+GET         /links?locale=en&result_id=…[&result_id=…]   per ID: exists, lifecycle, current version, replacement, and addresses
 ==========  ===========================================  =========================================================
 """
 
@@ -41,7 +41,7 @@ def parse_version(query: dict[str, list[str]]) -> int | None:
     values = query.get("version")
     if not values:
         return None
-    if len(values) != 1 or not _VERSION.match(values[0]):
+    if len(values) != 1 or not _VERSION.fullmatch(values[0]):
         raise ApiError(400, "INVALID_VERSION")
     return int(values[0])
 
@@ -78,7 +78,7 @@ class ReasoningReadAPI:
         except ValueError:
             raise ApiError(400, "INVALID_QUERY") from None
         for pattern, handler in self.routes:
-            match = pattern.match(path)
+            match = pattern.fullmatch(path)
             if match:
                 params = match.groupdict()
                 if "result_id" in params:
@@ -100,13 +100,18 @@ class ReasoningReadAPI:
         return {"history": self.service.history(params["result_id"]).to_dict()}
 
     def _links(self, params: dict[str, str], query: dict[str, list[str]]) -> Any:
+        """Per cited result ID: its state (exists, lifecycle, current version, replacement) and, when it exists, its card, evidence and
+        history addresses. One unknown ID never hides the others."""
         locale = (query.get("locale") or [routes.LOCALES[0]])[-1]
+        if locale not in routes.LOCALES:
+            raise ApiError(400, "INVALID_LOCALE")
         result_ids = query.get("result_id") or []
         if not result_ids or len(result_ids) > MAX_LINKS:
             raise ApiError(400, "INVALID_QUERY")
-        links = routes.result_links(locale, result_ids)
-        known = self.service.existing([link["result_id"] for link in links])
-        missing = [link["result_id"] for link in links if link["result_id"] not in known]
-        if missing:
-            raise ApiError(404, "UNKNOWN_RESULT")
-        return {"links": links}
+        try:
+            addresses = {link["result_id"]: link for link in routes.result_links(locale, result_ids)}
+        except routes.InvalidRoute:
+            raise ApiError(400, "INVALID_RESULT_ID") from None
+        states = self.service.result_states(list(addresses))
+        return {"links": [{**states[result_id], **({key: value for key, value in link.items() if key != "result_id"} if states[result_id]["exists"] else {})}
+                          for result_id, link in addresses.items()]}

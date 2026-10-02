@@ -84,5 +84,28 @@ def memory_backlog(tx: StoreTransaction) -> int:
     return int(row["n"]) if row else 0
 
 
-def existing_results(tx: StoreTransaction, result_ids: Sequence[str]) -> set[str]:
-    return {row["result_id"] for row in tx._all("SELECT result_id FROM reasoning_results WHERE result_id = ANY(%s)", (list(result_ids),))}
+def unreasoned_cases(tx: StoreTransaction) -> dict[str, int]:
+    """Present cases that have no result yet, by the state of their latest LLM work item: ``failed`` (provider failure, guardrail refusal,
+    other) or ``pending`` (pending / in progress). Status and the error *class* only; never candidate content."""
+    rows = tx._all("""SELECT w.status, split_part(coalesce(w.last_error, ''), ':', 1) AS error_class, count(*) AS n
+                      FROM reasoning_cases c
+                      JOIN LATERAL (SELECT status, last_error FROM reasoning_work_items i WHERE i.case_id = c.case_id AND i.requires_llm
+                                    ORDER BY i.created_at DESC, i.work_item_id DESC LIMIT 1) w ON true
+                      WHERE c.presence = 'present' AND NOT EXISTS (SELECT 1 FROM reasoning_results r WHERE r.case_id = c.case_id)
+                      GROUP BY w.status, error_class""")
+    counts = {"failed": 0, "failed_provider": 0, "failed_validation": 0, "pending": 0}
+    for row in rows:
+        if row["status"] == "failed":
+            counts["failed"] += int(row["n"])
+            if row["error_class"] in ("provider", "validation"):
+                counts[f"failed_{row['error_class']}"] += int(row["n"])
+        elif row["status"] in ("pending", "in_progress"):
+            counts["pending"] += int(row["n"])
+    return counts
+
+
+def result_states(tx: StoreTransaction, result_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+    """Per existing result: its current version, lifecycle and replacement (``superseded_by``)."""
+    rows = tx._all("""SELECT result_id, current_version, lifecycle_status, superseded_by_result_id FROM reasoning_results
+                      WHERE result_id = ANY(%s)""", (list(result_ids),))
+    return {row["result_id"]: row for row in rows}

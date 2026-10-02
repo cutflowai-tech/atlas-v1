@@ -32,10 +32,14 @@ class InvalidRoute(ValueError):
     """A locale or result ID that no dashboard address can carry."""
 
 
-def _check(locale: str, result_id: str | None = None) -> None:
-    if locale not in LOCALES:
+_NO_RESULT = object()
+
+
+def _check(locale: str, result_id: object = _NO_RESULT) -> None:
+    """``locale`` must be a dashboard locale and, when given, ``result_id`` a canonical result ID (``None`` is not one)."""
+    if not isinstance(locale, str) or locale not in LOCALES:
         raise InvalidRoute(f"unknown locale {locale!r}")
-    if result_id is not None and not RESULT_ID.match(result_id):
+    if result_id is not _NO_RESULT and not (isinstance(result_id, str) and RESULT_ID.fullmatch(result_id)):
         raise InvalidRoute("not a canonical result ID")
 
 
@@ -97,6 +101,6 @@ def result_links(locale: str, result_ids: Iterable[str]) -> list[dict[str, str]]
 
 
 def parse_result_id(value: str) -> str:
-    if not RESULT_ID.match(value):
+    if not isinstance(value, str) or not RESULT_ID.fullmatch(value):
         raise InvalidRoute("not a canonical result ID")
     return value

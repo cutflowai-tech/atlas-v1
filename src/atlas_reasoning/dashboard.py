@@ -105,10 +105,23 @@ class Home:
     current: tuple[CardSummary, ...]
     history: tuple[CardSummary, ...]
     memory_backlog: int
+    # Present cases with no card yet, by their latest reasoning attempt (``store.dashboard_read.unreasoned_cases``): a first reasoning
+    # that failed or is still pending is a degraded state, never "nothing to reason about".
+    unreasoned: Mapping[str, int] = field(default_factory=dict)
+
+    @property
+    def first_reasoning_failed(self) -> int:
+        return int(self.unreasoned.get("failed", 0))
+
+    @property
+    def first_reasoning_pending(self) -> int:
+        return int(self.unreasoned.get("pending", 0))
 
     def to_dict(self) -> dict[str, Any]:
         return {"current": [card.to_dict() for card in self.current], "history": [card.to_dict() for card in self.history],
-                "memory_backlog": self.memory_backlog}
+                "memory_backlog": self.memory_backlog, "first_reasoning_failed": self.first_reasoning_failed,
+                "first_reasoning_pending": self.first_reasoning_pending,
+                "first_reasoning_failed_by_class": {name: int(self.unreasoned.get(f"failed_{name}", 0)) for name in ("provider", "validation")}}
 
 
 @dataclass(frozen=True)
@@ -292,7 +305,7 @@ def _notices(row: Mapping[str, Any], work: Mapping[str, Any] | None, memory: Map
         elif work["status"] == "failed":
             notices.append(PROVIDER_FAILED if error.startswith("provider:") else VALIDATION_REFUSED if error.startswith("validation:")
                            else REFRESH_FAILED)
-    if memory is not None and memory["memory_status"] in ("degraded", "unavailable"):
+    if memory is not None and status not in HISTORICAL_STATUSES and memory["memory_status"] in ("degraded", "unavailable"):
         notices.append(MEMORY_DEGRADED)
     return tuple(notices)
 
@@ -358,9 +371,10 @@ class DashboardService:
                 work = sql.latest_llm_work(tx, case_ids)
                 memory = sql.latest_memory_status(tx, case_ids)
                 backlog = sql.memory_backlog(tx)
+                unreasoned = sql.unreasoned_cases(tx)
             cards = [_summary(row, work.get(row["case_id"]), memory.get(row["case_id"])) for row in rows]
             return Home(_order([c for c in cards if c.is_current], CURRENT_STATUSES),
-                        _order([c for c in cards if not c.is_current], HISTORICAL_STATUSES), backlog)
+                        _order([c for c in cards if not c.is_current], HISTORICAL_STATUSES), backlog, unreasoned)
         return self._read(read)
 
     # --- one card ---------------------------------------------------------------------------------------------------------
@@ -450,7 +464,7 @@ class DashboardService:
         members = {finding["member_key"] for key in ("supporting_findings", "contradicting_findings") for finding in case_document.get(key) or []}
         # A cited reference resolves only when it is linked for this version, exists in the case evidence and belongs to a finding
         # of the case (so the drill-down can show it under that finding).
-        unresolved = tuple(sorted(ref for ref in cited if ref not in references or ref not in links or not EVIDENCE_REF.match(ref)
+        unresolved = tuple(sorted(ref for ref in cited if ref not in references or ref not in links or not EVIDENCE_REF.fullmatch(ref)
                                   or references[ref]["member_key"] not in members))
 
         def item(ref: Mapping[str, Any]) -> EvidenceItem:
@@ -474,15 +488,27 @@ class DashboardService:
         case["current_version"] = row["current_version"]
         return EvidenceTrace(result_id, version, case, _claims(document), tuple(findings), unresolved)
 
-    def existing(self, result_ids: Sequence[str]) -> set[str]:
-        """Which of ``result_ids`` are canonical results (for linking statements to cards)."""
-        for result_id in result_ids:
-            parse_result_id(result_id)
+    def result_states(self, result_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
+        """Per requested result ID (canonical IDs only): whether it exists and, when it does, its current version, lifecycle and
+        replacement. What a later statement that cites results (Phase 17) needs to say "resolved", "replaced" or "moved on"."""
+        ids = list(dict.fromkeys(parse_result_id(result_id) for result_id in result_ids))
 
-        def read() -> set[str]:
+        def read() -> dict[str, dict[str, Any]]:
             with self.store.transaction() as tx:
-                return sql.existing_results(tx, result_ids)
+                rows = sql.result_states(tx, ids)
+            states = {}
+            for result_id in ids:
+                row = rows.get(result_id)
+                states[result_id] = ({"result_id": result_id, "exists": True, "lifecycle_status": row["lifecycle_status"],
+                                      "current_version": row["current_version"],
+                                      "superseded_by": row["superseded_by_result_id"]} if row is not None else
+                                     {"result_id": result_id, "exists": False, "lifecycle_status": None, "current_version": None, "superseded_by": None})
+            return states
         return self._read(read)
+
+    def existing(self, result_ids: Sequence[str]) -> set[str]:
+        """Which of ``result_ids`` are canonical results."""
+        return {result_id for result_id, state in self.result_states(result_ids).items() if state["exists"]}
 
     # --- history ----------------------------------------------------------------------------------------------------------
 

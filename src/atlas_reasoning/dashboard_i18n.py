@@ -29,6 +29,11 @@ EN: dict[str, str] = {
     "home.history_lede": "Kept for the record. Open a card to see its full history and evidence.",
     "home.empty": "Atlas has no reasoning results yet. The deterministic Atlas dashboard and its Intelligence V2 findings remain available.",
     "home.empty_current": "No current cards: every issue Atlas reasoned about is resolved or replaced.",
+    "home.first_failed": "Atlas could not complete its first reasoning for {n} issue(s): the model was unreachable or the result did not pass "
+                         "Atlas's checks. Nothing unvalidated is shown. The deterministic Atlas dashboard shows these issues.",
+    "home.first_pending": "Atlas is reasoning about {n} issue(s) for the first time. Their cards appear once validated.",
+    "home.empty_unreasoned": "No validated card yet: see the status above. The deterministic Atlas dashboard and its Intelligence V2 findings "
+                             "remain available.",
     "home.memory_backlog": "Some management context has not reached contextual memory yet ({n} copies waiting to be retried). Nothing is lost: "
                            "the context is stored in Atlas and is retried automatically.",
     "home.diagnostics": "Deterministic diagnostics",
@@ -346,6 +351,10 @@ AR: dict[str, str] = {
     "home.history_lede": "محفوظة للسجل. افتح البطاقة لرؤية سجلها الكامل وأدلتها.",
     "home.empty": "لا توجد نتائج استدلال من أطلس بعد. تبقى لوحة أطلس الحتمية ونتائج Intelligence V2 متاحة.",
     "home.empty_current": "لا توجد بطاقات حالية: كل مسألة استدل عليها أطلس محلولة أو مستبدلة.",
+    "home.first_failed": "تعذّر على أطلس إكمال استدلاله الأول لـ {n} مسألة: تعذّر الوصول إلى النموذج أو لم تجتز النتيجة فحوص أطلس. "
+                         "لا يُعرض أي شيء غير متحقق منه. تعرض لوحة أطلس الحتمية هذه المسائل.",
+    "home.first_pending": "يستدل أطلس على {n} مسألة لأول مرة. تظهر بطاقاتها بعد التحقق منها.",
+    "home.empty_unreasoned": "لا توجد بطاقة تم التحقق منها بعد: انظر الحالة أعلاه. تبقى لوحة أطلس الحتمية ونتائج Intelligence V2 متاحة.",
     "home.memory_backlog": "بعض السياق الإداري لم يصل إلى الذاكرة السياقية بعد ({n} نسخ في انتظار إعادة المحاولة). لم يُفقد شيء: "
                            "السياق محفوظ في أطلس وتُعاد المحاولة تلقائيًا.",
     "home.diagnostics": "التشخيص الحتمي",
@@ -651,8 +660,14 @@ def text(locale: str, key: str, **params: Any) -> str:
 
 
 def t(locale: str, key: str, **params: Any) -> str:
-    """``text`` escaped for HTML content and double-quoted attribute values (every attribute here is double-quoted)."""
-    return escape(text(locale, key, **params), quote=False).replace('"', "&quot;")
+    """``text`` escaped for HTML content and double-quoted attribute values. Parameters (stored or model text) are escaped with
+    ``html.escape(quote=True)``, exactly as the Phase 12-14 fragments always escaped them; the fixed catalog wording keeps its
+    apostrophes (every attribute here is double-quoted)."""
+    template = CATALOGS.get(locale, EN).get(key) or EN.get(key) or key
+    wording = escape(template, quote=False).replace('"', "&quot;")
+    if not params:
+        return wording
+    return wording.format(**{name: escape("" if value is None else str(value), quote=True) for name, value in params.items()})
 
 
 def has(locale: str, key: str) -> bool:

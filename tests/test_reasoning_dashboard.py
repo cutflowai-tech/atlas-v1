@@ -150,6 +150,73 @@ class RouteTests(unittest.TestCase):
                 routes.card_path("en", self.RID, version=version)  # type: ignore[arg-type]
 
 
+class CrossReviewFixTests(unittest.TestCase):
+    """Regression tests for Chat B's cross-review of PR #37 (findings L1, L4, L5, L7)."""
+
+    RID = "rr1_" + "a" * 32
+
+    def test_a_trailing_newline_is_never_a_canonical_id(self):
+        for bad in (self.RID + "\n", self.RID + "\r\n", None, 5):
+            with self.assertRaises(routes.InvalidRoute):
+                routes.card_path("en", bad)  # type: ignore[arg-type]
+            with self.assertRaises(routes.InvalidRoute):
+                routes.result_links("en", [bad])  # type: ignore[list-item]
+            with self.assertRaises(routes.InvalidRoute):
+                routes.parse_result_id(bad)  # type: ignore[arg-type]
+        settings = WebSettings(api_settings())
+        notes = ManagerNotes(ReasoningStore(Database("postgresql://nobody@127.0.0.1:1/atlas_reasoning_test")), human_context.sync_service(None, None))  # type: ignore[arg-type]
+        app = ReasoningWebApp(settings, _Unavailable(), ManagementAPI(settings.api, notes=notes))  # type: ignore[arg-type]
+        for path in (f"/reasoning/en/results/{self.RID}\n", f"/reasoning/en/results/{self.RID}/evidence\n", "/reasoning/en/\n",
+                     f"/api/reasoning/read/results/{self.RID}\n", "/api/reasoning/read/results\n"):
+            self.assertEqual(call(app, "GET", path)[0], 404, repr(path))
+        self.assertEqual(call(app, "GET", f"/api/reasoning/read/results/{self.RID}?version=1%0A")[0], 400)
+        token = app.management.csrf_token(BOSS)
+        status, _, _ = call(app, "GET", f"/api/reasoning/results/{self.RID}/notes\n")
+        self.assertEqual(status, 404)
+        status, _, _ = call(app, "POST", "/api/reasoning/results/rr1_x/notes\n", body=b'{"body":"x"}',
+                            headers={"Content-Type": "application/json", "X-Atlas-CSRF": token, "Origin": ORIGIN})
+        self.assertEqual(status, 404)
+
+    def test_form_actions_carry_ids_as_one_encoded_segment(self):
+        hostile = "x/../../teachings"
+        note = Note(hostile, hostile, "rc1_y", None, "b", 1, "t", "t")
+        html = note_panel(hostile, [note], csrf_token="t")
+        question = Question(hostile, "rc1", hostile, 1, "Q?", "r", "other", "open", 1, "t", "t", None, None, None, ())
+        html += question_panel(hostile, [question], csrf_token="t")
+        html += teach_atlas_page([Teaching(hostile, "b", "company", None, "context", "until_changed", None, None, "active", None, 1, False, True, "t", "t")],
+                                 csrf_token="t")
+        actions = Attrs(html).values("action")
+        self.assertTrue(actions)
+        for action in actions:
+            self.assertNotIn("/../", action)
+            if "x%2F..%2F..%2Fteachings" not in action:
+                self.assertEqual(action, "/api/reasoning/teachings")                  # the create form, no ID
+
+    def test_identities_never_collide_through_case_folding(self):
+        settings = ApiSettings(managers=frozenset({"boss@x.com"}), csrf_secret=SECRET)
+        api = ManagementAPI(settings, notes=None)  # type: ignore[arg-type]
+        from atlas_reasoning.management_api import ApiError, authorize_actor
+        self.assertEqual(authorize_actor(settings, "Boss@X.com"), "Boss@X.com")          # ASCII stays case-insensitive
+        for intruder in ("boß@x.com", "ｂｏｓｓ@x.com"):
+            with self.assertRaises(ApiError):
+                authorize_actor(settings, intruder)
+            self.assertNotEqual(api.csrf_token(intruder), api.csrf_token("boss@x.com"))
+
+    def test_apostrophes_in_stored_text_render_as_before_phase_16(self):
+        n = Note("mn_1", "rr1_x", "rc1_y", "o'neil@b.c", "It's \"quoted\" & <b>x</b>", 2, "t", "t")
+        h = {"mn_1": [{"revision": 1, "body": "isn't", "author": "d'arcy", "recorded_at": "t"}]}
+        a = Answer("aa_1", "qq_1", "Don't know", "o'neil", "t", "aa_0")
+        q = [Question("qq_1", "rc1", "rr1_x", 1, "What's \"next\"?", "Monday doesn't show it's <i>", "assignment_context", "answered", 1, "t", "t", None,
+                      None, None, (a,)),
+             Question("qq_2", "rc1", "rr1_x", 1, "Q2", "why's", "other", "open", 1, "t", "t", None, None, None, ())]
+        ts = [Teaching("tt_1", "It's a rule", "editor", "o'k", "correction", "date_range", "2026-01-01", "2026-02-01", "active", "o'neil", 2, True, False,
+                       "t", "t")]
+        out = note_panel("rr1_x", [n], csrf_token="t'k", history=h) + question_panel("rr1_x", q, csrf_token="t'k") + teach_atlas_page(ts, csrf_token="t'k")
+        # SHA-256 of the same fragments rendered by human_context_html at fd4b140 (before Phase 16).
+        self.assertEqual(hashlib.sha256(out.encode()).hexdigest(), "d3cb6a921e5f69e6757b3552827d07200c7f4cf8e2cd3a96322dbd8204236642")
+        self.assertIn("Why it matters: Monday doesn&#x27;t show it&#x27;s &lt;i&gt;", out)
+
+
 class LocalizationTests(unittest.TestCase):
     def test_catalogs_have_the_same_keys_and_placeholders(self):
         self.assertEqual(set(i18n.EN), set(i18n.AR))
@@ -349,6 +416,11 @@ class RenderEscapingTests(unittest.TestCase):
             self.assertIn("&lt;b&gt;", H.lifecycle_badge("<b>", ctx))
 
 
+def pending_case(store: ReasoningStore) -> str:
+    with store.transaction() as tx:
+        return str(tx._one("SELECT case_id FROM reasoning_work_items WHERE requires_llm ORDER BY created_at LIMIT 1")["case_id"])
+
+
 # --- with PostgreSQL ------------------------------------------------------------------------------------------------------------------
 
 
@@ -414,7 +486,8 @@ class CanonicalRenderingTests(_DashboardDB):
             page = self.get(f"/reasoning/{locale}/")
             self.assertIn('data-state="empty"', page)
             self.assertIn(f'href="/{locale}/dashboard.html"', page)
-        self.assertEqual(self.api("/results"), {"current": [], "history": [], "memory_backlog": 0})
+        self.assertEqual(self.api("/results"), {"current": [], "history": [], "memory_backlog": 0, "first_reasoning_failed": 0,
+                                                "first_reasoning_pending": 0, "first_reasoning_failed_by_class": {"provider": 0, "validation": 0}})
 
     def test_only_current_versions_are_cards_with_their_canonical_fields(self):
         result, case = self.seeded()
@@ -750,6 +823,35 @@ class DegradedStateTests(_DashboardDB):
         self.assertIn('data-state="memory_backlog"', page)
         self.assertIn("Written while Honcho is down.", self.get(f"/reasoning/en/results/{result['result_id']}"))   # canonical note still shown
 
+    def test_memory_notice_never_marks_a_resolved_card(self):
+        result, case = self.seeded()
+        self.move(result, LifecycleStatus.COOLING, lifecycle.NOT_IN_SNAPSHOT)
+        self.move(result, LifecycleStatus.RESOLVED, lifecycle.ABSENT_FOR_CONFIGURED_RUNS)
+        with self.store.transaction() as tx:
+            hc_sql.insert_injection(tx, case_id=case["case_id"], result_id=result["result_id"], run_id=None, work_item_id=None, request_id="req_" + "6" * 32,
+                                    purpose="update", assembler_version="v", memory_status="degraded", degraded_reason="memory_unavailable",
+                                    sessions=[], budget={}, selected=[], dropped={}, context_sha256="0" * 64)
+        self.assertEqual(self.api("/results")["history"][0]["notices"], [])
+
+    def test_result_states_name_lifecycle_version_and_replacement(self):
+        old, _ = self.seeded("editor-old")
+        replacement, _ = self.seeded("editor-new")
+        resolved, _ = self.seeded("editor-gone")
+        self.move(resolved, LifecycleStatus.COOLING, lifecycle.NOT_IN_SNAPSHOT)
+        self.move(resolved, LifecycleStatus.RESOLVED, lifecycle.ABSENT_FOR_CONFIGURED_RUNS)
+        lifecycle.supersede(self.store, old["result_id"], by_result_id=replacement["result_id"], policy=self.policy, clock=lambda: NOW)
+        unknown = "rr1_" + "e" * 32
+        states = self.service.result_states([old["result_id"], resolved["result_id"], replacement["result_id"], unknown])
+        self.assertEqual(states[old["result_id"]], {"result_id": old["result_id"], "exists": True, "lifecycle_status": "superseded", "current_version": 2,
+                                                   "superseded_by": replacement["result_id"]})
+        self.assertEqual((states[resolved["result_id"]]["lifecycle_status"], states[resolved["result_id"]]["current_version"]), ("resolved", 3))
+        self.assertEqual((states[replacement["result_id"]]["lifecycle_status"], states[unknown]["exists"]), ("new", False))
+        self.assertEqual(self.service.existing([old["result_id"], unknown]), {old["result_id"]})
+        status, _, body = call(self.app, "GET", f"/api/reasoning/read/links?result_id={old['result_id']}&result_id={unknown}")
+        links = json.loads(body)["links"]
+        self.assertEqual((status, links[0]["superseded_by"], links[0]["card"].split("#")[0], links[1]["exists"], "card" in links[1]),
+                         (200, replacement["result_id"], f"/reasoning/en/results/{old['result_id']}", False, False))
+
     def test_provider_failure_and_pending_update_keep_the_previous_card(self):
         result, case = self.seeded()
         with self.store.transaction() as tx:
@@ -877,9 +979,46 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(call(self.app, "GET", link["card"].split("#")[0])[0], 200)
             self.assertEqual(call(self.app, "GET", link["evidence"])[0], 200)
             self.assertEqual(call(self.app, "GET", link["history"])[0], 200)
-        self.assertEqual(call(self.app, "GET", "/api/reasoning/read/links?result_id=rr1_" + "f" * 32)[0], 404)
-        self.assertEqual(call(self.app, "GET", "/api/reasoning/read/links?result_id=bad")[0], 404)
+        for link in links:
+            self.assertEqual((link["exists"], link["lifecycle_status"], link["superseded_by"]), (True, "new", None))
+            self.assertEqual(link["current_version"], self.service.card(link["result_id"]).summary.version)
+        # One unknown ID never hides the others (cross-review M2 / L3).
+        unknown = "rr1_" + "f" * 32
+        status, _, body = call(self.app, "GET", f"/api/reasoning/read/links?locale=en&{query}&result_id={unknown}")
+        mixed = json.loads(body)["links"]
+        self.assertEqual((status, [link["exists"] for link in mixed]), (200, [True, True, False]))
+        self.assertEqual(set(mixed[-1]), {"result_id", "exists", "lifecycle_status", "current_version", "superseded_by"})
+        self.assertEqual(call(self.app, "GET", "/api/reasoning/read/links?result_id=bad")[0], 400)
+        self.assertEqual(call(self.app, "GET", f"/api/reasoning/read/links?result_id={rids[0]}%0A")[0], 400)
+        self.assertEqual(json.loads(call(self.app, "GET", f"/api/reasoning/read/links?locale=fr&{query}")[2]), {"error": "INVALID_LOCALE", "message": None})
         self.assertEqual(call(self.app, "GET", "/api/reasoning/read/links")[0], 400)
+
+    def test_first_reasoning_failures_are_never_shown_as_nothing(self):
+        """Cross-review M1: a first run whose reasoning all fails (provider down) is a degraded state, not an empty one."""
+        for case_id in [d.case_id for d in run_gate(snapshots.reasoning_input(), self.store, now=self.t[0]).decisions]:
+            self.transport.script(case_id, ProviderAuthError("simulated"))
+        report = run_gate(snapshots.reasoning_input(), self.store, now=self.t[1])      # same evidence: no new work
+        self.assertFalse(self.service.home().current)
+        pending = self.service.home()
+        self.assertGreater(pending.first_reasoning_pending, 0)                         # gated, not reasoned yet
+        for locale in ("en", "ar"):
+            page = call(self.app, "GET", f"/reasoning/{locale}/")[2].decode()
+            self.assertIn('data-state="first_reasoning_pending"', page)
+            self.assertIn('data-state="empty_unreasoned"', page)
+            self.assertNotIn('data-state="empty"', page)
+        first_run = self.store.observations(case_id=pending_case(self.store))[0]["run_id"]
+        self.engine.process_run(first_run)
+        self.engine.process_run(report.run_id)
+        home = self.service.home()
+        self.assertFalse(home.current)
+        self.assertEqual((home.first_reasoning_pending, home.first_reasoning_failed > 0), (0, True))
+        self.assertEqual(home.to_dict()["first_reasoning_failed_by_class"]["provider"], home.first_reasoning_failed)
+        for locale in ("en", "ar"):
+            page = call(self.app, "GET", f"/reasoning/{locale}/")[2].decode()
+            self.assertIn('data-state="first_reasoning_failed"', page)
+            self.assertNotIn('data-state="empty"', page)
+            self.assertNotIn("simulated", page)
+        self.assertEqual(json.loads(call(self.app, "GET", "/api/reasoning/read/results")[2])["first_reasoning_failed"], home.first_reasoning_failed)
 
 
 if __name__ == "__main__":

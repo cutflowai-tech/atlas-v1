@@ -79,13 +79,13 @@ class WebSettings:
     monday_item_url: str | None = field(default=None)
 
     def __post_init__(self) -> None:
-        if self.actor_header is not None and not _HEADER_NAME.match(self.actor_header):
+        if self.actor_header is not None and not _HEADER_NAME.fullmatch(self.actor_header):
             raise ReasoningConfigError(f"{ACTOR_HEADER_ENV} must be a header name")
         url = self.diagnostics_url
-        if not _SAFE_URL.match(url) or not (url.startswith("https://") or (url.startswith("/") and not url.startswith("//"))):
+        if not _SAFE_URL.fullmatch(url) or not (url.startswith("https://") or (url.startswith("/") and not url.startswith("//"))):
             raise ReasoningConfigError(f"{DIAGNOSTICS_URL_ENV} must be a site path (/...) or an https URL")
         item = self.monday_item_url
-        if item is not None and (not _SAFE_URL.match(item) or not item.startswith("https://") or "{item_id}" not in item):
+        if item is not None and (not _SAFE_URL.fullmatch(item) or not item.startswith("https://") or "{item_id}" not in item):
             raise ReasoningConfigError(f"{MONDAY_ITEM_URL_ENV} must be an https URL containing {{item_id}}")
 
 
@@ -188,7 +188,7 @@ class ReasoningWebApp:
         return status, {"Content-Type": "text/html; charset=utf-8", **(extra or {})}, page.encode()
 
     def page(self, environ: Mapping[str, Any], method: str, path: str, query: str) -> tuple[int, dict[str, str], bytes]:
-        match = _PAGE.match(path)
+        match = _PAGE.fullmatch(path)
         locale = match.group("locale") if match else routes.DEFAULT_LOCALE
         error_ctx = html.PageContext(locale, diagnostics_url=self.settings.diagnostics_url)
         if method not in ("GET", "HEAD"):

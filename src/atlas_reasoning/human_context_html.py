@@ -14,6 +14,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from html import escape
 from typing import Any
+from urllib.parse import quote
 
 from atlas_reasoning.atlas_questions import MAX_ANSWER, Question
 from atlas_reasoning.dashboard_i18n import t, text
@@ -24,6 +25,11 @@ from atlas_reasoning.teach_atlas import MAX_TEACHING, Teaching
 
 def esc(value: object) -> str:
     return escape("" if value is None else str(value), quote=True)
+
+
+def _seg(identifier: str) -> str:
+    """An ID as one URL path segment (percent-encoded, then HTML-escaped): a form can only ever post to its own API route."""
+    return esc(quote(str(identifier), safe=""))
 
 
 def _level(heading: str) -> str:
@@ -57,14 +63,14 @@ def note_panel(result_id: str, notes: Sequence[Note], *, csrf_token: str, histor
             f'<li class="mi-note" data-note-id="{nid}" data-revision="{note.revision}" data-source-type="manager_interpretation">'
             f'<p class="mi-body">{_multiline(note.body)}</p>'
             f'<p class="mi-meta">{author} · <time datetime="{esc(note.updated_at)}">{esc(note.updated_at)}</time>{edited}</p>'
-            f'<form class="mi-edit" method="post" action="{PREFIX}/notes/{nid}" data-method="PUT" data-csrf="{esc(csrf_token)}" data-json="true">'
+            f'<form class="mi-edit" method="post" action="{PREFIX}/notes/{_seg(note.note_id)}" data-method="PUT" data-csrf="{esc(csrf_token)}" data-json="true">'
             f'<input type="hidden" name="expected_revision" value="{note.revision}" data-type="integer">'
             f'<label for="mi-edit-{nid}">{t(locale, "hc.note_edit")}</label>'
             f'<textarea id="mi-edit-{nid}" name="body" maxlength="{MAX_NOTE}" rows="3" required>{esc(note.body)}</textarea>'
             f'<button type="submit">{t(locale, "hc.note_save_edit")}</button></form>'
             f"{_revisions(earlier, locale)}</li>")
     listing = f'<ul class="mi-notes">{"".join(items)}</ul>' if items else f'<p class="mi-empty">{t(locale, "hc.note_empty")}</p>'
-    action = f"{PREFIX}/results/{esc(result_id)}/notes"
+    action = f"{PREFIX}/results/{_seg(result_id)}/notes"
     return (f'<section class="manager-interpretation" data-source-type="manager_interpretation" data-result-id="{esc(result_id)}" '
             f'aria-label="{t(locale, "hc.note_aria")}">'
             f'<{_level(heading)} class="mi-title">{t(locale, "hc.note_title")}</{_level(heading)}>'
@@ -95,12 +101,12 @@ def question_panel(result_id: str, questions: Sequence[Question], *, csrf_token:
         controls = ""
         if question.state in ("open", "answered"):
             label = t(locale, "hc.q_answer" if question.state == "open" else "hc.q_answer_again")
-            controls = (f'<form class="qa-form" method="post" action="{PREFIX}/questions/{qid}/answers" data-csrf="{esc(csrf_token)}" data-json="true">'
+            controls = (f'<form class="qa-form" method="post" action="{PREFIX}/questions/{_seg(question.question_id)}/answers" data-csrf="{esc(csrf_token)}" data-json="true">'
                         f'<label for="qa-{qid}">{label}</label>'
                         f'<textarea id="qa-{qid}" name="body" maxlength="{MAX_ANSWER}" rows="2" required></textarea>'
                         f'<button type="submit">{t(locale, "hc.q_save")}</button></form>')
         if question.state == "open":
-            controls += (f'<form class="qa-dismiss" method="post" action="{PREFIX}/questions/{qid}/dismiss" data-csrf="{esc(csrf_token)}" data-json="true">'
+            controls += (f'<form class="qa-dismiss" method="post" action="{PREFIX}/questions/{_seg(question.question_id)}/dismiss" data-csrf="{esc(csrf_token)}" data-json="true">'
                          f'<button type="submit">{t(locale, "hc.q_dismiss")}</button></form>')
         state = text(locale, f"hc.state.{question.state}") if question.state in _STATES else question.state.capitalize()
         context = question.expected_context_type
@@ -151,7 +157,7 @@ def teach_atlas_page(teachings: Sequence[Teaching], *, csrf_token: str, locale: 
         if teaching.status != "archived":
             for action in ("enable", "disable", "archive"):
                 if (action, teaching.status) not in (("enable", "active"), ("disable", "disabled")):
-                    actions.append(f'<form method="post" action="{PREFIX}/teachings/{tid}/{action}" data-csrf="{esc(csrf_token)}" data-json="true">'
+                    actions.append(f'<form method="post" action="{PREFIX}/teachings/{_seg(teaching.teaching_id)}/{action}" data-csrf="{esc(csrf_token)}" data-json="true">'
                                    f'<button type="submit">{t(locale, f"ta.{action}")}</button></form>')
         rows.append(f'<tr data-teaching-id="{tid}" data-source-type="management_teaching" data-status="{esc(teaching.status)}">'
                     f'<td class="ta-body">{_multiline(teaching.body)} {flag}</td>'
