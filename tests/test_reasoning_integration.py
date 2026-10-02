@@ -203,6 +203,7 @@ class IntegrationTests(unittest.TestCase):
         # The answered question is not asked again by the new version.
         self.assertEqual(self.open_questions(case_id), [])
         outcome = next(o for o in engine_report.outcomes if o.case_id == case_id)
+        self.assertEqual(outcome.error, None)
         self.assertEqual(outcome.followup["questions"], {"suppressed_answered": 1})
 
     def test_teachings_reach_only_matching_cases_and_expire(self):
@@ -317,7 +318,7 @@ class IntegrationTests(unittest.TestCase):
         report = run_gate(snapshots.reasoning_input(), self.store, now=self.t[0])
         self.transport.model = "openai/gpt-5.6-sol-pro"
         outcomes = self.engine.process_run(report.run_id).outcomes
-        self.assertEqual({o.error for o in outcomes}, {"work:MODEL_SUBSTITUTED"})
+        self.assertEqual({o.error for o in outcomes}, {"validation:MODEL_SUBSTITUTED"})
 
 
 class ReviewFixTests(unittest.TestCase):

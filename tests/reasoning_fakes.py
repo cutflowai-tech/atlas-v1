@@ -23,7 +23,8 @@ MARKER = "(JSON):\n"
 
 
 def request_input(request: ProviderRequest) -> dict[str, Any]:
-    text = request.messages[-1].content
+    """The case input of a request (its first user message carrying JSON; a corrective re-ask appends messages after it)."""
+    text = next(m.content for m in request.messages if m.role == "user" and MARKER in m.content)
     payload: dict[str, Any] = json.loads(text[text.index(MARKER) + len(MARKER):])
     return payload
 

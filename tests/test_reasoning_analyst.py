@@ -290,14 +290,18 @@ class AnalystEngineTests(unittest.TestCase):
 
         self.transport.script(invented, invent, invent)
         report = {o.case_id: o for o in self.engine.process_run(self.report.run_id).outcomes}
+        # Malformed JSON never becomes a candidate: the gateway retries it and fails the call. Well-formed output citing invented
+        # evidence is a candidate the Phase 15 guardrails refuse (each refused attempt is kept for debugging; one corrective re-ask).
         self.assertEqual(report[malformed].error, "provider:invalid_structured_output")
-        self.assertEqual(report[invented].error, "provider:invalid_structured_output")
+        self.assertEqual(report[invented].error, "validation:NO_SUPPORTING_EVIDENCE,UNKNOWN_EVIDENCE")
         with self.store.transaction() as tx:
             self.assertIsNone(tx.open_result(malformed))
             self.assertIsNone(tx.open_result(invented))
             failed = [c for c in tx.llm_calls(run_id=self.report.run_id) if c["status"] == "failed"]
-        self.assertEqual({(c["case_id"], c["attempts"], c["error_class"]) for c in failed},
-                         {(malformed, 2, "invalid_structured_output"), (invented, 2, "invalid_structured_output")})
+            refused = tx.failed_candidates(case_id=invented)
+        self.assertEqual({(c["case_id"], c["attempts"], c["error_class"]) for c in failed}, {(malformed, 2, "invalid_structured_output")})
+        self.assertEqual([(row["attempt"], row["error_codes"]) for row in refused],
+                         [(1, ["NO_SUPPORTING_EVIDENCE", "UNKNOWN_EVIDENCE"]), (2, ["NO_SUPPORTING_EVIDENCE", "UNKNOWN_EVIDENCE"])])
 
     def test_a_retry_after_invalid_output_can_still_succeed(self):
         case_id = next(d.case_id for d in self.report.decisions if d.work_kind == WorkKind.NEW_RESULT)
@@ -308,7 +312,7 @@ class AnalystEngineTests(unittest.TestCase):
     def test_a_substituted_model_is_refused(self):
         self.transport.model = "openai/gpt-4o"
         report = self.engine.process_run(self.report.run_id)
-        self.assertEqual({o.error for o in report.outcomes}, {"work:MODEL_SUBSTITUTED"})
+        self.assertEqual({o.error for o in report.outcomes}, {"validation:MODEL_SUBSTITUTED"})
         with self.store.transaction() as tx:
             self.assertEqual(tx._one("SELECT count(*) AS n FROM reasoning_results")["n"], 0)
 

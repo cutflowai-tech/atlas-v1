@@ -142,6 +142,7 @@ def cmd_reason(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.openrouter_client import OpenRouterTransport
     from atlas_reasoning.reasoning_context import HumanContext
+    from atlas_reasoning.reviewer import reviewer_from_env
     from atlas_reasoning.store.calls import StoreCallRecorder
     from atlas_reasoning.store.repository import ReasoningStore
 
@@ -152,7 +153,9 @@ def cmd_reason(args: argparse.Namespace) -> int:
     gateway = ReasoningGateway(OpenRouterTransport(router), limits, recorder=StoreCallRecorder(store), secrets=(router.api_key,))
     # Human context around every call: canonical notes, answers and teachings always; Honcho memory when ATLAS_REASONING_MEMORY=on.
     context = HumanContext(store, backend_from_env())
-    report = ReasoningEngine(store, gateway, context=context).process_run(args.run_id)
+    # Phase 15: every candidate passes the deterministic guardrails before it is committed; the optional second reviewer only when
+    # ATLAS_REASONING_REVIEWER=on (off by default).
+    report = ReasoningEngine(store, gateway, context=context, reviewer=reviewer_from_env(gateway)).process_run(args.run_id)
     _print(report.to_dict())
     return 0 if not report.failed else 1
 

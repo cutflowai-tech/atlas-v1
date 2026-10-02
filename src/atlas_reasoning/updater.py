@@ -138,8 +138,9 @@ def build_update(output: Mapping[str, Any], previous: Mapping[str, Any], case: M
             "evidence_fingerprint_before": previous["evidence_fingerprint"], "evidence_fingerprint_after": case["evidence_fingerprint"]}
 
 
-def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping[str, Any]) -> list[str]:
-    """Everything wrong with a model answer: shape, update contract, required changes, and the merged version as a result."""
+def update_shape_errors(output: Any, previous: Mapping[str, Any], case: Mapping[str, Any]) -> list[str]:
+    """Whether a model answer is a well-formed update (field sets, one value per changed field, the ReasoningUpdate contract). The
+    gateway retries only this; consistency, required changes and the merged version's grounding and safety are the Phase 15 guardrails'."""
     errors = field_set_errors(output, OUTPUT_FIELDS)
     if errors:
         return errors
@@ -149,10 +150,27 @@ def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping
     for name in PATCHABLE_FIELDS:
         if isinstance(patch, Mapping) and name in patch and (patch[name] is not None) != (name in changed):
             errors.append(f"PATCH_VALUE_MISMATCH: {name}: a value is given exactly for each changed field")
+    return errors + update_errors(build_update(output, previous, case))
+
+
+def update_consistency_errors(output: Mapping[str, Any], previous: Mapping[str, Any], case: Mapping[str, Any]) -> list[str]:
+    """A well-formed update that does not fit: wrong base or case, a listed change that changes nothing, a required change missing."""
     update = build_update(output, previous, case)
-    errors += update_errors(update)
+    changed = output["changed_fields"] if isinstance(output["changed_fields"], list) else []
+    errors = update_result_errors(update, previous) + update_case_errors(update, case)
+    errors += [f"UNCHANGED_PATCH_VALUE: {row['field']} is listed as changed but keeps its previous value" for row in update["changed_fields"]
+               if row["value"] == previous[row["field"]]]
+    missing = [name for name in required_changes(previous, case) if name not in changed]
+    return errors + [f"REQUIRED_CHANGE_MISSING: {name} cannot stay as it is" for name in missing]
+
+
+def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping[str, Any]) -> list[str]:
+    """Everything wrong with a model answer: shape, update contract, required changes, and the merged version as a result."""
+    errors = update_shape_errors(output, previous, case)
     if errors:
         return errors
+    changed = output["changed_fields"]
+    update = build_update(output, previous, case)
     errors = update_result_errors(update, previous) + update_case_errors(update, case)
     # A "change" that keeps the exact previous value is not a change: a patch must really change every field it lists.
     errors += [f"UNCHANGED_PATCH_VALUE: {row['field']} is listed as changed but keeps its previous value" for row in update["changed_fields"]
@@ -172,7 +190,7 @@ def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping
 
 def update_output(previous: ReasoningResult, case: ReasoningCase) -> StructuredOutput:
     result, document = previous.to_dict(), case.to_dict()
-    return StructuredOutput("atlas_update_patch_v1", freeze(provider_schema(update_output_schema())), lambda value: update_output_errors(value, result, document))
+    return StructuredOutput("atlas_update_patch_v1", freeze(provider_schema(update_output_schema())), lambda value: update_shape_errors(value, result, document))
 
 
 def update_request(previous: ReasoningResult, case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:
@@ -180,6 +198,35 @@ def update_request(previous: ReasoningResult, case: ReasoningCase, *, run_id: st
                           source_snapshot_id=case.source_snapshot_id, evidence_fingerprint=case.evidence_fingerprint)
     return ProviderRequest(context, update_messages(previous, case), update_output(previous, case), max_output_tokens=MAX_OUTPUT_TOKENS,
                            reasoning_effort=REASONING_EFFORT)
+
+
+@dataclass(frozen=True)
+class UpdateCandidate:
+    """A well-formed update answer turned into the update document and the **merged** next version (``merged`` is None when the patch
+    cannot be applied; ``errors`` then says why). Not validated for grounding or safety: that is the Phase 15 guardrails' job."""
+
+    update: dict[str, Any]
+    merged: dict[str, Any] | None
+    errors: tuple[str, ...]
+
+    @property
+    def is_patch(self) -> bool:
+        return self.update.get("action") == UpdateAction.PATCH
+
+
+def candidate_from_response(previous: ReasoningResult, case: ReasoningCase, response: ProviderResponse, *, provider: str, now: str,
+                            lifecycle_status: str) -> UpdateCandidate:
+    result, document = previous.to_dict(), case.to_dict()
+    update = build_update(response.parsed, result, document)
+    errors = update_consistency_errors(response.parsed, result, document)
+    provenance = VersionProvenance(case.source_snapshot_id, case.evidence_fingerprint,
+                                   {"provider": provider, "model": response.model, "request_ids": [response.request_id]}, UPDATE_PROMPT_VERSION, now,
+                                   lifecycle_status)
+    try:
+        merged = merge(result, copy.deepcopy(update), provenance)
+    except contracts.ContractViolation as violation:
+        return UpdateCandidate(update, None, tuple(errors + violation.errors))
+    return UpdateCandidate(update, merged, tuple(errors))
 
 
 @dataclass(frozen=True)

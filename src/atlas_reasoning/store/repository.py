@@ -596,6 +596,39 @@ class StoreTransaction:
                            provider_response_id, started_at, finished_at))
         return call_id
 
+    # --- refused candidates (Phase 15) ---------------------------------------------------------------------------------------
+
+    MAX_STORED_CANDIDATE = 256 * 1024
+
+    def record_failed_candidate(self, *, case_id: str, request_id: str, purpose: str, attempt: int, validator_version: str,
+                                error_codes: Sequence[str], violations: Sequence[Mapping[str, Any]], candidate: Mapping[str, Any] | None,
+                                run_id: str | None = None, work_item_id: str | None = None, result_id: str | None = None,
+                                base_version: int | None = None, model: str | None = None, prompt_version: str | None = None,
+                                evidence_fingerprint: str | None = None) -> str:
+        """Keep a refused candidate for debugging (never a result version). A candidate larger than ``MAX_STORED_CANDIDATE`` bytes of
+        JSON is not stored; the violations always are."""
+        candidate_id = f"fc_{uuid.uuid4().hex}"
+        stored: Any = None
+        omitted = None
+        if candidate is not None:
+            text = json.dumps(candidate, ensure_ascii=False, default=str)
+            if len(text.encode()) > self.MAX_STORED_CANDIDATE:
+                omitted = f"candidate larger than {self.MAX_STORED_CANDIDATE} bytes"
+            else:
+                stored = _json(candidate)
+        self._exec("""INSERT INTO reasoning_failed_candidates (candidate_id, case_id, run_id, work_item_id, result_id, base_version, request_id,
+                                                               purpose, attempt, validator_version, error_codes, violations, model, prompt_version,
+                                                               evidence_fingerprint, candidate, candidate_omitted)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s::jsonb, %s)""",
+                   (candidate_id, case_id, run_id, work_item_id, result_id, base_version, request_id, purpose, attempt, validator_version,
+                    list(error_codes), _json([dict(row) for row in violations]), model, prompt_version, evidence_fingerprint, stored, omitted))
+        return candidate_id
+
+    def failed_candidates(self, *, case_id: str | None = None, work_item_id: str | None = None) -> list[dict[str, Any]]:
+        if work_item_id is not None:
+            return self._all("SELECT * FROM reasoning_failed_candidates WHERE work_item_id = %s ORDER BY created_at, attempt", (work_item_id,))
+        return self._all("SELECT * FROM reasoning_failed_candidates WHERE case_id IS NOT DISTINCT FROM %s ORDER BY created_at, attempt", (case_id,))
+
     def llm_calls(self, *, run_id: str | None = None, request_id: str | None = None) -> list[dict[str, Any]]:
         if request_id is not None:
             return self._all("SELECT * FROM llm_calls WHERE request_id = %s", (request_id,))
@@ -645,6 +678,10 @@ class ReasoningStore:
     def get_result(self, result_id: str, version: int | None = None) -> ReasoningResult:
         with self.transaction() as tx:
             return tx.get_result(result_id, version)
+
+    def failed_candidates(self, *, case_id: str | None = None, work_item_id: str | None = None) -> list[dict[str, Any]]:
+        with self.transaction() as tx:
+            return tx.failed_candidates(case_id=case_id, work_item_id=work_item_id)
 
     def result_history(self, result_id: str) -> list[dict[str, Any]]:
         with self.transaction() as tx:
