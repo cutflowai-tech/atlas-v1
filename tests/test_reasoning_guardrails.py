@@ -409,6 +409,94 @@ class CorrectionTests(GuardrailTestCase):
             validation_retries({"ATLAS_REASONING_VALIDATION_RETRIES": "5"})
 
 
+class ReviewFindingTests(unittest.TestCase):
+    """Regression tests for the independent review of the Phase 15 diff: every sentence below was run against the first version of
+    the rules and given the wrong verdict."""
+
+    REFUSED = (
+        ("interpretation", "Ahmed caused the delays, not the brief.", "UNSUPPORTED_BLAME"),       # a negation elsewhere does not exempt
+        ("interpretation", "The delays are due to workload, not the editor.", "CAUSAL_OVERCLAIM"),
+        ("interpretation", "This definitely proves the cause, not chance.", "CONFIDENCE_EXCEEDED"),
+        ("interpretation", "Ahmed never cared and ignored the briefs.", "UNSUPPORTED_BLAME"),
+        ("interpretation", "Ahmed did not care about deadlines.", "HR_JUDGMENT"),
+        ("limitations", "Ahmed is lazy, not careful.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed seems disengaged and checked out.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed lacks commitment.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed is not a team player.", "HR_JUDGMENT"),
+        ("management_significance", "Ahmed should be let go.", "HR_JUDGMENT"),
+        ("management_significance", "Consider removing Ahmed from the project.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed is a weak performer.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed underperforms his peers.", "HR_JUDGMENT"),
+        ("interpretation", "Ahmed is struggling.", "HR_JUDGMENT"),
+        ("observation", "Ahmed was sick in August.", "HR_JUDGMENT"),
+        ("interpretation", "Delays could be his fault.", "UNSUPPORTED_BLAME"),
+        ("interpretation", "Workload explains the pattern.", "CAUSAL_OVERCLAIM"),
+        ("interpretation", "Workload is driving the pattern.", "CAUSAL_OVERCLAIM"),
+        ("interpretation", "Workload produced the delays.", "CAUSAL_OVERCLAIM"),
+        ("interpretation", "Workload made deliveries late.", "CAUSAL_OVERCLAIM"),
+        ("interpretation", "This is due to workload, which can be addressed.", "CAUSAL_OVERCLAIM"),   # a hedge after the claim
+        ("observation", "Thirty-seven projects were late.", "UNSUPPORTED_NUMBER"),
+        ("interpretation", "Late work may be 21 percent higher.", "UNSUPPORTED_NUMBER"),             # "may" is not a month
+        ("observation", "Up to 21 may be affected.", "UNSUPPORTED_NUMBER"),
+        ("observation", "The 37th project was late.", "UNSUPPORTED_NUMBER"),
+        ("observation", "69 projects were late.", "UNSUPPORTED_NUMBER"),                            # a rate ×100 is not a count
+        ("observation", "Ahmed took 5 days on average.", "UNSUPPORTED_NUMBER"),                     # a unit needs a case duration
+        ("interpretation", "Ahmed's slip ratio is 0.69.", "UNSUPPORTED_METRIC"),
+        ("title", "Deadline Pattern For Sara Lee", "UNKNOWN_ENTITY"),
+        ("interpretation", "Netflix projects may be harder.", "UNKNOWN_ENTITY"),
+        ("interpretation", "José missed the deadlines.", "UNKNOWN_PERSON"),
+        ("interpretation", "A strong pattern is evident.", "CONFIDENCE_EXCEEDED"),
+        ("interpretation", "The data confirms the pattern.", "CONFIDENCE_EXCEEDED"),
+    )
+    ACCEPTED = (
+        ("suggested_investigations", "Worth asking the team lead to review the briefs."),
+        ("interpretation", "The results in the current window are worse than before."),
+        ("interpretation", "Two moderate findings lead to the interpretation that the pattern is real."),
+        ("confidence", "Kept moderate: elapsed clock time is not effort."),
+        ("limitations", "Monday does not show what caused the delays."),
+        ("interpretation", "It is not clear what caused the delays."),
+        ("title", "Rising Late Rate For Ahmed"),
+        ("observation", "11 of 16 projects were late (69%)."),
+        ("observation", "One delivery took 16.5 hours."),
+    )
+
+    def codes(self, field, text, fixture=None):
+        fixture = fixture or Fixture(showcase_case())
+        answer = copy.deepcopy(fixture.answer)
+        if field in ("observation", "interpretation", "management_significance"):
+            answer[field]["statement"] = text
+        elif field == "confidence":
+            answer[field]["rationale"] = text
+        elif field == "suggested_investigations":
+            answer[field][0]["text"] = text
+        elif field == "limitations":
+            answer[field] = [text]
+        else:
+            answer[field] = text
+        return fixture.codes(fixture.candidate(answer))
+
+    def test_refused(self):
+        for field, text, code in self.REFUSED:
+            with self.subTest(text=text):
+                self.assertIn(code, self.codes(field, text))
+
+    def test_accepted(self):
+        for field, text in self.ACCEPTED:
+            with self.subTest(text=text):
+                self.assertEqual(self.codes(field, text), set())
+
+    def test_a_short_management_statement_cannot_become_a_fact(self):
+        fixture = Fixture(showcase_case(manager_context=[context_item("manager_answer", "Sales accepted rush jobs.")]))
+        self.assertIn("MEMORY_ATTRIBUTION_LOST", self.codes("interpretation", "Sales accepted rush jobs, which may explain part of it.", fixture))
+        # Attribution names management; a generic verb is not enough.
+        self.assertIn("MEMORY_ATTRIBUTION_LOST", self.codes("interpretation", "It was said that Sales accepted rush jobs.", fixture))
+        self.assertEqual(self.codes("interpretation", "Management said Sales accepted rush jobs; this may explain part of it.", fixture), set())
+
+    def test_patch_violations_name_the_field(self):
+        [violation] = guardrails.patch_violations(["REQUIRED_CHANGE_MISSING: confidence cannot stay as it is"])
+        self.assertEqual((violation.code, violation.path), (ValidationCode.PATCH_INVALID, "confidence"))
+
+
 class ReviewerPolicyTests(unittest.TestCase):
     def test_off_by_default_and_configurable(self):
         self.assertIsNone(reviewer.policy_from_env({}))
@@ -648,6 +736,10 @@ class PipelineTests(unittest.TestCase):
             self.assertIsNone(tx.open_result(case_id))
             self.assertIsNone(tx.open_result(other))
         self.assertEqual(len([r for r in self.calls_for(case_id) if r.context.purpose == "analyst"]), 1)   # a reviewer verdict is not retried
+        with self.store.transaction() as tx:
+            audited = {row["request_id"] for row in tx._all("SELECT request_id FROM memory_injections WHERE purpose = 'review'")}
+        reviews = {r.context.request_id for r in self.transport.requests if r.context.purpose == "review"}
+        self.assertTrue(reviews and reviews <= audited)                     # the reviewer's context is audited like the analyst's
         team = self.case_id(first, "case-identity-v1|team|team|deadline")
         self.assertEqual(outcomes[team].status, "done")                     # not high impact: no review
         self.assertNotIn(team, {r.context.case_id for r in self.transport.requests if r.context.purpose == "review"})

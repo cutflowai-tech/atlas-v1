@@ -23,7 +23,8 @@ CREATE TABLE reasoning_failed_candidates (
     evidence_fingerprint text,
     candidate         jsonb CHECK (candidate IS NULL OR jsonb_typeof(candidate) = 'object'),
     candidate_omitted text,                                               -- why the candidate is not stored (too large)
-    created_at        timestamptz NOT NULL DEFAULT now()
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    CHECK (candidate_omitted IS NULL OR candidate IS NULL)
 );
 CREATE INDEX reasoning_failed_candidates_case_idx ON reasoning_failed_candidates (case_id, created_at);
 CREATE INDEX reasoning_failed_candidates_work_idx ON reasoning_failed_candidates (work_item_id);

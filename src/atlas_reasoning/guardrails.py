@@ -163,12 +163,33 @@ def _words(*phrases: str) -> re.Pattern[str]:
     return re.compile(r"\b(?:" + "|".join(phrases) + r")\b")
 
 
-_NEGATION = _words(r"not", r"no", r"never", r"cannot", r"can't", r"without", r"neither", r"nor", r"unknown", r"unclear", r"isn't",
-                   r"doesn't", r"does not", r"do not", r"did not", r"is not", r"are not", r"was not", r"none")
-_HEDGE = _words(r"may", r"might", r"could", r"possibly", r"perhaps", r"potentially", r"whether", r"if", r"can", r"one possible",
-                r"a possible", r"would", r"hypothes[ie]s", r"to check", r"worth checking")
-_ATTRIBUTION = _words(r"management", r"manager", r"managers", r"according to", r"reported", r"noted", r"stated", r"told atlas",
-                      r"teaching", r"taught", r"management context", r"per management", r"management's", r"manager's", r"answered", r"said")
+_NEGATORS = frozenset({"not", "no", "never", "cannot", "can't", "without", "neither", "nor", "unknown", "unclear", "isn't", "doesn't",
+                       "don't", "didn't", "wasn't", "aren't", "weren't", "none", "nothing", "n't"})
+_HEDGES = re.compile(r"\b(?:may|might|could|possibly|perhaps|potentially|whether|if|one possible|a possible|hypothes[ie]s|to check|"
+                     r"worth checking|it is possible|can)\b")
+_CLAUSE_BREAK = re.compile(r"[,;:()\u2014]|\s-\s|\bbut\b|\bwhile\b|\bwhereas\b|\bwhich\b")
+# Attribution names its source: management (or a manager, a management teaching). Generic verbs ("said", "noted") alone are not enough.
+_ATTRIBUTION = _words(r"management", r"manager", r"managers", r"management's", r"manager's", r"according to management",
+                      r"management teaching", r"teaching", r"taught")
+
+
+def _clause_before(lowered: str, start: int) -> str:
+    """The text of the clause that leads up to ``start`` (from the last clause break)."""
+    head = lowered[:start]
+    breaks = [match.end() for match in _CLAUSE_BREAK.finditer(head)]
+    return head[breaks[-1]:] if breaks else head
+
+
+def _negated_before(lowered: str, start: int) -> bool:
+    """A negation governs the phrase at ``start``: a negator among the four words before it, in the same clause ("does not show what
+    caused", "is not effort"). A negation elsewhere in the sentence ("Ahmed caused the delays, not the brief") does not count."""
+    words = re.findall(r"[a-z']+", _clause_before(lowered, start))[-4:]
+    return any(word in _NEGATORS or word.endswith("n't") for word in words)
+
+
+def _hedged_before(lowered: str, start: int) -> bool:
+    """A possibility marker before the phrase, in the same clause ("may have caused", "could be due to")."""
+    return _HEDGES.search(_clause_before(lowered, start)) is not None
 
 
 def _visible(candidate: Mapping[str, Any]) -> Iterator[tuple[str, str, str]]:
@@ -326,6 +347,7 @@ def _identity(candidate: Mapping[str, Any], case: Mapping[str, Any], expected: E
     if previous is None:
         check("version", candidate.get("version"), 1)
         check("superseded_by", candidate.get("superseded_by"), None)
+        check("previous_result_id", case.get("previous_result_id"), None)
     else:
         check("result_id", candidate.get("result_id"), previous["result_id"])
         check("case_id", previous["case_id"], expected.case_id)
@@ -409,7 +431,9 @@ def _numbers(candidate: Mapping[str, Any], case: Mapping[str, Any], *, include_d
 
 _EDITOR_ID = re.compile(r"\beditor[-_][a-z0-9][a-z0-9_-]*\b")
 _PROJECT_ID = re.compile(r"\b(?:items?|projects?|tasks?|jobs?|videos?|cards?|deliver(?:y|ies))\s*(?:#|no\.?\s*|number\s*)?(\d{2,})\b|#\s?(\d{2,})\b")
-_PROPER = re.compile(r"\b[A-Z][a-z]+(?:'s)?\b|\b[A-Z][A-Za-z]*[a-z][A-Z][A-Za-z]*\b")
+_PROPER = re.compile(r"\b[^\W\d_]{2,}(?:'s)?\b")
+_ENTITY_NOUN = _words(r"projects?", r"work", r"jobs?", r"videos?", r"deliveries", r"delivery", r"clients?", r"accounts?", r"campaigns?",
+                      r"briefs?", r"orders?")
 _PERSON_VERB = _words(r"is", r"was", r"has", r"had", r"did", r"missed", r"caused", r"worked", r"took", r"delivered", r"edited", r"failed",
                       r"handled", r"submitted", r"seems", r"appears", r"tends")
 # Sentence starters that are never names.
@@ -421,6 +445,12 @@ _STARTERS = _wordset("the this that these those it its there atlas most some all
 
 def _attributed(text: str) -> bool:
     return _has(_ATTRIBUTION, text)
+
+
+def _known_word(word: str, vocab: CaseVocabulary, attributed: bool) -> bool:
+    key = _norm(word.removesuffix("'s"))
+    known = key in vocab.words or key in ATLAS_VOCABULARY or key in STOPWORDS or key in _MONTHS_DAYS
+    return known or (attributed and key in vocab.context_words)
 
 
 def _entities(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Violation]:
@@ -437,19 +467,26 @@ def _entities(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Viola
                 number = match.group(1) or match.group(2)
                 if number not in vocab.item_ids:
                     found.append(Violation(ValidationCode.UNKNOWN_PROJECT, path, f"project / item {number!r} is not in this case's evidence"))
-            for match in _PROPER.finditer(sentence):
+            proper = [match for match in _PROPER.finditer(sentence) if match.group(0)[0].isupper()]
+            unknown = {match.start() for match in proper if not _known_word(match.group(0), vocab, attributed)}
+            for match in proper:
                 word = match.group(0)
                 base = word.removesuffix("'s")
                 key = _norm(base)
-                known = key in vocab.words or key in ATLAS_VOCABULARY or key in STOPWORDS or key in _MONTHS_DAYS
-                if known or (attributed and key in vocab.context_words):
+                if match.start() not in unknown:
                     continue
-                if title_case and not word.endswith("'s"):
-                    continue     # a Title Case headline capitalizes ordinary words; identifiers above are still checked
-                initial = match.start() == 0 or sentence[: match.start()].strip() in ('"', "'", "(", "-")
                 after = sentence[match.end(): match.end() + 30]
                 person_like = bool(_PERSON_VERB.match(_norm(after.strip()))) or word.endswith("'s")
-                if initial and (key in _STARTERS or not person_like):
+                if title_case and not person_like:
+                    # A Title Case headline capitalizes ordinary words: only a run of unknown capitalized words (a full name such as
+                    # "Sara Lee") is a name there; identifiers above are still checked.
+                    neighbours = [other.start() for other in proper if other.start() != match.start()
+                                  and abs(other.start() - match.start()) <= len(word) + 20]
+                    if not any(start in unknown for start in neighbours):
+                        continue
+                initial = match.start() == 0 or sentence[: match.start()].strip() in ('"', "'", "(", "-")
+                entity_like = bool(_ENTITY_NOUN.match(_norm(after.strip())))
+                if initial and (key in _STARTERS or not (person_like or entity_like)):
                     continue
                 code = ValidationCode.UNKNOWN_PERSON if person_like else ValidationCode.UNKNOWN_ENTITY
                 found.append(Violation(code, path, f"{base!r} is not named in this case"))
@@ -459,8 +496,8 @@ def _entities(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Viola
 # Metric nouns Atlas never calculates (unless the case itself carries the term).
 _METRIC_NOUNS = _words(r"scores?", r"scoring", r"index(?:es)?", r"indices", r"ratings?", r"rankings?", r"ranked", r"kpis?", r"productivity",
                        r"efficiency", r"percentiles?", r"grades?", r"composite", r"risk (?:percentage|score|level|rating|index)",
-                       r"performance (?:level|score|index|rating)", r"utili[sz]ation")
-_RATE = re.compile(r"\b([a-z-]+(?:\s[a-z-]+)?)\s+rates?\b")
+                       r"performance (?:level|score|index|rating)", r"utili[sz]ation", r"ratios?")
+_RATE = re.compile(r"\b([a-z-]+(?:\s[a-z-]+)?)\s+(?:rates?|percentages?|ratios?)\b")
 _ALLOWED_RATES = ("late", "on-time", "on time", "ontime", "lateness", "revision", "return", "approval", "delivery", "early", "deadline")
 # Modifiers that describe a rate rather than name a new metric ("a higher rate", "the team's rate").
 _RATE_MODIFIERS = _wordset("higher lower same similar overall current previous baseline team cohort peer peers editor editor's team's their "
@@ -488,8 +525,28 @@ def _metrics(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Violat
 
 _CAUSAL = _words(r"caus(?:e|es|ed|ing) (?:the|this|these|a|an|his|her|their|it)", r"caused", r"causing", r"cause of", r"the cause",
                  r"because of", r"due to", r"result(?:ed|s|ing)? in", r"as a result of", r"result of", r"led to", r"leads? to", r"leading to",
-                 r"responsible for", r"the reason (?:for|why|that)", r"attributable to", r"drove", r"driven by", r"is why", r"explains why",
-                 r"triggered", r"stems? from", r"owing to")
+                 r"responsible for", r"the reason (?:for|why|that)", r"attributable to", r"drove", r"driven by", r"is why", r"explains? why",
+                 r"explains? (?:the|this|these|that|his|her|their)", r"explained (?:the|this|these|that)", r"triggered", r"stems? from",
+                 r"owing to", r"driv(?:es|ing) (?:the|this|these|his|her|their)", r"produc(?:ed|es|ing) (?:the|this|these)",
+                 r"made (?:the |these |this |his |her |their )?\w+ (?:late|slip|slower|worse)", r"hurts?|hurting|hurt (?:the|this)")
+# Non-causal uses of the same words: a team lead, results in a window, work due to a client, evidence that leads to a reading.
+_NOT_CAUSAL_BEFORE = re.compile(r"(?:team|a|the|project|our|their)\s+$|(?:the|these|those|recent|current)\s+$")
+_DUE_DATE_AFTER = re.compile(r"\s*(?:the\s+)?(?:clients?|customers?)\s+(?:on|by|in|at|before|within|for)\b")   # "due to the client by Friday"
+_NOT_CAUSAL_AFTER = re.compile(r"\s*(?:the\s+|a\s+)?(?:clients?|customers?|delivery|interpretation|conclusion|reading|view|observation|"
+                               r"current window|previous window|this window)\b")
+
+
+def _causal_matches(lowered: str) -> Iterator[re.Match[str]]:
+    for match in _CAUSAL.finditer(lowered):
+        phrase = match.group(0)
+        before = lowered[max(0, match.start() - 12): match.start()]
+        if phrase.startswith(("lead", "result")) and _NOT_CAUSAL_BEFORE.search(before):
+            continue
+        if phrase in ("leads to", "lead to", "leading to", "results in", "result in") and _NOT_CAUSAL_AFTER.match(lowered, match.end()):
+            continue
+        if phrase == "due to" and _DUE_DATE_AFTER.match(lowered, match.end()):
+            continue
+        yield match
 
 
 def _causality(candidate: Mapping[str, Any]) -> list[Violation]:
@@ -498,23 +555,34 @@ def _causality(candidate: Mapping[str, Any]) -> list[Violation]:
         if name in EPISTEMIC_FIELDS:
             continue
         for sentence in sentences(text):
-            if not _has(_CAUSAL, sentence) or _has(_NEGATION, sentence):
-                continue
-            if name in FACTUAL_FIELDS or not _has(_HEDGE, sentence):
-                found.append(Violation(ValidationCode.CAUSAL_OVERCLAIM, path,
-                                       "causal claim: Atlas evidence shows patterns and associations, not causes" +
-                                       (" (factual fields never carry causal claims)" if name in FACTUAL_FIELDS else " (state it as a possibility)")))
+            lowered = _norm(sentence)
+            for match in _causal_matches(lowered):
+                if _negated_before(lowered, match.start()):
+                    continue
+                if name in FACTUAL_FIELDS or not _hedged_before(lowered, match.start()):
+                    found.append(Violation(ValidationCode.CAUSAL_OVERCLAIM, path,
+                                           "causal claim: Atlas evidence shows patterns and associations, not causes" +
+                                           (" (factual fields never carry causal claims)" if name in FACTUAL_FIELDS else " (state it as a possibility)")))
+                    break
     return found
 
 
 _HR = _words(r"lazy", r"laziness", r"careless(?:ness)?", r"incompeten(?:t|ce|cy)", r"competen(?:t|ce|cy)", r"unskilled", r"untalented", r"talented",
-             r"(?:un)?motivated", r"motivation", r"unmotivated", r"attitudes?", r"personality", r"personalit(?:y|ies)", r"character",
+             r"(?:un)?motivated", r"motivation", r"unmotivated", r"attitudes?", r"personality", r"personalit(?:y|ies)",
+             r"(?:his|her|their|personal|the editor's) character", r"character flaws?",
+             r"sick(?:ness)?", r"ill", r"illness(?:es)?", r"medical", r"health", r"pregnan(?:t|cy)", r"maternity", r"diagnos(?:is|ed)",
+             r"hospitali[sz]ed", r"hospital", r"family (?:emergency|problems?|issues?)", r"personal (?:life|problems?|issues?|reasons)",
+             r"disengag(?:ed|ement)", r"checked out", r"commitment", r"team player", r"struggl(?:es|ed|ing)", r"overwhelm(?:ed|ing)?",
+             r"(?:does not |doesn't |did not |didn't |never )?cares? about", r"underperform(?:s|ed|ing|er|ers|ance)?",
+             r"(?:weak|poor|bad|low) performers?", r"(?:be )?let (?:\w+ )?go", r"remov(?:e|ed|ing) \w+ from (?:the )?(?:project|team|work|account)",
+             r"lacks? (?:\w+ )?(?:skills?|discipline|focus|drive|commitment|ability)",
              r"(?:dis)?honest(?:y)?", r"(?:dis)?loyal(?:ty)?", r"intelligen(?:t|ce)", r"stupid", r"smart", r"psycholog(?:y|ical|ically)",
              r"mental(?:ly)?", r"depress(?:ed|ion)", r"anxious", r"anxiety", r"emotional(?:ly)?", r"burn(?:ed|t)?[ -]?out", r"stressed",
              r"salary", r"salaries", r"pay (?:raise|rise|cut)", r"bonus(?:es)?", r"compensation", r"fir(?:e|ed|ing) (?:him|her|them|the editor)",
              r"fired", r"firing", r"terminat(?:e|ed|ion|ing)", r"dismiss(?:al|ed)? (?:him|her|them|the editor)", r"let (?:him|her|them) go",
              r"promot(?:e|ed|ion|ing)", r"demot(?:e|ed|ion|ing)", r"disciplin(?:e|ary|ed)", r"warning letter", r"performance improvement plan",
-             r"\bpip\b", r"hir(?:e|ed|ing)", r"punish(?:ed|ment|ing)?", r"reprimand(?:ed)?", r"replace (?:him|her|them|the editor)",
+             r"\bpip\b", r"hir(?:e|ing) (?:a|an|another|new|more|replacement|someone)", r"should (?:be )?hired?", r"punish(?:ed|ment|ing)?",
+             r"reprimand(?:ed)?", r"replace (?:him|her|them|the editor)",
              r"(?:good|bad|poor|weak|strong|great|terrible) (?:editor|employee|worker|person)", r"underperformer", r"slacker", r"effort",
              r"work ethic", r"dedication", r"reliable person", r"unreliable (?:editor|person|employee)")
 
@@ -526,23 +594,30 @@ def _people(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Violati
     blame_agent = re.compile(person + r"\W+(?:\w+\W+){0,3}?(?:caused|causes|is responsible|was responsible|are responsible|is to blame|"
                              r"was to blame|is the reason|was the reason|is at fault|was at fault|failed to|neglected|ignored|did not care)")
     blame_object = re.compile(r"(?:because of|due to|caused by|driven by|attributable to|the fault of|blame on)\s+(?:the\s+)?" + person + r"\b")
-    blame_words = _words(r"blame[sd]?", r"blaming", r"at fault", r"fault of", r"'s fault", r"culprit", r"to blame")
+    blame_words = re.compile(r"\b(?:blame[sd]?|blaming|at fault|fault of|culprit|to blame)\b|'s fault\b|\b(?:his|her|their) fault\b")
     for path, name, text in _visible(candidate):
         for sentence in sentences(text):
             lowered = _norm(sentence)
-            negated = _has(_NEGATION, sentence)
-            if _has(_HR, sentence) and not (name == "limitations" and negated):
-                found.append(Violation(ValidationCode.HR_JUDGMENT, path, "a judgement about a person (personality, psychology, motivation, "
-                                                                      "competence, pay or employment action) that work evidence cannot support"))
-            if not negated and (blame_words.search(lowered) or blame_agent.search(lowered) or blame_object.search(lowered)):
-                found.append(Violation(ValidationCode.UNSUPPORTED_BLAME, path, "a person is blamed; Atlas evidence describes work patterns only"))
+            for match in _HR.finditer(lowered):
+                # Only Atlas's own statements about what its evidence cannot show may name these, negated ("clock time is not effort").
+                if name in EPISTEMIC_FIELDS and _negated_before(lowered, match.start()):
+                    continue
+                found.append(Violation(ValidationCode.HR_JUDGMENT, path, "a judgement about a person (personality, psychology, health, "
+                                                                      "motivation, competence, pay or employment action) that work evidence cannot support"))
+                break
+            for pattern in (blame_words, blame_agent, blame_object):
+                hit = next((match for match in pattern.finditer(lowered) if not _negated_before(lowered, match.start())), None)
+                if hit is not None:
+                    found.append(Violation(ValidationCode.UNSUPPORTED_BLAME, path, "a person is blamed; Atlas evidence describes work patterns only"))
+                    break
     return found
 
 
 _CERTAINTY = _words(r"proves?", r"proven", r"conclusive(?:ly)?", r"undoubtedly", r"definitely", r"certainly", r"without doubt",
-                    r"beyond doubt", r"irrefutabl[ey]", r"guaranteed?")
+                    r"beyond doubt", r"irrefutabl[ey]", r"guaranteed?", r"confirms?", r"confirmed", r"obvious(?:ly)?")
 _HIGH_CONFIDENCE = _words(r"high(?:ly)? confiden(?:t|ce)", r"strong(?:ly)? confiden(?:t|ce)", r"very confident", r"confidence is strong",
-                          r"result is strong", r"strong evidence", r"conclusively")
+                          r"result is strong", r"strong evidence", r"conclusively", r"clear(?:ly)?", r"evident(?:ly)?", r"strong pattern",
+                          r"it is certain")
 
 
 def _confidence(candidate: Mapping[str, Any], case: Mapping[str, Any]) -> list[Violation]:
@@ -561,11 +636,10 @@ def _confidence(candidate: Mapping[str, Any], case: Mapping[str, Any]) -> list[V
         found.append(Violation(ValidationCode.CONFIDENCE_EXCEEDED, "confidence/level", "strong confidence while the case has contradicting evidence"))
     for path, _, text in _visible(candidate):
         for sentence in sentences(text):
-            if _has(_NEGATION, sentence):
-                continue
-            if _has(_CERTAINTY, sentence):
+            lowered = _norm(sentence)
+            if any(not _negated_before(lowered, match.start()) for match in _CERTAINTY.finditer(lowered)):
                 found.append(Violation(ValidationCode.CONFIDENCE_EXCEEDED, path, "claims proof or certainty; Atlas evidence never proves"))
-            elif level != ConfidenceLevel.STRONG and _has(_HIGH_CONFIDENCE, sentence):
+            elif level != ConfidenceLevel.STRONG and any(not _negated_before(lowered, match.start()) for match in _HIGH_CONFIDENCE.finditer(lowered)):
                 found.append(Violation(ValidationCode.CONFIDENCE_EXCEEDED, path, f"claims high confidence while the level is {level.value}"))
     return found
 
@@ -581,7 +655,9 @@ def _attribution(candidate: Mapping[str, Any], vocab: CaseVocabulary) -> list[Vi
             tokens = _tokens(sentence)
             for source, distinctive in vocab.context_items:
                 overlap = tokens & distinctive
-                if not distinctive or len(overlap) < (2 if len(distinctive) <= 4 else 3):
+                # A short statement is matched on fewer words: one of up to two distinctive words, two of up to four, else three.
+                needed = 1 if len(distinctive) <= 2 else 2 if len(distinctive) <= 4 else 3
+                if not distinctive or len(overlap) < needed:
                     continue
                 if name in FACTUAL_FIELDS:
                     found.append(Violation(ValidationCode.CONTEXT_AS_EVIDENCE, path,
@@ -630,7 +706,9 @@ def patch_violations(errors: Sequence[str]) -> list[Violation]:
         mapped = {"STALE_BASE_VERSION": ValidationCode.IDENTITY_MISMATCH, "CASE_MISMATCH": ValidationCode.IDENTITY_MISMATCH,
                   "EVIDENCE_FINGERPRINT_MISMATCH": ValidationCode.IDENTITY_MISMATCH,
                   "UNKNOWN_EVIDENCE_REF": ValidationCode.UNKNOWN_EVIDENCE}.get(code, ValidationCode.PATCH_INVALID)
-        found.append(Violation(mapped, code, detail or error))
+        field_name = (detail or "").split(" ", 1)[0].rstrip(":")
+        path = field_name if field_name in contracts.PATCHABLE_FIELDS else code
+        found.append(Violation(mapped, path, f"{code}: {detail}" if detail else error))
     return found
 
 

@@ -242,7 +242,9 @@ class AppliedUpdate:
 
 def apply_response(previous: ReasoningResult, case: ReasoningCase, response: ProviderResponse, *, provider: str, now: str,
                    lifecycle_status: str) -> AppliedUpdate:
-    """Validate a model answer and merge it into the next version (lifecycle chosen by the caller, never by the model)."""
+    """Validate a model answer (Phase 08 rules) and merge it into the next version (lifecycle chosen by the caller, never by the model).
+    Not the engine's path: the engine commits only merged candidates the Phase 15 guardrails accepted (``candidate_from_response`` +
+    ``guardrails.validate_candidate``)."""
     result, document = previous.to_dict(), case.to_dict()
     errors = update_output_errors(response.parsed, result, document)
     if errors:

@@ -26,7 +26,7 @@ from atlas_reasoning.enums import CaseType
 from atlas_reasoning.frozen import freeze
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.guardrails import ValidationCode, Violation
-from atlas_reasoning.provider import CallContext, Message, ProviderError, ProviderRequest, StructuredOutput
+from atlas_reasoning.provider import CallContext, Message, ProviderRequest, StructuredOutput
 from atlas_reasoning.settings import ReasoningConfigError, flag
 
 REVIEWER_PROMPT_VERSION = "reviewer-v1"
@@ -49,7 +49,8 @@ class ReviewVerdict:
 class CandidateReviewer(Protocol):
     def applies(self, case: Mapping[str, Any]) -> bool: ...
 
-    def review(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None) -> ReviewVerdict: ...
+    def review(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None,
+               request_id: str | None = None) -> ReviewVerdict: ...
 
 
 @dataclass(frozen=True)
@@ -113,8 +114,9 @@ class LLMReviewer:
     def applies(self, case: Mapping[str, Any]) -> bool:
         return self.policy.applies(case)
 
-    def request(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None) -> ProviderRequest:
-        context = CallContext(purpose=REVIEW_PURPOSE, request_id=new_request_id(), run_id=run_id, case_id=case["case_id"], work_item_id=work_item_id,
+    def request(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None,
+                request_id: str | None = None) -> ProviderRequest:
+        context = CallContext(purpose=REVIEW_PURPOSE, request_id=request_id or new_request_id(), run_id=run_id, case_id=case["case_id"], work_item_id=work_item_id,
                               prompt_version=REVIEWER_PROMPT_VERSION, source_snapshot_id=case["source_snapshot_id"],
                               evidence_fingerprint=case["evidence_fingerprint"])
         messages = (Message("system", prompt_text(REVIEWER_PROMPT_VERSION)),
@@ -122,19 +124,20 @@ class LLMReviewer:
         return ProviderRequest(context, messages, StructuredOutput("atlas_review_v1", freeze(review_output_schema()), review_output_errors),
                                max_output_tokens=MAX_OUTPUT_TOKENS // 4, reasoning_effort="low")
 
-    def review(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None) -> ReviewVerdict:
-        request = self.request(case, candidate, run_id=run_id, work_item_id=work_item_id)
+    def review(self, case: Mapping[str, Any], candidate: Mapping[str, Any], *, run_id: str | None, work_item_id: str | None,
+               request_id: str | None = None) -> ReviewVerdict:
+        request = self.request(case, candidate, run_id=run_id, work_item_id=work_item_id, request_id=request_id)
         try:
             response = self.gateway.call(request)
-        except (ProviderError, ValueError) as error:
+            verdict = response.parsed
+            if verdict["approve"]:
+                return ReviewVerdict(True, (), response.request_id)
+            concerns = tuple(Violation(ValidationCode.REVIEWER_REJECTED, str(row["field"]), f"{row['code']}: {str(row['note'])[:300]}")
+                             for row in verdict["concerns"])
+            return ReviewVerdict(False, concerns, response.request_id)
+        except Exception as error:  # noqa: BLE001 - any reviewer failure fails safe: no verdict, no commit
             reason = getattr(error, "error_class", type(error).__name__)
             return ReviewVerdict(False, (Violation(ValidationCode.REVIEWER_FAILED, "<review>", f"no verdict: {reason}"),), request.context.request_id)
-        verdict = response.parsed
-        if verdict["approve"]:
-            return ReviewVerdict(True, (), response.request_id)
-        concerns = tuple(Violation(ValidationCode.REVIEWER_REJECTED, str(row["field"]), f"{row['code']}: {str(row['note'])[:300]}")
-                         for row in verdict["concerns"])
-        return ReviewVerdict(False, concerns, response.request_id)
 
 
 def reviewer_from_env(gateway: ReasoningGateway, env: Mapping[str, str] | None = None) -> LLMReviewer | None:

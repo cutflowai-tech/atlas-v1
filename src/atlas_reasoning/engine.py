@@ -41,14 +41,14 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from atlas_reasoning import analyst, guardrails, lifecycle, updater
+from atlas_reasoning import analyst, guardrails, lifecycle, reviewer, updater
 from atlas_reasoning.change_gate import case_for_work
 from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, ReasoningUpdate, new_result_id
 from atlas_reasoning.delta import material_delta
 from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, WorkStatus
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import Message, ProviderError, ProviderRequest, ProviderResponse
-from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext
+from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext, PreparedCase
 from atlas_reasoning.reviewer import CandidateReviewer
 from atlas_reasoning.settings import validation_retries
 from atlas_reasoning.store.db import DatabaseError
@@ -240,7 +240,7 @@ class ReasoningEngine:
                 response = self.gateway.call(request)
             except ProviderError as error:
                 return self._fail(item, error)
-            outcome, report = self._complete(ready, request, response, result_id, attempt)
+            outcome, report = self._complete(ready, request, response, result_id, attempt, prepared)
             if outcome is not None:
                 break
             assert report is not None
@@ -311,8 +311,8 @@ class ReasoningEngine:
                         material_delta=material_delta(before, after, fingerprint_before=previous.evidence_fingerprint, fingerprint_after=item.fingerprint_after))
         return ReasoningCase.from_dict(document)
 
-    def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse, result_id: str,
-                  attempt: int) -> tuple[WorkOutcome | None, guardrails.ValidationReport | None]:
+    def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse, result_id: str, attempt: int,
+                  prepared: PreparedCase) -> tuple[WorkOutcome | None, guardrails.ValidationReport | None]:
         """Build the complete candidate, run the Phase 15 guardrails (and the optional reviewer) and commit only a candidate they accept.
         Returns ``(outcome, None)`` when the item is finished (committed or failed) or ``(None, report)`` for a refused candidate."""
         item, previous = ready.item, ready.previous
@@ -328,14 +328,19 @@ class ReasoningEngine:
                                                         lifecycle_status=previous.lifecycle_status.value)
                 candidate = patch.merged or {}
                 extra = guardrails.patch_violations(patch.errors)
+            # Expectations come from the work item and the request, never from the answer: the gated evidence state, the request ID.
             expected = guardrails.Expected(case_id=item.case_id, result_id=result_id, version=previous.version + 1 if previous else 1,
-                                           source_snapshot_id=case["source_snapshot_id"], evidence_fingerprint=case["evidence_fingerprint"],
+                                           source_snapshot_id=case["source_snapshot_id"],
+                                           evidence_fingerprint=item.fingerprint_after or case["evidence_fingerprint"],
                                            prompt_version=updater.UPDATE_PROMPT_VERSION if previous else analyst.ANALYST_PROMPT_VERSION,
-                                           model=self.gateway.model, request_id=response.request_id,
+                                           model=self.gateway.model, request_id=request.context.request_id,
                                            previous=previous.to_dict() if previous is not None else None)
             report = guardrails.validate_candidate(candidate, case, expected, extra=extra)
             if report.ok and self.reviewer is not None and self.reviewer.applies(case):
-                verdict = self.reviewer.review(case, candidate, run_id=item.run_id, work_item_id=item.work_item_id)
+                review_id = new_request_id()      # the reviewer sees the same human context: its call is audited like any other
+                self.context.record(prepared, purpose=reviewer.REVIEW_PURPOSE, request_id=review_id, run_id=item.run_id,
+                                    work_item_id=item.work_item_id, result_id=previous.result_id if previous else None)
+                verdict = self.reviewer.review(case, candidate, run_id=item.run_id, work_item_id=item.work_item_id, request_id=review_id)
                 if not verdict.approved:
                     report = guardrails.ValidationReport(verdict.violations)
             if not report.ok:

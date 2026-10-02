@@ -25,8 +25,11 @@ _NUMBER = re.compile(r"(?<![\w.])(?<![^\W\d]-)(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+)
 # An ISO date or timestamp inside a case string. Its parts (year, month, day, hour, ...) are *date parts*: a text may write them only
 # as a date ("since 15 September", "2026-09-15"), never as a count or a duration (Phase 15: otherwise every number up to 59 passes).
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?")
-_MONTH = re.compile(r"\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
-                    r"nov(?:ember)?|dec(?:ember)?)\b", re.IGNORECASE)
+# A month name ("May" only capitalized: "may" is a modal verb) with a day or year written right next to it.
+_MONTH_NAME = (r"(?:(?i:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|"
+               r"nov(?:ember)?|dec(?:ember)?)|May)")
+_DATED = re.compile(r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?" + _MONTH_NAME + r"(?:,?\s+\d{4})?\b|\b" + _MONTH_NAME +
+                    r"\s+\d{1,4}(?:st|nd|rd|th)?(?:,?\s+\d{4})?\b")
 
 
 def _numbers_in(value: Any, dates: set[float] | None = None) -> Iterator[float]:
@@ -63,11 +66,8 @@ def case_date_parts(case: Mapping[str, Any], *, include_delta: bool = True) -> f
 
 
 def _date_spans(text: str) -> list[tuple[int, int]]:
-    """Where ``text`` writes a date: an ISO date, or a day / year next to a month name."""
-    spans = [match.span() for match in _TIMESTAMP.finditer(text)]
-    for match in _MONTH.finditer(text):
-        spans.append((max(0, match.start() - 6), min(len(text), match.end() + 7)))
-    return spans
+    """Where ``text`` writes a date: an ISO date, or a day / year directly next to a month name ("3 September", "September 2026")."""
+    return [match.span() for match in _TIMESTAMP.finditer(text)] + [match.span() for match in _DATED.finditer(text)]
 
 
 # Durations are stored in seconds (``*_seconds`` keys). A text may give one in minutes, hours or days (Phase 15) — only written with
@@ -76,21 +76,27 @@ _DURATION_UNITS = {"minute": 60.0, "hour": 3600.0, "day": 86400.0}
 _UNIT_AFTER = re.compile(r"\s*(?:-\s*)?(min(?:ute)?s?|h(?:ou)?rs?|hours?|days?)\b", re.IGNORECASE)
 
 
-def _durations_in(value: Any, key: str = "") -> Iterator[float]:
-    """Every duration value (a number under a key ending in ``seconds``), in seconds."""
+def _durations_in(value: Any, key: str = "") -> Iterator[tuple[str, float]]:
+    """Every duration value as (unit, value): numbers under keys naming a unit (``*seconds`` in seconds, ``*days`` / ``*hours`` /
+    ``*minutes`` in that unit)."""
     if isinstance(value, Mapping):
         for name, item in value.items():
             yield from _durations_in(item, str(name))
     elif isinstance(value, (list, tuple)):
         for item in value:
             yield from _durations_in(item, key)
-    elif isinstance(value, (int, float)) and not isinstance(value, bool) and key.endswith("seconds"):
-        yield abs(float(value))
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        lowered = key.lower()
+        for unit in ("second", "minute", "hour", "day"):
+            if unit in lowered:
+                yield unit, abs(float(value))
+                break
 
 
 def case_durations(case: Mapping[str, Any], *, include_delta: bool = True) -> dict[str, frozenset[float]]:
     """The case's durations in each unit a text may use."""
-    seconds = list(_durations_in(_case_sources(case, include_delta)))
+    found = list(_durations_in(_case_sources(case, include_delta)))
+    seconds = [value * (1.0 if unit == "second" else _DURATION_UNITS[unit]) for unit, value in found]
     return {unit: frozenset(value / size for value in seconds) for unit, size in _DURATION_UNITS.items()}
 
 
@@ -107,11 +113,18 @@ def case_numbers(case: Mapping[str, Any], *, include_delta: bool = True) -> froz
     date parts are accepted only where the text writes a duration or a date: ``unsupported_number_errors``).
     With ``include_delta`` the before-values of the material delta count too (an update may say "up from 11 to 12"); without it only
     the current evidence. Human context (``manager_context``, ``memory_context``) is never a source: context is not evidence."""
-    sources = _case_sources(case, include_delta)
-    base = {abs(number) for number in _numbers_in(sources, set())} | set(_ALWAYS)
+    base = _case_values(case, include_delta)
+    return frozenset(base | _percentages(base))
+
+
+def _case_values(case: Mapping[str, Any], include_delta: bool) -> frozenset[float]:
+    return frozenset({abs(number) for number in _numbers_in(_case_sources(case, include_delta), set())} | set(_ALWAYS))
+
+
+def _percentages(base: frozenset[float]) -> frozenset[float]:
     # Only a rate (a value between 0 and 1) may be written as a percentage; scaling counts, sample sizes or date parts by 100 would
-    # admit almost every small integer (review of PR #34).
-    return frozenset(base | {number * 100 for number in base if number <= 1})
+    # admit almost every small integer (review of PR #34). Accepted only where the text writes a percentage ("69%", "69 percent").
+    return frozenset(number * 100 for number in base if number <= 1)
 
 
 # Numbers written as words (Phase 15): "twelve projects" is held to the same rule as "12 projects". "one" (always allowed) and
@@ -120,7 +133,14 @@ _NUMBER_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 
                  "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
                  "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90, "hundred": 100, "dozen": 12,
                  "thousand": 1000}
-_WORD = re.compile(r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) + r")\b", re.IGNORECASE)
+_TENS = ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+_UNITS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+_WORD = re.compile(r"\b(?:(" + "|".join(_TENS) + r")[-\s](" + "|".join(_UNITS) + r")|(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) +
+                   r"))\b", re.IGNORECASE)
+# Digits with a suffix are numbers too: ordinals ("37th"), multiples ("3x"), thousands ("2k").
+_SUFFIXED = re.compile(r"(?<![\w.])(\d+)(st|nd|rd|th|x|k)\b", re.IGNORECASE)
+_PERCENT_AFTER = re.compile(r"\s*(?:%|per\s?cent\b|(?:percentage\s+)?points?\b|pp\b)", re.IGNORECASE)
+_APPROXIMATE_BEFORE = re.compile(r"(?:about|around|roughly|approximately|nearly|almost|over|under|more than|less than|some|~)\s*$", re.IGNORECASE)
 
 
 def text_numbers(text: str) -> list[tuple[str, float, int]]:
@@ -134,7 +154,14 @@ def _numbers_with_positions(text: str) -> list[tuple[str, float, int, int, int]]
         whole, fraction = match.group(1).replace(",", ""), match.group(2) or ""
         found.append((match.group(0), float(f"{whole}.{fraction}" if fraction else whole), len(fraction), match.start(), match.end()))
     for match in _WORD.finditer(text):
-        found.append((match.group(0), float(_NUMBER_WORDS[match.group(1).lower()]), 0, match.start(), match.end()))
+        if match.group(1):
+            value = _NUMBER_WORDS[match.group(1).lower()] + _NUMBER_WORDS.get(match.group(2).lower(), 1 if match.group(2).lower() == "one" else 0)
+        else:
+            value = _NUMBER_WORDS[match.group(3).lower()]
+        found.append((match.group(0), float(value), 0, match.start(), match.end()))
+    for match in _SUFFIXED.finditer(text):
+        number = float(match.group(1)) * (1000 if match.group(2).lower() == "k" else 1)
+        found.append((match.group(0), number, 0, match.start(), match.end()))
     return found
 
 
@@ -168,20 +195,40 @@ def visible_texts(output: Mapping[str, Any]) -> Iterator[tuple[str, str]]:
         yield f"suggested_investigations/{i}/text", str(row.get("text", ""))
 
 
+def _matches_value(value: float, decimals: int, values: frozenset[float], *, approximate: bool) -> bool:
+    """A whole number must equal a whole case value, unless the text marks it as approximate ("about 12"); a number written with
+    decimals may round a case value to that precision."""
+    if decimals > 0 or approximate:
+        return supported(value, decimals, values)
+    return value in values
+
+
+def number_supported(text: str, value: float, decimals: int, start: int, end: int, *, base: frozenset[float], percents: frozenset[float],
+                     dates: frozenset[float], durations: Mapping[str, frozenset[float]]) -> bool:
+    """Whether one number of ``text`` is grounded in the case, judged by how the text writes it (Phase 15):
+
+    - with a duration unit ("16.5 hours"): only a case duration in that unit;
+    - with a percent sign or word ("69%"): a case rate as a percentage, or a case value;
+    - inside a written date ("3 September", "2026-09-03"): a part of a case date;
+    - otherwise: a case value (exactly, for a whole number not marked approximate)."""
+    approximate = bool(_APPROXIMATE_BEFORE.search(text[max(0, start - 20): start]))
+    unit = _unit(text, end)
+    if unit is not None:
+        return _matches_value(value, decimals, durations[unit], approximate=True) or value in _ALWAYS
+    if _PERCENT_AFTER.match(text, end):
+        return _matches_value(value, decimals, percents | base, approximate=True)
+    if decimals == 0 and value in dates and any(low <= start < high for low, high in _date_spans(text)):
+        return True
+    return _matches_value(value, decimals, base, approximate=approximate)
+
+
 def unsupported_number_errors(output: Mapping[str, Any], case: Mapping[str, Any], *, include_delta: bool = True) -> list[str]:
-    allowed = case_numbers(case, include_delta=include_delta)
-    dates = case_date_parts(case, include_delta=include_delta)
+    base = _case_values(case, include_delta)
+    percents, dates = _percentages(base), case_date_parts(case, include_delta=include_delta)
     durations = case_durations(case, include_delta=include_delta)
     errors = []
     for path, text in visible_texts(output):
-        spans = _date_spans(text)
         for token, value, decimals, start, end in _numbers_with_positions(text):
-            if supported(value, decimals, allowed):
-                continue
-            if decimals == 0 and value in dates and any(low <= start < high for low, high in spans):
-                continue     # a date the case carries, written as a date
-            unit = _unit(text, end)
-            if unit is not None and supported(value, decimals, durations[unit]):
-                continue     # a duration the case carries, written in another unit
-            errors.append(f"UNSUPPORTED_NUMBER: {path}: {token!r} is not a value of the case")
+            if not number_supported(text, value, decimals, start, end, base=base, percents=percents, dates=dates, durations=durations):
+                errors.append(f"UNSUPPORTED_NUMBER: {path}: {token!r} is not a value of the case")
     return errors

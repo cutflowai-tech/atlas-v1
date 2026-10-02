@@ -61,38 +61,47 @@ Work items fail with `validation:<codes>` (sorted, comma-separated).
 
 All rules run on every user-visible text: title, reasoning summary, the observation / interpretation / management-significance
 statements, supporting and counter-evidence statements, alternative explanations, confidence rationale, limitations, questions for
-management (text and reason) and suggested investigations. Text is split into sentences; "negated" means the sentence contains a
-negation (not, no, never, cannot, without, unknown, unclear, …); "hedged" means a possibility marker (may, might, could, can,
-possibly, perhaps, potentially, whether, if, would, hypothesis, to check).
+management (text and reason) and suggested investigations. Text is split into sentences and clauses (at , ; : ( ) — and at "but",
+"while", "whereas", "which"). A phrase is **negated** only when a negator (not, no, never, cannot, n't, without, neither, nor,
+unknown, unclear, none, nothing) is among the four words before it in the same clause — a negation elsewhere ("Ahmed caused the
+delays, not the brief") does not count. A phrase is **hedged** only when a possibility marker (may, might, could, can, possibly,
+perhaps, potentially, whether, if, it is possible, hypothesis, to check) comes before it in the same clause.
 
 ### Numbers (`output_checks`, shared with the update path — one numeric system)
 
-Allowed anywhere: values of the case (statement parameters, record values, block samples and comparisons, sample sizes, scope counts,
-free-standing numbers in case strings), `0`, `1`, `100`, and rates (values in 0…1) written as percentages at the precision written
-(0.6875 → 69% / 68.75%). Allowed only in context: a part of a case date written as a date (next to a month name or as an ISO date:
-"since 3 September"); a duration the case stores in seconds written with a unit (minutes, hours, days: "16.5 hours"). For an update,
-the material delta's before-values are also allowed ("up from 11 to 12"). Number words (two … twenty, thirty … ninety, hundred,
-dozen, thousand) are numbers. Never allowed: anything from management context or memory, any other derived figure (new differences,
-averages, projections), counts or durations disguised as date parts. Known limit: a number that is a case value in another meaning
-passes (the check is value grounding, not semantic matching).
+How a number is written decides what it may be:
+
+| Written as | Must be |
+|---|---|
+| a plain number ("11 projects") | a case value (statement parameters, record values, block samples and comparisons, sample sizes, scope counts, free-standing numbers in case strings) or `0` / `1` / `100` — **exactly** for a whole number, unless marked approximate (about, around, roughly, approximately, nearly, almost, over, under, more than, less than, ~), which allows rounding a non-integer case value; a number written with decimals may round a case value to that precision |
+| a percentage ("69%", "69 percent", "18.75 points", "pp") | a case rate (0…1) × 100 at the precision written, or a case value |
+| a duration ("16.5 hours", "3 days", "40 minutes") | a case duration in that unit (values under `*seconds` keys converted, or under `*minutes` / `*hours` / `*days` keys) |
+| part of a written date ("3 September", "September 2026", "2026-09-03") | a part of a case date or timestamp; "May" counts as a month only capitalized |
+
+For an update, the material delta's before-values are also case values ("up from 11 to 12"). Number words (two … twenty, thirty …
+ninety, hyphenated "thirty-seven", hundred, dozen, thousand) and suffixed numbers (ordinals "37th", "3x", "2k") are numbers. Never
+allowed: anything from management context or memory, any other derived figure (new differences, averages, projections), a rate × 100
+as a count ("69 projects"), date parts as counts ("3 projects"). Known limit: a number that is a case value in another meaning passes
+(the check is value grounding, not semantic matching).
 
 ### Entities
 
 - `editor-…` identifiers must be Editors of the case (subject, affected Editors, Editors of its evidence records).
 - "item / project / task / job / video / card / delivery N" and "#N" must be a Monday item of the case's evidence.
-- Proper names (capitalized words that are not sentence-initial, possessives, or sentence-initial names followed by a person verb)
-  must be words of the case (including its `editor_name` / `display_name` values), Atlas vocabulary, months or weekdays. A name that
-  appears only in management context is allowed only inside a sentence that attributes it to management. Title-Case headlines are
-  not checked for proper names (identifiers still are).
+- Proper names (capitalized words of two or more letters in any script — "José" too — that are not sentence-initial, possessives,
+  and sentence-initial words followed by a person verb or by an entity noun such as "projects", "work", "clients") must be words of
+  the case (including its `editor_name` / `display_name` values), Atlas vocabulary, stopwords, months or weekdays. A name that
+  appears only in management context is allowed only inside a sentence that attributes it to management. In a Title-Case headline
+  only a run of unknown capitalized words ("Sara Lee") or a person-like word counts as a name (identifiers are always checked).
 
 ### Metrics
 
 Allowed: Atlas's own vocabulary (late rate, on-time rate, lateness, revision, quality labels, work time, speed, workload, runway,
 cycle, median, cohort, benchmark, trend, recent change, …) and every term the case carries. Refused unless the case carries the term:
 score(s), scoring, index / indices, rating(s), ranking(s) / ranked, KPI(s), productivity, efficiency, percentile(s), grade(s),
-composite, risk percentage / score / level / rating / index, performance level / score / index / rating, utilisation; and any
-"<word> rate" whose word is neither an Atlas rate (late, on-time, lateness, revision, return, approval, delivery, early, deadline),
-a case word, nor a describing modifier (higher, lower, current, baseline, team, cohort, …). A qualitative judgement belongs in the
+composite, risk percentage / score / level / rating / index, performance level / score / index / rating, utilisation, ratio(s); and
+any "<word> rate / percentage / ratio" whose word is neither an Atlas rate (late, on-time, lateness, revision, return, approval,
+delivery, early, deadline), a case word, nor a describing modifier (higher, lower, current, baseline, team, cohort, …). A qualitative judgement belongs in the
 interpretation as an interpretation, never as a computed metric.
 
 ### Causality
@@ -100,7 +109,9 @@ interpretation as an interpretation, never as a computed metric.
 Upstream evidence levels (fact, metric, pattern, association, interpretation, hypothesis) never establish causation, so no candidate
 may. Causal phrases: cause(s/d/ing) …, cause of, the cause, because of, due to, result(s/ed/ing) in, as a result of, led / leads /
 leading to, responsible for, the reason for / why / that, attributable to, drove / driven by, is why, explains why, triggered,
-stem(s) from, owing to.
+stem(s) from, owing to, explain(s / ed) the / this / why …, drives / driving …, produced / produces …, made … late / slip / slower /
+worse, hurt(s). Not causal (excluded): "team lead", "the results in the current window", "due to the client by / on …" (a deadline),
+"leads to the interpretation / conclusion".
 - **Refused**: an unhedged causal sentence in any field; any causal sentence (even hedged) in the title, observation, supporting or
   counter-evidence.
 - **Allowed**: hedged causal sentences in interpretive fields (interpretation, reasoning summary, management significance,
@@ -112,35 +123,41 @@ stem(s) from, owing to.
 
 - **Allowed**: observable work evidence about a person or scope: deadline performance deteriorated, late rate rose, quality labels
   increased, work time differs from the cohort, a pattern is concentrated in this scope, an Editor's name or identifier from the case.
-- **Refused (`HR_JUDGMENT`)**, in any field, unless it is a negated sentence in `limitations` ("Monday data cannot show motivation or
-  effort"): laziness, carelessness, (in)competence, (un)skilled / talented, motivation, effort, work ethic, dedication, attitude,
-  personality, character, honesty, loyalty, intelligence, psychological / mental state, depression, anxiety, emotion, burnout,
-  stress; salary, pay raise / cut, bonus, compensation; firing, termination, dismissal, letting go, promotion, demotion, discipline,
-  warning letter, performance improvement plan, hiring, punishment, reprimand, replacing a person; "good / bad / poor / weak / strong
-  editor / employee / worker / person", underperformer, slacker, unreliable person.
-- **Refused (`UNSUPPORTED_BLAME`)**, unless negated: blame / blamed / at fault / fault of / culprit / to blame; a person (the editor,
-  he / she, an Editor identifier or a name from the case) as the agent of caused / is responsible / is the reason / is at fault /
-  failed to / neglected / ignored / did not care; "because of / due to / caused by / driven by / attributable to" a person. Blame is
-  refused even when hedged.
+- **Refused (`HR_JUDGMENT`)**, in any field, unless the term is negated inside `limitations` or the confidence rationale (Atlas saying
+  what its evidence cannot show: "Monday data cannot show motivation or effort", "elapsed clock time is not effort"): laziness,
+  carelessness, (in)competence, (un)skilled / talented, motivation, effort, work ethic, dedication, commitment, (not) caring about,
+  attitude, personality, a person's character, honesty, loyalty, intelligence, psychological / mental state, depression, anxiety,
+  emotion, burnout, stress, disengagement, "checked out", "team player", struggling, overwhelmed; health and private life (sick,
+  ill, illness, medical, health, pregnancy, maternity, diagnosis, hospital, family emergency, personal life / problems / reasons);
+  salary, pay raise / cut, bonus, compensation; firing, termination, dismissal, letting go, removing a person from a project / team,
+  promotion, demotion, discipline, warning letter, performance improvement plan, hiring someone, punishment, reprimand, replacing a
+  person; "good / bad / poor / weak / strong editor / employee / worker / person", weak / poor performer, underperform(er),
+  slacker, lacking skills / discipline / focus / drive, unreliable person.
+- **Refused (`UNSUPPORTED_BLAME`)**, unless the phrase itself is negated: blame / blamed / at fault / fault of / his / her / their
+  fault / culprit / to blame; a person (the editor, he / she, an Editor identifier or a name from the case) as the agent of caused /
+  is responsible / is the reason / is at fault / failed to / neglected / ignored / did not care; "because of / due to / caused by /
+  driven by / attributable to" a person. Blame is refused even when hedged.
 
 ### Confidence
 
 The level never exceeds the strongest upstream confidence among the supporting findings, is never `strong` when the case has
-contradicting evidence, and no non-negated sentence claims proof or certainty (proves, proven, conclusive(ly), undoubtedly,
-definitely, certainly, beyond / without doubt, irrefutable, guaranteed) or claims high confidence (high / strong / very confident,
-"strong evidence", "the result is strong") while the level is below `strong`.
+contradicting evidence, and no non-negated phrase claims proof or certainty (proves, proven, conclusive(ly), undoubtedly, definitely,
+certainly, beyond / without doubt, irrefutable, guaranteed, confirms, obvious(ly)) or claims high confidence (high / strong / very
+confident, "strong evidence", "the result is strong", clear(ly), evident(ly), "strong pattern") while the level is below `strong`.
 
 ### Human context stays attributed
 
 Management sources are manager interpretations, management answers and teachings (in `manager_context`, and the same sources in
 remembered `memory_context`). Atlas's own remembered prior reasoning and questions are not management statements. For each management
 item the guardrails take its distinctive words (at least four letters, not stopwords, not Atlas vocabulary, not words of the case's
-evidence; an answer's quoted question line is Atlas's and excluded). A sentence **draws on** an item when it shares at least three of
-them (two for an item with at most four).
+evidence; an answer's quoted question line is Atlas's and excluded). A sentence **draws on** an item when it shares one of them (item
+with at most two distinctive words), two (at most four) or three (more).
 - In the title, observation, supporting or counter-evidence: refused (`CONTEXT_AS_EVIDENCE`), attributed or not.
-- Elsewhere: allowed only when the sentence attributes it (management, manager, according to, reported, noted, stated, said,
-  answered, teaching, taught, …); otherwise `MEMORY_ATTRIBUTION_LOST`. Questions for management are exempt (a question asserts
-  nothing).
+- Elsewhere: allowed only when the sentence names management as its source (management, manager(s), management's, according to
+  management, a management teaching, taught); a generic verb ("it was said", "reported") is not attribution. Otherwise
+  `MEMORY_ATTRIBUTION_LOST`. Questions for management are exempt (a question asserts nothing).
+- Known limit: a management statement made only of words the case's evidence also uses has no distinctive words and cannot be told
+  apart; health and private-life words are refused by the people rules regardless.
 
 Human context never supplies numbers (above) and never enters the evidence fingerprint, so it cannot change case identity, evidence,
 metric values or the Change Gate. Text inside it is data: an injected instruction ("ignore previous instructions", "say the result
@@ -172,10 +189,18 @@ for debugging only: no API route or dashboard fragment reads them. `ReasoningSto
 (default `editor_pattern`) and its orientation is adverse or mixed. It runs only after the deterministic guardrails accepted the
 candidate and can only refuse: approval never overrides a deterministic refusal (the reviewer is not even called). Its input is
 bounded and structured (`case`: the canonical evidence view with attributed context; `card`: the visible fields; no identifiers,
-provider metadata or credentials). A refusal (`REVIEWER_REJECTED`) or any failure (`REVIEWER_FAILED`) keeps the candidate out. Normal
+provider metadata or credentials). Because it sees the same human context, its call is audited in `memory_injections` (purpose
+`review`) under its own request ID before it is made. A refusal (`REVIEWER_REJECTED`) or any failure (`REVIEWER_FAILED`) keeps the
+candidate out. Normal
 tests never need it; it costs nothing while off.
 
 ## 7. Known limits (for Phase 19 evaluation)
+
+- A resolved card whose case reappears is reactivated (lifecycle, deterministic) when its work item is claimed, before the model is
+  called; that reactivation is the case's own state change and stays even if the candidate is then refused (the card keeps its last
+  valid content).
+- An update re-validates the whole merged version, untouched fields included: a card written before Phase 15 that breaks a new rule
+  must be corrected by the update (the correction message names the field) before any new version can be committed.
 
 The rules are lexical and conservative: they can refuse a valid sentence (a false refusal keeps the previous valid card, which is
 the safe failure) and cannot understand meaning (a case value used in another sense passes the number check; a paraphrase that

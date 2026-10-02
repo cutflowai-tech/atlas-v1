@@ -231,7 +231,9 @@ def analyst_request(case: ReasoningCase, *, run_id: str | None = None, work_item
 
 
 def result_from_response(case: ReasoningCase, response: ProviderResponse, *, provider: str, result_id: str, now: str) -> ReasoningResult:
-    """The validated ``ReasoningResult`` (version 1, lifecycle ``new``) for a successful analyst call."""
+    """The validated ``ReasoningResult`` (version 1, lifecycle ``new``) for a successful analyst call, checked by the Phase 07 rules
+    only. Not the engine's path: the engine commits only candidates the Phase 15 guardrails accepted (``candidate_from_response`` +
+    ``guardrails.validate_candidate``)."""
     document = case.to_dict()
     errors = analyst_output_errors(response.parsed, document)
     if errors:
