@@ -8,8 +8,9 @@ reasoning and deterministic evidence. Forms post JSON to ``management_api`` rout
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from html import escape
+from typing import Any
 
 from atlas_reasoning.atlas_questions import MAX_ANSWER, Question
 from atlas_reasoning.management_api import PREFIX
@@ -26,16 +27,33 @@ def _multiline(text: str) -> str:
     return "<br>".join(esc(line) for line in text.split("\n"))
 
 
-def note_panel(result_id: str, notes: Sequence[Note], *, csrf_token: str) -> str:
-    """The manager-interpretation box of one reasoning card: existing notes (escaped, attributed) and a text box."""
+def _revisions(revisions: Sequence[Mapping[str, Any]]) -> str:
+    """Earlier revisions of a note (audit history), oldest first, each escaped and attributed."""
+    rows = [f'<li class="mi-revision" data-revision="{esc(row.get("revision"))}"><p class="mi-body">{_multiline(str(row.get("body", "")))}</p>'
+            f'<p class="mi-meta">{esc(row.get("author") or "Management")} · <time datetime="{esc(row.get("recorded_at"))}">{esc(row.get("recorded_at"))}</time>'
+            f' · revision {esc(row.get("revision"))}</p></li>' for row in revisions]
+    return f'<details class="mi-history"><summary>Edit history</summary><ol>{"".join(rows)}</ol></details>' if rows else ""
+
+
+def note_panel(result_id: str, notes: Sequence[Note], *, csrf_token: str, history: Mapping[str, Sequence[Mapping[str, Any]]] | None = None) -> str:
+    """The manager-interpretation box of one reasoning card: existing notes (escaped, attributed), each with an edit control and its
+    revision history (``ManagerNotes.history``; earlier revisions only), and a text box for a new note."""
     items = []
     for note in notes:
         author = esc(note.author or "Management")
+        nid = esc(note.note_id)
         edited = f" · revision {note.revision}" if note.revision > 1 else ""
+        earlier = [row for row in (history or {}).get(note.note_id, ()) if row.get("revision") != note.revision]
         items.append(
-            f'<li class="mi-note" data-note-id="{esc(note.note_id)}" data-revision="{note.revision}" data-source-type="manager_interpretation">'
+            f'<li class="mi-note" data-note-id="{nid}" data-revision="{note.revision}" data-source-type="manager_interpretation">'
             f'<p class="mi-body">{_multiline(note.body)}</p>'
-            f'<p class="mi-meta">{author} · <time datetime="{esc(note.updated_at)}">{esc(note.updated_at)}</time>{edited}</p></li>')
+            f'<p class="mi-meta">{author} · <time datetime="{esc(note.updated_at)}">{esc(note.updated_at)}</time>{edited}</p>'
+            f'<form class="mi-edit" method="post" action="{PREFIX}/notes/{nid}" data-method="PUT" data-csrf="{esc(csrf_token)}" data-json="true">'
+            f'<input type="hidden" name="expected_revision" value="{note.revision}" data-type="integer">'
+            f'<label for="mi-edit-{nid}">Edit interpretation</label>'
+            f'<textarea id="mi-edit-{nid}" name="body" maxlength="{MAX_NOTE}" rows="3" required>{esc(note.body)}</textarea>'
+            f'<button type="submit">Save changes</button></form>'
+            f"{_revisions(earlier)}</li>")
     listing = f'<ul class="mi-notes">{"".join(items)}</ul>' if items else '<p class="mi-empty">No manager interpretation yet.</p>'
     action = f"{PREFIX}/results/{esc(result_id)}/notes"
     return (f'<section class="manager-interpretation" data-source-type="manager_interpretation" data-result-id="{esc(result_id)}" '
