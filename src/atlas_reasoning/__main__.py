@@ -7,6 +7,7 @@
     python -m atlas_reasoning run <run_id>            one run and its Change Gate decisions
     python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
     python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
+    python -m atlas_reasoning lifecycle <result_id>   lifecycle status, transition history and policy of one result
     python -m atlas_reasoning reason <run_id>         reason about every pending work item through OpenRouter (needs
                                                       ATLAS_REASONING_V3=on and the OpenRouter key)
     python -m atlas_reasoning provider-health [--dry-run] [--record]
@@ -112,6 +113,23 @@ def cmd_gate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_lifecycle(args: argparse.Namespace) -> int:
+    from atlas_reasoning.lifecycle import policy_from_env
+
+    store = _store()
+    with store.transaction() as tx:
+        result = tx.get_result(args.result_id)
+        versions = [{key: row[key] for key in ("version", "change_kind", "lifecycle_status", "run_id", "reason", "created_at")}
+                    for row in tx.result_history(args.result_id)]
+        transitions = tx.lifecycle_transitions(result_id=args.result_id)
+    _print({"result_id": result.result_id, "case_id": result.case_id, "lifecycle_status": result.lifecycle_status.value,
+            "superseded_by": result.to_dict()["superseded_by"], "policy": policy_from_env().to_dict(), "versions": versions,
+            "transitions": [{key: row[key] for key in ("result_version", "from_status", "to_status", "reason_code", "reason_detail", "run_id",
+                                                       "work_item_id", "superseded_by_case_id", "superseded_by_result_id", "created_at")}
+                            for row in transitions]})
+    return 0
+
+
 def cmd_reason(args: argparse.Namespace) -> int:
     from atlas_reasoning.engine import ReasoningEngine
     from atlas_reasoning.gateway import ReasoningGateway
@@ -183,6 +201,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "run": (cmd_run, "show one run and its gate decisions"),
     "inspect": (cmd_inspect, "show the cases of a built site without a database"),
     "gate": (cmd_gate, "run the Change Gate on a built site"),
+    "lifecycle": (cmd_lifecycle, "show the lifecycle history of one result"),
     "reason": (cmd_reason, "reason about the pending work items of a run"),
     "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
 }
@@ -195,7 +214,7 @@ def parser() -> argparse.ArgumentParser:
         command = sub.add_parser(name, help=help_text)
         if name == "case":
             command.add_argument("case_id")
-        elif name == "result":
+        elif name in ("result", "lifecycle"):
             command.add_argument("result_id")
         elif name in ("run", "reason"):
             command.add_argument("run_id")

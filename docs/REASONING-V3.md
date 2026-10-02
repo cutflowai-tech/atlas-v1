@@ -59,6 +59,7 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `engine` | 07–09 | Work-item processing: claim, gateway call, validated persistence, failure isolation |
 | `updater`, `prompts/update-v1.md` | 08 | Update reasoning: update input, required changes, patch output schema, ReasoningUpdate construction and validation |
 | `patch` | 08 | Deterministic patch merge and version diffs |
+| `lifecycle` | 09 | Lifecycle policy, transition table, sweep, supersession, transition history |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -531,3 +532,51 @@ Every check runs inside the gateway call, so an invalid patch is retried within 
 before persisting. Tests: `tests/test_reasoning_update.py` (field isolation, immutable and unknown paths, accounting, required
 changes, no-op byte preservation, version history and diffs, rollback, concurrent writer, and the stability property: same evidence
 → no reasoning, changed evidence → patch of the same result, new topic → new result, never two results for one case).
+
+## 12. Phase 09: the result lifecycle
+
+Python alone moves a result through `new`, `active`, `updated`, `cooling`, `resolved`, `superseded` (`atlas_reasoning.lifecycle`);
+neither model output schema contains a lifecycle status or a supersession link.
+
+| From → to | Reason code | Trigger |
+|---|---|---|
+| — → new | `created` | analyst result stored (version 1) |
+| new → active | `observed_again` | case present in a later run than the one that created the result |
+| new / active → updated | `patch_accepted` | accepted update patch (the patched version carries `updated`) |
+| updated → active | `update_settled` | case present in a later run than the one that patched it |
+| new / active / updated → cooling | `not_in_snapshot` | case disappeared (never deleted, never resolved at once) |
+| cooling → active | `reappeared` | case present again: same `case_id`, same `result_id` |
+| cooling → resolved | `absent_for_configured_runs` | absent for `cooling_runs_to_resolve` consecutive runs (default 3) |
+| new / active / updated / cooling → resolved | `direct_fact_no_longer_true` | only approved direct-fact case types (default `open_work_risk`, `data_quality`) whose observed signal is no longer reported |
+| resolved → active | `reappeared_after_resolution` | resolved case present again: its card is reopened; with changed evidence the gate's `new_result` item becomes a patch of that card |
+| new / active / updated / cooling → superseded | `superseded` | `lifecycle.supersede(result, by_result_id=…)`: explicit, deterministic; the version and the transition name the replacing case and result; final |
+
+A no-change review and a patch of an `updated` card keep the status. Anything outside the table raises `InvalidTransition`, and the
+database enforces the same table (`0101_result_lifecycle.sql` CHECK, kept equal by a test).
+
+- **When.** `ReasoningEngine.process_run(run_id)` first sweeps the run (`lifecycle.sweep`: one transaction per case, idempotent,
+  closes the gate's `lifecycle` work items), then processes LLM work. Every status change is a result version (`change_kind =
+  lifecycle`, content unchanged, diff recorded) or the patched version itself.
+- **History.** `reasoning_lifecycle_transitions` (migration `0101`): from, to, reason code, detail (absent runs, gate reason, policy
+  values), run, work item, policy version, the result version carrying the status, supersession link; append-only.
+- **Policy.** `LifecyclePolicy` / `policy_from_env`: `ATLAS_REASONING_COOLING_RUNS` (2–100, default 3; a disappeared case always cools
+  first), `ATLAS_REASONING_DIRECT_FACT_CASE_TYPES` (case types or `none`; default `open_work_risk,data_quality`).
+- **Debug.** `python -m atlas_reasoning lifecycle <result_id>`: status, supersession link, policy, versions and transitions.
+
+Tests: `tests/test_reasoning_lifecycle.py` (exhaustive transition table, DB CHECK equality, decisions, policy configuration, new →
+active, cooling, persistence and resolution, reappearance from cooling and from resolution, direct-fact resolution, settling,
+supersession, idempotent sweep, debug command).
+
+## 13. Interfaces added by Phases 07–09
+
+| Interface | Module | Use |
+|---|---|---|
+| `ReasoningEngine` (`process_run`, `process_work`, `pending_work`), `EngineReport`, `WorkOutcome` | `engine` | Run reasoning for gated work |
+| `analyst_input`, `analyst_request`, `analyst_output_schema`, `result_from_response`, `ANALYST_PROMPT_VERSION`, `CaseTooLarge` | `analyst` | New-case reasoning |
+| `update_input`, `required_changes`, `update_request`, `update_output_schema`, `apply_response`, `UPDATE_PROMPT_VERSION` | `updater` | Update reasoning |
+| `merge`, `diff`, `VersionProvenance` | `patch` | Deterministic merge and diffs |
+| `TRANSITIONS`, `check_transition`, `decide`, `sweep`, `supersede`, `LifecyclePolicy`, `policy_from_env`, `InvalidTransition` | `lifecycle` | Lifecycle |
+| `unsupported_number_errors`, `case_numbers` | `output_checks` | Number guard (Phase 15 may extend) |
+| `StoreTransaction.append_version_with_diff`, `record_result_diff`, `result_diffs`, `record_lifecycle_transition`, `lifecycle_transitions`, `latest_result`, `version_run_id` | `store.repository` | Additive store methods |
+
+Migrations (Chat 2 range): `0100_result_diffs.sql`, `0101_result_lifecycle.sql`.

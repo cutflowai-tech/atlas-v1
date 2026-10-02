@@ -24,11 +24,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from atlas_reasoning import analyst, updater
+from atlas_reasoning import analyst, lifecycle, updater
 from atlas_reasoning.change_gate import case_for_work
 from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, new_result_id
 from atlas_reasoning.delta import material_delta
-from atlas_reasoning.enums import ResultChangeKind, UpdateAction, WorkKind, WorkStatus
+from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, UpdateAction, WorkKind, WorkStatus
 from atlas_reasoning.gateway import CallOutcome, ReasoningGateway
 from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.store.db import DatabaseError
@@ -104,14 +104,17 @@ def error_code(error: BaseException) -> str:
 
 class ReasoningEngine:
     def __init__(self, store: ReasoningStore, gateway: ReasoningGateway, *, clock: Callable[[], str] = utc_now,
-                 result_ids: Callable[[], str] = new_result_id) -> None:
+                 result_ids: Callable[[], str] = new_result_id, policy: lifecycle.LifecyclePolicy | None = None) -> None:
         self.store, self.gateway, self.clock, self.result_ids = store, gateway, clock, result_ids
+        self.policy = policy or lifecycle.policy_from_env()
 
     # --- public ---------------------------------------------------------------------------------------------------------------
 
     def process_run(self, run_id: str) -> EngineReport:
-        """Every pending LLM work item (of any run: older pending items are never skipped)."""
-        return EngineReport(run_id, tuple(self.process_work(self.pending_work())))
+        """First the deterministic lifecycle of every case the gate observed in ``run_id`` (Phase 09: reactivation, cooling,
+        resolution), then every pending LLM work item (of any run: older pending items are never skipped)."""
+        changes = lifecycle.sweep(self.store, run_id, policy=self.policy, clock=self.clock)
+        return EngineReport(run_id, tuple(self.process_work(self.pending_work())), tuple(changes))
 
     def pending_work(self) -> list[WorkItemRow]:
         items = self.store.work_items(open_only=True)
@@ -146,13 +149,19 @@ class ReasoningEngine:
         try:
             with self.store.transaction() as tx:
                 current = tx.open_result(item.case_id)
-                if current is None:
-                    if item.kind == WorkKind.UPDATE_RESULT:
-                        raise WorkError("NO_OPEN_RESULT", f"case {item.case_id} has no open result to update")
-                    case = case_for_work(tx, item)
-                    return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
+                if current is not None:
+                    previous = tx.get_result(current.result_id)
+                else:
+                    latest = tx.latest_result(item.case_id)
+                    if latest is None or latest.lifecycle_status != LifecycleStatus.RESOLVED:
+                        if item.kind == WorkKind.UPDATE_RESULT:
+                            raise WorkError("NO_OPEN_RESULT", f"case {item.case_id} has no open result to update")
+                        case = case_for_work(tx, item)
+                        return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
+                    # A resolved case observed again returns to its own card (normally already done by the lifecycle sweep).
+                    previous, _ = lifecycle.apply(tx, latest, LifecycleStatus.ACTIVE, lifecycle.REAPPEARED_AFTER_RESOLUTION, policy=self.policy,
+                                                  now=self.clock(), run_id=item.run_id, work_item_id=item.work_item_id, detail={"via": "work_item"})
                 # The case already has a result: it is updated, never regenerated (also for a new_result item).
-                previous = tx.get_result(current.result_id)
                 update_case = self._update_case(tx, item, previous)
                 if update_case is None:
                     tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="evidence equals the open result's evidence")
@@ -198,33 +207,28 @@ class ReasoningEngine:
                                               now=self.clock())
         with self.store.transaction() as tx:
             tx.create_result(result, run_id=item.run_id, work_item_id=item.work_item_id)
+            lifecycle.record_creation(tx, result, policy=self.policy, run_id=item.run_id, work_item_id=item.work_item_id)
             tx.set_work_item_status(item.work_item_id, WorkStatus.DONE)
         LOG.info("result created work_item_id=%s case_id=%s result_id=%s", item.work_item_id, item.case_id, result.result_id)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, result.result_id, 1, ResultChangeKind.CREATED.value)
 
-    def update_lifecycle(self, previous: ReasoningResult, action: UpdateAction) -> str:
-        """The lifecycle status of the next version (Phase 08: unchanged)."""
-        return previous.lifecycle_status.value
-
     def _persist_update(self, ready: _Claimed, previous: ReasoningResult, response: ProviderResponse) -> WorkOutcome:
         item = ready.item
-        action = UpdateAction(response.parsed["action"]) if isinstance(response.parsed, dict) and response.parsed.get("action") in tuple(UpdateAction) \
-            else UpdateAction.PATCH
+        patching = isinstance(response.parsed, dict) and response.parsed.get("action") == UpdateAction.PATCH
+        # Python decides the lifecycle: an accepted patch marks an open card updated; a no-change review keeps its status.
+        status = lifecycle.after_patch(previous.lifecycle_status) if patching else previous.lifecycle_status
         applied = updater.apply_response(previous, ready.case, response, provider=self.gateway.transport.provider_name, now=self.clock(),
-                                         lifecycle_status=self.update_lifecycle(previous, action))
+                                         lifecycle_status=status.value)
         kind = ResultChangeKind.PATCHED if applied.is_patch else ResultChangeKind.NO_CHANGE_REVIEW
         reason = f"patch: {', '.join(applied.update.changed_names)}" if applied.is_patch else "no_change_review"
         with self.store.transaction() as tx:
             tx.append_version_with_diff(applied.result, previous=previous, change_kind=kind, update=applied.update, run_id=item.run_id,
                                         work_item_id=item.work_item_id, reason=reason)
-            self.after_update(tx, item, previous, applied.result, kind)
+            lifecycle.record_patch(tx, previous, applied.result, policy=self.policy, run_id=item.run_id, work_item_id=item.work_item_id)
             tx.set_work_item_status(item.work_item_id, WorkStatus.DONE)
         LOG.info("result %s work_item_id=%s case_id=%s result_id=%s version=%s", kind.value, item.work_item_id, item.case_id, previous.result_id,
                  applied.result.version)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, applied.result.version, kind.value)
-
-    def after_update(self, tx: StoreTransaction, item: WorkItemRow, previous: ReasoningResult, new: ReasoningResult, kind: ResultChangeKind) -> None:
-        """Hook inside the update transaction (Phase 09 records the lifecycle transition)."""
 
     def _fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         code = error_code(error)

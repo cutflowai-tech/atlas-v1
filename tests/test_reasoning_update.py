@@ -21,7 +21,7 @@ from reasoning_engine_support import (
 )
 from reasoning_fakes import analyst_answer, request_input, update_answer
 
-from atlas_reasoning import analyst, patch, updater
+from atlas_reasoning import analyst, lifecycle, patch, updater
 from atlas_reasoning.change_gate import run_gate
 from atlas_reasoning.contracts import IMMUTABLE_RESULT_FIELDS, PATCHABLE_FIELDS, ContractViolation, ReasoningUpdate
 from atlas_reasoning.enums import ResultChangeKind, WorkKind, WorkStatus
@@ -200,15 +200,20 @@ class UpdateEngineTests(unittest.TestCase):
         self.v1 = self.store.get_result(self.result_id).to_dict()
 
     def _change(self):
+        """Gate a changed snapshot and apply its lifecycle (the card, created in an earlier run, becomes active: ``self.base``)."""
         report = run_gate(payload_with(changed_rows(), "snapshot-2"), self.store, now=self.t[1])
         decision = next(d for d in report.decisions if d.case_id == self.case_id)
         self.assertEqual(decision.work_kind, WorkKind.UPDATE_RESULT)
+        lifecycle.sweep(self.store, report.run_id, policy=self.engine.policy, clock=self.engine.clock)
+        self.base = self.store.get_result(self.result_id).to_dict()
+        self.assertEqual((self.base["version"], self.base["lifecycle_status"]), (2, "active"))
+        self.assertEqual({n: self.base[n] for n in PATCHABLE_FIELDS}, {n: self.v1[n] for n in PATCHABLE_FIELDS})
         return report
 
     def test_changed_evidence_patches_the_same_result_as_a_new_version(self):
         report = self._change()
         outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
-        self.assertEqual((outcome.status, outcome.result_id, outcome.version, outcome.change_kind), ("done", self.result_id, 2, "patched"))
+        self.assertEqual((outcome.status, outcome.result_id, outcome.version, outcome.change_kind), ("done", self.result_id, 3, "patched"))
         self.assertEqual(self.transport.purposes().count("update"), 1)
         with self.store.transaction() as tx:
             history = tx.result_history(self.result_id)
@@ -216,34 +221,38 @@ class UpdateEngineTests(unittest.TestCase):
             v1_row = tx._one("SELECT document::text AS text FROM reasoning_result_versions WHERE result_id = %s AND version = 1", (self.result_id,))
             self.assertIsNotNone(tx.open_result(self.case_id))
             self.assertEqual(tx._one("SELECT count(*) AS n FROM reasoning_results WHERE case_id = %s", (self.case_id,))["n"], 1)
-        self.assertEqual([(h["version"], h["change_kind"], h["prompt_version"]) for h in history], [(1, "created", "analyst-v1"), (2, "patched", "update-v1")])
+        self.assertEqual([(h["version"], h["change_kind"], h["prompt_version"]) for h in history],
+                         [(1, "created", "analyst-v1"), (2, "lifecycle", "analyst-v1"), (3, "patched", "update-v1")])
         self.assertEqual(v1_row, self.v1_row, "version 1 is never rewritten")
-        v2 = history[1]["document"]
-        update = ReasoningUpdate.from_dict(history[1]["update_document"])
+        v2 = history[2]["document"]
+        self.assertEqual(v2["lifecycle_status"], "updated")
+        update = ReasoningUpdate.from_dict(history[2]["update_document"])
+        self.assertEqual(update.base_version, 2)
         for name in PATCHABLE_FIELDS:
             if name not in update.changed_names:
                 self.assertEqual(canonical(v2[name]), canonical(self.v1[name]), name)
-        self.assertEqual(len(diffs), 1)
-        self.assertEqual((diffs[0]["from_version"], diffs[0]["to_version"], diffs[0]["change_kind"], diffs[0]["changed_fields"]),
-                         (1, 2, "patched", list(update.changed_names)))
+        self.assertEqual([(d["from_version"], d["to_version"], d["change_kind"], d["changed_fields"]) for d in diffs],
+                         [(1, 2, "lifecycle", []), (2, 3, "patched", list(update.changed_names))])
         for name in update.changed_names:
-            self.assertEqual(diffs[0]["field_diffs"][name], {"before": self.v1[name], "after": v2[name]})
-        self.assertEqual(diffs[0]["provenance_diffs"]["evidence_fingerprint"]["after"], v2["evidence_fingerprint"])
+            self.assertEqual(diffs[1]["field_diffs"][name], {"before": self.v1[name], "after": v2[name]})
+        self.assertEqual(diffs[1]["provenance_diffs"]["evidence_fingerprint"]["after"], v2["evidence_fingerprint"])
+        self.assertEqual(diffs[1]["provenance_diffs"]["lifecycle_status"], {"before": "active", "after": "updated"})
         self.assertEqual(self.store.get_result(self.result_id, 1).to_dict(), self.v1)
 
     def test_no_change_review_keeps_the_card_and_records_the_review(self):
         report = self._change()
         self.transport.script(self.case_id, lambda payload: update_answer(payload, change={}, rationale="The direction and size are unchanged."))
         outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
-        self.assertEqual((outcome.version, outcome.change_kind), (2, "no_change_review"))
-        v2 = self.store.get_result(self.result_id).to_dict()
-        self.assertEqual(canonical({n: v2[n] for n in PATCHABLE_FIELDS}), canonical({n: self.v1[n] for n in PATCHABLE_FIELDS}))
-        self.assertEqual(v2["lifecycle_status"], self.v1["lifecycle_status"])
-        diff = self.store.result_diffs(self.result_id)[0]
+        self.assertEqual((outcome.version, outcome.change_kind), (3, "no_change_review"))
+        v3 = self.store.get_result(self.result_id).to_dict()
+        self.assertEqual(canonical({n: v3[n] for n in PATCHABLE_FIELDS}), canonical({n: self.base[n] for n in PATCHABLE_FIELDS}))
+        self.assertEqual(v3["lifecycle_status"], self.base["lifecycle_status"])
+        diff = self.store.result_diffs(self.result_id)[-1]
         self.assertEqual((diff["change_kind"], diff["changed_fields"], diff["field_diffs"]), ("no_change_review", [], {}))
         history = self.store.result_history(self.result_id)
-        self.assertEqual(history[1]["update_document"]["action"], "no_change")
-        self.assertEqual(history[1]["update_document"]["change_rationale"], "The direction and size are unchanged.")
+        self.assertEqual(history[-1]["update_document"]["action"], "no_change")
+        self.assertEqual(history[-1]["update_document"]["change_rationale"], "The direction and size are unchanged.")
+        self.assertEqual(self.store.lifecycle_transitions(result_id=self.result_id)[-1]["result_version"], 2, "a review is no transition")
 
     def test_failed_patch_rolls_back_completely(self):
         report = self._change()
@@ -251,13 +260,14 @@ class UpdateEngineTests(unittest.TestCase):
             outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
         self.assertEqual((outcome.status, outcome.error), ("failed", "internal:RuntimeError"))
         with self.store.transaction() as tx:
-            self.assertEqual(tx.open_result(self.case_id).version, 1)
-            self.assertEqual([h["version"] for h in tx.result_history(self.result_id)], [1])
-            self.assertEqual(tx.result_diffs(self.result_id), [])
-            self.assertEqual(tx._one("SELECT count(*) AS n FROM reasoning_evidence_links WHERE result_id = %s AND version = 2", (self.result_id,))["n"], 0)
+            self.assertEqual(tx.open_result(self.case_id).version, 2)
+            self.assertEqual([h["version"] for h in tx.result_history(self.result_id)], [1, 2])
+            self.assertEqual([d["to_version"] for d in tx.result_diffs(self.result_id)], [2])
+            self.assertEqual(tx._one("SELECT count(*) AS n FROM reasoning_evidence_links WHERE result_id = %s AND version = 3", (self.result_id,))["n"], 0)
+            self.assertEqual(len(tx.lifecycle_transitions(result_id=self.result_id)), 2)
             item = tx.work_items(case_id=self.case_id, run_id=report.run_id)[0]
         self.assertEqual((item.status, item.kind), (WorkStatus.FAILED, WorkKind.UPDATE_RESULT))
-        self.assertEqual(self.store.get_result(self.result_id).to_dict(), self.v1)
+        self.assertEqual(self.store.get_result(self.result_id).to_dict(), self.base)
 
     def test_an_invalid_patch_from_the_model_changes_nothing(self):
         report = self._change()
@@ -270,7 +280,7 @@ class UpdateEngineTests(unittest.TestCase):
         self.transport.script(self.case_id, rewrite_identity, rewrite_identity)
         outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
         self.assertEqual((outcome.status, outcome.error), ("failed", "provider:invalid_structured_output"))
-        self.assertEqual(self.store.get_result(self.result_id).to_dict(), self.v1)
+        self.assertEqual(self.store.get_result(self.result_id).to_dict(), self.base)
 
     def test_a_concurrent_writer_wins_and_the_stale_patch_is_dropped(self):
         report = self._change()
@@ -285,7 +295,7 @@ class UpdateEngineTests(unittest.TestCase):
         with mock.patch.object(updater, "apply_response", side_effect=racing):
             outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
         self.assertEqual((outcome.status, outcome.error), ("failed", "store:VersionConflict"))
-        self.assertEqual([h["version"] for h in self.store.result_history(self.result_id)], [1, 2])
+        self.assertEqual([h["version"] for h in self.store.result_history(self.result_id)], [1, 2, 3])
 
 
 @requires_db
@@ -310,12 +320,12 @@ class StabilityTests(unittest.TestCase):
             self.assertEqual(report.llm_work_item_ids, ())
             self.assertEqual(reasoning.process_run(report.run_id).outcomes, ())
         self.assertEqual(len(transport.requests), calls)
-        self.assertEqual(self._open_results(store), results)
+        self.assertEqual(self._open_results(store), results, "same cards, same content (only their lifecycle settled)")
 
         # Changed evidence: the existing result is patched (same result_id, version 2).
         changed = run_gate(payload_with(changed_rows(), "snapshot-changed"), store, now=t[3])
         outcomes = reasoning.process_run(changed.run_id).outcomes
-        self.assertEqual([(o.change_kind, o.version) for o in outcomes], [("patched", 2)])
+        self.assertEqual([o.change_kind for o in outcomes], ["patched"])
         target = outcomes[0].case_id
         after = self._open_results(store)
         self.assertEqual(after[target][0], results[target][0])
@@ -342,9 +352,11 @@ class StabilityTests(unittest.TestCase):
 
     @staticmethod
     def _open_results(store) -> dict:
+        """case_id -> (result_id, the card's visible content)."""
         with store.transaction() as tx:
-            rows = tx._all("SELECT case_id, result_id, current_version FROM reasoning_results")
-        return {row["case_id"]: (row["result_id"], row["current_version"]) for row in rows}
+            rows = tx._all("SELECT case_id, result_id FROM reasoning_results")
+            documents = {row["result_id"]: tx.get_result(row["result_id"]).to_dict() for row in rows}
+        return {row["case_id"]: (row["result_id"], canonical({n: documents[row["result_id"]][n] for n in PATCHABLE_FIELDS})) for row in rows}
 
 
 if __name__ == "__main__":

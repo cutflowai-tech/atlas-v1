@@ -521,6 +521,40 @@ class StoreTransaction:
     def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
         return self._all("SELECT * FROM reasoning_result_diffs WHERE result_id = %s ORDER BY to_version", (result_id,))
 
+    # --- lifecycle (Phase 09) ----------------------------------------------------------------------------------------------
+
+    def record_lifecycle_transition(self, *, transition_id: str, result_id: str, case_id: str, result_version: int, from_status: str | None,
+                                    to_status: str, reason_code: str, reason_detail: Mapping[str, Any], policy_version: str, created_at: str,
+                                    run_id: str | None = None, work_item_id: str | None = None,
+                                    superseded_by: Mapping[str, str] | None = None) -> None:
+        """Append one transition to ``reasoning_lifecycle_transitions`` (the database re-checks the transition table)."""
+        version = self._one("SELECT lifecycle_status FROM reasoning_result_versions WHERE result_id = %s AND version = %s", (result_id, result_version))
+        if version is None or version["lifecycle_status"] != to_status:
+            raise ContractViolation("ReasoningResult", [f"LIFECYCLE_MISMATCH: version {result_version} of {result_id} does not carry status {to_status}"])
+        self._exec("""INSERT INTO reasoning_lifecycle_transitions (transition_id, result_id, case_id, result_version, from_status, to_status,
+                                                                          reason_code, reason_detail, policy_version, run_id, work_item_id,
+                                                                          superseded_by_case_id, superseded_by_result_id, created_at)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)""",
+                          (transition_id, result_id, case_id, result_version, from_status, to_status, reason_code, _json(reason_detail), policy_version,
+                           run_id, work_item_id, (superseded_by or {}).get("case_id"), (superseded_by or {}).get("result_id"), created_at))
+
+    def lifecycle_transitions(self, *, result_id: str | None = None, case_id: str | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
+        column, value = ("result_id", result_id) if result_id is not None else ("case_id", case_id) if case_id is not None else ("run_id", run_id)
+        return self._all(f"SELECT * FROM reasoning_lifecycle_transitions WHERE {column} = %s ORDER BY created_at, result_version, transition_id", (value,))
+
+    def latest_result(self, case_id: str) -> ReasoningResult | None:
+        """The case's most recent result that is not superseded (open or resolved): the card a reappearing case returns to."""
+        row = self._one("""SELECT result_id FROM reasoning_results WHERE case_id = %s AND lifecycle_status <> 'superseded'
+                           ORDER BY created_at DESC, result_id DESC LIMIT 1""", (case_id,))
+        return self.get_result(row["result_id"]) if row else None
+
+    def version_run_id(self, result_id: str, version: int) -> str | None:
+        row = self._one("SELECT run_id FROM reasoning_result_versions WHERE result_id = %s AND version = %s", (result_id, version))
+        if row is None:
+            raise NotFound(f"result {result_id} has no version {version}")
+        run_id: str | None = row["run_id"]
+        return run_id
+
     def get_result(self, result_id: str, version: int | None = None) -> ReasoningResult:
         if version is None:
             row = self._one("""SELECT v.document FROM reasoning_results r JOIN reasoning_result_versions v
@@ -600,6 +634,10 @@ class ReasoningStore:
     def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
         with self.transaction() as tx:
             return tx.result_diffs(result_id)
+
+    def lifecycle_transitions(self, *, result_id: str | None = None, case_id: str | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
+        with self.transaction() as tx:
+            return tx.lifecycle_transitions(result_id=result_id, case_id=case_id, run_id=run_id)
 
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         with self.transaction() as tx:
