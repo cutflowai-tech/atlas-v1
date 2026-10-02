@@ -54,6 +54,12 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `fake_provider` | 06 | Scripted offline transport for tests |
 | `structured` | 06 | Structured-output descriptions from the reasoning-v1 schemas |
 | `store.calls` | 06 | Persists call metadata to `llm_calls` |
+| `analyst`, `prompts/analyst-v1.md` | 07 | New-case reasoning: bounded canonical case input, versioned prompt, analyst output schema, result assembly |
+| `output_checks` | 07 | Deterministic checks of model text against its case (no invented numbers) |
+| `engine` | 07–09 | Work-item processing: claim, gateway call, validated persistence, failure isolation |
+| `updater`, `prompts/update-v1.md` | 08 | Update reasoning: update input, required changes, patch output schema, ReasoningUpdate construction and validation |
+| `patch` | 08 | Deterministic patch merge and version diffs |
+| `lifecycle` | 09 | Lifecycle policy, transition table, sweep, supersession, transition history |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -489,3 +495,90 @@ error codes and classes); the internal shape of `canonical_evidence` beyond "has
 Rules for both: never write to upstream Atlas; read Atlas only through `reasoning_input_boundary`; never let an LLM set
 `case_id`, a fingerprint, a gate decision or a lifecycle status; persist to PostgreSQL before any memory sync; keep
 `ATLAS_REASONING_V3` off-by-default behaviour byte-identical (`tests/test_reasoning_boundary.py`).
+
+## 10. Phase 07: the analyst reasoning engine (new cases)
+
+One bounded `ReasoningCase` (a `new_result` work item, `change_gate.case_for_work`) becomes one `ReasoningResult` version 1.
+
+| Concern | Behaviour |
+|---|---|
+| Prompt | `src/atlas_reasoning/prompts/analyst-v1.md`, `analyst.ANALYST_PROMPT_VERSION = "analyst-v1"`; a test pins its SHA-256, so the text cannot change without a new version. Rules: use only the case; no invented numbers, people, projects, events or metrics; cite `ref_id`s; keep observation / supporting / counter-evidence / interpretation / alternatives (hypotheses needing context: `requires_context`) / limitations apart; handle counter-evidence; confidence never above the upstream ceiling; ask management when context is missing; no HR, personality, health, salary, termination or unsupported blame judgements; `reasoning_summary` is an explicit summary, never hidden reasoning |
+| Input | `analyst.analyst_input(case)`: identity (no `case_id`), scope, orientation, findings, typed statements, evidence blocks, citable references, manager and memory context, evidence provenance. Canonical order and compact key-sorted JSON; volatile values (V2 finding IDs and ranks, snapshot ID, case creation time, event IDs) are left out, so equivalent cases give byte-identical prompts. Larger than `MAX_INPUT_CHARS` (400 000, about 100k tokens; the largest showcase case is about 152 000) → `CaseTooLarge`, never truncated |
+| Output | The model returns only the analyst fields (`PATCHABLE_FIELDS`), strict structured output (`analyst.analyst_output_schema()`, taken from `reasoning-result-v1`; the copy sent to the provider drops keywords outside OpenAI's strict subset (`minLength`, `maxLength`, `uniqueItems`, `format`) and types every enum (`analyst.provider_schema`) — the local validation still enforces the full contract). Output budget 16 000 tokens (`MAX_OUTPUT_TOKENS`, reasoning tokens included), effort `medium`. Python adds `result_id`, `case_id`, version 1, lifecycle `new`, snapshot, fingerprint, `model_metadata` (provider, answering model, request ID), `prompt_version`, timestamps. Any other field (an ID, a lifecycle, `chain_of_thought`, …) is `UNKNOWN_FIELD` |
+| Validation | Inside the gateway call (so failures are retried within its bounds and recorded): field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value — including the parts of case dates and, for an update, the delta's before-values — optionally as a percentage, at the precision written; numbers inside identifiers are not numbers). Known limits, left to Phase 15: numbers written as words, and any case value × 100 counts as a percentage. Re-validated before persisting |
+| Model | The answering model must be exactly the configured one (pinned `openai/gpt-5.6-sol`); anything else fails the item (`work:MODEL_SUBSTITUTED`). To verify on the first live call (Phase 20): that OpenRouter reports the slug unchanged |
+| Persistence | `engine.ReasoningEngine`: claim (`pending → in_progress`), one gateway call per item via `call_many`, then `create_result` + evidence links + `done` in one transaction. Any failure rolls back and marks only that item `failed` (`provider:<class>`, `contract:<codes>`, `work:<code>`, `store:<error>`). A claimed item is never left in progress: an interrupted batch fails what it did not finish (`work:INTERRUPTED`), and `process_run` first fails claims abandoned for over an hour (`work:STALE_CLAIM`, e.g. a killed worker) so their cases are not blocked; re-reasoning them is the resume phase's (18, `unreasoned_cases`) |
+
+Command: `python -m atlas_reasoning reason <run_id>` (needs `ATLAS_REASONING_V3=on`, the OpenRouter key and the database) processes
+every pending work item and prints the engine report. Tests: `tests/test_reasoning_analyst.py` (fake transport `tests/reasoning_fakes.py`).
+
+## 11. Phase 08: update-only reasoning and the patch merge
+
+An existing result is patched, never regenerated. An `update_result` work item — or a `new_result` item for a case that has an open
+result by the time it is processed — becomes an update of the open result's **current** version.
+
+| Step | Behaviour |
+|---|---|
+| Input (`updater.update_input`) | Previous result's patchable fields and version; `fingerprints` before (the result's) and after (the work item's); the exact `material_delta` between the two stored evidence states (equal to the gate's delta); the current case evidence and context (same canonical view as the analyst); `fields_requiring_change` (below). No case or result ID |
+| Required changes (`updater.required_changes`, deterministic) | A field must change when it cites a `ref_id` no longer in the case (`cites_evidence_no_longer_in_the_case`), quotes a number the current evidence no longer carries (`uses_numbers_no_longer_in_the_case`), exceeds the new confidence ceiling, or the case gained counter-evidence the card ignores |
+| Prompt | `prompts/update-v1.md`, `UPDATE_PROMPT_VERSION = "update-v1"`, separate from the analyst prompt, SHA-256 pinned. Change a field only when the evidence change makes it wrong, stale, unsupported or materially incomplete; never reword untouched fields; account for every field; explain the change |
+| Output (`updater.update_output_schema`) | `action` (patch / no_change), `change_rationale`, `changed_fields`, `preserved_fields`, `patch` (every patchable field, null unless changed). Nothing else: an identity, version, fingerprint or lifecycle cannot be expressed |
+| ReasoningUpdate | Python builds it (`build_update`): case, result, `base_version` and fingerprints are Python's; validated with `update_errors` (field accounting, `IMMUTABLE_FIELD`, `UNKNOWN_FIELD`, `ACTION_MISMATCH`, `INVALID_FIELD_VALUE`), `update_result_errors`, `update_case_errors`, plus `PATCH_VALUE_MISMATCH` (a value exactly for each changed field), `UNCHANGED_PATCH_VALUE` (a listed change must really change the field) and `REQUIRED_CHANGE_MISSING` |
+| Merge (`patch.merge`, Python) | Changed fields replaced as whole fields; every other patchable field copied from the previous version (byte-identical wording); `contract_version`, `result_id`, `case_id`, `created_at`, `superseded_by` copied; version + 1, fingerprint, snapshot, model metadata, prompt version and `updated_at` set by Python; lifecycle chosen by the lifecycle policy (Phase 09), never by the model. The merged version is validated like a new result (contract, case, numbers) |
+| No-op | `no_change` appends a `no_change_review` version: every patchable field identical, provenance advanced to the reviewed evidence (so later deltas start from it and the case is not reported as unreasoned); the previous version is never touched |
+| Persistence | `StoreTransaction.append_version_with_diff`: the version (optimistic concurrency on the version read), its evidence links, the `ReasoningUpdate`, the before/after diff (`reasoning_result_diffs`, migration `0100_result_diffs.sql`) and the work item's `done` — one transaction. Any failure (invalid patch, `VersionConflict`, store error) rolls back everything; the item is `failed` and the result stays at its previous version |
+
+Every check runs inside the gateway call, so an invalid patch is retried within the gateway's bounds; the merge is re-validated
+before persisting. Tests: `tests/test_reasoning_update.py` (field isolation, immutable and unknown paths, accounting, required
+changes, no-op byte preservation, version history and diffs, rollback, concurrent writer, and the stability property: same evidence
+→ no reasoning, changed evidence → patch of the same result, new topic → new result, never two results for one case).
+
+## 12. Phase 09: the result lifecycle
+
+Python alone moves a result through `new`, `active`, `updated`, `cooling`, `resolved`, `superseded` (`atlas_reasoning.lifecycle`);
+neither model output schema contains a lifecycle status or a supersession link.
+
+| From → to | Reason code | Trigger |
+|---|---|---|
+| — → new | `created` | analyst result stored (version 1) |
+| new → active | `observed_again` | case present in a later run than the one that created the result |
+| new / active → updated | `patch_accepted` | accepted update patch (the patched version carries `updated`) |
+| updated → active | `update_settled` | case present in a later run than the one that patched it |
+| new / active / updated → cooling | `not_in_snapshot` | case disappeared (never deleted, never resolved at once) |
+| cooling → active | `reappeared` | case present again: same `case_id`, same `result_id` |
+| cooling → resolved | `absent_for_configured_runs` | absent for `cooling_runs_to_resolve` consecutive runs (default 3) |
+| new / active / updated / cooling → resolved | `direct_fact_no_longer_true` | only case types an operator approved as direct facts (none by default; candidates `open_work_risk`, `data_quality`) whose observed signal is no longer reported |
+| resolved → active | `reappeared_after_resolution` | resolved case present again: its card is reopened; with changed evidence the gate's `new_result` item becomes a patch of that card |
+| new / active / updated / cooling → superseded | `superseded` | `lifecycle.supersede(result, by_result_id=…)`: explicit, deterministic; the version and the transition name the replacing case and result; final |
+
+A no-change review and a patch of an `updated` card keep the status. Anything outside the table raises `InvalidTransition`, and the
+database enforces the same table (`0101_result_lifecycle.sql` CHECK, kept equal by a test).
+
+- **When.** `ReasoningEngine.process_run(run_id)` first sweeps the run (`lifecycle.sweep`: one transaction per case, idempotent,
+  closes the gate's `lifecycle` work items), then processes LLM work. Every status change is a result version (`change_kind =
+  lifecycle`, content unchanged, diff recorded) or the patched version itself.
+- **History.** `reasoning_lifecycle_transitions` (migration `0101`): from, to, reason code, detail (absent runs, gate reason, policy
+  values), run, work item, policy version, the result version carrying the status, supersession link; append-only.
+- **Policy.** `LifecyclePolicy` / `policy_from_env`: `ATLAS_REASONING_COOLING_RUNS` (2–100, default 3),
+  `ATLAS_REASONING_DIRECT_FACT_CASE_TYPES` (case types or `none`; default none, so by default every disappeared case cools first).
+- **Ordering.** A run's observation is applied only while it is the case's latest (re-processing an older run never moves a card
+  backwards); a card never cools and resolves in the same run; stale work for a resolved case that is absent again leaves it resolved.
+- **Debug.** `python -m atlas_reasoning lifecycle <result_id>`: status, supersession link, policy, versions and transitions.
+
+Tests: `tests/test_reasoning_lifecycle.py` (exhaustive transition table, DB CHECK equality, decisions, policy configuration, new →
+active, cooling, persistence and resolution, reappearance from cooling and from resolution, direct-fact resolution, settling,
+supersession, idempotent sweep, debug command).
+
+## 13. Interfaces added by Phases 07–09
+
+| Interface | Module | Use |
+|---|---|---|
+| `ReasoningEngine` (`process_run`, `process_work`, `pending_work`), `EngineReport`, `WorkOutcome` | `engine` | Run reasoning for gated work |
+| `analyst_input`, `analyst_request`, `analyst_output_schema`, `result_from_response`, `ANALYST_PROMPT_VERSION`, `CaseTooLarge` | `analyst` | New-case reasoning |
+| `update_input`, `required_changes`, `update_request`, `update_output_schema`, `apply_response`, `UPDATE_PROMPT_VERSION` | `updater` | Update reasoning |
+| `merge`, `diff`, `VersionProvenance` | `patch` | Deterministic merge and diffs |
+| `TRANSITIONS`, `check_transition`, `decide`, `sweep`, `supersede`, `LifecyclePolicy`, `policy_from_env`, `InvalidTransition` | `lifecycle` | Lifecycle |
+| `unsupported_number_errors`, `case_numbers` | `output_checks` | Number guard (Phase 15 may extend) |
+| `StoreTransaction.append_version_with_diff`, `record_result_diff`, `result_diffs`, `record_lifecycle_transition`, `lifecycle_transitions`, `latest_result`, `version_run_id` | `store.repository` | Additive store methods |
+
+Migrations (Chat 2 range): `0100_result_diffs.sql`, `0101_result_lifecycle.sql`.

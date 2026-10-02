@@ -137,7 +137,7 @@ class MigrationTests(unittest.TestCase):
         for thread in threads:
             thread.join()
         self.assertEqual(errors, [])
-        self.assertEqual(sorted(len(r) for r in results), [0, 0, 0, 1])
+        self.assertEqual(sorted(len(r) for r in results), [0, 0, 0, len(available_migrations())])   # each file once, by one bootstrap
         self.assertTrue(database_health(self.db)["ok"])
 
     def test_status_constraints_mirror_the_enums(self):
@@ -550,7 +550,8 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(self._run("db-health").returncode, 1)
         migrated = self._run("migrate")
         self.assertEqual(migrated.returncode, 0, migrated.stderr)
-        self.assertEqual(json.loads(migrated.stdout)["applied"], ["0001_reasoning_core.sql"])
+        self.assertEqual(json.loads(migrated.stdout)["applied"], [m.name for m in available_migrations()])
+        self.assertEqual(json.loads(migrated.stdout)["applied"][:1], ["0001_reasoning_core.sql"])
         self.assertEqual(json.loads(self._run("migrate").stdout)["applied"], [])
         health = self._run("db-health")
         self.assertEqual(health.returncode, 0)

@@ -384,6 +384,12 @@ class StoreTransaction:
                                               AND w.status = ANY(%s))
                             ORDER BY c.case_id""", (list(OPEN_LIFECYCLE), list(OPEN_WORK)))
 
+    def stale_in_progress_work(self, older_than_seconds: float) -> list[WorkItemRow]:
+        """LLM work items in progress whose last status change is older than ``older_than_seconds`` (abandoned claims)."""
+        return [_work_row(row) for row in self._all("""SELECT * FROM reasoning_work_items WHERE status = 'in_progress' AND requires_llm
+                                                         AND updated_at < now() - make_interval(secs => %s) ORDER BY updated_at""",
+                                                      (older_than_seconds,))]
+
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         clauses: list[str] = []
         params: list[Any] = []
@@ -497,6 +503,64 @@ class StoreTransaction:
             raise VersionConflict(f"result {result.result_id} is no longer at version {expected_version}")
         self._insert_version(document, case_document, change_kind, update_document, run_id, work_item_id, reason)
 
+    def append_version_with_diff(self, result: ReasoningResult, *, previous: ReasoningResult, change_kind: ResultChangeKind,
+                                 update: ReasoningUpdate | None = None, run_id: str | None = None, work_item_id: str | None = None,
+                                 reason: str | None = None) -> dict[str, Any]:
+        """Append ``result`` on top of ``previous`` (``append_result_version``) and persist its before/after diff
+        (``reasoning_result_diffs``, Phase 08) in the same transaction. Returns the diff."""
+        self.append_result_version(result, expected_version=previous.version, change_kind=change_kind, update=update, run_id=run_id,
+                                   work_item_id=work_item_id, reason=reason)
+        return self.record_result_diff(previous.to_dict(), result.to_dict(), change_kind=change_kind, run_id=run_id, work_item_id=work_item_id)
+
+    def record_result_diff(self, previous: Mapping[str, Any], new: Mapping[str, Any], *, change_kind: ResultChangeKind, run_id: str | None,
+                           work_item_id: str | None) -> dict[str, Any]:
+        from atlas_reasoning.patch import diff
+
+        changes = diff(previous, new)
+        self._exec("""INSERT INTO reasoning_result_diffs (result_id, from_version, to_version, change_kind, changed_fields, field_diffs,
+                                                                 provenance_diffs, patch_version, run_id, work_item_id, created_at)
+                             VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s)""",
+                          (new["result_id"], previous["version"], new["version"], change_kind, changes["changed_fields"], _json(changes["fields"]),
+                           _json(changes["provenance"]), changes["patch_version"], run_id, work_item_id, new["updated_at"]))
+        return changes
+
+    def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
+        return self._all("SELECT * FROM reasoning_result_diffs WHERE result_id = %s ORDER BY to_version", (result_id,))
+
+    # --- lifecycle (Phase 09) ----------------------------------------------------------------------------------------------
+
+    def record_lifecycle_transition(self, *, transition_id: str, result_id: str, case_id: str, result_version: int, from_status: str | None,
+                                    to_status: str, reason_code: str, reason_detail: Mapping[str, Any], policy_version: str, created_at: str,
+                                    run_id: str | None = None, work_item_id: str | None = None,
+                                    superseded_by: Mapping[str, str] | None = None) -> None:
+        """Append one transition to ``reasoning_lifecycle_transitions`` (the database re-checks the transition table)."""
+        version = self._one("SELECT lifecycle_status FROM reasoning_result_versions WHERE result_id = %s AND version = %s", (result_id, result_version))
+        if version is None or version["lifecycle_status"] != to_status:
+            raise ContractViolation("ReasoningResult", [f"LIFECYCLE_MISMATCH: version {result_version} of {result_id} does not carry status {to_status}"])
+        self._exec("""INSERT INTO reasoning_lifecycle_transitions (transition_id, result_id, case_id, result_version, from_status, to_status,
+                                                                          reason_code, reason_detail, policy_version, run_id, work_item_id,
+                                                                          superseded_by_case_id, superseded_by_result_id, created_at)
+                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)""",
+                          (transition_id, result_id, case_id, result_version, from_status, to_status, reason_code, _json(reason_detail), policy_version,
+                           run_id, work_item_id, (superseded_by or {}).get("case_id"), (superseded_by or {}).get("result_id"), created_at))
+
+    def lifecycle_transitions(self, *, result_id: str | None = None, case_id: str | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
+        column, value = ("result_id", result_id) if result_id is not None else ("case_id", case_id) if case_id is not None else ("run_id", run_id)
+        return self._all(f"SELECT * FROM reasoning_lifecycle_transitions WHERE {column} = %s ORDER BY created_at, result_version, transition_id", (value,))
+
+    def latest_result(self, case_id: str) -> ReasoningResult | None:
+        """The case's most recent result that is not superseded (open or resolved): the card a reappearing case returns to."""
+        row = self._one("""SELECT result_id FROM reasoning_results WHERE case_id = %s AND lifecycle_status <> 'superseded'
+                           ORDER BY created_at DESC, result_id DESC LIMIT 1""", (case_id,))
+        return self.get_result(row["result_id"]) if row else None
+
+    def version_run_id(self, result_id: str, version: int) -> str | None:
+        row = self._one("SELECT run_id FROM reasoning_result_versions WHERE result_id = %s AND version = %s", (result_id, version))
+        if row is None:
+            raise NotFound(f"result {result_id} has no version {version}")
+        run_id: str | None = row["run_id"]
+        return run_id
+
     def get_result(self, result_id: str, version: int | None = None) -> ReasoningResult:
         if version is None:
             row = self._one("""SELECT v.document FROM reasoning_results r JOIN reasoning_result_versions v
@@ -572,6 +636,14 @@ class ReasoningStore:
     def observations(self, *, run_id: str | None = None, case_id: str | None = None) -> list[dict[str, Any]]:
         with self.transaction() as tx:
             return tx.observations(run_id=run_id, case_id=case_id)
+
+    def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
+        with self.transaction() as tx:
+            return tx.result_diffs(result_id)
+
+    def lifecycle_transitions(self, *, result_id: str | None = None, case_id: str | None = None, run_id: str | None = None) -> list[dict[str, Any]]:
+        with self.transaction() as tx:
+            return tx.lifecycle_transitions(result_id=result_id, case_id=case_id, run_id=run_id)
 
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         with self.transaction() as tx:
