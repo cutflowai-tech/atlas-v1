@@ -1,19 +1,28 @@
-"""The reasoning engine: turns Change Gate work items into persisted reasoning (``REV/07``–``REV/09``).
+"""The reasoning engine: turns Change Gate work items into persisted reasoning (``REV/07``–``REV/09``), with the human context of
+Phases 10–14 wired around every model call.
 
-    engine = ReasoningEngine(store, gateway)
+    engine = ReasoningEngine(store, gateway, context=HumanContext(store, backend_from_env()))
     report = engine.process_run(run_id)          # every pending LLM work item, each isolated from the others
 
-For each pending LLM work item:
+``process_run`` holds a session advisory lock (one engine at a time; a second one finds the lock taken and does nothing), fails
+abandoned claims, applies the deterministic lifecycle sweep, then runs every pending LLM work item through its own pipeline,
+``gateway.settings.concurrency`` items at a time:
 
-1. **claim** (own transaction): ``pending → in_progress``; the exact case comes from ``change_gate.case_for_work``;
-2. **reason**: one gateway call per item, all items concurrently through ``ReasoningGateway.call_many`` (bounded concurrency,
-   retries, ``llm_calls`` records); the model's answer is validated inside the call;
-3. **persist** (own transaction): the result is created (or, Phase 08, patched) together with the work item's ``done`` status —
-   all or nothing. Any failure rolls the transaction back, so the stored result is exactly what it was, and the item is marked
-   ``failed`` with a short error (``provider:<error class>``, ``contract:<codes>``, ``store:<error>``) in a separate transaction.
+1. **claim** (own transaction): ``pending → in_progress`` just before the item's call, so a claim is never older than one call; the
+   exact case comes from ``change_gate.case_for_work`` (with the previous result and exact material delta for an update). Work for a
+   case that is no longer present is closed without a model call;
+2. **context**: the case receives its scoped human context (``reasoning_context.ContextHooks.prepare``: manager notes, management
+   answers, teachings and validated memory; never evidence) and the injected items are audited under the call's request ID;
+3. **reason**: one gateway call (bounded concurrency, retries, ``llm_calls`` records); the answer is validated inside the call;
+4. **persist** (own transaction): the result is created (or, Phase 08, patched) together with the work item's ``done`` status — all
+   or nothing. Any failure rolls the transaction back and the item is marked ``failed`` with a short error (``provider:<error class>``,
+   ``contract:<codes>``, ``store:<error>``) in a separate transaction;
+5. **follow up** (after the commit, never inside it): the committed version's questions become canonical Atlas questions, then the
+   result summary is copied to memory (``ContextHooks.after_commit``). A follow-up failure never touches the committed result.
 
 A failure — provider error, invalid output, store conflict — affects only its own work item. The model never sets identity,
-provenance or lifecycle (``analyst``), and the answering model must be the configured one (``MODEL_SUBSTITUTED`` otherwise).
+provenance or lifecycle (``analyst``), and the answering model must be the configured one (``settings.model_identity_matches``;
+``MODEL_SUBSTITUTED`` otherwise).
 """
 
 from __future__ import annotations
@@ -21,6 +30,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -30,13 +40,17 @@ from atlas_reasoning.change_gate import case_for_work
 from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, new_result_id
 from atlas_reasoning.delta import material_delta
 from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, WorkStatus
-from atlas_reasoning.gateway import CallOutcome, ReasoningGateway
+from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
+from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext
+from atlas_reasoning.settings import model_identity_matches
 from atlas_reasoning.store.db import DatabaseError
 from atlas_reasoning.store.repository import ReasoningStore, StoreTransaction, WorkItemRow, WorkTransitionError
 
 LOG = logging.getLogger("atlas_reasoning.engine")
-ENGINE_VERSION = "reasoning-engine-v1"
+ENGINE_VERSION = "reasoning-engine-v2"
+# pg_try_advisory_lock key: one reasoning engine at a time ("atlas reasoning engine").
+ENGINE_LOCK_KEY = 0x41746C6152454E47
 
 
 def utc_now() -> str:
@@ -61,6 +75,7 @@ class WorkOutcome:
     version: int | None = None
     change_kind: str | None = None
     error: str | None = None
+    followup: dict[str, Any] | None = None       # questions and memory sync after the commit (``reasoning_context.FollowUp``)
 
 
 @dataclass(frozen=True)
@@ -68,6 +83,8 @@ class EngineReport:
     run_id: str | None
     outcomes: tuple[WorkOutcome, ...]
     lifecycle: tuple[Any, ...] = field(default_factory=tuple)
+    unreasoned: tuple[str, ...] = ()              # present cases whose open result is not on their current evidence (Phase 18 resumes them)
+    skipped: str | None = None                    # set when another engine held the lock
 
     @property
     def failed(self) -> tuple[WorkOutcome, ...]:
@@ -79,14 +96,14 @@ class EngineReport:
             key = row.change_kind or row.status
             counts[key] = counts.get(key, 0) + 1
         return {"engine_version": ENGINE_VERSION, "run_id": self.run_id, "counts": counts, "work": [asdict(row) for row in self.outcomes],
-                "lifecycle": [row.to_dict() if hasattr(row, "to_dict") else row for row in self.lifecycle]}
+                "lifecycle": [row.to_dict() if hasattr(row, "to_dict") else row for row in self.lifecycle],
+                "unreasoned_cases": list(self.unreasoned), "skipped": self.skipped}
 
 
 @dataclass(frozen=True)
 class _Claimed:
     item: WorkItemRow
     case: ReasoningCase
-    request: ProviderRequest
     previous: ReasoningResult | None = None   # set for update reasoning: the open result's current version
 
 
@@ -103,20 +120,35 @@ def error_code(error: BaseException) -> str:
     return f"internal:{type(error).__name__}"
 
 
+class EngineBusy(RuntimeError):
+    """Another reasoning engine holds the engine lock."""
+
+
 class ReasoningEngine:
     def __init__(self, store: ReasoningStore, gateway: ReasoningGateway, *, clock: Callable[[], str] = utc_now,
-                 result_ids: Callable[[], str] = new_result_id, policy: lifecycle.LifecyclePolicy | None = None) -> None:
+                 result_ids: Callable[[], str] = new_result_id, policy: lifecycle.LifecyclePolicy | None = None,
+                 context: ContextHooks | None = None) -> None:
         self.store, self.gateway, self.clock, self.result_ids = store, gateway, clock, result_ids
         self.policy = policy or lifecycle.policy_from_env()
+        # Without an explicit context the canonical human context (PostgreSQL only, no memory backend) is still injected and audited.
+        self.context: ContextHooks = context if context is not None else HumanContext(store, None)
 
     # --- public ---------------------------------------------------------------------------------------------------------------
 
     def process_run(self, run_id: str) -> EngineReport:
         """First the deterministic lifecycle of every case the gate observed in ``run_id`` (Phase 09: reactivation, cooling,
-        resolution), then every pending LLM work item (of any run: older pending items are never skipped)."""
-        recovered = self.recover_stale_claims()
-        changes = lifecycle.sweep(self.store, run_id, policy=self.policy, clock=self.clock)
-        return EngineReport(run_id, tuple(recovered + self.process_work(self.pending_work())), tuple(changes))
+        resolution), then every pending LLM work item (of any run: older pending items are never skipped). One engine at a time:
+        if another holds the engine lock, nothing is done and the report says so."""
+        with self.store.session_lock(ENGINE_LOCK_KEY) as acquired:
+            if not acquired:
+                LOG.warning("another reasoning engine is running; run_id=%s skipped", run_id)
+                return EngineReport(run_id, (), skipped="engine_busy")
+            recovered = self.recover_stale_claims()
+            changes = lifecycle.sweep(self.store, run_id, policy=self.policy, clock=self.clock)
+            outcomes = recovered + self.process_work(self.pending_work())
+            with self.store.transaction() as tx:
+                unreasoned = tuple(row["case_id"] for row in tx.unreasoned_cases())
+        return EngineReport(run_id, tuple(outcomes), tuple(changes), unreasoned)
 
     def pending_work(self) -> list[WorkItemRow]:
         items = self.store.work_items(open_only=True)
@@ -125,31 +157,14 @@ class ReasoningEngine:
     handled_kinds: tuple[WorkKind, ...] = (WorkKind.NEW_RESULT, WorkKind.UPDATE_RESULT)
 
     def process_work(self, items: Sequence[WorkItemRow]) -> list[WorkOutcome]:
-        outcomes: list[WorkOutcome] = []
-        claimed: list[_Claimed] = []
-        for item in items:
-            try:
-                ready = self._claim(item)
-            except WorkTransitionError:
-                continue   # another worker took it, or it was superseded or cancelled meanwhile
-            except Exception as error:  # noqa: BLE001 - one bad item never stops the others
-                outcomes.append(self._fail(item, error))
-                continue
-            if isinstance(ready, WorkOutcome):
-                outcomes.append(ready)
-            else:
-                claimed.append(ready)
-        finished: set[str] = set()
-        try:
-            for ready, call in zip(claimed, self.gateway.call_many([ready.request for ready in claimed])):
-                outcomes.append(self._complete(ready, call))
-                finished.add(ready.item.work_item_id)
-        finally:
-            # Never leave a claimed item in progress (it would block its case): anything not completed is failed.
-            for ready in claimed:
-                if ready.item.work_item_id not in finished:
-                    outcomes.append(self._fail(ready.item, WorkError("INTERRUPTED")))
-        return outcomes
+        """Each item through its own claim → context → call → persist → follow-up pipeline, ``concurrency`` items at a time. An
+        item is claimed only when its own call is about to start and saved as soon as its answer arrives."""
+        if not items:
+            return []
+        workers = max(1, min(self.gateway.settings.concurrency, len(items)))
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="atlas-reasoning-work") as pool:
+            results = list(pool.map(self._run_item, items))
+        return [outcome for outcome in results if outcome is not None]
 
     def recover_stale_claims(self) -> list[WorkOutcome]:
         """Fail LLM items left ``in_progress`` longer than ``stale_claim_seconds`` (a worker that died mid-call), so their cases are
@@ -158,16 +173,79 @@ class ReasoningEngine:
             stale = tx.stale_in_progress_work(self.stale_claim_seconds)
         return [self._fail(item, WorkError("STALE_CLAIM")) for item in stale]
 
-    # A claim older than every attempt the gateway may make (timeouts, retries and backoff) is abandoned.
-    stale_claim_seconds: float = 3600.0
+    @property
+    def stale_claim_seconds(self) -> float:
+        """Longer than any single call may take: every attempt at its full timeout plus every capped backoff, plus a margin. A claim is
+        taken just before its own call, so an older claim belongs to a worker that died."""
+        limits = self.gateway.settings
+        attempts = limits.max_retries + 1
+        return attempts * limits.timeout_seconds + limits.max_retries * limits.max_backoff_seconds + 300.0
 
     # --- steps ----------------------------------------------------------------------------------------------------------------
+
+    def _run_item(self, item: WorkItemRow) -> WorkOutcome | None:
+        try:
+            ready = self._claim(item)
+        except WorkTransitionError:
+            return None   # another worker took it, or it was superseded or cancelled meanwhile
+        except Exception as error:  # noqa: BLE001 - one bad item never stops the others
+            return self._fail(item, error)
+        if isinstance(ready, WorkOutcome):
+            return ready
+        finished = False
+        try:
+            outcome = self._reason(ready)
+            finished = True
+            return outcome
+        finally:
+            if not finished:   # never leave a claimed item in progress (it would block its case)
+                self._fail(item, WorkError("INTERRUPTED"))
+
+    def _reason(self, ready: _Claimed) -> WorkOutcome:
+        item = ready.item
+        try:
+            prepared = self.context.prepare(ready.case)
+            case = prepared.case
+            if ready.previous is not None:
+                request = updater.update_request(ready.previous, case, run_id=item.run_id, work_item_id=item.work_item_id)
+            else:
+                request = analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id)
+            request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
+            self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
+                                work_item_id=item.work_item_id, result_id=ready.previous.result_id if ready.previous else None)
+        except Exception as error:  # noqa: BLE001 - recorded on the item
+            return self._fail(item, error)
+        try:
+            response = self.gateway.call(request)
+        except ProviderError as error:
+            return self._fail(item, error)
+        outcome = self._complete(dataclasses.replace(ready, case=case), request, response)
+        if outcome.status == WorkStatus.DONE and outcome.result_id and outcome.version and outcome.change_kind:
+            followup = self._follow_up(outcome, item.run_id)
+            outcome = dataclasses.replace(outcome, followup=followup.to_dict())
+        return outcome
+
+    def _follow_up(self, outcome: WorkOutcome, run_id: str | None) -> FollowUp:
+        assert outcome.result_id and outcome.version and outcome.change_kind
+        try:
+            return self.context.after_commit(result_id=outcome.result_id, version=outcome.version, change_kind=ResultChangeKind(outcome.change_kind),
+                                             run_id=run_id)
+        except Exception as error:  # noqa: BLE001 - the result is committed; a follow-up never undoes it
+            LOG.error("follow-up failed work_item_id=%s result_id=%s error=%s", outcome.work_item_id, outcome.result_id, type(error).__name__)
+            return FollowUp(errors=(f"followup:{type(error).__name__}",))
 
     def _claim(self, item: WorkItemRow) -> _Claimed | WorkOutcome:
         with self.store.transaction() as tx:
             tx.set_work_item_status(item.work_item_id, WorkStatus.IN_PROGRESS)
         try:
             with self.store.transaction() as tx:
+                if tx.get_case(item.case_id).presence != "present":
+                    # Pending work for a case that has since disappeared: no model call. Its card (if any) follows the lifecycle
+                    # (cooling), never stale evidence.
+                    tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="case no longer present; not reasoned")
+                    kept = tx.latest_result(item.case_id)
+                    return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, kept.result_id if kept else None,
+                                       kept.version if kept else None)
                 current = tx.open_result(item.case_id)
                 if current is not None:
                     previous = tx.get_result(current.result_id)
@@ -176,12 +254,7 @@ class ReasoningEngine:
                     if latest is None or latest.lifecycle_status != LifecycleStatus.RESOLVED:
                         if item.kind == WorkKind.UPDATE_RESULT:
                             raise WorkError("NO_OPEN_RESULT", f"case {item.case_id} has no open result to update")
-                        case = case_for_work(tx, item)
-                        return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
-                    if tx.get_case(item.case_id).presence != "present":
-                        # Stale work for a case that has since disappeared: its resolved card stays resolved (no flicker).
-                        tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="case no longer present; its resolved result is kept")
-                        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, latest.result_id, latest.version)
+                        return _Claimed(item, case_for_work(tx, item))
                     # A resolved case observed again returns to its own card (normally already done by the lifecycle sweep).
                     previous, _ = lifecycle.apply(tx, latest, LifecycleStatus.ACTIVE, lifecycle.REAPPEARED_AFTER_RESOLUTION, policy=self.policy,
                                                   now=self.clock(), run_id=item.run_id, work_item_id=item.work_item_id, detail={"via": "work_item"})
@@ -190,8 +263,7 @@ class ReasoningEngine:
                 if update_case is None:
                     tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="evidence equals the open result's evidence")
                     return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, previous.version)
-            return _Claimed(item, update_case, updater.update_request(previous, update_case, run_id=item.run_id, work_item_id=item.work_item_id),
-                            previous)
+            return _Claimed(item, update_case, previous)
         except Exception as error:  # noqa: BLE001
             return self._fail(item, error)
 
@@ -210,19 +282,17 @@ class ReasoningEngine:
                         material_delta=material_delta(before, after, fingerprint_before=previous.evidence_fingerprint, fingerprint_after=item.fingerprint_after))
         return ReasoningCase.from_dict(document)
 
-    def _complete(self, ready: _Claimed, call: CallOutcome) -> WorkOutcome:
-        if call.error is not None or call.response is None:
-            return self._fail(ready.item, call.error or WorkError("NO_RESPONSE"))
+    def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse) -> WorkOutcome:
         try:
-            self._check_model(call.response)
+            self._check_model(response)
             if ready.previous is not None:
-                return self._persist_update(ready, ready.previous, call.response)
-            return self._persist_new(ready, call.response)
+                return self._persist_update(ready, ready.previous, response)
+            return self._persist_new(ready, response)
         except Exception as error:  # noqa: BLE001 - rolled back; recorded on the item
             return self._fail(ready.item, error)
 
     def _check_model(self, response: ProviderResponse) -> None:
-        if response.model != self.gateway.model:
+        if not model_identity_matches(self.gateway.model, response.model):
             raise WorkError("MODEL_SUBSTITUTED", f"answered by {response.model}, configured {self.gateway.model}")
 
     def _persist_new(self, ready: _Claimed, response: ProviderResponse) -> WorkOutcome:

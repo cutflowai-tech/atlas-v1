@@ -8,8 +8,9 @@
     python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
     python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
     python -m atlas_reasoning lifecycle <result_id>   lifecycle status, transition history and policy of one result
-    python -m atlas_reasoning reason <run_id>         reason about every pending work item through OpenRouter (needs
-                                                      ATLAS_REASONING_V3=on and the OpenRouter key)
+    python -m atlas_reasoning reason <run_id>         reason about every pending work item through OpenRouter with its scoped
+                                                      human context (needs ATLAS_REASONING_V3=on and the OpenRouter key; Honcho
+                                                      memory only with ATLAS_REASONING_MEMORY=on)
     python -m atlas_reasoning provider-health [--dry-run] [--record]
                                                       check the OpenRouter configuration (--dry-run: no network call) or make
                                                       one minimal structured call to the pinned model (--record: into llm_calls)
@@ -138,7 +139,9 @@ def cmd_lifecycle(args: argparse.Namespace) -> int:
 def cmd_reason(args: argparse.Namespace) -> int:
     from atlas_reasoning.engine import ReasoningEngine
     from atlas_reasoning.gateway import ReasoningGateway
+    from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.openrouter_client import OpenRouterTransport
+    from atlas_reasoning.reasoning_context import HumanContext
     from atlas_reasoning.store.calls import StoreCallRecorder
     from atlas_reasoning.store.repository import ReasoningStore
 
@@ -147,7 +150,9 @@ def cmd_reason(args: argparse.Namespace) -> int:
     store = ReasoningStore(_database())
     store.get_run(args.run_id)
     gateway = ReasoningGateway(OpenRouterTransport(router), limits, recorder=StoreCallRecorder(store), secrets=(router.api_key,))
-    report = ReasoningEngine(store, gateway).process_run(args.run_id)
+    # Human context around every call: canonical notes, answers and teachings always; Honcho memory when ATLAS_REASONING_MEMORY=on.
+    context = HumanContext(store, backend_from_env())
+    report = ReasoningEngine(store, gateway, context=context).process_run(args.run_id)
     _print(report.to_dict())
     return 0 if not report.failed else 1
 

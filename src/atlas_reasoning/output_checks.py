@@ -3,8 +3,9 @@
 The contract already guarantees that every claim cites evidence of its case and that confidence never exceeds the upstream
 ceiling (``contracts.result_case_errors``). This module adds the check the contract cannot express: **no invented numbers**. Every
 number written in a user-visible text field must be one of the case's own deterministic values (statement parameters, record
-values, block samples and comparisons, sample sizes, scope counts, digits inside case strings such as dates), optionally written
-as a percentage (0.6875 → 69% / 68.75%) and rounded to the precision the text uses. A derived figure the case does not carry (a new
+values, block samples and comparisons, sample sizes, scope counts, digits inside case strings such as dates), a rate optionally
+written as a percentage (0.6875 → 69% / 68.75%; only values between 0 and 1 are scaled), rounded to the precision the text uses.
+Numbers in management context or memory are never admitted: context is not evidence. A derived figure the case does not carry (a new
 difference, average or projection) is refused with ``UNSUPPORTED_NUMBER``.
 
 Errors are ``"<CODE>: <detail>"`` like the contracts, so callers can treat both alike.
@@ -49,7 +50,9 @@ def case_numbers(case: Mapping[str, Any], *, include_delta: bool = True) -> froz
     sources = [case["scope"], case["supporting_findings"], case["contradicting_findings"], case["current_evidence"], case.get("identity_dimensions"),
                case["subject_id"], case.get("material_delta") if include_delta else None]
     base = {abs(number) for number in _numbers_in(sources)} | set(_ALWAYS)
-    return frozenset(base | {number * 100 for number in base})
+    # Only a rate (a value between 0 and 1) may be written as a percentage; scaling counts, sample sizes or date parts by 100 would
+    # admit almost every small integer (review of PR #34).
+    return frozenset(base | {number * 100 for number in base if number <= 1})
 
 
 def text_numbers(text: str) -> list[tuple[str, float, int]]:

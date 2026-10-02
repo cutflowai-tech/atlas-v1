@@ -31,6 +31,7 @@ migrations and health checks) work with the flag off, so a database can be migra
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -111,6 +112,18 @@ BASE_URL_ENV = "ATLAS_REASONING_OPENROUTER_BASE_URL"
 # it supports structured outputs).
 PINNED_MODEL = "openai/gpt-5.6-sol"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+# OpenRouter publishes each model's dated canonical slug: ``<slug>-<YYYYMMDD>`` (public model list, 2026-10-02:
+# ``openai/gpt-5.6-sol`` → ``openai/gpt-5.6-sol-20260709``). A response may name the model either way.
+_DATED_SLUG = re.compile(r"-\d{8}")
+
+
+def model_identity_matches(requested: str, returned: str) -> bool:
+    """Whether a response's model identity proves the requested model answered: the requested slug itself or its dated canonical
+    slug (``<requested>-<YYYYMMDD>``), nothing else. A sibling such as ``openai/gpt-5.6-sol-pro`` or any other suffix is a
+    substitution. Live provider behavior is verified in the integration gate's OpenRouter compatibility check."""
+    if returned == requested:
+        return True
+    return returned.startswith(requested) and _DATED_SLUG.fullmatch(returned[len(requested):]) is not None
 
 
 def _number(env: Mapping[str, str], name: str, default: float, low: float, high: float, *, integer: bool = False) -> float:

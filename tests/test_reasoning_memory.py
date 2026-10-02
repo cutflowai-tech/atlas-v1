@@ -220,9 +220,9 @@ class HonchoClientTests(unittest.TestCase):
 
     def test_redirects_are_refused_never_followed(self):
         # Review of PR #33: urllib would resend the Authorization header to a redirect target.
-        from atlas_reasoning import honcho_client
+        from atlas_reasoning import http_safety
 
-        handler = honcho_client._NoRedirect()
+        handler = http_safety._NoRedirect()
         self.assertIsNone(handler.redirect_request(None, None, 302, "Found", {}, "http://elsewhere.example/steal"))
         for status in (301, 302, 307, 308):
             with self.subTest(status=status), self.assertRaises(MemoryRejected) as raised:

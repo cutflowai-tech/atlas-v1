@@ -311,9 +311,19 @@ def result_case_errors(result: Mapping[str, Any], case: Mapping[str, Any]) -> li
     unknown = sorted(claim_refs(result) - known)
     if unknown:
         errors.append(f"UNKNOWN_EVIDENCE_REF: references not in the case: {unknown}")
-    contradicted = bool(case["contradicting_findings"]) or any(ref["role"] == EvidenceRole.CONTRADICTING for ref in case["current_evidence"]["references"])
+    references = case["current_evidence"]["references"]
+    contradicted = bool(case["contradicting_findings"]) or any(ref["role"] == EvidenceRole.CONTRADICTING for ref in references)
+    contradicting_members = {row["member_key"] for row in case["contradicting_findings"]}
+    counter_refs = {ref["ref_id"] for ref in references if ref["role"] == EvidenceRole.CONTRADICTING or ref["member_key"] in contradicting_members}
+    cited_counter = {ref for claim in result["counter_evidence"] for ref in claim["evidence_refs"]}
     if contradicted and not result["counter_evidence"]:
         errors.append("COUNTER_EVIDENCE_MISSING: the case has contradicting evidence the result does not address")
+    elif contradicted and counter_refs and not cited_counter & counter_refs:
+        errors.append("COUNTER_EVIDENCE_MISSING: counter_evidence cites none of the case's contradicting evidence")
+    cited_support = {ref for claim in result["supporting_evidence"] for ref in claim["evidence_refs"]}
+    misused = sorted(cited_support & {ref["ref_id"] for ref in references if ref["role"] == EvidenceRole.CONTRADICTING})
+    if misused:
+        errors.append(f"EVIDENCE_ROLE_MISMATCH: supporting_evidence cites contradicting evidence: {misused}")
     ceiling = max((CONFIDENCE_ORDER.index(ConfidenceLevel(row["confidence"])) for row in case["supporting_findings"]), default=0)
     if CONFIDENCE_ORDER.index(ConfidenceLevel(result["confidence"]["level"])) > ceiling:
         errors.append(f"CONFIDENCE_EXCEEDS_UPSTREAM: result confidence exceeds the strongest supporting finding ({CONFIDENCE_ORDER[ceiling]})")
