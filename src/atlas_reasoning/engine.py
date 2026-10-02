@@ -39,7 +39,8 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from functools import partial
+from typing import Any, Protocol
 
 from atlas_reasoning import analyst, guardrails, lifecycle, reviewer, updater
 from atlas_reasoning.change_gate import case_for_work
@@ -49,6 +50,7 @@ from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, W
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import Message, ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext, PreparedCase
+from atlas_reasoning.reliability import BreakerState, CircuitOpen
 from atlas_reasoning.reviewer import CandidateReviewer
 from atlas_reasoning.settings import validation_retries
 from atlas_reasoning.store.db import DatabaseError
@@ -129,6 +131,20 @@ def error_code(error: BaseException) -> str:
     return f"internal:{type(error).__name__}"
 
 
+class CallBudget(Protocol):
+    """Phase 18: the provider-call budget of one orchestration pass (``run_control``). ``acquire`` reserves one reasoning call and
+    returns False when the budget is spent; ``release`` gives back a unit whose call never reached the provider (a refusal). Both must
+    be safe to call from several worker threads."""
+
+    def acquire(self) -> bool: ...
+
+    def release(self) -> None: ...
+
+
+# A call the budget refused: the item returns to ``pending`` with this outcome code (deferred to a later pass; no attempt spent).
+BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+
+
 class EngineBusy(RuntimeError):
     """Another reasoning engine holds the engine lock."""
 
@@ -169,14 +185,16 @@ class ReasoningEngine:
 
     handled_kinds: tuple[WorkKind, ...] = (WorkKind.NEW_RESULT, WorkKind.UPDATE_RESULT)
 
-    def process_work(self, items: Sequence[WorkItemRow]) -> list[WorkOutcome]:
+    def process_work(self, items: Sequence[WorkItemRow], *, budget: CallBudget | None = None) -> list[WorkOutcome]:
         """Each item through its own claim → context → call → persist → follow-up pipeline, ``concurrency`` items at a time. An
-        item is claimed only when its own call is about to start and saved as soon as its answer arrives."""
+        item is claimed only when its own call is about to start and saved as soon as its answer arrives. With a ``budget`` (Phase 18),
+        every provider call (the reviewer's included) first reserves one unit; a refused reservation returns the item to ``pending``
+        (deferred, not failed: it spends no retry attempt) with the outcome error ``work:BUDGET_EXHAUSTED``."""
         if not items:
             return []
         workers = max(1, min(self.gateway.settings.concurrency, len(items)))
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="atlas-reasoning-work") as pool:
-            results = list(pool.map(self._run_item, items))
+            results = list(pool.map(partial(self._run_item, budget=budget), items))
         return [outcome for outcome in results if outcome is not None]
 
     def recover_stale_claims(self) -> list[WorkOutcome]:
@@ -196,7 +214,7 @@ class ReasoningEngine:
 
     # --- steps ----------------------------------------------------------------------------------------------------------------
 
-    def _run_item(self, item: WorkItemRow) -> WorkOutcome | None:
+    def _run_item(self, item: WorkItemRow, budget: CallBudget | None = None) -> WorkOutcome | None:
         try:
             ready = self._claim(item)
         except WorkTransitionError:
@@ -207,14 +225,14 @@ class ReasoningEngine:
             return ready
         finished = False
         try:
-            outcome = self._reason(ready)
+            outcome = self._reason(ready, budget)
             finished = True
             return outcome
         finally:
             if not finished:   # never leave a claimed item in progress (it would block its case)
                 self._fail(item, WorkError("INTERRUPTED"))
 
-    def _reason(self, ready: _Claimed) -> WorkOutcome:
+    def _reason(self, ready: _Claimed, budget: CallBudget | None = None) -> WorkOutcome:
         item = ready.item
         try:
             prepared = self.context.prepare(ready.case)
@@ -230,6 +248,12 @@ class ReasoningEngine:
         attempt = 0
         while True:
             attempt += 1
+            if budget is not None and not budget.acquire():      # before the audit row: a refused call leaves no trace of a call
+                return self._defer(item, BUDGET_EXHAUSTED)
+            if self._circuit_open():                             # the provider is paused: refused before the audit row, unit refunded
+                if budget is not None:
+                    budget.release()
+                return self._fail(item, CircuitOpen("provider calls are paused after repeated provider failures; no call was made"))
             try:
                 request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
                 self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
@@ -239,8 +263,10 @@ class ReasoningEngine:
             try:
                 response = self.gateway.call(request)
             except ProviderError as error:
+                if budget is not None and not getattr(error, "provider_called", True):
+                    budget.release()      # refused before any request (Phase 18-B breaker / budget): the pass spent nothing
                 return self._fail(item, error)
-            outcome, report = self._complete(ready, request, response, result_id, attempt, prepared)
+            outcome, report = self._complete(ready, request, response, result_id, attempt, prepared, budget)
             if outcome is not None:
                 break
             assert report is not None
@@ -312,7 +338,7 @@ class ReasoningEngine:
         return ReasoningCase.from_dict(document)
 
     def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse, result_id: str, attempt: int,
-                  prepared: PreparedCase) -> tuple[WorkOutcome | None, guardrails.ValidationReport | None]:
+                  prepared: PreparedCase, budget: CallBudget | None = None) -> tuple[WorkOutcome | None, guardrails.ValidationReport | None]:
         """Build the complete candidate, run the Phase 15 guardrails (and the optional reviewer) and commit only a candidate they accept.
         Returns ``(outcome, None)`` when the item is finished (committed or failed) or ``(None, report)`` for a refused candidate."""
         item, previous = ready.item, ready.previous
@@ -337,6 +363,8 @@ class ReasoningEngine:
                                            previous=previous.to_dict() if previous is not None else None)
             report = guardrails.validate_candidate(candidate, case, expected, extra=extra)
             if report.ok and self.reviewer is not None and self.reviewer.applies(case):
+                if budget is not None and not budget.acquire():   # the reviewer's call is a provider call too (Phase 18 budget)
+                    return self._defer(item, BUDGET_EXHAUSTED), None
                 review_id = new_request_id()      # the reviewer sees the same human context: its call is audited like any other
                 self.context.record(prepared, purpose=reviewer.REVIEW_PURPOSE, request_id=review_id, run_id=item.run_id,
                                     work_item_id=item.work_item_id, result_id=previous.result_id if previous else None)
@@ -396,6 +424,27 @@ class ReasoningEngine:
         LOG.info("result %s work_item_id=%s case_id=%s result_id=%s version=%s", kind.value, item.work_item_id, item.case_id, previous.result_id,
                  result.version)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, result.version, kind.value)
+
+    def _circuit_open(self) -> bool:
+        """Whether the shared circuit breaker (``reliability.ProviderControls``) is open now. Half-open lets the gateway's probe through."""
+        controls = getattr(self.gateway, "controls", None)
+        breaker = getattr(controls, "breaker", None) if controls is not None else None
+        return breaker is not None and breaker.state == BreakerState.OPEN
+
+    def _defer(self, item: WorkItemRow, code: str = BUDGET_EXHAUSTED) -> WorkOutcome:
+        """Phase 18: the pass budget refused a call. The claimed item goes back to ``pending`` (nothing was committed for it) for a later
+        pass; it spends no retry attempt."""
+        LOG.info("work item deferred work_item_id=%s case_id=%s reason=%s", item.work_item_id, item.case_id, code)
+        try:
+            with self.store.transaction() as tx:
+                tx.set_work_item_status(item.work_item_id, WorkStatus.PENDING)
+        except DatabaseError as failure:
+            LOG.error("work item not deferred work_item_id=%s error=%s", item.work_item_id, error_code(failure))
+        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.PENDING.value, item.result_id, None, None, f"work:{code}")
+
+    def fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
+        """Mark ``item`` failed with the content-free code of ``error`` (its own transaction); never touches a committed result."""
+        return self._fail(item, error)
 
     def _fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         code = error_code(error)

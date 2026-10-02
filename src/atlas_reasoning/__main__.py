@@ -8,9 +8,11 @@
     python -m atlas_reasoning inspect <site_dir>      cases, member findings and fingerprints of a built site (no database)
     python -m atlas_reasoning gate <site_dir>         run the Change Gate on a built site (needs ATLAS_REASONING_V3=on)
     python -m atlas_reasoning lifecycle <result_id>   lifecycle status, transition history and policy of one result
-    python -m atlas_reasoning reason <run_id>         reason about every pending work item through OpenRouter with its scoped
-                                                      human context (needs ATLAS_REASONING_V3=on and the OpenRouter key; Honcho
-                                                      memory only with ATLAS_REASONING_MEMORY=on)
+    python -m atlas_reasoning reason <run_id> [--resume] [--no-executive]
+                                                      orchestrate the run (Phase 18: priority, call budget, run status; --resume
+                                                      retries eligible failures), then the executive brief when the run is ready;
+                                                      exit 0 only when the run is complete (needs ATLAS_REASONING_V3=on and the
+                                                      OpenRouter key; Honcho memory only with ATLAS_REASONING_MEMORY=on)
     python -m atlas_reasoning provider-health [--dry-run] [--record]
                                                       check the OpenRouter configuration (--dry-run: no network call) or make
                                                       one minimal structured call to the pinned model (--record: into llm_calls)
@@ -137,27 +139,27 @@ def cmd_lifecycle(args: argparse.Namespace) -> int:
 
 
 def cmd_reason(args: argparse.Namespace) -> int:
-    from atlas_reasoning.engine import ReasoningEngine
-    from atlas_reasoning.gateway import ReasoningGateway
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.openrouter_client import OpenRouterTransport
     from atlas_reasoning.reasoning_context import HumanContext
+    from atlas_reasoning.reasoning_runtime import build_runtime
     from atlas_reasoning.reviewer import reviewer_from_env
     from atlas_reasoning.store.calls import StoreCallRecorder
     from atlas_reasoning.store.repository import ReasoningStore
 
     settings.require_enabled()
-    router, limits = settings.openrouter_settings(), settings.gateway_settings()
+    router = settings.openrouter_settings()
     store = ReasoningStore(_database())
     store.get_run(args.run_id)
-    gateway = ReasoningGateway(OpenRouterTransport(router), limits, recorder=StoreCallRecorder(store), secrets=(router.api_key,))
-    # Human context around every call: canonical notes, answers and teachings always; Honcho memory when ATLAS_REASONING_MEMORY=on.
-    context = HumanContext(store, backend_from_env())
-    # Phase 15: every candidate passes the deterministic guardrails before it is committed; the optional second reviewer only when
-    # ATLAS_REASONING_REVIEWER=on (off by default).
-    report = ReasoningEngine(store, gateway, context=context, reviewer=reviewer_from_env(gateway)).process_run(args.run_id)
-    _print(report.to_dict())
-    return 0 if not report.failed else 1
+    # Phase 18: one shared ProviderControls for every gateway of this process (case reasoning, reviewer, executive); the pass budget
+    # (ATLAS_REASONING_RUN_CALL_BUDGET) charges case reasoning, the executive budget only executive synthesis. Human context around every
+    # call (Honcho memory when ATLAS_REASONING_MEMORY=on); Phase 15 guardrails and the optional reviewer (ATLAS_REASONING_REVIEWER=on).
+    runtime = build_runtime(store, OpenRouterTransport(router), recorder=StoreCallRecorder(store), secrets=(router.api_key,),
+                            context=HumanContext(store, backend_from_env()), reviewer_factory=reviewer_from_env)
+    report = runtime.orchestrator.resume(args.run_id) if args.resume else runtime.orchestrator.run(args.run_id)
+    executive = runtime.synthesize(args.run_id).to_dict() if report.executive_ready and not args.no_executive else None
+    _print({"orchestration": report.to_dict(), "executive": executive, "provider_controls": runtime.snapshot()})
+    return 0 if report.status == "complete" else 1
 
 
 HEALTH_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["ok"], "properties": {"ok": {"type": "boolean"}}}
@@ -250,7 +252,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "inspect": (cmd_inspect, "show the cases of a built site without a database"),
     "gate": (cmd_gate, "run the Change Gate on a built site"),
     "lifecycle": (cmd_lifecycle, "show the lifecycle history of one result"),
-    "reason": (cmd_reason, "reason about the pending work items of a run"),
+    "reason": (cmd_reason, "orchestrate a run's reasoning (priority, budget, status), then executive synthesis when ready"),
     "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
     "memory-health": (cmd_memory_health, "check the Honcho memory configuration or connectivity"),
     "memory-sync": (cmd_memory_sync, "re-send pending or failed memory copies"),
@@ -268,6 +270,9 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("result_id")
         elif name in ("run", "reason"):
             command.add_argument("run_id")
+            if name == "reason":
+                command.add_argument("--resume", action="store_true", help="resume the run: retry eligible failures and pending work")
+                command.add_argument("--no-executive", action="store_true", help="do not run executive synthesis when the run is ready")
         elif name in ("inspect", "gate"):
             command.add_argument("site_dir")
         elif name == "provider-health":

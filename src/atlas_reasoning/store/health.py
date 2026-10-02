@@ -17,7 +17,9 @@ REQUIRED_TABLES = ("reasoning_runs", "reasoning_cases", "reasoning_case_evidence
                    # Phase 15 (migrations 0300-0399)
                    "reasoning_failed_candidates",
                    # Phase 17 (migrations 0500-0599)
-                   "executive_briefs", "executive_brief_versions", "executive_brief_inputs", "executive_statement_refs", "executive_brief_runs")
+                   "executive_briefs", "executive_brief_versions", "executive_brief_inputs", "executive_statement_refs", "executive_brief_runs",
+                   # Phase 18-A (migrations 0600-0629)
+                   "reasoning_run_passes", "reasoning_work_retries")
 
 
 def database_health(db: Database) -> dict[str, Any]:

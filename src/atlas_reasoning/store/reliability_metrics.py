@@ -13,6 +13,7 @@ from typing import Any
 
 from atlas_reasoning.reliability_metrics import Backlog, ReliabilityReport, RunRows, build_report
 from atlas_reasoning.store.repository import NotFound, ReasoningStore, StoreTransaction
+from atlas_reasoning.store.run_control import REFUSALS
 
 
 def _iso(value: Any) -> str | None:
@@ -35,12 +36,21 @@ def run_row(tx: StoreTransaction, run_id: str) -> dict[str, Any]:
 def run_rows(tx: StoreTransaction, run_id: str) -> RunRows:
     """Every canonical row the metrics of ``run_id`` are computed from (``RunRows``)."""
     run = run_row(tx, run_id)
-    calls = tx._all("""SELECT request_id, work_item_id, purpose, status, error_class, attempts, latency_ms, input_tokens, output_tokens
-                       FROM llm_calls WHERE run_id = %s ORDER BY started_at, call_id""", (run_id,))
+    # ``pass_id``: the Phase 18-A orchestration pass whose time window holds the call (NULL outside any pass). Corrective re-asks are
+    # counted per (work item, pass): a work item deferred by the budget and processed again in a later pass starts afresh.
+    calls = tx._all("""SELECT c.request_id, c.work_item_id, c.purpose, c.status, c.error_class, c.attempts, c.latency_ms, c.input_tokens,
+                              c.output_tokens, p.pass_id
+                       FROM llm_calls c
+                       LEFT JOIN LATERAL (SELECT pass_id FROM reasoning_run_passes p WHERE c.started_at >= p.started_at
+                                            AND (p.finished_at IS NULL OR c.started_at <= p.finished_at)
+                                          ORDER BY p.started_at DESC, p.pass_id DESC LIMIT 1) p ON true
+                       WHERE c.run_id = %s ORDER BY c.started_at, c.call_id""", (run_id,))
+    # ``refused``: failed because the Phase 18-B controls refused the call before any request (breaker / budget) — not a provider failure.
     work = tx._all("""SELECT w.work_item_id, w.kind, w.status, w.requires_llm,
                              CASE WHEN w.status = 'failed' THEN nullif(split_part(coalesce(w.last_error, ''), ':', 1), '') END AS error_class,
+                             (w.status = 'failed' AND w.last_error = ANY(%s)) AS refused,
                              EXISTS (SELECT 1 FROM llm_calls c WHERE c.work_item_id = w.work_item_id) AS has_call
-                      FROM reasoning_work_items w WHERE w.run_id = %s ORDER BY w.created_at, w.work_item_id""", (run_id,))
+                      FROM reasoning_work_items w WHERE w.run_id = %s ORDER BY w.created_at, w.work_item_id""", (list(REFUSALS), run_id))
     observations = tx._all("SELECT action, count(*) AS n FROM reasoning_case_observations WHERE run_id = %s GROUP BY action", (run_id,))
     # Versions written for the run's own work (an engine run may process older work: it counts for the run that created the item).
     versions = tx._all("""SELECT v.change_kind, count(*) AS n FROM reasoning_result_versions v
@@ -51,8 +61,15 @@ def run_rows(tx: StoreTransaction, run_id: str) -> RunRows:
     executive = tx._all("""SELECT decision, nullif(split_part(coalesce(failure, ''), ':', 1), '') AS failure_class, llm_calls
                            FROM executive_brief_runs WHERE run_id = %s ORDER BY created_at, synthesis_id""", (run_id,))
     memory = tx._all("SELECT memory_status, count(*) AS n FROM memory_injections WHERE run_id = %s GROUP BY memory_status", (run_id,))
+    # Phase 18-A orchestration: the run's passes (budget, calls, admission, status reasons; counters only) and the retries of its work.
+    passes = tx._all("""SELECT kind, call_budget, calls_used, admitted, deferred, retries, run_status, reasons, outcome
+                        FROM reasoning_run_passes WHERE run_id = %s ORDER BY started_at, pass_id""", (run_id,))
+    retries = tx._all("""SELECT split_part(r.failure, ':', 1) AS failure_class, r.attempt FROM reasoning_work_retries r
+                         JOIN reasoning_work_items w ON w.work_item_id = r.retry_work_item_id WHERE w.run_id = %s
+                         ORDER BY r.created_at, r.retry_work_item_id""", (run_id,))
     return RunRows(run, tuple(calls), tuple(work), _pairs(observations, "action"), _pairs(versions, "change_kind"),
-                   tuple({**row, "error_codes": tuple(row["error_codes"])} for row in refusals), tuple(executive), _pairs(memory, "memory_status"))
+                   tuple({**row, "error_codes": tuple(row["error_codes"])} for row in refusals), tuple(executive), _pairs(memory, "memory_status"),
+                   tuple({**row, "reasons": tuple(row["reasons"])} for row in passes), tuple(retries))
 
 
 def backlog(tx: StoreTransaction) -> Backlog:

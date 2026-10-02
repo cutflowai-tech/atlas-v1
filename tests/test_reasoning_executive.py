@@ -645,7 +645,10 @@ class IsolationTests(unittest.TestCase):
                                           "atlas_reasoning.store.executive": {"ExecutiveTransaction"}},
                 "executive_html.py": {"atlas_reasoning.executive_overview": {"CitedResult", "Overview", "StatementView"}},
                 "web_app.py": {"atlas_reasoning.executive_html": {"overview_html"},
-                               "atlas_reasoning.executive_overview": {"ExecutiveOverviewService"}}}
+                               "atlas_reasoning.executive_overview": {"ExecutiveOverviewService"}},
+                # Phase 18 integration: the process runtime that runs executive synthesis after a settled run (no UI, no route).
+                "reasoning_runtime.py": {"atlas_reasoning.executive": {"ExecutiveSynthesizer", "SynthesisOutcome"},
+                                         "atlas_reasoning.store.executive": {"ExecutiveStore"}}}
 
     @staticmethod
     def _imported_names(path: Path) -> dict[str, set[str]]:
@@ -671,7 +674,7 @@ class IsolationTests(unittest.TestCase):
             allowed = self.UI_USERS.get(relative or "")
             if allowed is None or any(not names <= allowed.get(module, set()) for module, names in core.items()):
                 users.append(f"{path.relative_to(ROOT)}: {sorted((module, sorted(names)) for module, names in core.items())}")
-        self.assertEqual(users, [], "only the read-only executive overview (Phase 17 UI) uses the core, through read interfaces only")
+        self.assertEqual(users, [], "only the read-only executive overview (Phase 17 UI) and the Phase 18 runtime use the core, through named symbols")
 
     def test_the_executive_ui_never_reaches_the_provider_memory_or_a_write(self):
         forbidden = {"atlas_reasoning.executive", "atlas_reasoning.executive_validator", "atlas_reasoning.gateway", "atlas_reasoning.openrouter_client",

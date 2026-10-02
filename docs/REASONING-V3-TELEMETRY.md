@@ -135,3 +135,15 @@ python -m atlas_reasoning.reliability_report --latest 5
 The command prints JSON on stdout. It exits 0 when it prints a report, and 1 (with `{"ok": false, "error": ...}`) when a run does
 not exist or the database cannot be read. The database URL comes from `ATLAS_REASONING_DATABASE_URL` or `_FILE` and is never
 printed.
+
+## Phase 18 reconciliation additions
+
+- `orchestration` (per run): `passes`, `by_kind` (`initial`, `resume`), `budgeted_passes`, `budget_limit`, `budget_calls_used`, `admitted`,
+  `deferred`, `retries_created`, `retries_by_failure_class`, `interrupted_passes`, `last_status`, `last_reasons` — from 18-A's
+  `reasoning_run_passes` and `reasoning_work_retries` (counters, codes and statuses only).
+- `work.refused_before_call` and `status_inputs.refused_work_items`: work failed because the breaker or a budget refused the call before any
+  request (`provider:circuit_open`, `provider:budget_exhausted`); `provider_failed_work_items` excludes them.
+- `validation.corrective_reasks` counts calls beyond the first per (work item, orchestration pass): an item the budget deferred and called
+  again in a later pass is not a re-ask.
+- The operator report answers a driver error raised by a query with `{"ok": false, "error": "<class>"}` (class only), exit 1.
+
