@@ -26,11 +26,11 @@ from typing import Any
 
 from atlas_reasoning import contracts
 from atlas_reasoning.analyst import (
-    MAX_OUTPUT_TOKENS,
     REASONING_EFFORT,
     bounded_json,
     case_evidence_input,
     field_set_errors,
+    max_output_tokens,
     prompt_text,
     provider_schema,
 )
@@ -196,7 +196,7 @@ def update_output(previous: ReasoningResult, case: ReasoningCase) -> StructuredO
 def update_request(previous: ReasoningResult, case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:
     context = CallContext(purpose=UPDATE_PURPOSE, run_id=run_id, case_id=case.case_id, work_item_id=work_item_id, prompt_version=UPDATE_PROMPT_VERSION,
                           source_snapshot_id=case.source_snapshot_id, evidence_fingerprint=case.evidence_fingerprint)
-    return ProviderRequest(context, update_messages(previous, case), update_output(previous, case), max_output_tokens=MAX_OUTPUT_TOKENS,
+    return ProviderRequest(context, update_messages(previous, case), update_output(previous, case), max_output_tokens=max_output_tokens(),
                            reasoning_effort=REASONING_EFFORT)
 
 
