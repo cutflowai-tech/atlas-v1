@@ -9,7 +9,7 @@ lifecycle rules, the Phase 15 guardrails or ExecutiveBrief synthesis.
 ```
 Change Gate (run gated) ─► RunOrchestrator.run(run_id)                       one engine at a time (session advisory lock)
                              │ open pass (reasoning_run_passes; one open pass per run)
-                             │ interrupted claims → failed work:INTERRUPTED (resumable)
+                             │ abandoned claims (older than the longest possible call) → failed work:STALE_CLAIM (resumable)
                              │ lifecycle sweep (Phase 09, no model call)
                              │ pending LLM work in work_priority order; admit ≤ remaining budget; the rest stays pending
                              │ ReasoningEngine.process_work(admitted, budget=PassBudget)   every provider call reserves 1 unit atomically
@@ -41,13 +41,16 @@ gateway, provider or analyst).
 ## 3. Budget
 
 `ReliabilityPolicy.reasoning_call_budget() -> int | None` (protocol; `OrchestrationPolicy.max_calls_per_pass` when none is injected;
-`None` = unlimited). The budget belongs to one **pass** (the initial pass or one resume), stored in `reasoning_run_passes.call_budget`.
+`None` = unlimited). The budget belongs to one **pass** (the initial pass or one resume), stored in `reasoning_run_passes.call_budget`:
+REV/18's "per-run call budget" is applied to every orchestration of a run, and a resume — an explicit operator or scheduler action —
+opens a new budget window (otherwise a run whose budget ran out could never progress). A pass spends its budget on all pending work in
+priority order, including older runs' pending work.
 
 - Admission: pending work in priority order, at most as many items as calls remain; the rest stays `pending` (deferred, resumable).
-- Each provider call of the engine (`gateway.call`, corrective re-asks included) first reserves one unit:
-  `UPDATE … SET calls_used = calls_used + 1 WHERE calls_used < call_budget` — atomic in PostgreSQL, and `calls_used <= call_budget`
-  is a CHECK, so threads or processes can never overspend. A refused reservation fails that item `work:BUDGET_EXHAUSTED` (resumable)
-  before anything about the call is recorded.
+- Each provider call of the engine (`gateway.call`: first call, corrective re-asks and the optional Phase 15 reviewer) first reserves one
+  unit: `UPDATE … SET calls_used = calls_used + 1 WHERE calls_used < call_budget` — atomic in PostgreSQL, and `calls_used <= call_budget`
+  is a CHECK, so threads or processes can never overspend. A refused reservation returns the claimed item to `pending` (outcome error
+  `work:BUDGET_EXHAUSTED`) before anything about the call is recorded: deferred, not failed, so it spends no retry attempt.
 - Budget exhaustion never touches a committed result; unchanged cases have no work, so they cost nothing.
 
 ## 4. Run status
@@ -55,12 +58,14 @@ gateway, provider or analyst).
 | Status | Meaning (precedence top-down) | Reason codes |
 |---|---|---|
 | `failed` | no usable reasoning run: never gated; an orchestration error (sweep, store); or every attempt of the pass failed at the provider, none committed, and no case of the run has a usable open result | `not_gated`, `orchestration_error:<class>`, `provider_outage` |
-| `partial` | useful state kept, work remains resumable: LLM work of the run still pending, or a failure the policy will retry | `work_deferred`, `resumable_failures` |
-| `degraded` | all the run's work attempted, but a case's latest work failed for good, a follow-up (questions / memory) failed, or memory was degraded during the pass | `unresolved_failures`, `followup_failed`, `memory_degraded` |
+| `partial` | useful state kept, work remains resumable: LLM work of the run still pending, or a failure resume will retry (the same predicate resume uses: still eligible, retryable, attempts left) | `work_deferred`, `resumable_failures` |
+| `degraded` | all the run's work attempted, but a case's latest work failed for good (not retryable, out of attempts, or superseded by newer work), a follow-up (questions / memory) failed in any pass, or a reasoning call of the run ran with degraded memory | `unresolved_failures`, `followup_failed`, `memory_degraded` |
 | `complete` | every LLM item of the run done or legitimately closed — also a run with zero work | — |
 
-The status is written to `reasoning_runs.status` (reasons in `error`; the gate's `counts` kept) and to the pass. Older runs whose
-pending work a pass finished are re-classified too. A status never invalidates a committed result.
+The status is written to `reasoning_runs.status` (reason codes in `error`, `finished_at` set to the latest pass; the gate's `counts` and
+`gated_at` kept) and to the pass. Older runs whose pending work a pass finished are re-classified too. A status never invalidates a
+committed result; a no-op resume never turns a degraded run complete (degradation carries across passes). `incomplete_runs()` lists gated
+`partial` and `failed` runs that resume can still advance (an outage run included; a `degraded` run's failures are final).
 
 ## 5. Resume (`RunOrchestrator.resume`)
 
@@ -69,13 +74,15 @@ it has no open LLM work, and its latest LLM item failed **on that same evidence 
 (`OrchestrationPolicy.retryable`: transient provider classes, `work:INTERRUPTED`, `work:STALE_CLAIM`, `work:BUDGET_EXHAUSTED`, `store:*`;
 never validation refusals — Phase 15 already re-asked — nor authentication, quota, bad request, content filter, truncation,
 configuration, contract or internal errors). The retry is a pending copy of the failed item (same run, case, kind, gate action, evidence
-state, base, case document) with a lineage row; `max_attempts` (default 3) bounds attempts per (case, evidence state). Unique keys make a
+state, base, case document) with a lineage row, created under the Change Gate's transaction lock with eligibility re-checked in the same
+transaction (a concurrent gate run can never be raced into stale or duplicate work); `max_attempts` (default 3) bounds attempts per (case, evidence state). Unique keys make a
 second retry of the same failed item, or of the same attempt, impossible. Completed work is never redone (it is not unreasoned); the
 engine's stable result IDs, patch-not-regenerate rule, question deduplication and memory sync make questions, versions and memory copies
 duplicate-free (tested). Repeated resume with nothing eligible makes no call and creates nothing.
 
-Interrupted processes: under the engine lock no engine can be mid-call, so every LLM item still `in_progress` belongs to a dead worker
-and is failed `work:INTERRUPTED` at the start of the next pass (no waiting for the stale-claim timeout); a pass left open by a dead
+Interrupted processes: an LLM item `in_progress` for longer than the longest possible call (`ReasoningEngine.stale_claim_seconds`, from
+the gateway limits) belongs to a dead worker and is failed `work:STALE_CLAIM` at the start of the next pass (resumable); a younger claim may
+still be live — for example a worker whose engine-lock connection dropped — so it is never taken over early. A pass left open by a dead
 process is closed `interrupted`.
 
 ## 6. Duplicate protection
@@ -114,6 +121,11 @@ provider outage → failed → resume, never-gated run, memory degradation, conc
 second retry / overspending, migration repeatability and health; duplicate-free versions, questions, memory copies and open work.
 
 ## 9. Known limitations
+
+- Retry attempts are counted per (case, evidence state) over all time: evidence that returns to an earlier state inherits that state's
+  attempts.
+- An orchestration error (e.g. a failing lifecycle sweep) marks the run `failed` even when its committed results still stand (by the
+  documented precedence).
 
 - The budget counts the engine's logical provider calls (one per `gateway.call`, corrective re-asks included); the gateway's own
   transport retries inside one call are 18-B's to bound and count. Calls of the optional Phase 15 reviewer are not counted.

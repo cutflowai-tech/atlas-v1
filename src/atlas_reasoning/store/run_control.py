@@ -9,7 +9,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from atlas_reasoning.enums import GateAction, WorkKind, WorkStatus
+from atlas_reasoning.enums import GateAction, WorkKind
 from atlas_reasoning.store.repository import NotFound, StoreTransaction, WorkItemRow, _work_row
 
 
@@ -92,25 +92,30 @@ def has_usable_result(tx: StoreTransaction, run_id: str) -> bool:
     return row is not None
 
 
-def memory_degraded(tx: StoreTransaction, run_ids: Sequence[str], since: Any) -> bool:
-    row = tx._one("""SELECT 1 FROM memory_injections WHERE run_id = ANY(%s) AND memory_status IN ('degraded', 'unavailable') AND created_at >= %s
-                     LIMIT 1""", (list(run_ids), since))
+def memory_degraded(tx: StoreTransaction, run_id: str) -> bool:
+    """Whether any reasoning call of the run (any pass) ran with degraded memory: those results were reasoned without it."""
+    row = tx._one("""SELECT 1 FROM memory_injections WHERE run_id = %s AND memory_status IN ('degraded', 'unavailable') LIMIT 1""", (run_id,))
     return row is not None
 
 
-def pass_started_at(tx: StoreTransaction, pass_id: str) -> Any:
-    row = tx._one("SELECT started_at FROM reasoning_run_passes WHERE pass_id = %s", (pass_id,))
-    if row is None:
-        raise NotFound(f"pass {pass_id} does not exist")
-    return row["started_at"]
+def carried_reasons(tx: StoreTransaction, run_id: str, kept: Sequence[str]) -> set[str]:
+    """Degradation reasons of earlier finished passes of the run that a later pass cannot repair (a committed follow-up failure)."""
+    rows = tx._all("SELECT DISTINCT unnest(reasons) AS reason FROM reasoning_run_passes WHERE run_id = %s AND outcome = 'finished'", (run_id,))
+    return {row["reason"] for row in rows} & set(kept)
+
+
+def open_llm_items(tx: StoreTransaction, run_id: str) -> int:
+    row = tx._one("SELECT count(*) AS n FROM reasoning_work_items WHERE run_id = %s AND requires_llm AND status IN ('pending', 'in_progress')", (run_id,))
+    return int(row["n"]) if row else 0
 
 
 # --- resume -------------------------------------------------------------------------------------------------------------------
 
 
-def retry_candidates(tx: StoreTransaction, run_id: str) -> list[dict[str, Any]]:
-    """Present cases of ``run_id`` whose current evidence is not reasoned, with no open LLM work, whose latest LLM item failed on that
-    same evidence state — the only work resume may retry. The attempt number counts earlier retries of the same evidence state."""
+def retry_candidates(tx: StoreTransaction, run_id: str, failed_work_item_id: str | None = None) -> list[dict[str, Any]]:
+    """Present cases of ``run_id`` whose current evidence is not reasoned, with no open LLM work, whose latest LLM item (of any run)
+    belongs to this run and failed on that same evidence state — the only work resume may retry. ``attempt`` = attempts so far (the first
+    one plus earlier retries of the same evidence state). The same predicate decides whether a run has resumable failures."""
     return tx._all("""
         SELECT w.*, c.last_evidence_fingerprint,
                1 + (SELECT count(*) FROM reasoning_work_retries r WHERE r.case_id = w.case_id AND r.evidence_fingerprint = w.fingerprint_after) AS attempt
@@ -123,12 +128,21 @@ def retry_candidates(tx: StoreTransaction, run_id: str) -> list[dict[str, Any]]:
           AND NOT EXISTS (SELECT 1 FROM reasoning_results r JOIN reasoning_result_versions v ON v.result_id = r.result_id AND v.version = r.current_version
                           WHERE r.case_id = c.case_id AND r.lifecycle_status IN ('new', 'active', 'updated', 'cooling')
                             AND v.evidence_fingerprint = c.last_evidence_fingerprint)
-        ORDER BY w.case_id""", (run_id,))
+          AND (%s::text IS NULL OR w.work_item_id = %s::text)
+        ORDER BY w.case_id""", (run_id, failed_work_item_id, failed_work_item_id))
 
 
-def create_retry(tx: StoreTransaction, failed: Mapping[str, Any], *, attempt: int, pass_id: str) -> str:
+def create_retry(tx: StoreTransaction, run_id: str, failed_work_item_id: str, *, max_attempts: int, pass_id: str) -> str | None:
     """A pending copy of a failed LLM work item (same run, case, kind, gate action, evidence state, base and case document) and its
-    lineage row. The unique constraints make a second retry of the same failed item, or of the same attempt, impossible."""
+    lineage row — or None when it is no longer eligible. Serialized with the Change Gate (its transaction lock) and re-checked inside
+    this transaction, so a concurrent gate run can never be raced into stale or duplicate work; the unique constraints make a second
+    retry of the same failed item, or of the same attempt, impossible."""
+    tx.lock_gate()
+    rows = retry_candidates(tx, run_id, failed_work_item_id)
+    if not rows or int(rows[0]["attempt"]) + 1 > max_attempts:
+        return None
+    failed = rows[0]
+    attempt = int(failed["attempt"]) + 1
     item = _work_row(failed)
     work_item_id = tx.create_work_item(run_id=item.run_id, case_id=item.case_id, kind=WorkKind(item.kind), gate_action=GateAction(item.gate_action),
                                        result_id=item.result_id, base_result_version=item.base_result_version, fingerprint_before=item.fingerprint_before,
@@ -144,8 +158,3 @@ def retries(tx: StoreTransaction, *, case_id: str | None = None) -> list[dict[st
         return tx._all("SELECT * FROM reasoning_work_retries ORDER BY created_at, retry_work_item_id")
     return tx._all("SELECT * FROM reasoning_work_retries WHERE case_id = %s ORDER BY attempt", (case_id,))
 
-
-def interrupted_claims(tx: StoreTransaction) -> list[WorkItemRow]:
-    """Every LLM item left ``in_progress``. Only meaningful under the engine lock: no live engine can be mid-call then."""
-    return [_work_row(row) for row in tx._all("SELECT * FROM reasoning_work_items WHERE requires_llm AND status = %s ORDER BY updated_at, work_item_id",
-                                               (WorkStatus.IN_PROGRESS,))]

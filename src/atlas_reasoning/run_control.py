@@ -9,8 +9,8 @@ A **pass** is one orchestration over one run (``reasoning_run_passes``). Each pa
 at a time) and with at most one open pass per run (a partial unique index):
 
 1. **checks the run** is gated (a run the Change Gate never finished is ``failed``: no usable reasoning run);
-2. **recovers interrupted claims**: every LLM item still ``in_progress`` belongs to a dead worker (the lock proves no engine is live), so
-   it fails ``work:INTERRUPTED`` — resumable — instead of waiting for the stale-claim timeout;
+2. **recovers abandoned claims**: an LLM item ``in_progress`` longer than the longest possible call belongs to a dead worker and fails
+   ``work:STALE_CLAIM`` — resumable (a younger claim may still be live and is never taken over);
 3. **sweeps the lifecycle** (Phase 09, idempotent, no model call);
 4. on **resume** only, **creates retry work**: for each present case of the run whose current evidence is still unreasoned, has no open
    LLM work, and whose latest LLM item failed on that same evidence with a retryable error, a pending copy of the failed item — at most
@@ -18,8 +18,8 @@ at a time) and with at most one open pass per run (a partial unique index):
 5. **admits** pending LLM work in ``work_priority`` order, at most as many items as the budget has calls left; the rest stays
    ``pending`` (deferred, resumable, never failed);
 6. **processes** the admitted items through the engine; every provider call reserves one unit of the pass's budget atomically in
-   PostgreSQL (``calls_used <= call_budget`` is a CHECK), so a corrective re-ask beyond the budget fails ``work:BUDGET_EXHAUSTED``
-   (resumable) and nothing can overspend;
+   PostgreSQL (``calls_used <= call_budget`` is a CHECK; the optional reviewer's call too), so nothing can overspend; a call the
+   budget refuses (a corrective re-ask beyond it) returns its item to ``pending`` — deferred, no attempt spent;
 7. **classifies the run** and stores the status in ``reasoning_runs.status`` and on the pass (with reason codes).
 
 Run status (``RunStatus``), by precedence:
@@ -29,9 +29,10 @@ failed    no usable reasoning run: the run was never gated, the pass hit an orch
           every reasoning attempt of the run in this pass failed at the provider, none committed, and none of the run's cases
           has a usable (open) result to fall back on (an outage on a run with nothing to show)
 partial   useful state kept but work remains resumable: LLM work of the run still pending (budget, interruption) or a failure
-          the policy will retry (attempts left)
-degraded  all the run's work was attempted, but a case's latest work failed for good (not retryable or out of attempts), a
-          committed result's follow-up (questions / memory) failed, or memory was degraded during the pass
+          resume will retry (the same predicate resume uses: still eligible, retryable, attempts left)
+degraded  all the run's work was attempted, but a case's latest work failed for good (not retryable, out of attempts or no
+          longer eligible), a committed result's follow-up (questions / memory) failed in any pass, or a reasoning call of the run
+          ran with degraded memory
 complete  every LLM item of the run is done (or legitimately closed) — including a run with zero work (all cases unchanged)
 ========  =================================================================================================================
 
@@ -49,7 +50,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
 
 from atlas_reasoning import lifecycle
-from atlas_reasoning.engine import BUDGET_EXHAUSTED, ENGINE_LOCK_KEY, ReasoningEngine, WorkError, WorkOutcome
+from atlas_reasoning.engine import BUDGET_EXHAUSTED, ENGINE_LOCK_KEY, ReasoningEngine, WorkOutcome
 from atlas_reasoning.enums import GateAction, RunStatus, WorkStatus
 from atlas_reasoning.store import run_control as sql
 from atlas_reasoning.store.repository import ReasoningStore
@@ -152,9 +153,13 @@ class RunOrchestrator:
         return self._pass(run_id, "resume")
 
     def incomplete_runs(self) -> list[str]:
-        """Runs whose last status is ``partial`` (work remains resumable), oldest first."""
+        """Gated runs ``partial`` or ``failed`` that ``resume`` can still advance (pending work of the run, or eligible failures), oldest
+        first. A run ``failed`` by a provider outage is listed; a ``degraded`` one is not (its failures are final)."""
         with self.store.transaction() as tx:
-            return [row["run_id"] for row in tx._all("SELECT run_id FROM reasoning_runs WHERE status = 'partial' ORDER BY started_at, run_id")]
+            runs = [row["run_id"] for row in tx._all("""SELECT run_id FROM reasoning_runs WHERE status IN ('partial', 'failed') AND gated_at IS NOT NULL
+                                                        ORDER BY started_at, run_id""")]
+            pending = {run_id for run_id in runs if sql.open_llm_items(tx, run_id)}
+        return [run_id for run_id in runs if run_id in pending or self._eligible(run_id)]
 
     # --- the pass --------------------------------------------------------------------------------------------------------------
 
@@ -171,7 +176,7 @@ class RunOrchestrator:
             run = tx.get_run(run_id)
             sql.interrupt_open_passes(tx, run_id)
             pass_id = sql.open_pass(tx, run_id=run_id, kind=kind, policy_version=POLICY_VERSION, call_budget=budget)
-        if run["status"] == RunStatus.STARTED:
+        if run["gated_at"] is None:
             return self._finish(run_id, kind, pass_id, _Classification(RunStatus.FAILED, ["not_gated"]))
         recovered: list[WorkOutcome] = []
         changes: list[Any] = []
@@ -180,9 +185,9 @@ class RunOrchestrator:
         admitted: list[Any] = []
         deferred: list[Any] = []
         try:
-            with self.store.transaction() as tx:
-                interrupted = sql.interrupted_claims(tx)
-            recovered = [self.engine.fail(item, WorkError("INTERRUPTED")) for item in interrupted]
+            # Claims older than the longest possible call belong to a dead worker (``work:STALE_CLAIM``, resumable). A younger claim may
+            # still be live (e.g. a worker whose engine-lock connection dropped), so it is never taken over early.
+            recovered = self.engine.recover_stale_claims()
             changes = lifecycle.sweep(self.store, run_id, policy=self.engine.policy, clock=self.engine.clock)
             if kind == "resume":
                 retries = self._create_retries(run_id, pass_id)
@@ -205,34 +210,34 @@ class RunOrchestrator:
                             admitted=[item.work_item_id for item in admitted], deferred=[item.work_item_id for item in deferred],
                             high_priority=sum(1 for item in admitted if priority(item).tier < 3))
 
-    def _create_retries(self, run_id: str, pass_id: str) -> list[str]:
-        created = []
+    def _eligible(self, run_id: str) -> list[dict[str, Any]]:
+        """Failures of the run that resume will retry: the shared candidate predicate, a retryable error and attempts left."""
         with self.store.transaction() as tx:
             candidates = sql.retry_candidates(tx, run_id)
-        for row in candidates:
-            attempt = int(row["attempt"]) + 1
-            if not self.policy.is_retryable(row["last_error"]) or attempt > self.policy.max_attempts:
-                continue
+        return [row for row in candidates if self.policy.is_retryable(row["last_error"]) and int(row["attempt"]) < self.policy.max_attempts]
+
+    def _create_retries(self, run_id: str, pass_id: str) -> list[str]:
+        created = []
+        for row in self._eligible(run_id):
             try:
                 with self.store.transaction() as tx:
-                    created.append(sql.create_retry(tx, row, attempt=attempt, pass_id=pass_id))
+                    work_item_id = sql.create_retry(tx, run_id, row["work_item_id"], max_attempts=self.policy.max_attempts, pass_id=pass_id)
+                if work_item_id is not None:
+                    created.append(work_item_id)
             except Exception as error:  # noqa: BLE001 - a concurrent resume or a new gate item won: no duplicate, nothing lost
                 LOG.warning("retry not created work_item_id=%s error=%s", row["work_item_id"], type(error).__name__)
         return created
 
     # --- status --------------------------------------------------------------------------------------------------------------
 
-    def _attempts(self, tx: Any, case_id: str, fingerprint: str | None) -> int:
-        row = tx._one("SELECT count(*) AS n FROM reasoning_work_retries WHERE case_id = %s AND evidence_fingerprint = %s", (case_id, fingerprint))
-        return 1 + int(row["n"]) if row else 1
-
     def _classify(self, run_id: str, pass_id: str, outcomes: Sequence[WorkOutcome]) -> _Classification:
         with self.store.transaction() as tx:
             items = sql.latest_llm_items(tx, [run_id])
-            attempts = {item.work_item_id: self._attempts(tx, item.case_id, item.fingerprint_after) for item in items if item.status == WorkStatus.FAILED}
-            memory = sql.memory_degraded(tx, [run_id], sql.pass_started_at(tx, pass_id))
+            memory = sql.memory_degraded(tx, run_id)
             usable = sql.has_usable_result(tx, run_id)
+            carried = sql.carried_reasons(tx, run_id, ("followup_failed",))
             run_items = {item.work_item_id for item in tx.work_items(run_id=run_id)}
+        eligible = {row["work_item_id"] for row in self._eligible(run_id)}
         mine = [row for row in outcomes if row.work_item_id in run_items]
         attempted = [row for row in mine if row.status == WorkStatus.FAILED or row.change_kind is not None]
         if attempted and not usable and all(row.status == WorkStatus.FAILED and (row.error or "").startswith("provider:") for row in attempted):
@@ -241,23 +246,17 @@ class RunOrchestrator:
         if any(item.status in (WorkStatus.PENDING, WorkStatus.IN_PROGRESS) for item in items):
             reasons.append("work_deferred")
         failed = [item for item in items if item.status == WorkStatus.FAILED]
-        resumable = [item for item in failed if self.policy.is_retryable(self._error(item)) and attempts[item.work_item_id] < self.policy.max_attempts]
-        if resumable:
+        if any(item.work_item_id in eligible for item in failed):
             reasons.append("resumable_failures")
         if reasons:
             return _Classification(RunStatus.PARTIAL, reasons)
         if failed:
             reasons.append("unresolved_failures")
-        if any((row.followup or {}).get("errors") for row in mine):
+        if any((row.followup or {}).get("errors") for row in mine) or "followup_failed" in carried:
             reasons.append("followup_failed")
         if memory:
             reasons.append("memory_degraded")
         return _Classification(RunStatus.DEGRADED if reasons else RunStatus.COMPLETE, reasons)
-
-    def _error(self, item: Any) -> str | None:
-        with self.store.transaction() as tx:
-            row = tx._one("SELECT last_error FROM reasoning_work_items WHERE work_item_id = %s", (item.work_item_id,))
-        return row["last_error"] if row else None
 
     def _reclassify(self, run_id: str, pass_id: str) -> None:
         try:
