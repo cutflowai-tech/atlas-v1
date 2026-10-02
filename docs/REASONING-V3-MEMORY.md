@@ -161,7 +161,49 @@ row per call: case, result, run, work item, gateway `request_id` (unique), purpo
 item (position, source type and ID, origin, scope, session, memory reference, content hash, tokens, truncation), drop counts and
 the SHA-256 of the serialized context.
 
-## 3. Tests
+## 3. Phase 12: manager interpretation notes
+
+`manager_notes.ManagerNotes` (tables `manager_notes`, `manager_note_revisions` from `0001`; no new migration).
+
+| Operation | Behaviour |
+|---|---|
+| `create(result_id, body, author=)` | validates the text (`user_text`), commits the note (source `manager_interpretation`, revision 1) and its first revision row, **then** syncs a copy to `result:<result_id>` |
+| `update(note_id, body, author=, expected_revision=)` | row-locked optimistic edit: a stale `expected_revision` raises `NoteConflict` (409); an unchanged body writes nothing; each edit appends a revision row; the new copy replaces the old one in memory |
+| `get`, `for_result`, `history` | canonical reads (history = every revision with author and time) |
+
+- The note's case is always its result's case (composite foreign key). `author` is the latest editor; the revision rows keep every
+  author. Revisions and the note's identity/source columns are immutable (database triggers).
+- A Honcho outage is reported in the write's `sync` outcomes and never loses the note; `memory-sync` later sends the *current*
+  revision (an outdated failed copy is marked `skipped`).
+- `NoteContextSource` gives the assembler the notes on every result of the same case as attributed `manager_context`; a remembered
+  copy of an older revision is never injected. A note never enters `current_evidence`, a fingerprint or the evidence tables.
+
+### 3.1 Text safety (`user_text`)
+
+Text is stored as plain text: NFC, `\n` line endings, bidirectional override characters removed, other control characters refused,
+bounded length (notes and answers 8000). It is escaped when rendered (`human_context_html`), never altered for display in storage.
+
+### 3.2 Write API (`management_api`) and card fragment (`human_context_html`)
+
+Atlas serves a static site, so the API is a transport-neutral handler (`ManagementAPI.handle(Request) -> Response`) for Phase 16/20
+to mount behind the authenticating proxy; it is not mounted in this pass.
+
+| Concern | Rule |
+|---|---|
+| Authentication | `Request.actor` is set by the proxy; missing → 401 |
+| Authorization | actor (case-insensitive) must be in `ATLAS_REASONING_MANAGERS` → 403 |
+| CSRF | writes need `Content-Type: application/json` (415), an allowed `Origin` when sent (`ATLAS_REASONING_ALLOWED_ORIGINS`), and `X-Atlas-CSRF` = HMAC-SHA256(`ATLAS_REASONING_CSRF_SECRET[_FILE]`, actor) (403); `GET /api/reasoning/csrf` issues it |
+| Input | body ≤ 32 KiB (413); JSON object with only documented fields (`UNKNOWN_FIELD`, `MISSING_FIELD`); text codes `EMPTY`, `TOO_LONG`, `CONTROL_CHARACTERS`, `INVALID_TYPE`; IDs `[A-Za-z0-9_]{1,80}` |
+| Audit identity | the author is always the authenticated actor (an `author` field is refused) |
+| Responses | JSON, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`; errors are codes, never internals or credentials |
+
+Routes: `GET /csrf`, `GET|POST /results/{result_id}/notes`, `PUT /notes/{note_id}`, `GET /notes/{note_id}/history`.
+
+`human_context_html.note_panel(result_id, notes, csrf_token=)` renders the card's "Manager interpretation" box: every note escaped
+and attributed, labelled "Management context, not evidence", `data-source-type="manager_interpretation"`, and a text box posting
+to the API. No script, no credentials.
+
+## 4. Tests
 
 `tests/test_reasoning_memory.py` (Phase 10): session naming and Honcho-safe IDs, pseudonymous peers, wrong-session refusal,
 raw-data leakage refusal, provenance, the Honcho client's request sequence, caching, per-environment workspace, error mapping and
@@ -173,3 +215,9 @@ an Editor case), stable order under shuffled input, deduplication, budget enforc
 PostgreSQL: cross-Editor isolation (other Editors' sessions are never read), forged and mis-sessioned copies dropped, team-case
 isolation, previous-result and stale-version exclusion, degraded mode (outage, rejection, backend bug, memory off), provenance
 completeness and the injection audit (append-only, unique request), deterministic serialization, and evidence/identity unchanged.
+
+`tests/test_reasoning_manager_notes.py` (Phase 12): text rules, HTML escaping and labelling; with PostgreSQL: create → persist →
+sync, edit history and memory replacement, optimistic conflicts (also under concurrent edits), restart persistence, Honcho outage
+then retry of the current revision only, correct-result isolation, notes as context never evidence, stale remembered revisions;
+API: create/edit/list/history, actor-only attribution, authentication, authorization, CSRF token bound to the actor, content type,
+origin, method, validation and size limits, settings.

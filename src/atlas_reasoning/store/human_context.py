@@ -67,3 +67,50 @@ def injections(tx: StoreTransaction, *, case_id: str | None = None, request_id: 
     if request_id is not None:
         return tx._all("SELECT * FROM memory_injections WHERE request_id = %s", (request_id,))
     return tx._all("SELECT * FROM memory_injections WHERE case_id = %s ORDER BY created_at, injection_id", (case_id,))
+
+
+def iso(value: Any) -> str | None:
+    """A timestamptz as ``YYYY-MM-DDTHH:MM:SS.ffffffZ`` (UTC), the form every human-context API returns."""
+    if value is None:
+        return None
+    from datetime import UTC
+
+    return str(value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+
+
+# --- manager notes (Phase 12) -------------------------------------------------------------------------------------------------
+
+
+def insert_note(tx: StoreTransaction, *, result_id: str, case_id: str, author: str | None, body: str) -> dict[str, Any]:
+    note_id = new_id("mn")
+    row = tx._one("""INSERT INTO manager_notes (note_id, result_id, case_id, author, body) VALUES (%s, %s, %s, %s, %s) RETURNING *""",
+                  (note_id, result_id, case_id, author, body))
+    assert row is not None
+    tx._exec("INSERT INTO manager_note_revisions (note_id, revision, body, author, recorded_at) VALUES (%s, 1, %s, %s, %s)",
+             (note_id, body, author, row["updated_at"]))
+    return row
+
+
+def update_note(tx: StoreTransaction, *, note_id: str, expected_revision: int, author: str | None, body: str) -> dict[str, Any] | None:
+    """The updated row, or ``None`` when the note is not at ``expected_revision`` (a concurrent edit)."""
+    row = tx._one("""UPDATE manager_notes SET body = %s, author = %s, revision = revision + 1, updated_at = greatest(now(), updated_at)
+                     WHERE note_id = %s AND revision = %s RETURNING *""", (body, author, note_id, expected_revision))
+    if row is not None:
+        tx._exec("INSERT INTO manager_note_revisions (note_id, revision, body, author, recorded_at) VALUES (%s, %s, %s, %s, %s)",
+                 (note_id, row["revision"], body, author, row["updated_at"]))
+    return row
+
+
+def get_note(tx: StoreTransaction, note_id: str, *, lock: bool = False) -> dict[str, Any]:
+    row = tx._one(f"SELECT * FROM manager_notes WHERE note_id = %s{' FOR UPDATE' if lock else ''}", (note_id,))
+    if row is None:
+        raise NotFound(f"note {note_id} does not exist")
+    return row
+
+
+def notes_for_results(tx: StoreTransaction, result_ids: Sequence[str]) -> list[dict[str, Any]]:
+    return tx._all("SELECT * FROM manager_notes WHERE result_id = ANY(%s) ORDER BY created_at, note_id", (list(result_ids),))
+
+
+def note_revisions(tx: StoreTransaction, note_id: str) -> list[dict[str, Any]]:
+    return tx._all("SELECT * FROM manager_note_revisions WHERE note_id = %s ORDER BY revision", (note_id,))
