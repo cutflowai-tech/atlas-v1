@@ -18,7 +18,9 @@ Arabic pages, which render its Top findings and evidence without computing anyth
 (`intelligence-v2.json`, `publication.json`, `profiles/*.json`) through a single module, `reasoning_input_boundary`, into a typed,
 deeply immutable payload, and keeps its own canonical state in PostgreSQL. Nothing upstream imports it; it never writes to any
 upstream document; with `ATLAS_REASONING_V3` off the build, sync and publication are byte-identical to before
-(`docs/REASONING-V3.md`).
+(`docs/REASONING-V3.md`). Connected pipeline (Phases 01–14): ReasoningCase → Change Gate → scoped human/memory context → GPT-5.6 Sol
+via OpenRouter → structured ReasoningResult / ReasoningUpdate (deterministic patch) → engine validation → canonical PostgreSQL result
+→ Atlas Questions → Honcho memory synchronization (`docs/REASONING-V3.md` §14). Not mounted in the static site (Phases 16/20).
 6. **Evidence API** returns contract-versioned Editor Profile data. The UI does not recalculate metrics. Under 1.5.0 the Overview and Profile render one language-neutral interpretation view model (`dashboard.interpretation_view`, `interpretation_html.py`) in English and Arabic.
 7. **Optional AI explanation** reads deterministic outputs and evidence; it cannot mutate or supply them.
 

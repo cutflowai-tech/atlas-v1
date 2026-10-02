@@ -1,21 +1,37 @@
-# Atlas Reasoning V3: foundation (Phases 01–06)
+# Atlas Reasoning V3: foundation and connected reasoning pipeline (Phases 01–14)
 
 Reasoning V3 adds management reasoning (GPT-5.6 Sol through OpenRouter) **after** the deterministic Atlas pipeline. This document
-describes the foundation that later phases build on: the input boundary, the reasoning contracts, the canonical PostgreSQL state,
-stable case identity, evidence fingerprints with the Change Gate, and the provider gateway. The phase specifications are in
-[`REV/`](../REV); the interfaces later phases must use are listed in [§8](#8-stable-public-interfaces).
+describes the foundation (Phases 01–06: input boundary, reasoning contracts, canonical PostgreSQL state, stable case identity,
+evidence fingerprints with the Change Gate, provider gateway), the reasoning engine (Phases 07–09) and how it is connected to the
+human-context and memory layer (Phases 10–14, detailed in [`REASONING-V3-MEMORY.md`](REASONING-V3-MEMORY.md)). The phase
+specifications are in [`REV/`](../REV); the interfaces later phases must use are listed in [§8](#8-stable-public-interfaces),
+[§13](#13-interfaces-added-by-phases-0709) and [§14](#14-the-connected-pipeline-0714-integration-gate).
+
+The actual, connected pipeline (07–14 integration gate, [§14](#14-the-connected-pipeline-0714-integration-gate)):
 
 ```
-Monday ─► deterministic Atlas ─► metrics ─► Interpretation 1.5 ─► Intelligence V2
-                                                                      │  (published site documents, read-only)
+Monday ─► deterministic Atlas ─► metrics ─► Interpretation 1.5 ─► Intelligence V2        (source of truth, unchanged)
+                                                                      │  published site documents, read-only
                                                                       ▼
-                                                        reasoning_input_boundary  (Phase 01)
+                                              reasoning_input_boundary (01) ─► ReasoningCase (02, 04)
                                                                       ▼
-                         ReasoningInput ─► case mapping + case_id (04) ─► evidence fingerprint + Change Gate (05)
+                                   evidence fingerprint + Change Gate (05) ─► work items in PostgreSQL (03)
+                                                                      ▼        (same evidence → zero model work)
+                         Scoped human / memory context (11): manager notes (12), answers (13), teachings (14) from
+                         PostgreSQL + validated Honcho memory (10); audited per request; never evidence
                                                                       ▼
-                                       work items (new / update / lifecycle), persisted in PostgreSQL (03)
+                                       GPT-5.6 Sol via OpenRouter (06) through the gateway
                                                                       ▼
-                                 [Phase 07+: analyst / update reasoning] ─► gateway ─► OpenRouter (06)
+                         Structured ReasoningResult (07) / ReasoningUpdate → deterministic patch (08)
+                                                                      ▼
+                         Validation available through the current engine checks (contract, case consistency, evidence
+                         roles, numbers, model identity)  — Phase 15 guardrails not yet implemented
+                                                                      ▼
+                         Canonical PostgreSQL result / version + lifecycle (09)   ── committed first ──
+                                                                      ▼
+                         Atlas Questions (13): canonical question records from the committed version
+                                                                      ▼
+                         Honcho memory synchronization (10): result summary + question copies; failures logged, retried
 ```
 
 Rules that hold everywhere (`REV/01`–`REV/20`, global rules):
@@ -60,6 +76,10 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `updater`, `prompts/update-v1.md` | 08 | Update reasoning: update input, required changes, patch output schema, ReasoningUpdate construction and validation |
 | `patch` | 08 | Deterministic patch merge and version diffs |
 | `lifecycle` | 09 | Lifecycle policy, transition table, sweep, supersession, transition history |
+| `prompts/analyst-v2.md`, `prompts/update-v2.md` | 07–14 gate | Current prompts: v1 plus the rules for attributed human context (v1 files kept for the versions they produced) |
+| `reasoning_context` | 07–14 gate | The seam between engine and memory layer: context before each call, audit, questions and memory sync after each commit |
+| `http_safety` | 07–14 gate | No-redirect, size-bounded HTTP for the OpenRouter and Honcho clients |
+| `memory`, `honcho_client`, `fake_honcho`, `memory_sync`, `memory_context`, `human_context`, `manager_notes`, `atlas_questions`, `teach_atlas`, `user_text`, `management_api`, `human_context_html`, `store.human_context`, `store.memory_log` | 10–14 | Memory and human-context layer ([`REASONING-V3-MEMORY.md`](REASONING-V3-MEMORY.md)) |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -237,8 +257,10 @@ database is opened.
 
 `src/atlas_reasoning/store/migrations/NNNN_<name>.sql`, applied in order, each in its own transaction under an advisory lock
 (concurrent bootstraps apply each file once). `schema_migrations` records each file's SHA-256; a changed applied file is refused —
-change the schema with a new file. **Number ranges** so parallel branches never collide: `0001–0099` foundation (this work),
-`0100–0199` Chat 2 (Phases 07–09, 15, 17–18), `0200–0299` Chat 3 (Phases 10–14, 16).
+change the schema with a new file. **Number ranges** so parallel branches never collide (reserved at the 07–14 integration gate,
+[§16](#16-migration-ownership-from-the-0714-integration-gate)): `0001–0099` foundation, `0100–0199` Phases 07–09, `0200–0299` Phases
+10–14, `0300–0399` Phase 15, `0400–0499` Phase 16, `0500–0599` Phase 17, `0600–0699` Phase 18, `0700–0799` Phase 19, `0800–0899`
+Phase 20.
 
 ### 4.3 Tables (`0001_reasoning_core.sql`)
 
@@ -489,7 +511,7 @@ error codes and classes); the internal shape of `canonical_evidence` beyond "has
 
 | Owner | Phases | Builds on | Adds (migrations in its range) |
 |---|---|---|---|
-| Chat 2 | 07–09, later 17 (and 15, 18 when assigned) | `change_gate.case_for_work`, work items (`new_result` / `update_result` / `lifecycle`), `StoreTransaction.create_result` / `append_result_version` (change kinds `created`, `patched`, `no_change_review`, `lifecycle`), `ReasoningGateway` + `contract_output`, observations' reason codes (`reappeared_same_evidence` for lifecycle) | prompts, analyst/update orchestration, patch merger, lifecycle policy; migrations `0100`–`0199` |
+| Chat 2 | 07–09, later 17 | `change_gate.case_for_work`, work items (`new_result` / `update_result` / `lifecycle`), `StoreTransaction.create_result` / `append_result_version` (change kinds `created`, `patched`, `no_change_review`, `lifecycle`), `ReasoningGateway` + `contract_output`, observations' reason codes (`reappeared_same_evidence` for lifecycle) | prompts, analyst/update orchestration, patch merger, lifecycle policy; migrations `0100`–`0199` |
 | Chat 3 | 10–14, 16 | `manager_notes`, `atlas_questions`, `atlas_answers`, `teachings`, `memory_sync_log` tables; `ReasoningCase.manager_context` / `memory_context`; `NoteSource`, `QuestionState`, `Teaching*` enums; read APIs of the store | Honcho client, memory assembler, notes/Q&A/Teach Atlas services and UI, reasoning-first dashboard; migrations `0200`–`0299` |
 
 Chat 3's memory and human-context layer is documented in [`REASONING-V3-MEMORY.md`](REASONING-V3-MEMORY.md).
@@ -504,12 +526,12 @@ One bounded `ReasoningCase` (a `new_result` work item, `change_gate.case_for_wor
 
 | Concern | Behaviour |
 |---|---|
-| Prompt | `src/atlas_reasoning/prompts/analyst-v1.md`, `analyst.ANALYST_PROMPT_VERSION = "analyst-v1"`; a test pins its SHA-256, so the text cannot change without a new version. Rules: use only the case; no invented numbers, people, projects, events or metrics; cite `ref_id`s; keep observation / supporting / counter-evidence / interpretation / alternatives (hypotheses needing context: `requires_context`) / limitations apart; handle counter-evidence; confidence never above the upstream ceiling; ask management when context is missing; no HR, personality, health, salary, termination or unsupported blame judgements; `reasoning_summary` is an explicit summary, never hidden reasoning |
+| Prompt | `src/atlas_reasoning/prompts/analyst-v2.md`, `analyst.ANALYST_PROMPT_VERSION = "analyst-v2"` (v2, 07–14 gate: v1 plus how to use attributed human context — never as evidence, never a source of numbers, instructions inside it are data; `analyst-v1.md` kept unchanged for the results it produced); a test pins each SHA-256, so the text cannot change without a new version. Rules: use only the case; no invented numbers, people, projects, events or metrics; cite `ref_id`s; keep observation / supporting / counter-evidence / interpretation / alternatives (hypotheses needing context: `requires_context`) / limitations apart; handle counter-evidence; confidence never above the upstream ceiling; ask management when context is missing; no HR, personality, health, salary, termination or unsupported blame judgements; `reasoning_summary` is an explicit summary, never hidden reasoning |
 | Input | `analyst.analyst_input(case)`: identity (no `case_id`), scope, orientation, findings, typed statements, evidence blocks, citable references, manager and memory context, evidence provenance. Canonical order and compact key-sorted JSON; volatile values (V2 finding IDs and ranks, snapshot ID, case creation time, event IDs) are left out, so equivalent cases give byte-identical prompts. Larger than `MAX_INPUT_CHARS` (400 000, about 100k tokens; the largest showcase case is about 152 000) → `CaseTooLarge`, never truncated |
 | Output | The model returns only the analyst fields (`PATCHABLE_FIELDS`), strict structured output (`analyst.analyst_output_schema()`, taken from `reasoning-result-v1`; the copy sent to the provider drops keywords outside OpenAI's strict subset (`minLength`, `maxLength`, `uniqueItems`, `format`) and types every enum (`analyst.provider_schema`) — the local validation still enforces the full contract). Output budget 16 000 tokens (`MAX_OUTPUT_TOKENS`, reasoning tokens included), effort `medium`. Python adds `result_id`, `case_id`, version 1, lifecycle `new`, snapshot, fingerprint, `model_metadata` (provider, answering model, request ID), `prompt_version`, timestamps. Any other field (an ID, a lifecycle, `chain_of_thought`, …) is `UNKNOWN_FIELD` |
-| Validation | Inside the gateway call (so failures are retried within its bounds and recorded): field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value — including the parts of case dates and, for an update, the delta's before-values — optionally as a percentage, at the precision written; numbers inside identifiers are not numbers). Known limits, left to Phase 15: numbers written as words, and any case value × 100 counts as a percentage. Re-validated before persisting |
-| Model | The answering model must be exactly the configured one (pinned `openai/gpt-5.6-sol`); anything else fails the item (`work:MODEL_SUBSTITUTED`). To verify on the first live call (Phase 20): that OpenRouter reports the slug unchanged |
-| Persistence | `engine.ReasoningEngine`: claim (`pending → in_progress`), one gateway call per item via `call_many`, then `create_result` + evidence links + `done` in one transaction. Any failure rolls back and marks only that item `failed` (`provider:<class>`, `contract:<codes>`, `work:<code>`, `store:<error>`). A claimed item is never left in progress: an interrupted batch fails what it did not finish (`work:INTERRUPTED`), and `process_run` first fails claims abandoned for over an hour (`work:STALE_CLAIM`, e.g. a killed worker) so their cases are not blocked; re-reasoning them is the resume phase's (18, `unreasoned_cases`) |
+| Validation | Inside the gateway call (so failures are retried within its bounds and recorded): field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value — including the parts of case dates and, for an update, the delta's before-values — optionally as a percentage, at the precision written; numbers inside identifiers are not numbers). Since the 07–14 gate only rates (values between 0 and 1) may be written as percentages, and a contradicted case's `counter_evidence` must cite its contradicting evidence while `supporting_evidence` may not (`EVIDENCE_ROLE_MISMATCH`). Known limit, left to Phase 15: numbers written as words. Re-validated before persisting |
+| Model | The answering model must be the configured one (pinned `openai/gpt-5.6-sol`): `settings.model_identity_matches` accepts the slug itself or OpenRouter's published dated canonical slug (`openai/gpt-5.6-sol-20260709`), nothing else (`-pro`, `:batch`, other dates formats, other models); anything else fails the item (`work:MODEL_SUBSTITUTED`). Live confirmation of the value OpenRouter returns is pending the live compatibility gate ([§15](#15-known-limitations-after-the-0714-integration-gate)) |
+| Persistence | `engine.ReasoningEngine` (since the 07–14 gate, [§14](#14-the-connected-pipeline-0714-integration-gate)): one engine at a time (session advisory lock); each item runs its own claim (`pending → in_progress`, just before its call) → context → gateway call → `create_result` + evidence links + `done` in one transaction → follow-up, `concurrency` items at a time. Any failure rolls back and marks only that item `failed` (`provider:<class>`, `contract:<codes>`, `work:<code>`, `store:<error>`). A claimed item is never left in progress (`work:INTERRUPTED`); claims older than the longest possible call (`stale_claim_seconds`, from the gateway limits) are failed (`work:STALE_CLAIM`); work for a case that is no longer present is closed without a call. Re-reasoning failed work is the resume phase's (18); `EngineReport.unreasoned` lists those cases |
 
 Command: `python -m atlas_reasoning reason <run_id>` (needs `ATLAS_REASONING_V3=on`, the OpenRouter key and the database) processes
 every pending work item and prints the engine report. Tests: `tests/test_reasoning_analyst.py` (fake transport `tests/reasoning_fakes.py`).
@@ -523,7 +545,7 @@ result by the time it is processed — becomes an update of the open result's **
 |---|---|
 | Input (`updater.update_input`) | Previous result's patchable fields and version; `fingerprints` before (the result's) and after (the work item's); the exact `material_delta` between the two stored evidence states (equal to the gate's delta); the current case evidence and context (same canonical view as the analyst); `fields_requiring_change` (below). No case or result ID |
 | Required changes (`updater.required_changes`, deterministic) | A field must change when it cites a `ref_id` no longer in the case (`cites_evidence_no_longer_in_the_case`), quotes a number the current evidence no longer carries (`uses_numbers_no_longer_in_the_case`), exceeds the new confidence ceiling, or the case gained counter-evidence the card ignores |
-| Prompt | `prompts/update-v1.md`, `UPDATE_PROMPT_VERSION = "update-v1"`, separate from the analyst prompt, SHA-256 pinned. Change a field only when the evidence change makes it wrong, stale, unsupported or materially incomplete; never reword untouched fields; account for every field; explain the change |
+| Prompt | `prompts/update-v2.md`, `UPDATE_PROMPT_VERSION = "update-v2"` (v2, 07–14 gate: v1 plus the human-context rules; new context alone is no reason to change a field), separate from the analyst prompt, SHA-256 pinned. Change a field only when the evidence change makes it wrong, stale, unsupported or materially incomplete; never reword untouched fields; account for every field; explain the change |
 | Output (`updater.update_output_schema`) | `action` (patch / no_change), `change_rationale`, `changed_fields`, `preserved_fields`, `patch` (every patchable field, null unless changed). Nothing else: an identity, version, fingerprint or lifecycle cannot be expressed |
 | ReasoningUpdate | Python builds it (`build_update`): case, result, `base_version` and fingerprints are Python's; validated with `update_errors` (field accounting, `IMMUTABLE_FIELD`, `UNKNOWN_FIELD`, `ACTION_MISMATCH`, `INVALID_FIELD_VALUE`), `update_result_errors`, `update_case_errors`, plus `PATCH_VALUE_MISMATCH` (a value exactly for each changed field), `UNCHANGED_PATCH_VALUE` (a listed change must really change the field) and `REQUIRED_CHANGE_MISSING` |
 | Merge (`patch.merge`, Python) | Changed fields replaced as whole fields; every other patchable field copied from the previous version (byte-identical wording); `contract_version`, `result_id`, `case_id`, `created_at`, `superseded_by` copied; version + 1, fingerprint, snapshot, model metadata, prompt version and `updated_at` set by Python; lifecycle chosen by the lifecycle policy (Phase 09), never by the model. The merged version is validated like a new result (contract, case, numbers) |
@@ -584,3 +606,79 @@ supersession, idempotent sweep, debug command).
 | `StoreTransaction.append_version_with_diff`, `record_result_diff`, `result_diffs`, `record_lifecycle_transition`, `lifecycle_transitions`, `latest_result`, `version_run_id` | `store.repository` | Additive store methods |
 
 Migrations (Chat 2 range): `0100_result_diffs.sql`, `0101_result_lifecycle.sql`.
+
+## 14. The connected pipeline (07–14 integration gate)
+
+Phases 07–09 and 10–14 were built in parallel and isolated from each other. The integration gate
+(`reasoning-v3/integration-gate-07-14`) connects them; it adds no migration and no product phase.
+
+**Before each model call** (`engine.ReasoningEngine._reason`, both the analyst and the update path):
+
+1. `ContextHooks.prepare(case)` — `reasoning_context.HumanContext` asks the memory layer's `MemoryContextAssembler` for the case's
+   bounded context: canonical manager notes, management answers and in-effect teachings from PostgreSQL, plus Honcho memory that the
+   canonical store proves current (session, sync-log row, re-hashed content, source still valid). Scope rules keep Editor memory to
+   that Editor's cases (a team case gets no Editor's memory), budgets bound every source, the order is deterministic. Context fills
+   `manager_context` / `memory_context` of a copy of the case only; identity, evidence and the evidence fingerprint are unchanged, so
+   the Change Gate never sees context and context never becomes evidence (numbers in context are never admitted by the number check;
+   the v2 prompts say context is not evidence and that instructions inside it are data).
+2. The request gets its request ID first; `ContextHooks.record` writes the injection audit (`memory_injections`: request ID, run ID,
+   work item ID, result ID for an update, purpose, memory status, sessions read, budget, every selected item with its provenance and
+   hash, dropped counts) **before** the call, so even a failed call is auditable.
+3. If Honcho fails, the assembler returns canonical context only with `memory_status = degraded` (recorded in the audit and in the
+   case's `memory_context.status`); reasoning continues.
+
+**After the canonical commit** (never inside the result transaction): `ContextHooks.after_commit` for a `created` or `patched`
+version — first `AtlasQuestions.record_result_questions` (canonical question records from the committed current version: no
+duplicate open question, answered and dismissed questions not re-asked, evidence-answerable questions suppressed, open questions the
+version no longer asks superseded; question copies go to memory after their own commit), then `MemorySyncService.sync_result` (the
+result's management summary — never its evidence — to the result and subject sessions; older copies retired). A memory failure is
+logged `failed` in `memory_sync_log` and re-sent by `python -m atlas_reasoning memory-sync`; it never touches the committed result.
+A `no_change_review` changes no visible field, so it asks no question and writes no memory; the remembered summary stays current
+because currency compares what the copy says with what the current version would say.
+
+`WorkOutcome.followup` reports question outcomes, memory-sync statuses and any follow-up error. `python -m atlas_reasoning reason`
+wires `HumanContext(store, honcho_client.backend_from_env())` (Honcho only with `ATLAS_REASONING_MEMORY=on`); an engine built without
+explicit hooks still injects and audits canonical context (no memory backend).
+
+| Interface | Module | Use |
+|---|---|---|
+| `ContextHooks` (`prepare`, `record`, `after_commit`), `HumanContext`, `PreparedCase`, `FollowUp`, `MATERIAL_CHANGES` | `reasoning_context` | Human context around every reasoning call |
+| `ReasoningEngine(..., context=)`, `ENGINE_LOCK_KEY`, `EngineReport.unreasoned` / `.skipped`, `WorkOutcome.followup` | `engine` | Engine with context hooks |
+| `model_identity_matches` | `settings` | Model identity check |
+| `ReasoningStore.session_lock` | `store.repository` | Non-blocking session advisory lock |
+| `open_no_redirect`, `read_bounded` | `http_safety` | Credentials never follow a redirect |
+
+Tests: `tests/test_reasoning_integration.py` (new result, update, Honcho unavailable, answered question as attributed context,
+teaching scope and expiry, Editor isolation, zero model work on unchanged evidence, no-change review without churn, absent-case work,
+engine lock, model identity, evidence roles, number scaling). Review record: `docs/evidence/REASONING-V3-INTEGRATION-GATE-07-14.md`.
+
+## 15. Known limitations after the 07–14 integration gate
+
+- **Phase 15 has not started.** Deterministic content-safety and HR guardrails (beyond the prompt rules, the contract, evidence-role,
+  number and model-identity checks above) await Phase 15. Numbers written as words are not caught yet.
+- **Production mounting awaits Phases 16 / 20.** `management_api.ManagementAPI` and the `human_context_html` fragments are callable
+  services only; nothing mounts them, no HTTP server is started and the static production site exposes no endpoint.
+- **Client-scoped teachings are stored and synced but not automatically injected**: `ReasoningCase` has no canonical client
+  dimension, so no case is "about" a client. They are never applied globally. Injection needs a canonical client-to-case relationship.
+- **Re-reasoning failed or deferred work** (provider outage, stale claim, evidence that changed while an item was in progress) is the
+  resume phase's (18); the engine reports such cases (`EngineReport.unreasoned`) and the Change Gate stays zero-work for unchanged evidence.
+- **Live provider compatibility** (OpenRouter strict structured output with the generated schemas, the returned model identity) and
+  **live Honcho** behavior are verified only offline until the live gates run with real credentials (`OPENROUTER_API_KEY`,
+  `HONCHO_API_KEY` or their `_FILE` variants).
+- `evidence_answerable` (questions answerable from evidence) is an English-pattern heuristic; teaching dates and `current_period` are UTC.
+
+## 16. Migration ownership from the 07–14 integration gate
+
+| Range | Owner |
+|---|---|
+| `0001–0099` | Foundation (Phases 01–06) |
+| `0100–0199` | Phases 07–09 (`0100_result_diffs`, `0101_result_lifecycle`) |
+| `0200–0299` | Phases 10–14 (`0200_memory_sync`, `0201_memory_injections`, `0202_atlas_questions`, `0203_teach_atlas`) |
+| `0300–0399` | Phase 15 / Chat 1 |
+| `0400–0499` | Phase 16 / Chat 3 |
+| `0500–0599` | Phase 17 / Chat 2 |
+| `0600–0699` | Phase 18 / Chat 1 |
+| `0700–0799` | Phase 19 / Chat 1 |
+| `0800–0899` | Phase 20 / Chat 1 |
+
+The integration gate consumed none of these ranges.
