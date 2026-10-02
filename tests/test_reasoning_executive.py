@@ -2,8 +2,8 @@
 fingerprint, the preserve policy, the versioned prompt and request, the deterministic executive validator, and isolation from raw
 sources and from the Phase 16 presentation layer.
 
-Card linking (executive statement → Phase 16 result card) is DEFERRED_TO_PHASE17_UI_AFTER_PHASE16: it must use Phase 16's published
-result-card interface, so it is not tested (or faked) here.
+Card linking (executive statement → Phase 16 result card → evidence) was deferred to the Phase 17 UI; it is now tested for real against
+Phase 16's published interfaces in ``tests/test_reasoning_executive_ui.py``.
 """
 
 from __future__ import annotations
@@ -13,8 +13,10 @@ import copy
 import dataclasses
 import json
 import random
+import re
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 from reasoning_executive_support import BASE, QUESTION, rid, row, standard_rows, statement, valid_answer
 
@@ -612,7 +614,7 @@ class IdentityTests(unittest.TestCase):
 
 
 class IsolationTests(unittest.TestCase):
-    """Executive synthesis reads canonical reasoning only, talks to the provider only through the gateway, and is UI-inert."""
+    """Executive synthesis reads canonical reasoning only and talks to the provider only through the gateway; the Phase 17 UI reads it only."""
 
     MODULES = ("executive.py", "executive_contracts.py", "executive_validator.py", "store/executive.py")
 
@@ -637,16 +639,52 @@ class IsolationTests(unittest.TestCase):
             with self.subTest(module=name):
                 self.assertFalse({module for module in imports if module in forbidden or module.split(".")[0] in forbidden}, imports)
 
-    def test_executive_core_is_ui_inert(self):
+    # Phase 17 UI (completing REV/17 #10): the only users of the executive core are the read-only overview modules and the web app that
+    # mounts them, and they may use only these read interfaces — never the synthesizer, validator, gateway or a write.
+    UI_USERS: ClassVar[dict[str, dict[str, set[str]]]] = {"executive_overview.py": {"atlas_reasoning.executive_contracts": {"COMPANY_SCOPE", "EDITOR_SECTION", "SECTIONS", "ExecutiveBrief"},
+                                          "atlas_reasoning.store.executive": {"ExecutiveTransaction"}},
+                "executive_html.py": {"atlas_reasoning.executive_overview": {"CitedResult", "Overview", "StatementView"}},
+                "web_app.py": {"atlas_reasoning.executive_html": {"overview_html"},
+                               "atlas_reasoning.executive_overview": {"ExecutiveOverviewService"}}}
+
+    @staticmethod
+    def _imported_names(path: Path) -> dict[str, set[str]]:
+        found: dict[str, set[str]] = {}
+        for node in ast.walk(ast.parse(path.read_text(), str(path))):
+            if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                found.setdefault(node.module, set()).update(alias.name for alias in node.names)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    found.setdefault(alias.name, set()).add("*")
+        return found
+
+    def test_only_the_read_only_executive_ui_uses_the_core(self):
         users = []
         for path in SRC.rglob("*.py"):
             relative = path.relative_to(SRC / "atlas_reasoning").as_posix() if path.is_relative_to(SRC / "atlas_reasoning") else None
             if relative in self.MODULES:
                 continue
-            if any(module.startswith(("atlas_reasoning.executive", "atlas_reasoning.store.executive")) for module in self._imports(path)):
-                users.append(str(path.relative_to(ROOT)))
-        self.assertEqual(users, [], "nothing outside the executive core imports it (no route, page, CLI or dashboard)")
+            core = {module: names for module, names in self._imported_names(path).items()
+                    if module.startswith(("atlas_reasoning.executive", "atlas_reasoning.store.executive")) and module != "atlas_reasoning.store.executive_read"}
+            if not core:
+                continue
+            allowed = self.UI_USERS.get(relative or "")
+            if allowed is None or any(not names <= allowed.get(module, set()) for module, names in core.items()):
+                users.append(f"{path.relative_to(ROOT)}: {sorted((module, sorted(names)) for module, names in core.items())}")
+        self.assertEqual(users, [], "only the read-only executive overview (Phase 17 UI) uses the core, through read interfaces only")
 
+    def test_the_executive_ui_never_reaches_the_provider_memory_or_a_write(self):
+        forbidden = {"atlas_reasoning.executive", "atlas_reasoning.executive_validator", "atlas_reasoning.gateway", "atlas_reasoning.openrouter_client",
+                     "atlas_reasoning.honcho_client", "atlas_reasoning.memory_sync", "atlas_reasoning.memory_context", "atlas_reasoning.provider"}
+        for name in ("executive_overview.py", "executive_html.py", "store/executive_read.py"):
+            imports = set(self._imported_names(SRC / "atlas_reasoning" / name))
+            with self.subTest(module=name):
+                self.assertFalse(imports & forbidden, imports)
+        source = (SRC / "atlas_reasoning" / "store" / "executive_read.py").read_text().upper()
+        self.assertIsNone(re.search(r"\b(?:INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|TRUNCATE|_EXEC)\b", source))
+        overview = (SRC / "atlas_reasoning" / "executive_overview.py").read_text()
+        for call in ("append_brief(", "record_run(", ".synthesize(", "validate_brief(", ".call("):
+            self.assertNotIn(call, overview)
 
 if __name__ == "__main__":
     unittest.main()

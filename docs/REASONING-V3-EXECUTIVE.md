@@ -4,10 +4,9 @@ Specification: [`REV/17`](../REV/17-build-the-executive-intelligence-synthesis-l
 [`REASONING-V3.md`](REASONING-V3.md); the Phase 15 guardrails this layer sits behind: [`REASONING-V3-GUARDRAILS.md`](REASONING-V3-GUARDRAILS.md).
 Review record: [`evidence/REASONING-V3-PHASE-17-CORE.md`](evidence/REASONING-V3-PHASE-17-CORE.md).
 
-**Status: `PHASE17_CORE_COMPLETE` scope only.** This is the presentation-independent backend of Phase 17: contract, input, prompt,
-provider call, validator, persistence, preserve policy. It renders nothing. The executive home / overview, routing, card links,
-drill-down, navigation, CSS/JS, EN/AR presentation and site publication (`REV/17` #10) are deferred until Phase 16's result-card
-interface is merged (§9).
+**Status: Phase 17 complete with the executive UI (§11).** §1–§10 describe the presentation-independent core (contract, input, prompt,
+provider call, validator, persistence, preserve policy), merged first as `PHASE17_CORE_COMPLETE`. §11 is the read-only executive overview
+that completes `REV/17` #10 on top of Phase 16's reasoning-first dashboard.
 
 ```
 Phase 15 guardrails ─► canonical ReasoningResults (PostgreSQL)                  (already validated; never refused candidates)
@@ -170,15 +169,16 @@ report = ReasoningEngine(store, gateway, context=...).process_run(run_id)
 outcome = ExecutiveSynthesizer(ExecutiveStore(store), gateway).synthesize(run_id)
 ```
 
-## 9. Deferred until after Phase 16
+## 9. Items deferred by the core, now delivered by the Phase 17 UI (§11)
 
 | Item (REV/17 #10 and the Phase 17 assignment) | Status |
 |---|---|
-| Executive home / overview, home-route change | DEFERRED |
-| Executive statement → result-card links; drill-down into the Phase 16 evidence view | DEFERRED |
-| Card anchors / routes (owned by Phase 16) | DEFERRED — the brief persists result IDs only and invents no URL |
-| Executive UI, CSS / JS, navigation, EN / AR presentation, site / publication integration, Management API transport | DEFERRED |
-| Card-linking acceptance test | `DEFERRED_TO_PHASE17_UI_AFTER_PHASE16` — must use Phase 16's real published result-card interface, not a placeholder |
+| Executive home / overview | DONE: the lead of `/reasoning/<locale>/` through Phase 16's `home_page(lead_html=)` |
+| Executive statement → result-card links; drill-down into the Phase 16 evidence view | DONE: pinned to the synthesized result version |
+| Card anchors / routes (owned by Phase 16) | Reused unchanged (`dashboard_routes`); the brief still persists result IDs only and no URL |
+| EN / AR presentation, CSS | DONE (Phase 16 catalogs and stylesheet, additive) |
+| Site / publication integration, Management API transport | Not part of the UI: the overview is served by the Reasoning V3 web app (Phase 16); the static site is unchanged; there is no executive write API |
+| Card-linking acceptance test | DONE: `tests/test_reasoning_executive_ui.py` (`test_full_phase17_acceptance_brief_to_card_to_evidence`, `test_statement_links_are_the_deferred_card_links_made_real`) |
 
 ## 10. Known limitations
 
@@ -194,3 +194,43 @@ outcome = ExecutiveSynthesizer(ExecutiveStore(store), gateway).synthesize(run_id
 - The resolved lookback counts runs, not time; with a long gap between runs a resolution stays visible for three runs.
 - No production command runs the synthesizer yet; wiring it after `reason` (and resuming failed syntheses) belongs to the rollout /
   reliability phases.
+
+## 11. The executive overview (Phase 17 UI, `REV/17` #10)
+
+```
+canonical ExecutiveBrief (PostgreSQL, current version)          read only: no synthesis, no model, no Honcho, no write
+        │  ExecutiveTransaction.current_brief + executive_brief_runs (decision, failure class) + pinned titles
+        ▼
+executive_overview.ExecutiveOverviewService.overview()  ─►  Overview (sections, statements, cited results, provenance)
+        │  cited result state now: Phase 16 DashboardService.result_states (current version, lifecycle, superseded_by)
+        ▼
+executive_html.overview_html  ─►  dashboard_html.home_page(..., lead_html=)  above <section id="reasoning-results">
+```
+
+| Module | Role |
+|---|---|
+| `store/executive_read` | Two bounded reads: the latest synthesis run of the scope (decision and failure *class* only) and the stored titles of the pinned result versions |
+| `executive_overview` | `ExecutiveOverviewService` (state `brief` / `none` / `unavailable`), `Overview`, `StatementView`, `CitedResult` |
+| `executive_html` | `overview_html` (the lead), `statement`, `cited_result` |
+| `web_app` | `ReasoningWebApp(..., executive=ExecutiveOverviewService)`; `create_app` wires it; only the home page uses it |
+
+- **Read only.** A GET renders the persisted current brief. The UI modules import only the core's read interfaces (`ExecutiveBrief`,
+  `ExecutiveTransaction`, section constants) — never `ExecutiveSynthesizer`, the validator, the gateway, a provider or Honcho
+  (`IsolationTests.test_only_the_read_only_executive_ui_uses_the_core`, `test_the_executive_ui_never_reaches_the_provider_memory_or_a_write`).
+  Tests prove that home, card, evidence, history, Teach Atlas and read-API GETs make no provider or Honcho call and leave every table of
+  the schema byte-identical. There is no executive write API.
+- **Sections.** Every non-empty canonical section is rendered in contract order; an empty section is not rendered; a deterministic empty
+  brief says it had no cards to summarize; no brief yet: "Executive brief not available yet." and the cards below as usual.
+- **Links.** Each cited result links to the card **at the version the synthesis saw** (`card_path(locale, id, version=n)` from the
+  brief's `input_results`) and to that version's evidence (`evidence_path(..., version=n)`); never to an Intelligence V2 finding or a Monday
+  record (the lower audit chain is Phase 16's drill-down). A non-canonical ID never becomes a URL.
+- **Moved on / resolved / replaced.** When the card has a newer version, the statement says so and links the current version; a resolved
+  card is marked resolved; a superseded one links its replacement (`superseded_by`). The statement itself is shown exactly as stored.
+- **Preserved and failed runs.** An `unchanged` run leaves the page identical. When the latest run failed while this brief stayed
+  current, a notice says the last validated brief is shown — never the candidate, its codes or provider details.
+- **Text.** Statements are model-written and untrusted: escaped, `dir="auto"`, shown as stored in both languages (only the interface wording
+  is localized). Provenance: brief ID, version, run, generator, model, prompt and validator versions, creation time, input size.
+- **No migration** and no change to any core module's behaviour.
+
+Tests: `tests/test_reasoning_executive_ui.py`.
+

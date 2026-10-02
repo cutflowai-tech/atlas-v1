@@ -99,6 +99,17 @@ button{font:inherit;padding:6px 14px;border-radius:6px;border:1px solid var(--at
 .qa-dismiss button,.ta-actions button{background:var(--panel);color:var(--atlas)}
 .rv-form-status{font-size:.85rem}
 .rv-form-status[data-state=failed]{color:var(--bad)}
+.rv-exec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:14px 0;border-inline-start:6px solid var(--ink)}
+.rv-exec-section h3{margin-top:1.1em}
+.rv-exec-statements{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.rv-exec-statement{border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--bg)}
+.rv-exec-text{margin:0 0 .3em;font-size:1.02rem}
+.rv-exec-based{font-size:.85rem;margin:.3em 0 .1em}
+.rv-exec-refs{padding-inline-start:1.2em;margin:.2em 0;font-size:.9rem}
+.rv-exec-ref{margin:.25em 0}
+.rv-exec-ref>a,.rv-exec-ref .rv-ver{margin-inline-end:8px}
+.rv-exec-status{display:inline-flex;flex-wrap:wrap;gap:4px 8px;margin-inline-start:4px}
+.rv-exec-state{color:var(--warn-ink);font-size:.85rem}
 @media (max-width:640px){.rv-dl{grid-template-columns:1fr}.rv-dl dt{margin-top:.4em}h1{font-size:1.35rem}.rv-lang{margin-inline-start:0}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 """
