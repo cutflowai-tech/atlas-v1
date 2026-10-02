@@ -1,8 +1,8 @@
 """Management write API for human context (``REV/12``-``REV/14``): transport-neutral request handling.
 
-Atlas is published as a static site behind nginx and has no application server yet, so this module is not mounted anywhere: it
-is the request handler a later phase (16, rollout in 20) mounts behind the authenticating proxy. It owns every rule a write
-endpoint needs, so mounting it adds no new security decisions:
+Atlas is published as a static site behind nginx. Phase 16 mounts this handler in ``web_app`` (the Reasoning V3 WSGI application,
+behind the authenticating proxy); production rollout is Phase 20's. It owns every rule a write endpoint needs, so mounting it adds
+no new security decisions:
 
 - **Authentication** is the proxy's: ``Request.actor`` is the identity the proxy authenticated (never read from the body). No
   actor → 401.
@@ -69,7 +69,10 @@ SECURITY_HEADERS = {"Content-Type": "application/json; charset=utf-8", "Cache-Co
 
 
 def _identity(value: str) -> str:
-    return value.strip().casefold()
+    """The comparable form of an identity: ASCII identities case-insensitively (``Boss@x`` is ``boss@x``); any other identity exactly.
+    Never ``casefold``: it maps distinct identities together (``ß`` → ``ss``), which would share an allow-list entry and a CSRF token."""
+    value = value.strip()
+    return value.lower() if value.isascii() else value
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,16 @@ class ApiError(Exception):
     def __init__(self, status: int, code: str, message: str = "") -> None:
         super().__init__(message or code)
         self.status, self.code = status, code
+
+
+def authorize_actor(settings: ApiSettings, actor: str | None) -> str:
+    """The proxy-authenticated actor when it is an allowed manager: 401 without an actor, 403 outside ``ATLAS_REASONING_MANAGERS``.
+    Shared by this API and the Phase 16 read API and pages, so reads and writes enforce one rule."""
+    if not actor or not actor.strip():
+        raise ApiError(401, "UNAUTHENTICATED")
+    if _identity(actor) not in settings.managers:
+        raise ApiError(403, "FORBIDDEN")
+    return actor.strip()
 
 
 TEACHING_EDIT = ("body", "teaching_type", "validity_mode", "valid_from", "valid_until", "affects_source_data")
@@ -176,11 +189,7 @@ class ManagementAPI:
         return hmac.new(self.settings.csrf_secret, f"atlas-csrf-v1|{_identity(actor)}".encode(), hashlib.sha256).hexdigest()
 
     def _authorize(self, request: Request) -> str:
-        if not request.actor or not request.actor.strip():
-            raise ApiError(401, "UNAUTHENTICATED")
-        if _identity(request.actor) not in self.settings.managers:
-            raise ApiError(403, "FORBIDDEN")
-        return request.actor.strip()
+        return authorize_actor(self.settings, request.actor)
 
     def _check_write(self, request: Request, headers: Mapping[str, str], actor: str) -> dict[str, Any]:
         if headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
@@ -227,13 +236,13 @@ class ManagementAPI:
         actor = self._authorize(request)
         headers = {key.lower(): value for key, value in request.headers.items()}
         path = request.path.split("?", 1)[0]
-        matched = [route for route in self.routes if route.pattern.match(path)]
+        matched = [route for route in self.routes if route.pattern.fullmatch(path)]
         if not matched:
             raise ApiError(404, "NOT_FOUND")
         route = next((route for route in matched if route.method == method), None)
         if route is None:
             raise ApiError(405, "METHOD_NOT_ALLOWED")
-        params = route.pattern.match(path).groupdict()  # type: ignore[union-attr]
+        params = route.pattern.fullmatch(path).groupdict()  # type: ignore[union-attr]
         query = request.path.split("?", 1)[1] if "?" in request.path else ""
         for key, values in urllib.parse.parse_qs(query, max_num_fields=10).items():
             params[f"query.{key}"] = values[-1]

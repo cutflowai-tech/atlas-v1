@@ -185,13 +185,13 @@ bounded length (notes and answers 8000). It is escaped when rendered (`human_con
 
 ### 3.2 Write API (`management_api`) and card fragment (`human_context_html`)
 
-Atlas serves a static site, so the API is a transport-neutral handler (`ManagementAPI.handle(Request) -> Response`) for Phase 16/20
-to mount behind the authenticating proxy; it is not mounted in this pass.
+Atlas serves a static site, so the API is a transport-neutral handler (`ManagementAPI.handle(Request) -> Response`). Phase 16 mounts it
+in `web_app` behind the authenticating proxy ([`REASONING-V3-DASHBOARD.md`](REASONING-V3-DASHBOARD.md)); production rollout is Phase 20's.
 
 | Concern | Rule |
 |---|---|
 | Authentication | `Request.actor` is set by the proxy; missing → 401 |
-| Authorization | actor (case-insensitive) must be in `ATLAS_REASONING_MANAGERS` → 403 |
+| Authorization | actor (case-insensitive for ASCII identities, exact otherwise) must be in `ATLAS_REASONING_MANAGERS` → 403 |
 | CSRF | writes need `Content-Type: application/json` (415), an allowed `Origin` when sent (`ATLAS_REASONING_ALLOWED_ORIGINS`), and `X-Atlas-CSRF` = HMAC-SHA256(`ATLAS_REASONING_CSRF_SECRET[_FILE]`, actor) (403); `GET /api/reasoning/csrf` issues it |
 | Input | body ≤ 32 KiB (413); JSON object with only documented fields (`UNKNOWN_FIELD`, `MISSING_FIELD`); text codes `EMPTY`, `TOO_LONG`, `CONTROL_CHARACTERS`, `INVALID_TYPE`; IDs `[A-Za-z0-9_]{1,80}` |
 | Audit identity | the author is always the authenticated actor (an `author` field is refused) |
