@@ -154,6 +154,36 @@ class QuestionTests(unittest.TestCase):
         live = [m.source_id for m in self.honcho.read(result_session(self.result["result_id"]), limit=10)]
         self.assertIn(second.answer_id, live)
 
+    def test_reasserting_an_earlier_answer_is_management_s_latest_position(self):
+        # Review of PR #33: A, B, A again returned the first A unchanged, so later reasoning kept using B.
+        self.qa.record_result_questions(self.result["result_id"])
+        [row] = self.open_questions()
+        first, _, _ = self.qa.answer(row["question_id"], "Yes, Class B moved to Ahmed.", author=BOSS)
+        second, _, _ = self.qa.answer(row["question_id"], "No, unchanged.", author=BOSS)
+        third, created, _ = self.qa.answer(row["question_id"], "Yes, Class B moved to Ahmed.", author=BOSS)
+        self.assertTrue(created)
+        self.assertNotEqual(third.answer_id, first.answer_id)
+        self.assertEqual(third.conflicts_with_answer_id, second.answer_id)
+        again = self.qa.answer(row["question_id"], "yes, class b moved to Ahmed.", author=BOSS)
+        self.assertEqual((again[0].answer_id, again[1]), (third.answer_id, False))     # repeating the latest is still a repeat
+        context = human_context.assembler(self.store, self.honcho, env={}).assemble(self.case)
+        [item] = [i for i in context.manager_context if i["source_type"] == "manager_answer"]
+        self.assertEqual(item["source_id"], third.answer_id)
+
+    def test_reprocessing_an_old_version_never_revives_a_superseded_question(self):
+        # Review of PR #33: v1 asks Q, v2 drops it (superseded), re-running v1 created a new open Q tied to the stale v1.
+        self.qa.record_result_questions(self.result["result_id"])
+        patch_result(self.store, self.result, self.case, questions_for_management=[])
+        self.assertEqual(len(self.qa.record_result_questions(self.result["result_id"]).superseded), 1)
+        stale = self.qa.record_result_questions(self.result["result_id"], version=1)
+        self.assertEqual((stale.outcomes, stale.superseded), ((), ()))
+        self.assertEqual(self.open_questions(), [])
+
+    def test_one_unusable_question_text_never_stops_the_others(self):
+        result = seed_result(self.store, editor_case("editor-q"), questions=[question("Was there a\x07 policy change?"), question(Q1)])
+        report = self.qa.record_result_questions(result["result_id"])
+        self.assertEqual([outcome for _, outcome, _ in report.outcomes], ["created"])
+
     def test_answers_are_reused_for_the_same_editor_only(self):
         self.qa.record_result_questions(self.result["result_id"])
         [row] = self.open_questions()

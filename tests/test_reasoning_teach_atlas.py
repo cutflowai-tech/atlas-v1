@@ -181,6 +181,17 @@ class TeachingTests(unittest.TestCase):
         self.assertEqual([m.record.source_id for m in self.honcho.messages(GLOBAL_TEACHINGS) if not m.retired], [period.teaching_id])
         self.assertEqual(self.teach.get(ranged.teaching_id).status, "active")    # expiry never rewrites the canonical row
 
+    def test_future_teaching_is_synced_when_it_comes_into_effect(self):
+        # Review of PR #33: a teaching not in effect when written was never copied to memory afterwards.
+        future = self.teach_one("Starts in December.", validity_mode="date_range", valid_from="2026-12-01", valid_until="2026-12-31").teaching
+        self.assertEqual(self.honcho.messages(GLOBAL_TEACHINGS), [])
+        self.assertEqual(self.teach.sync_effective(), [])
+        self.clock.now = datetime(2026, 12, 2, tzinfo=UTC)
+        [outcome] = self.teach.sync_effective()
+        self.assertEqual((outcome.source_id, outcome.status), (future.teaching_id, "synced"))
+        self.assertEqual([o.status for o in self.teach.sync_effective()], ["duplicate"])      # sent once
+        self.assertEqual([m.record.source_id for m in self.honcho.messages(GLOBAL_TEACHINGS)], [future.teaching_id])
+
     def test_disable_enable_archive(self):
         t = self.teach_one("Use the client calendar.").teaching
         disabled = self.teach.disable(t.teaching_id, author=BOSS)

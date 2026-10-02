@@ -317,6 +317,14 @@ class TeachAtlas:
     def archive(self, teaching_id: str, *, author: str | None) -> TeachingWrite:
         return self.set_status(teaching_id, TeachingStatus.ARCHIVED, author=author)
 
+    def sync_effective(self) -> list[SyncOutcome]:
+        """Copy every active teaching that is in effect now (``REV/14`` #6). A teaching dated to start later had no copy when it was
+        written; this sends it once it starts. Copies that already exist are duplicates and are not sent again."""
+        now = self.clock()
+        with self.store.transaction() as tx:
+            records = [_record(row) for row in sql.teachings(tx, statuses=[TeachingStatus.ACTIVE.value]) if is_effective(row, now)]
+        return self.sync.sync(records)
+
     def retire_expired(self) -> int:
         """Retire the memory copies of active teachings whose validity ended (canonical rows are unchanged)."""
         now = self.clock()

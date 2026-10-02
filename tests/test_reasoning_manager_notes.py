@@ -198,6 +198,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual([n["body"] for n in listing.payload["notes"]], ["Seasonal spike."])
         self.assertEqual(len(self.call("GET", f"/notes/{note['note_id']}/history").payload["revisions"]), 2)
 
+    def test_note_that_looks_like_json_is_saved_once_and_succeeds(self):
+        # Review of PR #33: the note was committed, then the memory policy raised, so the API answered 400 and a retry duplicated it.
+        rid = self.result["result_id"]
+        created = self.call("POST", f"/results/{rid}/notes", {"body": '["see", "item 12"]'})
+        self.assertEqual(created.status, 200, created.payload)
+        self.assertEqual(created.payload["memory_sync"], ["refused"])
+        self.assertEqual(len(self.call("GET", f"/results/{rid}/notes").payload["notes"]), 1)
+        self.assertEqual(self.honcho.messages(), [])
+
     def test_author_comes_from_the_authenticated_actor_only(self):
         response = self.call("POST", f"/results/{self.result['result_id']}/notes", {"body": "x", "author": "ceo@example.com"})
         self.assertEqual((response.status, response.payload["error"]), (400, "UNKNOWN_FIELD"))

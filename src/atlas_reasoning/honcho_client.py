@@ -56,13 +56,33 @@ class HttpResult:
 Http = Callable[[str, str, Mapping[str, str], bytes | None, float], HttpResult]
 
 
+MAX_RESPONSE_BYTES = 4 * 1024 * 1024
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: urllib would resend the ``Authorization`` header to wherever it points (another host, plain http)."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _read_bounded(response: Any) -> bytes:
+    body = response.read(MAX_RESPONSE_BYTES + 1) or b""
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise MemoryUnavailable(f"Honcho returned more than {MAX_RESPONSE_BYTES} bytes")
+    return bytes(body)
+
+
 def urllib_http(method: str, url: str, headers: Mapping[str, str], body: bytes | None, timeout: float) -> HttpResult:
     request = urllib.request.Request(url, data=body, headers=dict(headers), method=method)
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return HttpResult(response.status, response.read())
-    except urllib.error.HTTPError as error:
-        return HttpResult(error.code, error.read() or b"")
+        with _OPENER.open(request, timeout=timeout) as response:
+            return HttpResult(response.status, _read_bounded(response))
+    except urllib.error.HTTPError as error:     # including a 3xx that was not followed
+        return HttpResult(error.code, _read_bounded(error))
 
 
 class HonchoClient:
@@ -109,6 +129,8 @@ class HonchoClient:
             raise MemoryUnavailable(self._clean(f"cannot reach Honcho: {type(error).__name__}")) from None
         if result.status in (408, 429) or result.status >= 500:
             raise MemoryUnavailable(f"Honcho unavailable (HTTP {result.status})")
+        if 300 <= result.status < 400:
+            raise MemoryRejected(f"Honcho answered with a redirect (HTTP {result.status}); redirects are never followed")
         if result.status in (401, 403):
             raise MemoryRejected(f"Honcho refused the credentials (HTTP {result.status})")
         if result.status == 404:
@@ -172,27 +194,37 @@ class HonchoClient:
             raise MemoryUnavailable("Honcho returned a different message")
         self._call("PUT", path, {"metadata": {**metadata, "atlas_retired": True}})
 
+    # Retired copies stay in Honcho (it has no per-message delete), so reading pages past them, up to this many pages.
+    max_read_pages = 10
+
     def read(self, session_key: str, *, limit: int) -> Sequence[RetrievedMemory]:
+        """The newest ``limit`` live (not retired) copies of one session, newest first."""
         session_id = honcho_session_id(session_key)
-        try:
-            page = self._call("POST", f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/list", {},
-                              {"reverse": "true", "page": 1, "size": max(1, min(100, limit))})
-        except MemoryNotFound:
-            return []       # a session nothing was ever written to: no memory, not an outage
-        if page is None:
-            return []
-        items = page.get("items") if isinstance(page, Mapping) else None
-        if not isinstance(items, list):
-            raise MemoryUnavailable("Honcho returned an unexpected message page")
-        found = []
-        for item in items:
-            if not isinstance(item, Mapping) or not isinstance(item.get("content"), str) or not item.get("id"):
-                continue
-            metadata: Mapping[str, Any] = item["metadata"] if isinstance(item.get("metadata"), Mapping) else {}
-            if metadata.get("atlas_retired"):
-                continue
-            found.append(RetrievedMemory(str(item["id"]), session_key, item["content"], dict(metadata),
-                                         str(item["created_at"]) if item.get("created_at") else None))
+        size = 100
+        found: list[RetrievedMemory] = []
+        for number in range(1, self.max_read_pages + 1):
+            try:
+                page = self._call("POST", f"/v3/workspaces/{self.workspace_id}/sessions/{session_id}/messages/list", {},
+                                  {"reverse": "true", "page": number, "size": size})
+            except MemoryNotFound:
+                return found    # a session nothing was ever written to: no memory, not an outage
+            if page is None:
+                return found
+            items = page.get("items") if isinstance(page, Mapping) else None
+            if not isinstance(items, list):
+                raise MemoryUnavailable("Honcho returned an unexpected message page")
+            for item in items:
+                if not isinstance(item, Mapping) or not isinstance(item.get("content"), str) or not item.get("id"):
+                    continue
+                metadata: Mapping[str, Any] = item["metadata"] if isinstance(item.get("metadata"), Mapping) else {}
+                if metadata.get("atlas_retired"):
+                    continue
+                found.append(RetrievedMemory(str(item["id"]), session_key, item["content"], dict(metadata),
+                                             str(item["created_at"]) if item.get("created_at") else None))
+                if len(found) >= limit:
+                    return found
+            if len(items) < size:
+                return found
         return found
 
     def health(self) -> dict[str, Any]:

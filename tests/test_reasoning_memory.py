@@ -218,6 +218,30 @@ class HonchoClientTests(unittest.TestCase):
             client(http).write(note(session=GLOBAL_TEACHINGS))
         self.assertEqual(http.requests, [])
 
+    def test_redirects_are_refused_never_followed(self):
+        # Review of PR #33: urllib would resend the Authorization header to a redirect target.
+        from atlas_reasoning import honcho_client
+
+        handler = honcho_client._NoRedirect()
+        self.assertIsNone(handler.redirect_request(None, None, 302, "Found", {}, "http://elsewhere.example/steal"))
+        for status in (301, 302, 307, 308):
+            with self.subTest(status=status), self.assertRaises(MemoryRejected) as raised:
+                client(FakeHttp({("POST", r"/v3/workspaces$"): HttpResult(status, b"")})).write(note())
+            self.assertNotIn(KEY, str(raised.exception))
+
+    def test_read_pages_past_retired_copies(self):
+        # Review of PR #33: retired copies (every edit leaves one) must not hide older live copies.
+        def message(i, retired):
+            return {"id": f"m{i}", "content": f"body {i}", "metadata": {"source_type": "manager_answer", "source_id": f"a{i}",
+                                                                         **({"atlas_retired": True} if retired else {})}}
+        first = {"items": [message(i, True) for i in range(100)]}
+        second = {"items": [message(100, False), message(101, False)]}
+        http = FakeHttp({("POST", r"/messages/list\?.*page=1&"): HttpResult(200, json.dumps(first).encode()),
+                         ("POST", r"/messages/list\?.*page=2&"): HttpResult(200, json.dumps(second).encode())})
+        found = client(http).read(editor_session("e1"), limit=5)
+        self.assertEqual([m.memory_ref for m in found], ["m100", "m101"])
+
+
 
 class SettingsTests(unittest.TestCase):
     def test_memory_is_off_by_default_and_needs_environment_and_key(self):
@@ -324,8 +348,15 @@ class SyncTests(unittest.TestCase):
         self.assertEqual([r["status"] for r in self.log()], ["skipped"])
 
     def test_wrong_session_is_refused_before_logging(self):
-        with self.assertRaises(MemoryPolicyError):
-            self.sync.sync([note(session=editor_session("editor-7"))])
+        # Refused, never sent or logged; and never raised, because the caller's canonical row is already committed.
+        [outcome] = self.sync.sync([note(session=editor_session("editor-7"))])
+        self.assertEqual((outcome.status, outcome.error_class), ("refused", "memory_policy"))
+        self.assertEqual(self.log(), [])
+        self.assertEqual(self.honcho.calls, [])
+
+    def test_json_body_is_refused_without_raising(self):
+        [outcome] = self.sync.sync([note(body='["see", "item 12"]')])
+        self.assertEqual(outcome.status, "refused")
         self.assertEqual(self.log(), [])
         self.assertEqual(self.honcho.calls, [])
 

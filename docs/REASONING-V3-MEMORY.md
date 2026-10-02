@@ -271,6 +271,25 @@ API: `GET /teachings[?status=&scope_type=]`, `POST /teachings`, `PUT /teachings/
 `GET /teachings/{id}/history`, `GET /review-flags`. Page: `human_context_html.teach_atlas_page` (form with scope, type, validity and
 the data-issue checkbox; list showing source, scope, type, validity, status, author/revision and actions; all text escaped).
 
+## 5a. Integration review fixes (07–14 integration gate)
+
+An independent review before PR #33 was merged found these defects; each is fixed with a regression test:
+
+| Defect | Fix |
+|---|---|
+| A note whose text looks like JSON was committed, then the memory policy raised, so the API answered 400 and a retry duplicated it | `MemorySyncService.sync` never raises after a canonical commit: a copy the policy refuses is reported `refused` (nothing logged or sent) |
+| Re-asserting an earlier answer (A, B, A) returned the first A unchanged, so reasoning kept using B | Only the question's **latest** answer makes a resubmission a repeat; an earlier position re-asserted is a new answer that conflicts with the latest |
+| A teaching dated to start later was never copied to memory once in effect | `TeachAtlas.sync_effective()` (run by `memory-sync`) copies every active teaching in effect now; existing copies are duplicates |
+| Re-processing an old result version revived a question a later version had superseded | `record_result_questions` does nothing for a version that is no longer current or was already processed; one unusable question text no longer stops the others |
+| The Honcho key could follow a redirect (urllib re-sends `Authorization`) | Redirects are never followed (a 3xx is `MemoryRejected`); response bodies are capped at 4 MiB |
+| Retired copies (every edit leaves one) could hide older live copies from `read` | `HonchoClient.read` pages past retired copies until `limit` live copies are found (at most 10 pages) |
+| A superseded or resolved result's summary was still injected as prior reasoning | `PriorReasoningSource.is_current` refuses superseded and resolved results |
+| A remembered copy was accepted on the hash Honcho returned in its metadata | The assembler recomputes the content hash from the returned body and metadata |
+
+Known limitations kept (documented, not defects of the canonical state): `evidence_answerable` is an English-pattern heuristic; teaching
+dates and `current_period` are UTC; a failed Honcho retire is only logged (the assembler re-validates every copy, so a stale copy is
+never injected); copies logged `skipped` while memory was off are re-sent only when their source is synced again.
+
 ## 6. Tests
 
 `tests/test_reasoning_memory.py` (Phase 10): session naming and Honcho-safe IDs, pseudonymous peers, wrong-session refusal,

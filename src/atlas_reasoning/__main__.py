@@ -16,8 +16,8 @@
     python -m atlas_reasoning memory-health [--dry-run]
                                                       check the Honcho memory configuration (--dry-run: no network call) or
                                                       get-or-create the environment's workspace
-    python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, then re-send pending or failed memory
-                                                      copies rebuilt from canonical rows
+    python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, copy teachings that came into effect,
+                                                      then re-send pending or failed memory copies rebuilt from canonical rows
 
 The database comes from ATLAS_REASONING_DATABASE_URL (or ATLAS_REASONING_DATABASE_URL_FILE); the OpenRouter key from
 OPENROUTER_API_KEY (or OPENROUTER_API_KEY_FILE). Neither is ever printed.
@@ -224,11 +224,13 @@ def cmd_memory_sync(args: argparse.Namespace) -> int:
     backend = backend_from_env()
     store = _store()
     service = sync_service(store, backend)
-    retired = TeachAtlas(store, service).retire_expired()       # copies of teachings whose validity ended
+    teach = TeachAtlas(store, service)
+    retired = teach.retire_expired()                             # copies of teachings whose validity ended
+    started = teach.sync_effective()                             # teachings whose validity began since they were written
     outcomes = service.retry(limit=args.limit)
     _print({"memory_enabled": backend is not None, "expired_teaching_copies_retired": retired,
-            "outcomes": [outcome.__dict__ for outcome in outcomes]})
-    return 0 if all(outcome.status != "failed" for outcome in outcomes) else 1
+            "effective_teachings": [outcome.__dict__ for outcome in started], "outcomes": [outcome.__dict__ for outcome in outcomes]})
+    return 0 if all(outcome.status != "failed" for outcome in [*started, *outcomes]) else 1
 
 
 COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {

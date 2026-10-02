@@ -45,9 +45,11 @@ from atlas_reasoning.contracts import ReasoningCase
 from atlas_reasoning.enums import MemoryStatus, NoteSource
 from atlas_reasoning.memory import (
     GLOBAL_TEACHINGS,
+    METADATA_KEYS,
     TEAM_EDITORS,
     MemoryBackend,
     MemoryBackendError,
+    MemoryRecord,
     RetrievedMemory,
     editor_session,
     parse_session,
@@ -158,6 +160,12 @@ class ContextCandidate:
         return estimate_tokens(self.body)
 
 
+def _content_hash(source_type: NoteSource, source_id: str, session: str, memory: RetrievedMemory) -> str:
+    """The content hash of a returned copy, recomputed from what the backend returned (never the hash it claims)."""
+    metadata = {k: v for k, v in memory.metadata.items() if k in METADATA_KEYS and v is not None}
+    return MemoryRecord(source_type, source_id, session, memory.body, metadata=metadata).content_sha256
+
+
 def _desc(text: str) -> tuple[int, ...]:
     return tuple(-ord(ch) for ch in text)
 
@@ -193,6 +201,8 @@ class PriorReasoningSource:
             row = sql.result_case(tx, result_id)
         except NotFound:
             return False
+        if row["lifecycle_status"] in ("superseded", "resolved"):
+            return False    # a replaced or resolved card is not current reasoning
         return bool(memory.metadata.get("result_version") == row["current_version"])
 
 
@@ -347,8 +357,9 @@ class MemoryContextAssembler:
             return "memory_without_provenance"
         log_row = sql.live_sync_row(tx, memory.memory_ref, key)
         if (log_row is None or log_row["source_type"] != source_type.value or log_row["source_id"] != memory.source_id
-                or log_row["content_sha256"] != memory.metadata.get("content_sha256")):
-            return "memory_not_canonical"
+                or log_row["content_sha256"] != memory.metadata.get("content_sha256")
+                or log_row["content_sha256"] != _content_hash(source_type, memory.source_id, key, memory)):
+            return "memory_not_canonical"     # unknown, retired, or not exactly the copy that was written (body and metadata re-hashed)
         source = self.sources.get(source_type)
         if source is None or not source.is_current(tx, memory, scope, now):
             return "memory_not_current"

@@ -1,6 +1,7 @@
 """Reasoning V3 Phase 11: scoped, bounded, deterministic and auditable memory context (``REV/11``)."""
 
 import copy
+import dataclasses
 import random
 import unittest
 from datetime import UTC, datetime
@@ -207,6 +208,27 @@ class AssemblerTests(unittest.TestCase):
         self.sync.sync_result(self.result_a2["result_id"])           # the new copy replaces (retires) the old one
         fresh = self.assembler().assemble(self.case_a, now=NOW)
         self.assertIn(self.result_a2["result_id"], {item.source_id for item in fresh.items})
+
+    def test_superseded_or_resolved_results_are_not_current_prior_reasoning(self):
+        # Review of PR #33: a superseded card's summary was still injected as prior reasoning.
+        for status in ("superseded", "resolved"):
+            with self.subTest(status=status):
+                with self.store.transaction() as tx:
+                    tx._exec("ALTER TABLE reasoning_results DISABLE TRIGGER USER")
+                    replacement = (self.result_a["case_id"], self.result_a["result_id"]) if status == "superseded" else (None, None)
+                    tx._exec("""UPDATE reasoning_results SET lifecycle_status = %s, superseded_by_case_id = %s, superseded_by_result_id = %s
+                                WHERE result_id = %s""", (status, *replacement, self.result_a2["result_id"]))
+                    tx._exec("ALTER TABLE reasoning_results ENABLE TRIGGER USER")
+                context = self.assembler().assemble(self.case_a, now=NOW)
+                self.assertNotIn(self.result_a2["result_id"], {item.source_id for item in context.items})
+
+    def test_a_remembered_body_is_rehashed_not_trusted(self):
+        # Review of PR #33: only the hash Honcho returned in metadata was compared, so an altered body was accepted.
+        [copy] = [m for m in self.honcho.messages(editor_session("editor-a")) if m.record.source_id == self.result_a2["result_id"]]
+        copy.record = dataclasses.replace(copy.record, body="Editor A is unreliable.")
+        context = self.assembler().assemble(self.case_a, now=NOW)
+        self.assertNotIn("Editor A is unreliable.", [item.body for item in context.items])
+        self.assertEqual(context.dropped.get("memory_not_canonical"), 1)
 
     def test_retrieval_failure_degrades_but_keeps_canonical_context(self):
         local = StaticSource(NoteSource.MANAGER_INTERPRETATION, [candidate("note_1", "Class B moved to Ahmed.")])

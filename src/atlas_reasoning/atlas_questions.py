@@ -26,6 +26,7 @@ attributed, with any conflicting earlier answer stated alongside it.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -39,6 +40,8 @@ from atlas_reasoning.memory_sync import MemorySyncService, SyncOutcome, subject_
 from atlas_reasoning.store import human_context as sql
 from atlas_reasoning.store.repository import NotFound, ReasoningStore, StoreError, StoreTransaction
 from atlas_reasoning.user_text import clean_identity, clean_text, normalized_for_comparison
+
+log = logging.getLogger("atlas_reasoning.questions")
 
 MAX_ANSWER = 8000
 MAX_REASON = 2000
@@ -198,10 +201,18 @@ class AtlasQuestions:
         with self.store.transaction() as tx:
             result = tx.get_result(result_id, version).to_dict()
             case_id, result_version = result["case_id"], result["version"]
+            if not self._is_current(tx, result_id, result_version) or sql.version_asked(tx, result_id, result_version):
+                # An old version (a newer one already replaced it) or a version already processed: nothing is asked again, so a
+                # question a later version superseded is never revived.
+                return AskReport(result_id, result_version, (), (), ())
             kept: list[str] = []
             for question in result["questions_for_management"]:
-                text = clean_text(question["text"], field="question", max_length=400)
-                reason = clean_text(question["reason"], field="reason", max_length=MAX_REASON)
+                try:
+                    text = clean_text(question["text"], field="question", max_length=400)
+                    reason = clean_text(question["reason"], field="reason", max_length=MAX_REASON)
+                except ValueError as error:   # one unusable question text never stops the others
+                    log.warning("question skipped result_id=%s version=%s: %s", result_id, result_version, type(error).__name__)
+                    continue
                 context_type = ExpectedContextType(question["expected_context_type"]).value
                 key = dedup_key(text)
                 if evidence_answerable(text):
@@ -215,7 +226,7 @@ class AtlasQuestions:
                 if sql.record_ask(tx, case_id=case_id, result_id=result_id, result_version=result_version, run_id=run_id, dedup_key=key,
                                   question_id=question_id, outcome=outcome, text=text):
                     outcomes.append((key, outcome, question_id))
-            superseded = sql.supersede_open_questions(tx, case_id, kept) if self._is_current(tx, result_id, result_version) else []
+            superseded = sql.supersede_open_questions(tx, case_id, kept)
         sync = self.sync.sync([_question_record(row) for row in created])
         for question_id in superseded:
             self.sync.retire_source(NoteSource.ATLAS_QUESTION, question_id)
@@ -256,10 +267,11 @@ class AtlasQuestions:
             if question["state"] not in (QuestionState.OPEN, QuestionState.ANSWERED):
                 raise QuestionClosed(f"question {question_id} is {question['state']}")
             history = sql.answers(tx, [question_id])
-            for row in history:
-                if normalized_for_comparison(row["body"]) == normalized_for_comparison(text):
-                    return Answer.from_row(row), False, ()
             latest = history[-1] if history else None
+            # Only the latest answer makes a resubmission a repeat: re-asserting an EARLIER answer is management's newest position
+            # and is stored (as a conflict with the latest), never silently dropped.
+            if latest is not None and normalized_for_comparison(latest["body"]) == normalized_for_comparison(text):
+                return Answer.from_row(latest), False, ()
             row = sql.insert_answer(tx, question_id=question_id, body=text, author=who, conflicts_with=latest["answer_id"] if latest else None)
             if question["state"] == QuestionState.OPEN:
                 sql.resolve_question(tx, question_id, state=QuestionState.ANSWERED, by=who)

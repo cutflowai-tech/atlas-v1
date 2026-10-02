@@ -22,7 +22,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from atlas_reasoning.enums import MemorySyncStatus, NoteSource
-from atlas_reasoning.memory import MemoryBackend, MemoryBackendError, MemoryRecord, check_record
+from atlas_reasoning.memory import MemoryBackend, MemoryBackendError, MemoryPolicyError, MemoryRecord, check_record
 from atlas_reasoning.store import memory_log
 from atlas_reasoning.store.repository import ReasoningStore, StoreTransaction
 
@@ -37,7 +37,7 @@ class SyncOutcome:
     source_type: str
     source_id: str
     session_key: str
-    status: str             # synced / duplicate / failed / skipped / busy
+    status: str             # synced / duplicate / failed / skipped / busy / refused
     sync_id: str | None = None
     external_ref: str | None = None
     error_class: str | None = None
@@ -64,9 +64,21 @@ class MemorySyncService:
         return self.sync(records)
 
     def sync(self, records: Iterable[MemoryRecord]) -> list[SyncOutcome]:
-        """Write each record's copy (after its canonical row was committed). Never raises for a backend failure."""
-        checked = [check_record(record) for record in records]   # policy violations are bugs: refuse before logging anything
-        return [self._sync_one(record) for record in checked]
+        """Write each record's copy (after its canonical row was committed). Never raises for a backend failure, nor for a record
+        the memory policy refuses (a body that is a JSON document, for example): the canonical row is already committed, so that
+        copy is ``refused`` (nothing is logged or sent) and the caller's write still succeeds."""
+        outcomes = []
+        for record in records:
+            try:
+                checked = check_record(record)
+            except MemoryPolicyError as error:
+                log.warning("memory copy refused by policy: source=%s id=%s session=%s reason=%s", record.source_type, record.source_id,
+                            record.session_key, error)
+                outcomes.append(SyncOutcome(str(getattr(record.source_type, "value", record.source_type)), record.source_id, record.session_key,
+                                            status="refused", error_class="memory_policy"))
+                continue
+            outcomes.append(self._sync_one(checked))
+        return outcomes
 
     def _sync_one(self, record: MemoryRecord) -> SyncOutcome:
         backend_name = self.backend.name if self.backend is not None else None

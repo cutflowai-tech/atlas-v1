@@ -152,6 +152,12 @@ def record_ask(tx: StoreTransaction, *, case_id: str, result_id: str, result_ver
     return row is not None
 
 
+def version_asked(tx: StoreTransaction, result_id: str, result_version: int) -> bool:
+    """Whether the questions of this result version were already processed (one ask row per question it asked)."""
+    return tx._one("SELECT 1 AS found FROM atlas_question_asks WHERE result_id = %s AND result_version = %s LIMIT 1",
+                   (result_id, result_version)) is not None
+
+
 def asks(tx: StoreTransaction, case_id: str) -> list[dict[str, Any]]:
     return tx._all("SELECT * FROM atlas_question_asks WHERE case_id = %s ORDER BY asked_at, ask_id", (case_id,))
 
