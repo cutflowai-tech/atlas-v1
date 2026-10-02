@@ -39,7 +39,8 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from functools import partial
+from typing import Any, Protocol
 
 from atlas_reasoning import analyst, guardrails, lifecycle, reviewer, updater
 from atlas_reasoning.change_gate import case_for_work
@@ -129,6 +130,17 @@ def error_code(error: BaseException) -> str:
     return f"internal:{type(error).__name__}"
 
 
+class CallBudget(Protocol):
+    """Phase 18: the provider-call budget of one orchestration pass (``run_control``). ``acquire`` reserves one reasoning call and
+    returns False when the budget is spent; it must be safe to call from several worker threads."""
+
+    def acquire(self) -> bool: ...
+
+
+# A call the budget refused: the item fails with this code and stays resumable (``run_control.OrchestrationPolicy``).
+BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+
+
 class EngineBusy(RuntimeError):
     """Another reasoning engine holds the engine lock."""
 
@@ -169,14 +181,15 @@ class ReasoningEngine:
 
     handled_kinds: tuple[WorkKind, ...] = (WorkKind.NEW_RESULT, WorkKind.UPDATE_RESULT)
 
-    def process_work(self, items: Sequence[WorkItemRow]) -> list[WorkOutcome]:
+    def process_work(self, items: Sequence[WorkItemRow], *, budget: CallBudget | None = None) -> list[WorkOutcome]:
         """Each item through its own claim → context → call → persist → follow-up pipeline, ``concurrency`` items at a time. An
-        item is claimed only when its own call is about to start and saved as soon as its answer arrives."""
+        item is claimed only when its own call is about to start and saved as soon as its answer arrives. With a ``budget`` (Phase 18),
+        every provider call first reserves one unit; a refused reservation fails the item ``work:BUDGET_EXHAUSTED`` (resumable)."""
         if not items:
             return []
         workers = max(1, min(self.gateway.settings.concurrency, len(items)))
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="atlas-reasoning-work") as pool:
-            results = list(pool.map(self._run_item, items))
+            results = list(pool.map(partial(self._run_item, budget=budget), items))
         return [outcome for outcome in results if outcome is not None]
 
     def recover_stale_claims(self) -> list[WorkOutcome]:
@@ -196,7 +209,7 @@ class ReasoningEngine:
 
     # --- steps ----------------------------------------------------------------------------------------------------------------
 
-    def _run_item(self, item: WorkItemRow) -> WorkOutcome | None:
+    def _run_item(self, item: WorkItemRow, budget: CallBudget | None = None) -> WorkOutcome | None:
         try:
             ready = self._claim(item)
         except WorkTransitionError:
@@ -207,14 +220,14 @@ class ReasoningEngine:
             return ready
         finished = False
         try:
-            outcome = self._reason(ready)
+            outcome = self._reason(ready, budget)
             finished = True
             return outcome
         finally:
             if not finished:   # never leave a claimed item in progress (it would block its case)
                 self._fail(item, WorkError("INTERRUPTED"))
 
-    def _reason(self, ready: _Claimed) -> WorkOutcome:
+    def _reason(self, ready: _Claimed, budget: CallBudget | None = None) -> WorkOutcome:
         item = ready.item
         try:
             prepared = self.context.prepare(ready.case)
@@ -230,6 +243,8 @@ class ReasoningEngine:
         attempt = 0
         while True:
             attempt += 1
+            if budget is not None and not budget.acquire():      # before the audit row: a refused call leaves no trace of a call
+                return self._fail(item, WorkError(BUDGET_EXHAUSTED))
             try:
                 request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
                 self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
@@ -396,6 +411,10 @@ class ReasoningEngine:
         LOG.info("result %s work_item_id=%s case_id=%s result_id=%s version=%s", kind.value, item.work_item_id, item.case_id, previous.result_id,
                  result.version)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, result.version, kind.value)
+
+    def fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
+        """Mark ``item`` failed with the content-free code of ``error`` (its own transaction); never touches a committed result."""
+        return self._fail(item, error)
 
     def _fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         code = error_code(error)
