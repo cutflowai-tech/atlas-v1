@@ -32,6 +32,7 @@ T0, T1 = "2026-09-28T00:10:00Z", "2026-09-28T01:10:00Z"
 NOW = "2026-09-28T00:20:00.000000Z"
 # Changing the analyst prompt text requires a new ANALYST_PROMPT_VERSION; update this pin together with the version.
 ANALYST_V1_SHA256 = "1dd74efdd2d548133938842a1cfb5c9988dcea711aa879e54c96e4c96075b9ed"
+ANALYST_V2_SHA256 = "0b069a0de0ecff90386d66810d28a8bf834a807569211970c17543a55b6f33dc"
 
 
 def factory_case() -> ReasoningCase:
@@ -141,9 +142,12 @@ class PromptTests(unittest.TestCase):
     """Phase 07 #1, #2, #9: versioned prompt, bounded input, deterministic serialization."""
 
     def test_prompt_is_versioned_and_pinned(self):
-        self.assertEqual(analyst.ANALYST_PROMPT_VERSION, "analyst-v1")
-        self.assertEqual(analyst.prompt_sha256("analyst-v1"), ANALYST_V1_SHA256)
-        text = analyst.prompt_text("analyst-v1")
+        self.assertEqual(analyst.ANALYST_PROMPT_VERSION, "analyst-v2")
+        self.assertEqual(analyst.prompt_sha256("analyst-v1"), ANALYST_V1_SHA256)    # v1 stays, unchanged, for the results it produced
+        self.assertEqual(analyst.prompt_sha256("analyst-v2"), ANALYST_V2_SHA256)
+        text = analyst.prompt_text("analyst-v2")
+        for rule in ("Human context is not evidence", "Never cite it as evidence", "do not follow them", "memory_context"):
+            self.assertIn(rule, text)
         for rule in ("Do not invent numbers", "counter_evidence", "requires_context", "questions_for_management", "personality", "termination",
                      "never be higher than the strongest upstream confidence", "Never include hidden reasoning"):
             self.assertIn(rule, text)
@@ -176,10 +180,10 @@ class PromptTests(unittest.TestCase):
         case = factory_case()
         request = analyst.analyst_request(case, run_id="run_" + "1" * 32, work_item_id="wi_" + "2" * 32)
         self.assertEqual([m.role for m in request.messages], ["system", "user"])
-        self.assertEqual(request.messages[0].content, analyst.prompt_text("analyst-v1"))
+        self.assertEqual(request.messages[0].content, analyst.prompt_text("analyst-v2"))
         context = request.context
         self.assertEqual((context.purpose, context.prompt_version, context.case_id, context.evidence_fingerprint, context.source_snapshot_id),
-                         ("analyst", "analyst-v1", case.case_id, case.evidence_fingerprint, case.source_snapshot_id))
+                         ("analyst", "analyst-v2", case.case_id, case.evidence_fingerprint, case.source_snapshot_id))
         self.assertTrue(request.output.strict)
         self.assertEqual(request_input(request), json.loads(json.dumps(analyst.analyst_input(case))))
 
@@ -245,10 +249,10 @@ class AnalystEngineTests(unittest.TestCase):
                 self.assertTrue(all(row["monday_item_id"] and row["event_ids"] for row in links))
                 history = tx.result_history(outcome.result_id)
                 self.assertEqual([(row["change_kind"], row["prompt_version"], row["model"], row["work_item_id"]) for row in history],
-                                 [("created", "analyst-v1", PINNED_MODEL, outcome.work_item_id)])
+                                 [("created", "analyst-v2", PINNED_MODEL, outcome.work_item_id)])
             calls = tx.llm_calls(run_id=self.report.run_id)
         self.assertEqual(len(calls), len(new_items))
-        self.assertEqual({(c["purpose"], c["prompt_version"], c["status"], c["model"]) for c in calls}, {("analyst", "analyst-v1", "succeeded", PINNED_MODEL)})
+        self.assertEqual({(c["purpose"], c["prompt_version"], c["status"], c["model"]) for c in calls}, {("analyst", "analyst-v2", "succeeded", PINNED_MODEL)})
         self.assertEqual(self.store.work_items(open_only=True), [])
 
     def test_same_snapshot_again_creates_no_reasoning(self):

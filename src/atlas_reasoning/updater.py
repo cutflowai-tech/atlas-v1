@@ -13,7 +13,7 @@ are Python's), validates it against reasoning-v1, the previous result and the ca
 (``patch.merge``) and validates the merged version like a new result (contract, case consistency, no unsupported numbers). Every
 check runs inside the gateway call, so an invalid patch is retried within the gateway's bounds and recorded in ``llm_calls``.
 
-Prompt: ``prompts/update-v1.md`` (``UPDATE_PROMPT_VERSION``), separate from the analyst prompt and pinned by its SHA-256.
+Prompt: ``prompts/update-v2.md`` (``UPDATE_PROMPT_VERSION``), separate from the analyst prompt and pinned by its SHA-256.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ from atlas_reasoning.patch import VersionProvenance, merge
 from atlas_reasoning.provider import CallContext, Message, ProviderRequest, ProviderResponse, StructuredOutput
 from atlas_reasoning.structured import inline_schema
 
-UPDATE_PROMPT_VERSION = "update-v1"
+UPDATE_PROMPT_VERSION = "update-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
 UPDATE_PURPOSE = "update"
 UPDATE_INPUT_VERSION = "update-input-v1"
 OUTPUT_FIELDS = ("action", "change_rationale", "changed_fields", "preserved_fields", "patch")

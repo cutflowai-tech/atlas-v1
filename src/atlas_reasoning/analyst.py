@@ -20,7 +20,8 @@ contradicted case, confidence never above the upstream ceiling) and ``output_che
 ``reasoning_summary`` is the explicit summary written for management; there is no field for hidden reasoning and any unknown
 field is refused.
 
-Prompt: ``prompts/analyst-v1.md`` (``ANALYST_PROMPT_VERSION``). Changing the prompt text requires a new version; a test pins the
+Prompt: ``prompts/analyst-v2.md`` (``ANALYST_PROMPT_VERSION``; v2 adds the rules for attributed human context, v1 is kept for the
+results it produced). Changing the prompt text requires a new version; a test pins the
 prompt's SHA-256.
 """
 
@@ -43,7 +44,7 @@ from atlas_reasoning.provider import CallContext, Message, ProviderRequest, Prov
 from atlas_reasoning.structured import inline_schema
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-ANALYST_PROMPT_VERSION = "analyst-v1"
+ANALYST_PROMPT_VERSION = "analyst-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
 ANALYST_PURPOSE = "analyst"
 ANALYST_INPUT_VERSION = "analyst-input-v1"
 MAX_INPUT_CHARS = 400_000   # about 100k tokens; the largest showcase case is about 152k characters (256 references)

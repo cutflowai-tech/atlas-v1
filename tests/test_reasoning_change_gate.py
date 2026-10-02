@@ -296,7 +296,9 @@ class ChangeGateTests(unittest.TestCase):
             contradicting = [ref.ref_id for ref in case.current_evidence.references if ref.member_key in {f.member_key for f in case.contradicting_findings}]
             for name in ("observation", "interpretation", "management_significance"):
                 result[name]["evidence_refs"] = refs[:2]
-            result["supporting_evidence"] = [{"statement": "Late rate rose.", "evidence_refs": refs[:3]}]
+            supporting = [ref for ref in refs if ref not in contradicting and ref not in {r.ref_id for r in case.current_evidence.references
+                                                                                           if r.role == "contradicting"}]
+            result["supporting_evidence"] = [{"statement": "Late rate rose.", "evidence_refs": supporting[:3]}]
             result["counter_evidence"] = [{"statement": "Class A is on time.", "evidence_refs": contradicting[:1]}]
             result["suggested_investigations"] = []
             result.update(case_id=case_id, evidence_fingerprint=case.evidence_fingerprint, source_snapshot_id=case.source_snapshot_id)

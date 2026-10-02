@@ -617,6 +617,23 @@ class ReasoningStore:
         with self.transaction() as tx:
             return tx.get_run(run_id)
 
+    @contextmanager
+    def session_lock(self, key: int) -> Iterator[bool]:
+        """A PostgreSQL session advisory lock held for the block on its own connection (no transaction stays open). Yields whether it
+        was acquired; never waits. The lock ends with the connection, so a crashed holder never blocks the next one."""
+        conn = self.db.connect()
+        try:
+            conn.autocommit = True
+            row = conn.execute("SELECT pg_try_advisory_lock(%s) AS locked", (key,)).fetchone()
+            acquired = bool(row and row["locked"])
+            try:
+                yield acquired
+            finally:
+                if acquired:
+                    conn.execute("SELECT pg_advisory_unlock(%s)", (key,))
+        finally:
+            conn.close()
+
     def get_case(self, case_id: str) -> CaseRow:
         with self.transaction() as tx:
             return tx.get_case(case_id)

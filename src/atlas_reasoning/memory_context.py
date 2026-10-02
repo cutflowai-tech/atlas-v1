@@ -55,6 +55,7 @@ from atlas_reasoning.memory import (
     parse_session,
     result_session,
     session_key,
+    summary_record,
     video_type_session,
 )
 from atlas_reasoning.settings import ReasoningConfigError
@@ -186,7 +187,8 @@ class ContextSource(Protocol):
 
 class PriorReasoningSource:
     """Prior reasoning summaries come only from memory (canonical results reach the analyst through ``case_for_work``); a remembered
-    summary is current when its result exists and the copy is of the result's current version."""
+    summary is current when its result exists, is neither superseded nor resolved, and the copy says exactly what the result's current
+    version would say (so a no-change review, which changes no visible field, needs no new copy)."""
 
     source_type = NoteSource.PRIOR_REASONING_SUMMARY
 
@@ -203,7 +205,10 @@ class PriorReasoningSource:
             return False
         if row["lifecycle_status"] in ("superseded", "resolved"):
             return False    # a replaced or resolved card is not current reasoning
-        return bool(memory.metadata.get("result_version") == row["current_version"])
+        if memory.metadata.get("result_version") == row["current_version"]:
+            return True
+        current = summary_record(tx.get_result(result_id).to_dict(), memory.session_key)
+        return current.body == memory.body
 
 
 # --- budgets ----------------------------------------------------------------------------------------------------------------
