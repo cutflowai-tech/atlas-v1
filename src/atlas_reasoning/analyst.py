@@ -47,7 +47,7 @@ ANALYST_PROMPT_VERSION = "analyst-v1"
 ANALYST_PURPOSE = "analyst"
 ANALYST_INPUT_VERSION = "analyst-input-v1"
 MAX_INPUT_CHARS = 400_000   # about 100k tokens; the largest showcase case is about 152k characters (256 references)
-MAX_OUTPUT_TOKENS = 6_000
+MAX_OUTPUT_TOKENS = 16_000   # reasoning tokens count against it on OpenRouter; a full card is a few thousand visible tokens
 REASONING_EFFORT = "medium"
 
 # Placeholders used only to validate model output before Python assigns the real provenance.
@@ -141,6 +141,23 @@ def analyst_output_schema() -> dict[str, Any]:
             "properties": {name: result["properties"][name] for name in PATCHABLE_FIELDS}}
 
 
+# JSON Schema keywords outside OpenAI's strict structured-output subset. They are removed from the schema *sent* to the provider; the
+# local validation (``analyst_output_errors``, ``updater.update_output_errors``) still enforces the full reasoning-v1 contract.
+UNSUPPORTED_STRICT_KEYWORDS = ("minLength", "maxLength", "uniqueItems", "format")
+
+
+def provider_schema(schema: Any) -> Any:
+    """``schema`` reduced to the strict structured-output subset: unsupported keywords dropped, every ``enum`` given its type."""
+    if isinstance(schema, Mapping):
+        node = {key: provider_schema(value) for key, value in schema.items() if key not in UNSUPPORTED_STRICT_KEYWORDS}
+        if "enum" in node and "type" not in node and all(isinstance(value, str) for value in node["enum"]):
+            node["type"] = "string"
+        return node
+    if isinstance(schema, list):
+        return [provider_schema(item) for item in schema]
+    return schema
+
+
 @dataclass(frozen=True)
 class Provenance:
     result_id: str
@@ -185,7 +202,7 @@ def analyst_output_errors(output: Any, case: Mapping[str, Any]) -> list[str]:
 
 def analyst_output(case: ReasoningCase) -> StructuredOutput:
     document = case.to_dict()
-    return StructuredOutput("atlas_analyst_result_v1", freeze(analyst_output_schema()), lambda value: analyst_output_errors(value, document))
+    return StructuredOutput("atlas_analyst_result_v1", freeze(provider_schema(analyst_output_schema())), lambda value: analyst_output_errors(value, document))
 
 
 def analyst_request(case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:

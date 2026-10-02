@@ -25,7 +25,15 @@ from functools import cache
 from typing import Any
 
 from atlas_reasoning import contracts
-from atlas_reasoning.analyst import MAX_OUTPUT_TOKENS, REASONING_EFFORT, bounded_json, case_evidence_input, field_set_errors, prompt_text
+from atlas_reasoning.analyst import (
+    MAX_OUTPUT_TOKENS,
+    REASONING_EFFORT,
+    bounded_json,
+    case_evidence_input,
+    field_set_errors,
+    prompt_text,
+    provider_schema,
+)
 from atlas_reasoning.contracts import (
     PATCHABLE_FIELDS,
     ReasoningCase,
@@ -146,6 +154,9 @@ def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping
     if errors:
         return errors
     errors = update_result_errors(update, previous) + update_case_errors(update, case)
+    # A "change" that keeps the exact previous value is not a change: a patch must really change every field it lists.
+    errors += [f"UNCHANGED_PATCH_VALUE: {row['field']} is listed as changed but keeps its previous value" for row in update["changed_fields"]
+               if row["value"] == previous[row["field"]]]
     missing = [name for name in required_changes(previous, case) if name not in changed]
     errors += [f"REQUIRED_CHANGE_MISSING: {name} cannot stay as it is" for name in missing]
     if errors:
@@ -161,7 +172,7 @@ def update_output_errors(output: Any, previous: Mapping[str, Any], case: Mapping
 
 def update_output(previous: ReasoningResult, case: ReasoningCase) -> StructuredOutput:
     result, document = previous.to_dict(), case.to_dict()
-    return StructuredOutput("atlas_update_patch_v1", freeze(update_output_schema()), lambda value: update_output_errors(value, result, document))
+    return StructuredOutput("atlas_update_patch_v1", freeze(provider_schema(update_output_schema())), lambda value: update_output_errors(value, result, document))
 
 
 def update_request(previous: ReasoningResult, case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:

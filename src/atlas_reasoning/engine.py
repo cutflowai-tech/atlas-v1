@@ -18,6 +18,7 @@ provenance or lifecycle (``analyst``), and the answering model must be the confi
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field
@@ -28,7 +29,7 @@ from atlas_reasoning import analyst, lifecycle, updater
 from atlas_reasoning.change_gate import case_for_work
 from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, new_result_id
 from atlas_reasoning.delta import material_delta
-from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, UpdateAction, WorkKind, WorkStatus
+from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, WorkStatus
 from atlas_reasoning.gateway import CallOutcome, ReasoningGateway
 from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.store.db import DatabaseError
@@ -113,8 +114,9 @@ class ReasoningEngine:
     def process_run(self, run_id: str) -> EngineReport:
         """First the deterministic lifecycle of every case the gate observed in ``run_id`` (Phase 09: reactivation, cooling,
         resolution), then every pending LLM work item (of any run: older pending items are never skipped)."""
+        recovered = self.recover_stale_claims()
         changes = lifecycle.sweep(self.store, run_id, policy=self.policy, clock=self.clock)
-        return EngineReport(run_id, tuple(self.process_work(self.pending_work())), tuple(changes))
+        return EngineReport(run_id, tuple(recovered + self.process_work(self.pending_work())), tuple(changes))
 
     def pending_work(self) -> list[WorkItemRow]:
         items = self.store.work_items(open_only=True)
@@ -137,9 +139,27 @@ class ReasoningEngine:
                 outcomes.append(ready)
             else:
                 claimed.append(ready)
-        for ready, call in zip(claimed, self.gateway.call_many([ready.request for ready in claimed])):
-            outcomes.append(self._complete(ready, call))
+        finished: set[str] = set()
+        try:
+            for ready, call in zip(claimed, self.gateway.call_many([ready.request for ready in claimed])):
+                outcomes.append(self._complete(ready, call))
+                finished.add(ready.item.work_item_id)
+        finally:
+            # Never leave a claimed item in progress (it would block its case): anything not completed is failed.
+            for ready in claimed:
+                if ready.item.work_item_id not in finished:
+                    outcomes.append(self._fail(ready.item, WorkError("INTERRUPTED")))
         return outcomes
+
+    def recover_stale_claims(self) -> list[WorkOutcome]:
+        """Fail LLM items left ``in_progress`` longer than ``stale_claim_seconds`` (a worker that died mid-call), so their cases are
+        no longer blocked; the resume phase re-reasons them (``StoreTransaction.unreasoned_cases``)."""
+        with self.store.transaction() as tx:
+            stale = tx.stale_in_progress_work(self.stale_claim_seconds)
+        return [self._fail(item, WorkError("STALE_CLAIM")) for item in stale]
+
+    # A claim older than every attempt the gateway may make (timeouts, retries and backoff) is abandoned.
+    stale_claim_seconds: float = 3600.0
 
     # --- steps ----------------------------------------------------------------------------------------------------------------
 
@@ -158,6 +178,10 @@ class ReasoningEngine:
                             raise WorkError("NO_OPEN_RESULT", f"case {item.case_id} has no open result to update")
                         case = case_for_work(tx, item)
                         return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
+                    if tx.get_case(item.case_id).presence != "present":
+                        # Stale work for a case that has since disappeared: its resolved card stays resolved (no flicker).
+                        tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="case no longer present; its resolved result is kept")
+                        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, latest.result_id, latest.version)
                     # A resolved case observed again returns to its own card (normally already done by the lifecycle sweep).
                     previous, _ = lifecycle.apply(tx, latest, LifecycleStatus.ACTIVE, lifecycle.REAPPEARED_AFTER_RESOLUTION, policy=self.policy,
                                                   now=self.clock(), run_id=item.run_id, work_item_id=item.work_item_id, detail={"via": "work_item"})
@@ -214,11 +238,11 @@ class ReasoningEngine:
 
     def _persist_update(self, ready: _Claimed, previous: ReasoningResult, response: ProviderResponse) -> WorkOutcome:
         item = ready.item
-        patching = isinstance(response.parsed, dict) and response.parsed.get("action") == UpdateAction.PATCH
-        # Python decides the lifecycle: an accepted patch marks an open card updated; a no-change review keeps its status.
-        status = lifecycle.after_patch(previous.lifecycle_status) if patching else previous.lifecycle_status
         applied = updater.apply_response(previous, ready.case, response, provider=self.gateway.transport.provider_name, now=self.clock(),
-                                         lifecycle_status=status.value)
+                                         lifecycle_status=previous.lifecycle_status.value)
+        if applied.is_patch:   # Python decides the lifecycle: an accepted patch marks an open card updated; a review keeps its status
+            status = lifecycle.after_patch(previous.lifecycle_status)
+            applied = dataclasses.replace(applied, result=ReasoningResult.from_dict({**applied.result.to_dict(), "lifecycle_status": status.value}))
         kind = ResultChangeKind.PATCHED if applied.is_patch else ResultChangeKind.NO_CHANGE_REVIEW
         reason = f"patch: {', '.join(applied.update.changed_names)}" if applied.is_patch else "no_change_review"
         with self.store.transaction() as tx:

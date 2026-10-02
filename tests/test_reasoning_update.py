@@ -114,6 +114,12 @@ class MergeTests(unittest.TestCase):
         answer["patch"]["observation"] = {"statement": "Unsupported.", "evidence_refs": []}
         self.assertIn("INVALID_FIELD_VALUE", self._codes(answer))
 
+    def test_a_listed_change_must_really_change_the_field(self):
+        same = {**self._required(), "title": self.v1.title}
+        self.assertEqual(self._codes(update_answer(self.payload, change=same)), ["UNCHANGED_PATCH_VALUE"])
+        self.assertEqual(self._codes(update_answer(self.payload, change={**self._required(), "limitations": list(self.v1.limitations)})),
+                         ["UNCHANGED_PATCH_VALUE"])
+
     def test_fields_the_evidence_invalidated_must_change(self):
         self.assertEqual(self.payload["fields_requiring_change"], {"observation": [updater.STALE_NUMBER]})
         self.assertEqual(self._codes(update_answer(self.payload, change={})), ["REQUIRED_CHANGE_MISSING"])
@@ -281,6 +287,25 @@ class UpdateEngineTests(unittest.TestCase):
         outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
         self.assertEqual((outcome.status, outcome.error), ("failed", "provider:invalid_structured_output"))
         self.assertEqual(self.store.get_result(self.result_id).to_dict(), self.base)
+
+    def test_claimed_items_are_never_left_in_progress(self):
+        report = self._change()
+        with mock.patch.object(self.engine.gateway, "call_many", side_effect=RuntimeError("worker shutting down")), self.assertRaises(RuntimeError):
+            self.engine.process_run(report.run_id)
+        item = self.store.work_items(case_id=self.case_id, run_id=report.run_id)[0]
+        self.assertEqual((item.status, self.store.get_result(self.result_id).version), (WorkStatus.FAILED, 2))
+
+    def test_an_abandoned_claim_is_recovered(self):
+        report = self._change()
+        with self.store.transaction() as tx:
+            item = tx.work_items(case_id=self.case_id, run_id=report.run_id)[0]
+            tx.set_work_item_status(item.work_item_id, WorkStatus.IN_PROGRESS)
+            tx._exec("UPDATE reasoning_work_items SET updated_at = now() - interval '2 hours' WHERE work_item_id = %s", (item.work_item_id,))
+        outcomes = self.engine.process_run(report.run_id).outcomes
+        self.assertEqual([(o.work_item_id, o.error) for o in outcomes], [(item.work_item_id, "work:STALE_CLAIM")])
+        self.assertEqual(self.store.work_items(case_id=self.case_id, run_id=report.run_id)[0].status, WorkStatus.FAILED)
+        with self.store.transaction() as tx:
+            self.assertEqual([row["case_id"] for row in tx.unreasoned_cases()], [self.case_id], "left for the resume phase, no longer blocked")
 
     def test_a_concurrent_writer_wins_and_the_stale_patch_is_dropped(self):
         report = self._change()

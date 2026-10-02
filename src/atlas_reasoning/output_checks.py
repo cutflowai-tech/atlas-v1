@@ -18,8 +18,11 @@ from typing import Any
 
 # Values every text may use without the case carrying them: zero, one and a whole (100%).
 _ALWAYS = (0.0, 1.0, 100.0)
-# A number token not glued to an identifier on either side ("editor-label-12", "rc1_…", "Q3" are not numbers).
-_NUMBER = re.compile(r"(?<![\w.\-])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?![\w]|\.\d)")
+# A number token not glued to an identifier on either side ("editor-label-12", "rc1_…", "Q3" are not numbers); after a hyphen only
+# when a digit precedes it (the end of a range such as "12-16", or the parts of a date "2026-09-15").
+_NUMBER = re.compile(r"(?<![\w.])(?<![^\W\d]-)(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?![\w]|\.\d)")
+# An ISO date or timestamp inside a case string: every part (year, month, day, hour, ...) may be written ("since 15 September").
+_TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?")
 
 
 def _numbers_in(value: Any) -> Iterator[float]:
@@ -30,6 +33,8 @@ def _numbers_in(value: Any) -> Iterator[float]:
     elif isinstance(value, str):
         for _, number, _ in text_numbers(value):   # free-standing numbers only: never digits inside hex IDs
             yield number
+        for stamp in _TIMESTAMP.findall(value):
+            yield from (float(part) for part in re.findall(r"\d+", stamp))
     elif isinstance(value, Mapping):
         for item in value.values():
             yield from _numbers_in(item)

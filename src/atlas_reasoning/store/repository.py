@@ -384,6 +384,12 @@ class StoreTransaction:
                                               AND w.status = ANY(%s))
                             ORDER BY c.case_id""", (list(OPEN_LIFECYCLE), list(OPEN_WORK)))
 
+    def stale_in_progress_work(self, older_than_seconds: float) -> list[WorkItemRow]:
+        """LLM work items in progress whose last status change is older than ``older_than_seconds`` (abandoned claims)."""
+        return [_work_row(row) for row in self._all("""SELECT * FROM reasoning_work_items WHERE status = 'in_progress' AND requires_llm
+                                                         AND updated_at < now() - make_interval(secs => %s) ORDER BY updated_at""",
+                                                      (older_than_seconds,))]
+
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         clauses: list[str] = []
         params: list[Any] = []

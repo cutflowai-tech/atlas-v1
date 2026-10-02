@@ -44,6 +44,7 @@ DATA_SIGNAL = "case-identity-v1|data_source|monday|data_quality|signal=deadline_
 NEW, ACTIVE, UPDATED, COOLING, RESOLVED, SUPERSEDED_STATUS = (LifecycleStatus.NEW, LifecycleStatus.ACTIVE, LifecycleStatus.UPDATED,
                                                              LifecycleStatus.COOLING, LifecycleStatus.RESOLVED, LifecycleStatus.SUPERSEDED)
 POLICY = LifecyclePolicy(cooling_runs_to_resolve=3)
+DIRECT = LifecyclePolicy(cooling_runs_to_resolve=3, direct_fact_case_types=frozenset({CaseType.OPEN_WORK_RISK, CaseType.DATA_QUALITY}))
 
 
 class TransitionTableTests(unittest.TestCase):
@@ -95,12 +96,17 @@ class DecisionTests(unittest.TestCase):
         self.assertIsNone(self._decide(RESOLVED, GateAction.DISAPPEARED, 9))
         self.assertIsNone(self._decide(SUPERSEDED_STATUS, GateAction.DISAPPEARED, 9))
 
-    def test_direct_facts_resolve_at_once_and_only_approved_types(self):
+    def test_direct_facts_resolve_at_once_only_when_approved(self):
+        for case_type in CaseType:
+            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type), (COOLING, NOT_IN_SNAPSHOT), "default: every case cools")
         for case_type in (CaseType.OPEN_WORK_RISK, CaseType.DATA_QUALITY):
-            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type), (RESOLVED, DIRECT_FACT_NO_LONGER_TRUE))
-            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type, policy=LifecyclePolicy(3, frozenset())), (COOLING, NOT_IN_SNAPSHOT))
+            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type, policy=DIRECT), (RESOLVED, DIRECT_FACT_NO_LONGER_TRUE))
         for case_type in set(CaseType) - {CaseType.OPEN_WORK_RISK, CaseType.DATA_QUALITY}:
-            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type), (COOLING, NOT_IN_SNAPSHOT))
+            self.assertEqual(self._decide(ACTIVE, GateAction.DISAPPEARED, 1, case_type, policy=DIRECT), (COOLING, NOT_IN_SNAPSHOT))
+
+    def test_a_card_never_cools_and_resolves_in_the_same_run(self):
+        self.assertIsNone(self._decide(COOLING, GateAction.DISAPPEARED, 5, changed=True))
+        self.assertIsNone(self._decide(COOLING, GateAction.DISAPPEARED, 1, CaseType.DATA_QUALITY, changed=True, policy=DIRECT))
 
     def test_presence_reactivates_and_settles_badges(self):
         for action in (GateAction.UNCHANGED, GateAction.UPDATED):
@@ -114,8 +120,9 @@ class DecisionTests(unittest.TestCase):
             self.assertIsNone(self._decide(SUPERSEDED_STATUS, action))
 
     def test_policy_configuration(self):
-        self.assertEqual(policy_from_env({}).to_dict(), {"version": "lifecycle-v1", "cooling_runs_to_resolve": 3,
-                                                         "direct_fact_case_types": ["data_quality", "open_work_risk"]})
+        self.assertEqual(policy_from_env({}).to_dict(), {"version": "lifecycle-v1", "cooling_runs_to_resolve": 3, "direct_fact_case_types": []})
+        self.assertEqual(policy_from_env({"ATLAS_REASONING_DIRECT_FACT_CASE_TYPES": "open_work_risk, data_quality"}).to_dict()["direct_fact_case_types"],
+                         ["data_quality", "open_work_risk"])
         self.assertEqual(policy_from_env({"ATLAS_REASONING_COOLING_RUNS": "5", "ATLAS_REASONING_DIRECT_FACT_CASE_TYPES": "none"}).to_dict()
                          ["cooling_runs_to_resolve"], 5)
         self.assertEqual(policy_from_env({"ATLAS_REASONING_DIRECT_FACT_CASE_TYPES": "data_quality"}).direct_fact_case_types, {CaseType.DATA_QUALITY})
@@ -233,7 +240,8 @@ class LifecycleEngineTests(unittest.TestCase):
         self.assertEqual(self._status(), ACTIVE)
         self.assertEqual(self.store.result_history(self.result_id)[-1]["change_kind"], "no_change_review")
 
-    def test_direct_fact_case_resolves_immediately(self):
+    def test_direct_fact_case_resolves_immediately_when_approved(self):
+        self.engine.policy = DIRECT
         data_case = self._case(DATA_SIGNAL)
         data_result = self._open(data_case)
         self._run(payload_with([r for r in rows() if r["finding_type"] != "data.deadline_not_classifiable"]))
@@ -258,6 +266,38 @@ class LifecycleEngineTests(unittest.TestCase):
             lifecycle.supersede(self.store, other, by_result_id=other, policy=POLICY, clock=self.engine.clock)
         self._run(snapshots.reasoning_input())
         self.assertEqual(self._status(), SUPERSEDED_STATUS, "superseded is final")
+
+    def test_an_older_run_never_moves_a_card_backwards(self):
+        self._run(payload_with(without_deadline_12()))
+        self.assertEqual(self._status(), COOLING)
+        self.assertEqual(lifecycle.sweep(self.store, self.first.run_id, policy=POLICY, clock=self.engine.clock), [])
+        self.assertEqual(self.engine.process_run(self.first.run_id).lifecycle, ())
+        self.assertEqual(self._status(), COOLING)
+
+    def test_sweeping_after_skipped_runs_is_still_idempotent(self):
+        self._run(snapshots.reasoning_input())
+        for _ in range(3):   # three absent runs gated while the engine was not running
+            last = run_gate(payload_with(without_deadline_12()), self.store, now=next(self.t))
+        changes = self.engine.process_run(last.run_id).lifecycle
+        self.assertIn((self.result_id, "cooling"), [(c.result_id, c.to_status) for c in changes])
+        self.assertEqual(lifecycle.sweep(self.store, last.run_id, policy=POLICY, clock=self.engine.clock), [])
+        self.assertEqual(self._status(), COOLING, "it cools now and resolves on a later run, never both at once")
+
+    def test_stale_work_never_reopens_a_resolved_card_of_an_absent_case(self):
+        for _ in range(3):
+            self._run(payload_with(without_deadline_12()))
+        self.assertEqual(self._status(), RESOLVED)
+        result = self.store.get_result(self.result_id)
+        with self.store.transaction() as tx:   # a new_result item left over from before the case disappeared
+            document = tx.get_case_evidence(self.case_id, result.evidence_fingerprint)["case_document"]
+            item_id = tx.create_work_item(run_id=self.first.run_id, case_id=self.case_id, kind=WorkKind.NEW_RESULT, gate_action=GateAction.NEW,
+                                          result_id=None, base_result_version=None, fingerprint_before=None, fingerprint_after=result.evidence_fingerprint,
+                                          material_delta=None, case_document=document)
+        calls = len(self.transport.requests)
+        outcome = next(o for o in self.engine.process_work(self.engine.pending_work()) if o.work_item_id == item_id)
+        self.assertEqual((outcome.status, outcome.result_id), ("done", self.result_id))
+        self.assertEqual(self._status(), RESOLVED)
+        self.assertEqual(len(self.transport.requests), calls)
 
     def test_sweeping_a_run_twice_changes_nothing_more(self):
         second = self._run(snapshots.reasoning_input())

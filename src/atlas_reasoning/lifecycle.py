@@ -11,19 +11,23 @@ and recorded in ``reasoning_lifecycle_transitions`` with its reason code, detail
 | new → active | ``observed_again`` | the case is present in a later run than the one that created the result |
 | new/active → updated | ``patch_accepted`` | an update patch is accepted (Phase 08) |
 | updated → active | ``update_settled`` | the case is present in a later run than the one that patched the result |
-| new/active/updated → cooling | ``not_in_snapshot`` | the case disappeared from the snapshot (never deleted, never resolved at once) |
+| new/active/updated → cooling | ``not_in_snapshot`` | the case disappeared from the snapshot (never deleted; resolved at once only as a direct fact, below) |
 | cooling → active | ``reappeared`` | the case is present again: the same result is reactivated (same ``case_id``, same ``result_id``) |
 | cooling → resolved | ``absent_for_configured_runs`` | the case has been absent for ``cooling_runs_to_resolve`` consecutive runs |
-| new/active/updated/cooling → resolved | ``direct_fact_no_longer_true`` | only for approved direct-fact case types: the observed condition (an open-work signal, a data warning) is no longer reported |
+| new/active/updated/cooling → resolved | ``direct_fact_no_longer_true`` | only for case types an operator approved as direct facts (none by default): the observed condition (an open-work signal, a data warning) is no longer reported |
 | resolved → active | ``reappeared_after_resolution`` | a resolved case is present again: its result is reopened, never duplicated |
 | new/active/updated/cooling → superseded | ``superseded`` | a deterministic replacement (``supersede``) names the replacing case and result |
 
 A no-change review and a patch of a result already ``updated`` keep the status (no transition). ``superseded`` is final.
 
 Policy (``LifecyclePolicy``, environment ``ATLAS_REASONING_COOLING_RUNS`` (2–100, default 3) and
-``ATLAS_REASONING_DIRECT_FACT_CASE_TYPES`` (comma-separated case types or ``none``; default ``open_work_risk,data_quality``)). A
-cooling result resolves on the run in which its case reaches ``cooling_runs_to_resolve`` consecutive absent runs, so a case that
-flickers out for fewer runs comes back to the same, never-resolved card.
+``ATLAS_REASONING_DIRECT_FACT_CASE_TYPES`` (comma-separated case types or ``none``; default none: every disappeared case cools; the
+candidates are ``open_work_risk`` and ``data_quality``, whose cases report an observed condition rather than a statistical pattern).
+A cooling result resolves on a later run in which its case reaches ``cooling_runs_to_resolve`` consecutive absent runs, so a case
+that flickers out for fewer runs comes back to the same, never-resolved card.
+
+The sweep applies a run's observations only while that run is the case's latest observation (re-processing an older run never
+moves a card backwards), and a card never cools and resolves in the same run (sweeping a run twice changes nothing more).
 """
 
 from __future__ import annotations
@@ -85,7 +89,9 @@ AFTER_PATCH = {NEW: UPDATED, ACTIVE: UPDATED, UPDATED: UPDATED}
 
 COOLING_RUNS_ENV = "ATLAS_REASONING_COOLING_RUNS"
 DIRECT_FACT_ENV = "ATLAS_REASONING_DIRECT_FACT_CASE_TYPES"
-DEFAULT_DIRECT_FACT_CASE_TYPES = frozenset({CaseType.OPEN_WORK_RISK, CaseType.DATA_QUALITY})
+# Case types that may be approved as direct facts; none is approved unless an operator lists it.
+DIRECT_FACT_CANDIDATES = frozenset({CaseType.OPEN_WORK_RISK, CaseType.DATA_QUALITY})
+DEFAULT_DIRECT_FACT_CASE_TYPES: frozenset[CaseType] = frozenset()
 
 
 class InvalidTransition(ValueError):
@@ -150,11 +156,11 @@ def decide(status: LifecycleStatus, action: GateAction, *, case_type: CaseType |
     badge then stays for this run and settles on the next one."""
     direct = CaseType(case_type) in policy.direct_fact_case_types
     if action == GateAction.DISAPPEARED:
-        if status in (NEW, ACTIVE, UPDATED, COOLING) and direct:
+        if direct and (status in (NEW, ACTIVE, UPDATED) or (status == COOLING and not changed_in_this_run)):
             return Decision(RESOLVED, DIRECT_FACT_NO_LONGER_TRUE, {"case_type": str(case_type), "absent_runs": absent_runs})
         if status in (NEW, ACTIVE, UPDATED):
             return Decision(COOLING, NOT_IN_SNAPSHOT, {"absent_runs": absent_runs})
-        if status == COOLING and absent_runs >= policy.cooling_runs_to_resolve:
+        if status == COOLING and absent_runs >= policy.cooling_runs_to_resolve and not changed_in_this_run:
             return Decision(RESOLVED, ABSENT_FOR_CONFIGURED_RUNS, {"absent_runs": absent_runs, "cooling_runs_to_resolve": policy.cooling_runs_to_resolve})
         return None
     # The case is present (new, unchanged or updated evidence).
@@ -270,6 +276,8 @@ def _sweep_case(tx: StoreTransaction, case_id: str, run_id: str, observation: Ma
     if result is None:
         return None
     case = tx.get_case(case_id)
+    if case.last_observed_run_id != run_id:
+        return None   # a later run has observed the case since: its observation, not this one, decides
     action = GateAction(observation["action"])
     absent_runs = int(observation["reason_detail"].get("absent_runs", 0)) if action == GateAction.DISAPPEARED else 0
     decision = decide(result.lifecycle_status, action, case_type=case.case_type, absent_runs=absent_runs,
@@ -277,8 +285,8 @@ def _sweep_case(tx: StoreTransaction, case_id: str, run_id: str, observation: Ma
     if decision is None:
         return None
     detail = {**decision.detail, "gate_reason": observation["reason_code"]}
-    return apply(tx, result, decision.to, decision.reason, policy=policy, now=clock(), run_id=run_id, work_item_id=observation["work_item_id"],
-                 detail=detail)[1]
+    return apply(tx, result, decision.to, decision.reason, policy=policy, now=clock(), run_id=run_id,
+                 work_item_id=observation["work_item_id"] if action == GateAction.DISAPPEARED else None, detail=detail)[1]
 
 
 def supersede(store: ReasoningStore, result_id: str, *, by_result_id: str, policy: LifecyclePolicy, clock: Callable[[], str], run_id: str | None = None,

@@ -20,6 +20,7 @@ from atlas_reasoning.change_gate import prepare_cases, run_gate
 from atlas_reasoning.contracts import PATCHABLE_FIELDS, ContractViolation, ReasoningCase
 from atlas_reasoning.engine import ReasoningEngine
 from atlas_reasoning.enums import LifecycleStatus, WorkKind, WorkStatus
+from atlas_reasoning.frozen import thaw
 from atlas_reasoning.output_checks import case_numbers, supported, text_numbers, unsupported_number_errors
 from atlas_reasoning.provider import ProviderAuthError, ProviderResponse, ProviderUnavailable
 from atlas_reasoning.reasoning_input_boundary import upstream_finding
@@ -123,11 +124,14 @@ class AnalystOutputTests(unittest.TestCase):
 
     def test_number_tokens_inside_identifiers_and_dates_are_not_numbers(self):
         self.assertEqual([token for token, _, _ in text_numbers("editor-label-12 in Q3, rc1_00ab and 2026-09-01: 11 of 16, 68.75%.")],
-                         ["2026", "11", "16", "68.75"])
+                         ["2026", "09", "01", "11", "16", "68.75"])
+        self.assertEqual([token for token, _, _ in text_numbers("12-16 projects since 15 September")], ["12", "16", "15"])
         allowed = case_numbers(self.case.to_dict())
         self.assertTrue(supported(69, 0, allowed) and supported(68.8, 1, allowed) and supported(0.6875, 4, allowed))
         self.assertFalse(supported(70, 0, allowed))
         self.assertEqual(unsupported_number_errors({"title": "No numbers at all"}, self.case.to_dict()), [])
+        self.assertEqual(unsupported_number_errors({"title": "Late since 2 September 2026"}, self.case.to_dict()), [], "date parts of case timestamps")
+        self.assertEqual(len(unsupported_number_errors({"title": "Late since 23 September"}, self.case.to_dict())), 1)
 
     def _codes(self, answer) -> list[str]:
         return sorted({error.split(":", 1)[0] for error in analyst.analyst_output_errors(answer, self.case.to_dict())})
@@ -143,6 +147,30 @@ class PromptTests(unittest.TestCase):
         for rule in ("Do not invent numbers", "counter_evidence", "requires_context", "questions_for_management", "personality", "termination",
                      "never be higher than the strongest upstream confidence", "Never include hidden reasoning"):
             self.assertIn(rule, text)
+
+    def test_schema_sent_to_the_provider_is_strict_mode_compatible(self):
+        request = analyst.analyst_request(factory_case())
+        sent = json.dumps(thaw(request.output.schema))
+        for keyword in analyst.UNSUPPORTED_STRICT_KEYWORDS:
+            self.assertNotIn(f'"{keyword}"', sent)
+
+        def walk(node):
+            if isinstance(node, dict):
+                if "enum" in node:
+                    self.assertIn("type", node)
+                if node.get("type") == "object":
+                    self.assertIs(node["additionalProperties"], False)
+                    self.assertEqual(set(node["required"]), set(node["properties"]))
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, (list, tuple)):
+                for value in node:
+                    walk(value)
+
+        walk(json.loads(sent))
+        too_long = answer_for(factory_case())
+        too_long["title"] = "x" * 161
+        self.assertEqual(request.output.validate(too_long)[0].split(":")[0], "SCHEMA_INVALID", "the full contract is still enforced locally")
 
     def test_request_carries_prompt_and_case_provenance(self):
         case = factory_case()
