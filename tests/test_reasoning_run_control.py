@@ -478,7 +478,7 @@ class ReconciliationTests(unittest.TestCase):
         outcome = ExecutiveSynthesizer(ExecutiveStore(self.store), executive_gateway, budget=budget).synthesize(first.run_id)
         self.assertEqual((outcome.llm_calls, budget.used, self.calls(("executive",)), len(model.requests)), (1, 1, 1, 1))
 
-    def test_an_open_circuit_defers_work_without_a_call_an_audit_row_or_an_attempt(self):
+    def test_an_open_circuit_refuses_work_without_a_call_an_audit_row_or_an_attempt(self):
         first = self.gate()
         pending = prioritize(self.engine.pending_work())
         self.transport.script(pending[0].case_id, *OUTAGE)                                    # threshold 1: the first outage opens the circuit
@@ -486,24 +486,25 @@ class ReconciliationTests(unittest.TestCase):
                                                                                                concurrency=1),
                                                               recorder=StoreCallRecorder(self.store), sleep=lambda seconds: None, controls=self.controls),
                                  retries=1)
-        report = RunOrchestrator(engine).run(first.run_id)
+        report = RunOrchestrator(engine, policy=OrchestrationPolicy(max_attempts=1)).run(first.run_id)
         self.assertEqual(self.controls.breaker.state.value, "open")
-        deferred = [o for o in report.outcomes if o.error == "work:CIRCUIT_OPEN"]
-        self.assertEqual(len(deferred), len(pending) - 1)
+        refused = [o for o in report.outcomes if o.error == "provider:circuit_open"]
+        self.assertEqual(len(refused), len(pending) - 1)
         self.assertEqual((report.status, report.reasons), ("failed", ("provider_outage",)))   # nothing usable yet: an outage (documented)
         with self.store.transaction() as tx:
             self.assertEqual(int(tx._one("SELECT count(*) AS n FROM memory_injections")["n"]), 1)     # only the call that was made
-            self.assertEqual(sql.retries(tx), [])
             used = tx._one("SELECT calls_used FROM reasoning_run_passes WHERE pass_id = %s", (report.pass_id,))["calls_used"]
-        self.assertEqual(used, 1)                                                              # deferred items spent nothing
+        self.assertEqual(used, 1)                                                              # refused items spent nothing
         self.assertIn(first.run_id, RunOrchestrator(engine).incomplete_runs())
         self.clock.now += 61                                                                   # cooldown over: a half-open probe is allowed
-        resumed = RunOrchestrator(engine).resume(first.run_id)
-        self.assertEqual(resumed.status, "complete")
+        resumed = RunOrchestrator(engine, policy=OrchestrationPolicy(max_attempts=1)).resume(first.run_id)
+        self.assertEqual(len(resumed.retries), len(pending) - 1)                               # max_attempts 1: refusals spent no attempt
         self.assertEqual(self.controls.breaker.state.value, "closed")
         with self.store.transaction() as tx:                                                   # one unit per logical call, across passes
             charged = sum(int(row["calls_used"]) for row in sql.passes(tx, first.run_id))
         self.assertEqual(charged, self.calls())
+        self.assertEqual(resumed.status, "degraded")                                           # the outage item had its one real attempt
+        self.assertEqual(resumed.reasons, ("unresolved_failures",))
 
     def test_gateway_refusals_are_retryable_refunded_and_spend_no_attempt(self):
         first = self.gate()

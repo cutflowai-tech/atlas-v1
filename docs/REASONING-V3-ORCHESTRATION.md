@@ -25,7 +25,7 @@ later: RunOrchestrator.resume(run_id) — same pass, plus bounded retry work for
 | `work_priority` | Deterministic priority from canonical V2 data on the work item's case document (`priority`, `prioritize`, `high_importance`) |
 | `run_control` | `RunOrchestrator` (`run`, `resume`, `incomplete_runs`), `OrchestrationPolicy`, `ReliabilityPolicy` protocol, `PassBudget`, `PassReport` |
 | `store/run_control` | All orchestration SQL: passes, atomic budget, retry candidates and lineage, run status |
-| `engine` (changed) | `process_work(items, budget=)`, the `CallBudget` protocol (`acquire`, `release`), `BUDGET_EXHAUSTED`, `CIRCUIT_OPEN`, public `fail`; `process_run` unchanged |
+| `engine` (changed) | `process_work(items, budget=)`, the `CallBudget` protocol (`acquire`, `release`), `BUDGET_EXHAUSTED`, public `fail`; `process_run` unchanged |
 | `reasoning_runtime` | `build_runtime` / `ReasoningRuntime`: one shared `ProviderControls` per process, the pass budget from 18-B settings, executive synthesis on its own budget |
 | migration `0600_run_control.sql` | `reasoning_run_passes`, `reasoning_work_retries` (additive; health lists both) |
 
@@ -102,7 +102,7 @@ Merged with a merge commit (no rebase); no textual conflict. The combined behavi
 | One budget per call path (18-B review of #42, item 1) | Case reasoning (analyst, update, corrective re-asks, the optional reviewer) is charged only by the pass budget (`PassBudget`, atomic in PostgreSQL). Executive synthesis is charged only by a fresh 18-B `CallBudget(None, executive_limit=…)` per synthesis (`run_control.executive_call_budget`). `RunOrchestrator` refuses an engine whose gateway carries a `CallBudget`. Tested: one unit = one `llm_calls` row = one logical call |
 | Refusals retryable (item 2) | `provider:circuit_open` and `provider:budget_exhausted` are in `DEFAULT_RETRYABLE`; as refusals (no request sent) they spend no retry attempt (`store.run_control.REFUSALS`; a lineage stays below `4 × max_attempts` so repeated resumes during a long outage cannot grow without bound). A budget refusal is never read as a provider outage |
 | Settings adapter and shared controls (item 3) | `SettingsReliability(ReliabilitySettings)` gives the pass budget from `run_call_budget` (`ATLAS_REASONING_RUN_CALL_BUDGET`). `reasoning_runtime.build_runtime` reads the settings once (a malformed value fails the command at start), creates one `ProviderControls.from_settings` per process and passes it to the one `ReasoningGateway` used by case reasoning, the reviewer and executive synthesis. `python -m atlas_reasoning reason <run_id> [--resume] [--no-executive]` uses it and runs executive synthesis when `executive_ready` |
-| Clean refusal accounting | An open breaker defers the item (`work:CIRCUIT_OPEN`, back to `pending`) **before** the human-context audit row, without a budget unit or an attempt. A call the gateway itself refuses (a race with the breaker, or a budget) refunds its pass-budget unit (`PassBudget.release`) and fails the item `provider:<class>` (retryable). Telemetry separates these refusals from provider failures |
+| Clean refusal accounting | An open breaker refuses the item **before** the human-context audit row, refunds its pass-budget unit and fails it `provider:circuit_open` (18-B's contract; retryable, spends no attempt). A call the gateway itself refuses (a race with the breaker, or a budget) also refunds its unit (`PassBudget.release`) and fails `provider:<class>`. Telemetry separates these refusals from provider failures |
 
 Disposition of the published non-blocking notes:
 

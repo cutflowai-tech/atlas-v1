@@ -50,7 +50,7 @@ from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, W
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
 from atlas_reasoning.provider import Message, ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext, PreparedCase
-from atlas_reasoning.reliability import BreakerState
+from atlas_reasoning.reliability import BreakerState, CircuitOpen
 from atlas_reasoning.reviewer import CandidateReviewer
 from atlas_reasoning.settings import validation_retries
 from atlas_reasoning.store.db import DatabaseError
@@ -143,8 +143,6 @@ class CallBudget(Protocol):
 
 # A call the budget refused: the item returns to ``pending`` with this outcome code (deferred to a later pass; no attempt spent).
 BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
-# A call not started because the shared circuit breaker (Phase 18-B) is open: deferred the same way, before any audit row.
-CIRCUIT_OPEN = "CIRCUIT_OPEN"
 
 
 class EngineBusy(RuntimeError):
@@ -252,10 +250,10 @@ class ReasoningEngine:
             attempt += 1
             if budget is not None and not budget.acquire():      # before the audit row: a refused call leaves no trace of a call
                 return self._defer(item, BUDGET_EXHAUSTED)
-            if self._circuit_open():                             # the provider is paused: no audit row, no unit, no attempt
+            if self._circuit_open():                             # the provider is paused: refused before the audit row, unit refunded
                 if budget is not None:
                     budget.release()
-                return self._defer(item, CIRCUIT_OPEN)
+                return self._fail(item, CircuitOpen("provider calls are paused after repeated provider failures; no call was made"))
             try:
                 request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
                 self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
@@ -434,8 +432,8 @@ class ReasoningEngine:
         return breaker is not None and breaker.state == BreakerState.OPEN
 
     def _defer(self, item: WorkItemRow, code: str = BUDGET_EXHAUSTED) -> WorkOutcome:
-        """Phase 18: a call was not started (budget spent, or the circuit open). The claimed item goes back to ``pending`` (nothing was
-        committed for it) for a later pass; it spends no retry attempt."""
+        """Phase 18: the pass budget refused a call. The claimed item goes back to ``pending`` (nothing was committed for it) for a later
+        pass; it spends no retry attempt."""
         LOG.info("work item deferred work_item_id=%s case_id=%s reason=%s", item.work_item_id, item.case_id, code)
         try:
             with self.store.transaction() as tx:
