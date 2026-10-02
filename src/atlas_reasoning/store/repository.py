@@ -497,6 +497,30 @@ class StoreTransaction:
             raise VersionConflict(f"result {result.result_id} is no longer at version {expected_version}")
         self._insert_version(document, case_document, change_kind, update_document, run_id, work_item_id, reason)
 
+    def append_version_with_diff(self, result: ReasoningResult, *, previous: ReasoningResult, change_kind: ResultChangeKind,
+                                 update: ReasoningUpdate | None = None, run_id: str | None = None, work_item_id: str | None = None,
+                                 reason: str | None = None) -> dict[str, Any]:
+        """Append ``result`` on top of ``previous`` (``append_result_version``) and persist its before/after diff
+        (``reasoning_result_diffs``, Phase 08) in the same transaction. Returns the diff."""
+        self.append_result_version(result, expected_version=previous.version, change_kind=change_kind, update=update, run_id=run_id,
+                                   work_item_id=work_item_id, reason=reason)
+        return self.record_result_diff(previous.to_dict(), result.to_dict(), change_kind=change_kind, run_id=run_id, work_item_id=work_item_id)
+
+    def record_result_diff(self, previous: Mapping[str, Any], new: Mapping[str, Any], *, change_kind: ResultChangeKind, run_id: str | None,
+                           work_item_id: str | None) -> dict[str, Any]:
+        from atlas_reasoning.patch import diff
+
+        changes = diff(previous, new)
+        self._exec("""INSERT INTO reasoning_result_diffs (result_id, from_version, to_version, change_kind, changed_fields, field_diffs,
+                                                                 provenance_diffs, patch_version, run_id, work_item_id, created_at)
+                             VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s)""",
+                          (new["result_id"], previous["version"], new["version"], change_kind, changes["changed_fields"], _json(changes["fields"]),
+                           _json(changes["provenance"]), changes["patch_version"], run_id, work_item_id, new["updated_at"]))
+        return changes
+
+    def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
+        return self._all("SELECT * FROM reasoning_result_diffs WHERE result_id = %s ORDER BY to_version", (result_id,))
+
     def get_result(self, result_id: str, version: int | None = None) -> ReasoningResult:
         if version is None:
             row = self._one("""SELECT v.document FROM reasoning_results r JOIN reasoning_result_versions v
@@ -572,6 +596,10 @@ class ReasoningStore:
     def observations(self, *, run_id: str | None = None, case_id: str | None = None) -> list[dict[str, Any]]:
         with self.transaction() as tx:
             return tx.observations(run_id=run_id, case_id=case_id)
+
+    def result_diffs(self, result_id: str) -> list[dict[str, Any]]:
+        with self.transaction() as tx:
+            return tx.result_diffs(result_id)
 
     def work_items(self, *, run_id: str | None = None, case_id: str | None = None, open_only: bool = False) -> list[WorkItemRow]:
         with self.transaction() as tx:

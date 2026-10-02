@@ -24,14 +24,15 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from atlas_reasoning import analyst
+from atlas_reasoning import analyst, updater
 from atlas_reasoning.change_gate import case_for_work
-from atlas_reasoning.contracts import ContractViolation, ReasoningCase, new_result_id
-from atlas_reasoning.enums import ResultChangeKind, WorkKind, WorkStatus
+from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, new_result_id
+from atlas_reasoning.delta import material_delta
+from atlas_reasoning.enums import ResultChangeKind, UpdateAction, WorkKind, WorkStatus
 from atlas_reasoning.gateway import CallOutcome, ReasoningGateway
 from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.store.db import DatabaseError
-from atlas_reasoning.store.repository import ReasoningStore, WorkItemRow, WorkTransitionError
+from atlas_reasoning.store.repository import ReasoningStore, StoreTransaction, WorkItemRow, WorkTransitionError
 
 LOG = logging.getLogger("atlas_reasoning.engine")
 ENGINE_VERSION = "reasoning-engine-v1"
@@ -85,6 +86,7 @@ class _Claimed:
     item: WorkItemRow
     case: ReasoningCase
     request: ProviderRequest
+    previous: ReasoningResult | None = None   # set for update reasoning: the open result's current version
 
 
 def error_code(error: BaseException) -> str:
@@ -115,7 +117,7 @@ class ReasoningEngine:
         items = self.store.work_items(open_only=True)
         return [item for item in items if item.status == WorkStatus.PENDING and item.kind in self.handled_kinds]
 
-    handled_kinds: tuple[WorkKind, ...] = (WorkKind.NEW_RESULT,)
+    handled_kinds: tuple[WorkKind, ...] = (WorkKind.NEW_RESULT, WorkKind.UPDATE_RESULT)
 
     def process_work(self, items: Sequence[WorkItemRow]) -> list[WorkOutcome]:
         outcomes: list[WorkOutcome] = []
@@ -143,18 +145,45 @@ class ReasoningEngine:
             tx.set_work_item_status(item.work_item_id, WorkStatus.IN_PROGRESS)
         try:
             with self.store.transaction() as tx:
-                case = case_for_work(tx, item)
-                if item.kind == WorkKind.NEW_RESULT and tx.open_result(item.case_id) is not None:
-                    raise WorkError("RESULT_EXISTS", f"case {item.case_id} already has an open result")
-            return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
+                current = tx.open_result(item.case_id)
+                if current is None:
+                    if item.kind == WorkKind.UPDATE_RESULT:
+                        raise WorkError("NO_OPEN_RESULT", f"case {item.case_id} has no open result to update")
+                    case = case_for_work(tx, item)
+                    return _Claimed(item, case, analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id))
+                # The case already has a result: it is updated, never regenerated (also for a new_result item).
+                previous = tx.get_result(current.result_id)
+                update_case = self._update_case(tx, item, previous)
+                if update_case is None:
+                    tx.set_work_item_status(item.work_item_id, WorkStatus.DONE, error="evidence equals the open result's evidence")
+                    return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, previous.version)
+            return _Claimed(item, update_case, updater.update_request(previous, update_case, run_id=item.run_id, work_item_id=item.work_item_id),
+                            previous)
         except Exception as error:  # noqa: BLE001
             return self._fail(item, error)
+
+    @staticmethod
+    def _update_case(tx: StoreTransaction, item: WorkItemRow, previous: ReasoningResult) -> ReasoningCase | None:
+        """The work item's case with the previous result and the exact material delta from the evidence that result was reasoned on
+        (equal to the gate's delta for an ``update_result`` item). None when the evidence is already the result's."""
+        if item.fingerprint_after is None or item.case_document is None:
+            raise WorkError("NO_EVIDENCE_STATE", f"work item {item.work_item_id} names no evidence state")
+        if item.fingerprint_after == previous.evidence_fingerprint:
+            return None
+        before = tx.get_case_evidence(item.case_id, previous.evidence_fingerprint)["canonical_evidence"]
+        after = tx.get_case_evidence(item.case_id, item.fingerprint_after)["canonical_evidence"]
+        document = dict(item.case_document)
+        document.update(previous_result_id=previous.result_id, previous_result_version=previous.version,
+                        material_delta=material_delta(before, after, fingerprint_before=previous.evidence_fingerprint, fingerprint_after=item.fingerprint_after))
+        return ReasoningCase.from_dict(document)
 
     def _complete(self, ready: _Claimed, call: CallOutcome) -> WorkOutcome:
         if call.error is not None or call.response is None:
             return self._fail(ready.item, call.error or WorkError("NO_RESPONSE"))
         try:
             self._check_model(call.response)
+            if ready.previous is not None:
+                return self._persist_update(ready, ready.previous, call.response)
             return self._persist_new(ready, call.response)
         except Exception as error:  # noqa: BLE001 - rolled back; recorded on the item
             return self._fail(ready.item, error)
@@ -172,6 +201,30 @@ class ReasoningEngine:
             tx.set_work_item_status(item.work_item_id, WorkStatus.DONE)
         LOG.info("result created work_item_id=%s case_id=%s result_id=%s", item.work_item_id, item.case_id, result.result_id)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, result.result_id, 1, ResultChangeKind.CREATED.value)
+
+    def update_lifecycle(self, previous: ReasoningResult, action: UpdateAction) -> str:
+        """The lifecycle status of the next version (Phase 08: unchanged)."""
+        return previous.lifecycle_status.value
+
+    def _persist_update(self, ready: _Claimed, previous: ReasoningResult, response: ProviderResponse) -> WorkOutcome:
+        item = ready.item
+        action = UpdateAction(response.parsed["action"]) if isinstance(response.parsed, dict) and response.parsed.get("action") in tuple(UpdateAction) \
+            else UpdateAction.PATCH
+        applied = updater.apply_response(previous, ready.case, response, provider=self.gateway.transport.provider_name, now=self.clock(),
+                                         lifecycle_status=self.update_lifecycle(previous, action))
+        kind = ResultChangeKind.PATCHED if applied.is_patch else ResultChangeKind.NO_CHANGE_REVIEW
+        reason = f"patch: {', '.join(applied.update.changed_names)}" if applied.is_patch else "no_change_review"
+        with self.store.transaction() as tx:
+            tx.append_version_with_diff(applied.result, previous=previous, change_kind=kind, update=applied.update, run_id=item.run_id,
+                                        work_item_id=item.work_item_id, reason=reason)
+            self.after_update(tx, item, previous, applied.result, kind)
+            tx.set_work_item_status(item.work_item_id, WorkStatus.DONE)
+        LOG.info("result %s work_item_id=%s case_id=%s result_id=%s version=%s", kind.value, item.work_item_id, item.case_id, previous.result_id,
+                 applied.result.version)
+        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, applied.result.version, kind.value)
+
+    def after_update(self, tx: StoreTransaction, item: WorkItemRow, previous: ReasoningResult, new: ReasoningResult, kind: ResultChangeKind) -> None:
+        """Hook inside the update transaction (Phase 09 records the lifecycle transition)."""
 
     def _fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         code = error_code(error)

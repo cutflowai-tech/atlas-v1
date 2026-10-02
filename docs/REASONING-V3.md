@@ -57,6 +57,8 @@ All Reasoning V3 code lives in `src/atlas_reasoning/`, a separate package. No mo
 | `analyst`, `prompts/analyst-v1.md` | 07 | New-case reasoning: bounded canonical case input, versioned prompt, analyst output schema, result assembly |
 | `output_checks` | 07 | Deterministic checks of model text against its case (no invented numbers) |
 | `engine` | 07–09 | Work-item processing: claim, gateway call, validated persistence, failure isolation |
+| `updater`, `prompts/update-v1.md` | 08 | Update reasoning: update input, required changes, patch output schema, ReasoningUpdate construction and validation |
+| `patch` | 08 | Deterministic patch merge and version diffs |
 
 ## 2. Phase 01: the reasoning input boundary
 
@@ -508,3 +510,24 @@ One bounded `ReasoningCase` (a `new_result` work item, `change_gate.case_for_wor
 
 Command: `python -m atlas_reasoning reason <run_id>` (needs `ATLAS_REASONING_V3=on`, the OpenRouter key and the database) processes
 every pending work item and prints the engine report. Tests: `tests/test_reasoning_analyst.py` (fake transport `tests/reasoning_fakes.py`).
+
+## 11. Phase 08: update-only reasoning and the patch merge
+
+An existing result is patched, never regenerated. An `update_result` work item — or a `new_result` item for a case that has an open
+result by the time it is processed — becomes an update of the open result's **current** version.
+
+| Step | Behaviour |
+|---|---|
+| Input (`updater.update_input`) | Previous result's patchable fields and version; `fingerprints` before (the result's) and after (the work item's); the exact `material_delta` between the two stored evidence states (equal to the gate's delta); the current case evidence and context (same canonical view as the analyst); `fields_requiring_change` (below). No case or result ID |
+| Required changes (`updater.required_changes`, deterministic) | A field must change when it cites a `ref_id` no longer in the case (`cites_evidence_no_longer_in_the_case`), quotes a number the current evidence no longer carries (`uses_numbers_no_longer_in_the_case`), exceeds the new confidence ceiling, or the case gained counter-evidence the card ignores |
+| Prompt | `prompts/update-v1.md`, `UPDATE_PROMPT_VERSION = "update-v1"`, separate from the analyst prompt, SHA-256 pinned. Change a field only when the evidence change makes it wrong, stale, unsupported or materially incomplete; never reword untouched fields; account for every field; explain the change |
+| Output (`updater.update_output_schema`) | `action` (patch / no_change), `change_rationale`, `changed_fields`, `preserved_fields`, `patch` (every patchable field, null unless changed). Nothing else: an identity, version, fingerprint or lifecycle cannot be expressed |
+| ReasoningUpdate | Python builds it (`build_update`): case, result, `base_version` and fingerprints are Python's; validated with `update_errors` (field accounting, `IMMUTABLE_FIELD`, `UNKNOWN_FIELD`, `ACTION_MISMATCH`, `INVALID_FIELD_VALUE`), `update_result_errors`, `update_case_errors`, plus `PATCH_VALUE_MISMATCH` (a value exactly for each changed field) and `REQUIRED_CHANGE_MISSING` |
+| Merge (`patch.merge`, Python) | Changed fields replaced as whole fields; every other patchable field copied from the previous version (byte-identical wording); `contract_version`, `result_id`, `case_id`, `created_at`, `superseded_by` copied; version + 1, fingerprint, snapshot, model metadata, prompt version and `updated_at` set by Python; lifecycle chosen by the lifecycle policy (Phase 09), never by the model. The merged version is validated like a new result (contract, case, numbers) |
+| No-op | `no_change` appends a `no_change_review` version: every patchable field identical, provenance advanced to the reviewed evidence (so later deltas start from it and the case is not reported as unreasoned); the previous version is never touched |
+| Persistence | `StoreTransaction.append_version_with_diff`: the version (optimistic concurrency on the version read), its evidence links, the `ReasoningUpdate`, the before/after diff (`reasoning_result_diffs`, migration `0100_result_diffs.sql`) and the work item's `done` — one transaction. Any failure (invalid patch, `VersionConflict`, store error) rolls back everything; the item is `failed` and the result stays at its previous version |
+
+Every check runs inside the gateway call, so an invalid patch is retried within the gateway's bounds; the merge is re-validated
+before persisting. Tests: `tests/test_reasoning_update.py` (field isolation, immutable and unknown paths, accounting, required
+changes, no-op byte preservation, version history and diffs, rollback, concurrent writer, and the stability property: same evidence
+→ no reasoning, changed evidence → patch of the same result, new topic → new result, never two results for one case).

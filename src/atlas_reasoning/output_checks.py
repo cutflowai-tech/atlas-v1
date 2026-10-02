@@ -38,10 +38,11 @@ def _numbers_in(value: Any) -> Iterator[float]:
             yield from _numbers_in(item)
 
 
-def case_numbers(case: Mapping[str, Any]) -> frozenset[float]:
-    """Every number a text about ``case`` may use: the case's values and those values as percentages."""
-    sources = [case["scope"], case["supporting_findings"], case["contradicting_findings"], case["current_evidence"], case.get("material_delta"),
-               case.get("identity_dimensions"), case["subject_id"]]
+def case_numbers(case: Mapping[str, Any], *, include_delta: bool = True) -> frozenset[float]:
+    """Every number a text about ``case`` may use: the case's values and those values as percentages. With ``include_delta`` the
+    before-values of the material delta count too (an update may say "up from 11 to 12"); without it only the current evidence."""
+    sources = [case["scope"], case["supporting_findings"], case["contradicting_findings"], case["current_evidence"], case.get("identity_dimensions"),
+               case["subject_id"], case.get("material_delta") if include_delta else None]
     base = {abs(number) for number in _numbers_in(sources)} | set(_ALWAYS)
     return frozenset(base | {number * 100 for number in base})
 
@@ -85,8 +86,8 @@ def visible_texts(output: Mapping[str, Any]) -> Iterator[tuple[str, str]]:
         yield f"suggested_investigations/{i}/text", str(row.get("text", ""))
 
 
-def unsupported_number_errors(output: Mapping[str, Any], case: Mapping[str, Any]) -> list[str]:
-    allowed = case_numbers(case)
+def unsupported_number_errors(output: Mapping[str, Any], case: Mapping[str, Any], *, include_delta: bool = True) -> list[str]:
+    allowed = case_numbers(case, include_delta=include_delta)
     errors = []
     for path, text in visible_texts(output):
         for token, value, decimals in text_numbers(text):
