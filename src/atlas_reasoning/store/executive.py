@@ -116,7 +116,8 @@ class ExecutiveTransaction:
             found.append(CanonicalResult(
                 result=ReasoningResult.from_dict(row["document"]), lifecycle_status=LifecycleStatus(row["lifecycle_status"]),
                 current_version=row["current_version"], case_type=row["case_type"], subject_type=row["subject_type"], subject_id=row["subject_id"],
-                topic_key=row["topic_key"], dimensions=dimensions, orientation=str(row["orientation"]),
+                topic_key=row["topic_key"], dimensions=dimensions,
+                orientation=str(row["orientation"]) if row["orientation"] is not None else "neutral",
                 affected_editor_ids=tuple(str(editor) for editor in row["affected_editor_ids"] or ()), lifecycle_reason=reasons.get(row["result_id"]),
                 patched_fields=patched.get(row["result_id"], ()), open_questions=tuple(questions.get(row["result_id"], ()))))
         return found
@@ -195,14 +196,14 @@ class ExecutiveTransaction:
 
     def record_run(self, *, run_id: str, decision: Decision, input_fingerprint: str | None, brief_id: str | None, brief_version: int | None,
                    llm_calls: int = 0, failure: str | None = None, error_codes: Sequence[str] = (), violations: Sequence[Mapping[str, Any]] = (),
-                   rejected_candidate: Mapping[str, Any] | None = None, model: str | None = None, prompt_version: str | None = None,
-                   request_ids: Sequence[str] = (), scope: str = COMPANY_SCOPE) -> str:
+                   rejected_candidate: Mapping[str, Any] | None = None, candidate_omitted: str | None = None, model: str | None = None,
+                   prompt_version: str | None = None, request_ids: Sequence[str] = (), scope: str = COMPANY_SCOPE) -> str:
         """Audit one synthesis run. A refused candidate is stored for debugging only (never as a version); larger than
         ``MAX_STORED_CANDIDATE`` bytes it is omitted and only its violations are kept."""
         synthesis_id = f"xs_{uuid.uuid4().hex}"
-        stored, omitted = None, None
+        stored, omitted = None, candidate_omitted
         if rejected_candidate is not None:
-            text = _json(rejected_candidate)
+            text = _json(rejected_candidate).replace("\\u0000", "\\ufffd")     # jsonb refuses NUL; the debugging copy keeps a marker
             if len(text.encode()) > MAX_STORED_CANDIDATE:
                 omitted = f"candidate larger than {MAX_STORED_CANDIDATE} bytes"
             else:
@@ -230,6 +231,14 @@ class ExecutiveStore:
     @contextmanager
     def transaction(self) -> Iterator[ExecutiveTransaction]:
         with self.reasoning.db.transaction() as conn:
+            yield ExecutiveTransaction(conn)
+
+    @contextmanager
+    def snapshot(self) -> Iterator[ExecutiveTransaction]:
+        """A read-only REPEATABLE READ transaction: every query sees the same committed state (the synthesis input never mixes a
+        result row with lifecycle reasons, patches or questions from a later commit of a concurrent engine)."""
+        with self.reasoning.db.transaction() as conn:
+            conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             yield ExecutiveTransaction(conn)
 
     def session_lock(self, key: int) -> AbstractContextManager[bool]:

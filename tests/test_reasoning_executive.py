@@ -254,8 +254,10 @@ class PromptTests(unittest.TestCase):
         self.assertIsNone(request.context.case_id)
         self.assertTrue(request.output.strict)
         schema = json.dumps(thaw(request.output.schema))
-        for keyword in UNSUPPORTED_STRICT_KEYWORDS:
+        for keyword in (*UNSUPPORTED_STRICT_KEYWORDS, *executive.PROVIDER_DROPPED_KEYWORDS):
             self.assertNotIn(f'"{keyword}"', schema)
+        too_many = {"sections": {**valid_answer()["sections"], "uncertainty": [statement(f"Limit {n}.", 1) for n in range(13)]}}
+        self.assertTrue(request.output.validate(too_many))          # bounds still enforced locally
         self.assertEqual(request.output.validate(valid_answer()), [])
         self.assertTrue(request.output.validate({"sections": {}}))
         payload = json.loads(request.messages[1].content.split("(JSON):\n", 1)[1])
@@ -394,6 +396,81 @@ class GroundingTests(unittest.TestCase):
         answer = valid_answer()
         answer["sections"]["inspect_next"].append(dict(answer["sections"]["uncertainty"][0]))
         self.assertIn("DUPLICATE_STATEMENT", check(answer).codes)
+
+
+class ReviewFindingTests(unittest.TestCase):
+    """Regressions for the independent review of the Phase 17 core (docs/evidence/REASONING-V3-PHASE-17-CORE.md §3)."""
+
+    def refused(self, code, section, text, *ids, rows=None, editor=None):
+        report = check(with_statement(section, text, *ids, editor=editor), rows=rows)
+        self.assertIn(code, report.codes, f"{text!r} -> {report.codes}")
+
+    def accepted(self, section, text, *ids, rows=None, editor=None):
+        report = check(with_statement(section, text, *ids, editor=editor), rows=rows)
+        self.assertTrue(report.ok, f"{text!r} -> {report.to_dict()}")
+
+    def test_open_results_are_never_described_as_over(self):
+        for text in ("Late deliveries for editor-label-12 have stopped.", "The deadline issue for editor-label-12 has ended.",
+                     "The deadline issue for editor-label-12 is fixed.", "The deadline issue for editor-label-12 was closed.",
+                     "Late deliveries for editor-label-12 are back to normal."):
+            with self.subTest(text=text):
+                self.refused("LIFECYCLE_CONTRADICTION", "what_changed", text, 1)
+
+    def test_resolved_results_are_never_described_as_current_or_pressing(self):
+        for section, text in (("what_changed", "The resolved deadline issue for editor-label-15 has returned and needs attention."),
+                              ("uncertainty", "The resolved issue for editor-label-15 keeps recurring."),
+                              ("inspect_next", "Review the resolved editor-label-15 deadline issue, which is getting worse.")):
+            with self.subTest(text=text):
+                self.refused("LIFECYCLE_CONTRADICTION", section, text, 4)
+
+    def test_resolved_and_open_results_are_not_mixed_in_a_state_statement(self):
+        self.refused("LIFECYCLE_CONTRADICTION", "what_changed", "Late deliveries for editor-label-15 are still ongoing.", 4, 3)
+        self.refused("LIFECYCLE_CONTRADICTION", "what_changed", "Late deliveries for editor-label-12 have been resolved.", 1, 4)
+        self.refused("LIFECYCLE_CONTRADICTION", "system_patterns", "Both Editors still show late deliveries.", 1, 4)
+        self.accepted("system_patterns", "Two results concern late deliveries.", 1, 4)
+
+    def test_numbers_keep_their_written_form(self):
+        for text in ("Late deliveries for editor-label-12 rose 16% in the current window.", "69 projects for editor-label-12 were late.",
+                     "Editor-label-12 projects were 11 days late on average.", "100% of projects for editor-label-12 were late.",
+                     "Late deliveries for editor-label-12 fell by 50%.", "Editor-label-12 projects were 5 weeks late.",
+                     "Late deliveries for editor-label-12 doubled.", "Half of the projects for editor-label-12 were late.",
+                     "Editor-label-12 is the second slowest on deadlines.", "2 editors are late on deadlines."):
+            with self.subTest(text=text):
+                self.refused("UNSUPPORTED_NUMBER", "top_concerns", text, 1, 2)
+        self.accepted("top_concerns", "Late deliveries reached 69% against 50% before.", 1)
+        self.accepted("top_concerns", "One editor has two results about late deliveries.", 1, 2)
+
+    def test_date_parts_and_durations_stay_dates_and_durations(self):
+        dated = standard_rows()[:1] + [row(6, "active", subject_id="editor-label-20",
+                                            observation={"statement": "Since 2026-09-15 the median was 16.5 hours.",
+                                                         "evidence_refs": BASE["observation"]["evidence_refs"]})]
+        for text in ("Editor-label-20 had 15 late projects.", "Editor-label-20 had 9 late projects.", "Late by 16.5 days for editor-label-20.",
+                     "Late by 2026 minutes for editor-label-20."):
+            with self.subTest(text=text):
+                self.refused("UNSUPPORTED_NUMBER", "top_concerns", text, 6, rows=dated)
+        self.accepted("top_concerns", "Since 2026-09-15 the median for editor-label-20 was 16.5 hours.", 6, rows=dated)
+
+    def test_editors_written_loosely_or_by_name_are_grounded(self):
+        for text in ("Late deliveries for editor label-7 are high.", "Late deliveries for label-7 are high.",
+                     "Late deliveries for editor\u2011label\u20111 are high.", "Mario's deadline results show late deliveries."):
+            with self.subTest(text=text):
+                self.refused("UNKNOWN_ENTITY", "top_concerns", text, 1)
+        self.refused("UNKNOWN_ENTITY", "editor_context", "Mario shows late deliveries.", 1, editor="editor-label-12")
+        self.accepted("top_concerns", "Late deliveries for editor\u2011label\u201112 deserve attention.", 1)
+
+    def test_questions_are_the_cited_results_open_questions(self):
+        self.refused("UNSUPPORTED_QUESTION", "unresolved_questions", "Should editor-label-12 be moved to another team?", 1)
+        self.accepted("unresolved_questions", "Did anything change in how  this work was assigned?", 1)
+
+    def test_sections_follow_orientation_and_lifecycle(self):
+        self.refused("SECTION_MISMATCH", "important_improvements", "Deadline delivery for editor-label-12 improved.", 1)
+        favourable = standard_rows() + [row(7, "active", subject_id="editor-label-21", orientation="favourable")]
+        self.refused("SECTION_MISMATCH", "top_concerns", "Deliveries for editor-label-21 deserve attention.", 7, rows=favourable)
+        self.accepted("important_improvements", "Deliveries for editor-label-21 are a favourable pattern.", 7, rows=favourable)
+
+    def test_confidence_and_control_characters(self):
+        self.refused("CONFIDENCE_EXCEEDED", "uncertainty", "Atlas is confident the team pattern is real.", 3)
+        self.refused("INVALID_TEXT", "uncertainty", "Confidence is weak\x00.", 1)
 
 
 class IdentityTests(unittest.TestCase):

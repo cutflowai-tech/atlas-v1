@@ -240,8 +240,22 @@ def executive_messages(inp: ExecutiveInput) -> tuple[Message, ...]:
             Message("user", "Write the executive brief. Canonical results (JSON):\n" + canonical_json(thaw(inp.payload))))
 
 
+# Only keywords the production strict schemas already use (verified live by the Phase 15 gate) are sent; ``maxItems`` never was, so it is
+# dropped from the provider copy too. The local validation (``model_output_errors``) still enforces every bound.
+PROVIDER_DROPPED_KEYWORDS = ("maxItems",)
+
+
+def _without(schema: Any, keywords: tuple[str, ...]) -> Any:
+    if isinstance(schema, Mapping):
+        return {key: _without(value, keywords) for key, value in schema.items() if key not in keywords}
+    if isinstance(schema, list):
+        return [_without(item, keywords) for item in schema]
+    return schema
+
+
 def executive_output() -> StructuredOutput:
-    return StructuredOutput("atlas_executive_brief_v1", freeze(provider_schema(model_output_schema())), model_output_errors)
+    sent = _without(provider_schema(model_output_schema()), PROVIDER_DROPPED_KEYWORDS)
+    return StructuredOutput("atlas_executive_brief_v1", freeze(sent), model_output_errors)
 
 
 def executive_request(inp: ExecutiveInput, *, run_id: str) -> ProviderRequest:
@@ -326,7 +340,7 @@ class ExecutiveSynthesizer:
 
     def _synthesize(self, run_id: str) -> SynthesisOutcome:
         try:
-            with self.store.transaction() as tx:
+            with self.store.snapshot() as tx:        # one consistent snapshot: rows, reasons, patches and questions agree
                 tx.get_run(run_id)
                 inp = executive_input(tx.canonical_results(run_id, resolved_lookback_runs=self.policy.resolved_lookback_runs), policy=self.policy)
                 current = tx.current_brief(COMPANY_SCOPE)
@@ -349,14 +363,16 @@ class ExecutiveSynthesizer:
     def _call_and_commit(self, run_id: str, inp: ExecutiveInput, provenance: BriefProvenance, current: ExecutiveBrief | None) -> SynthesisOutcome:
         request = executive_request(inp, run_id=run_id)
         calls, attempt = 0, 0
+        request_ids: list[str] = []
         while True:
             attempt += 1
             request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
+            request_ids.append(request.context.request_id)
             calls += 1
             try:
                 response = self.gateway.call(request)
             except ProviderError as error:
-                return self._failed(run_id, inp, current, f"provider:{error.error_class}", calls=calls, request_ids=(request.context.request_id,))
+                return self._failed(run_id, inp, current, f"provider:{error.error_class}", calls=calls, request_ids=request_ids)
             candidate = self._candidate(inp, provenance, response)
             with self.store.transaction() as tx:
                 references = tx.classify_references(executive_validator.out_of_input_references(candidate, inp))
@@ -369,7 +385,7 @@ class ExecutiveSynthesizer:
             LOG.warning("executive candidate refused run_id=%s attempt=%s codes=%s", run_id, attempt, ",".join(report.codes))
             if not report.retryable or attempt > self.retries:
                 return self._failed(run_id, inp, current, f"validation:{','.join(report.codes)}", calls=calls, report=report, candidate=candidate,
-                                    model=response.model, request_ids=(response.request_id,))
+                                    model=response.model, request_ids=request_ids)
             request = dataclasses.replace(request, messages=(*request.messages, Message("assistant", response.content),
                                                              Message("user", executive_validator.correction_message(report))))
 
@@ -387,6 +403,8 @@ class ExecutiveSynthesizer:
                               request_ids=brief.generator.request_ids)
         except VersionConflict:
             return self._failed(run_id, inp, None, "conflict:VersionConflict", calls=calls)
+        except Exception as error:  # noqa: BLE001 - rolled back: the current brief is untouched; the run is still recorded
+            return self._failed(run_id, inp, None, f"store:{type(error).__name__}", calls=calls)
         LOG.info("executive brief %s run_id=%s brief_id=%s version=%s", decision.value, run_id, brief.brief_id, brief.version)
         return SynthesisOutcome(run_id, decision, inp.fingerprint, brief.brief_id, brief.version, llm_calls=calls)
 
@@ -395,13 +413,21 @@ class ExecutiveSynthesizer:
                 request_ids: Sequence[str] = ()) -> SynthesisOutcome:
         """Record a failed run; the current brief (re-read: after a conflict it is the other writer's) stays current, untouched."""
         LOG.warning("executive synthesis failed run_id=%s failure=%s", run_id, failure)
-        with self.store.transaction() as tx:
-            kept = tx.current_brief(COMPANY_SCOPE)
-            tx.record_run(run_id=run_id, decision=Decision.FAILED, input_fingerprint=inp.fingerprint if inp else None,
-                          brief_id=kept.brief_id if kept else None, brief_version=kept.version if kept else None, llm_calls=calls, failure=failure,
-                          error_codes=report.codes if report else (), violations=[row.to_dict() for row in report.violations] if report else [],
-                          rejected_candidate=candidate, model=model, prompt_version=EXECUTIVE_PROMPT_VERSION if calls else None,
-                          request_ids=request_ids)
+        kept: ExecutiveBrief | None = None
+        # The audit must survive a candidate the database cannot store: retry without it (its violations are kept).
+        for stored in ((candidate, None), (None, "candidate could not be stored")) if candidate is not None else ((None, None),):
+            try:
+                with self.store.transaction() as tx:
+                    kept = tx.current_brief(COMPANY_SCOPE)
+                    tx.record_run(run_id=run_id, decision=Decision.FAILED, input_fingerprint=inp.fingerprint if inp else None,
+                                  brief_id=kept.brief_id if kept else None, brief_version=kept.version if kept else None, llm_calls=calls,
+                                  failure=failure, error_codes=report.codes if report else (),
+                                  violations=[row.to_dict() for row in report.violations] if report else [], rejected_candidate=stored[0],
+                                  candidate_omitted=stored[1], model=model, prompt_version=EXECUTIVE_PROMPT_VERSION if calls else None,
+                                  request_ids=request_ids)
+                break
+            except Exception as error:  # noqa: BLE001 - never let the audit hide the failure it records
+                LOG.error("executive failure not recorded run_id=%s error=%s", run_id, type(error).__name__)
         return SynthesisOutcome(run_id, Decision.FAILED, inp.fingerprint if inp else None, kept.brief_id if kept else None,
                                 kept.version if kept else None, llm_calls=calls, failure=failure)
 

@@ -50,7 +50,7 @@ from typing import TYPE_CHECKING, Any
 from atlas_reasoning import guardrails
 from atlas_reasoning.enums import ConfidenceLevel, LifecycleStatus
 from atlas_reasoning.executive_contracts import EDITOR_SECTION, SECTIONS, brief_errors
-from atlas_reasoning.output_checks import supported, text_numbers
+from atlas_reasoning.output_checks import NUMBER_WORDS, supported, written_numbers
 from atlas_reasoning.settings import model_identity_matches
 
 if TYPE_CHECKING:
@@ -75,6 +75,8 @@ class ExecutiveCode(StrEnum):
     UNSUPPORTED_NUMBER = "UNSUPPORTED_NUMBER"
     UNSUPPORTED_METRIC = "UNSUPPORTED_METRIC"
     UNKNOWN_ENTITY = "UNKNOWN_ENTITY"
+    SECTION_MISMATCH = "SECTION_MISMATCH"
+    INVALID_TEXT = "INVALID_TEXT"
     EDITOR_MISMATCH = "EDITOR_MISMATCH"
     LIFECYCLE_CONTRADICTION = "LIFECYCLE_CONTRADICTION"
     QUESTION_AS_FACT = "QUESTION_AS_FACT"
@@ -182,8 +184,12 @@ def out_of_input_references(candidate: Mapping[str, Any], inp: ExecutiveInput) -
 # --- text helpers --------------------------------------------------------------------------------------------------------------------
 
 
+# Unicode hyphens and minus signs read as "-" (an Editor ID written with U+2011 is still that Editor ID).
+_HYPHENS = str.maketrans({c: "-" for c in "\u2010\u2011\u2012\u2013\u2014\u2015\u2212\ufe63\uff0d"})
+
+
 def _norm(text: str) -> str:
-    return unicodedata.normalize("NFKC", text).replace("’", "'").casefold()
+    return unicodedata.normalize("NFKC", text).translate(_HYPHENS).replace("’", "'").casefold()
 
 
 def _words(*phrases: str) -> re.Pattern[str]:
@@ -211,28 +217,50 @@ _REASONING_KEY = re.compile(r"chain|thought|think|reasoning|scratch|analysis|del
 _HIDDEN_TEXT = _words(r"chain[- ]of[- ]thought", r"step[- ]by[- ]step", r"my reasoning", r"internal reasoning", r"hidden reasoning", r"scratch ?pad",
                       r"let me", r"i (?:think|thought|reasoned|considered|need to|will now|first)")
 _HIDDEN_MARKUP = re.compile(r"</?\s*(?:think|thinking|reasoning|analysis)\b")
+# Wording that presents something as current, pressing or getting worse (never true of a resolved result).
 _CURRENT = _words(r"still", r"remains? (?:a |an )?(?:concern|risk|issue|problem|open|active|unresolved|late|slow|high|elevated)", r"ongoing",
                   r"continues? to", r"continuing", r"persists?", r"persisting", r"currently", r"(?:is|are) active", r"(?:is|are) open",
-                  r"current (?:concern|risk|issue|problem)", r"worsen(?:s|ed|ing)?", r"growing")
-_RESOLVED_WORDING = _words(r"resolved", r"no longer", r"ended", r"cleared", r"stopped", r"went away", r"disappeared", r"closed", r"settled",
-                           r"not (?:observed|seen|reported) (?:any more|anymore|again)")
-# "resolved" as a claim; "to be resolved" / "unresolved" / "not resolved" are not claims (the second never matches, the others are skipped).
-_CLAIMS_RESOLVED = _words(r"resolved", r"no longer (?:observed|seen|reported|present|an issue|a concern)", r"went away", r"(?:has|have) cleared")
+                  r"current (?:concern|risk|issue|problem)", r"worsen(?:s|ed|ing)?", r"(?:getting|got|grows?|growing) worse", r"growing",
+                  r"needs?", r"deserves?", r"attention", r"urgent(?:ly)?", r"pressing", r"(?:has|have|had) returned", r"(?:is|are) back",
+                  r"came back", r"comes back", r"recurr(?:s|ed|ing|ence|ent)", r"keeps?", r"rising", r"increasing", r"escalat(?:es|ed|ing)")
+# One vocabulary of "it is over", used in both directions: required for resolved-only statements, refused for open results.
+_RESOLUTION = _words(r"resolved", r"no longer", r"stopped", r"(?:has|have|had) ended", r"ended", r"went away", r"gone away", r"disappeared",
+                     r"(?:is|are|was|were|been|got|now) (?:closed|fixed|gone|over|cleared|settled|solved|finished|done)", r"(?:has|have) cleared",
+                     r"cleared up", r"back to normal", r"normali[sz]ed", r"not (?:observed|seen|reported) (?:any more|anymore|again)")
 
 
 def _claims_resolved(text: str) -> bool:
+    """A non-negated statement that something is over ("to be resolved" and "unresolved" are not claims)."""
     lowered = _norm(text)
     return any(not _negated(lowered, match.start()) and not re.search(r"\bbe\s+$", lowered[: match.start()])
-               for match in _CLAIMS_RESOLVED.finditer(lowered))
+               for match in _RESOLUTION.finditer(lowered))
 _HIGH_CONFIDENCE = _words(r"high(?:ly)? confiden(?:t|ce)", r"strong(?:ly)? confiden(?:t|ce)", r"very confident", r"strong evidence",
+                          r"(?:is|are|am|feels?|remains?) confident", r"confidently", r"with confidence",
                           r"clear(?:ly)? (?:shows?|established|pattern)", r"well[- ]established", r"strong pattern")
 _METRIC_TERMS = _words(r"scores?", r"scoring", r"index(?:es)?", r"indices", r"ratings?", r"rankings?", r"ranked", r"kpis?", r"productivity",
-                       r"efficiency", r"percentiles?", r"grades?", r"composite", r"utili[sz]ation", r"ratios?", r"throughput", r"velocity")
+                       r"efficiency", r"percentiles?", r"grades?", r"composite", r"utili[sz]ation", r"ratios?", r"throughput", r"velocity",
+                       r"turnaround", r"slas?", r"percentages?", r"averages?", r"means?", r"medians?")
 _RATE = re.compile(r"\b([a-z][a-z-]*)\s+rates?\b")
 _RATE_MODIFIERS = frozenset({"the", "a", "an", "its", "their", "his", "her", "same", "similar", "higher", "lower", "high", "low", "overall", "current",
                              "previous", "baseline", "team", "team's", "editor's", "cohort", "peer", "average", "median", "typical", "rising", "falling",
                              "steady", "stable", "increased", "decreased", "this", "that", "whose", "which"})
 _EDITOR_ID = re.compile(r"\beditor[-_][a-z0-9][a-z0-9_-]*[a-z0-9]\b")
+# An Editor label written loosely ("editor label-7", "label 7"): read as the Editor ID it names.
+_EDITOR_LABEL = re.compile(r"\b(?:editor[-_ ])?label[-_ ]?(\d+)\b")
+_PROPER = re.compile(r"\b[^\W\d_]{2,}(?:'s)?\b")
+_PERSON_AFTER = _words(r"is", r"was", r"has", r"had", r"shows?", r"showed", r"delivered", r"missed", r"works?", r"worked", r"took", r"seems",
+                       r"appears", r"tends", r"needs", r"did", r"does", r"handled", r"edited", r"submitted", r"failed")
+# Words an executive brief uses that need not appear in its cited results (never names).
+_BRIEF_VOCABULARY = frozenset(["result", "results", "card", "cards", "case", "cases", "concern", "concerns", "improvement", "improvements", "pattern", "patterns", "brief", "question", "questions", "open", "new", "updated", "active", "resolved", "reappeared", "review", "reviews", "inspect", "check", "compare", "confirm", "look", "consider", "start", "ask", "discuss", "deliveries", "delivery", "late", "lateness", "editors", "team", "teams", "both", "together", "across", "several"])
+# Multipliers and ordinals are numbers too ("doubled", "half", "the second slowest").
+_MULTIPLIERS = _words(r"doubl(?:e|ed|es|ing)", r"tripl(?:e|ed|es|ing)", r"quadrupl(?:e|ed|es|ing)", r"halv(?:e|ed|es|ing)", r"twice", r"thrice",
+                      r"half", r"second", r"third", r"fourth", r"fifth", r"\w+fold")
+_RESULT_NOUNS = frozenset({"result", "results", "card", "cards", "case", "cases", "pattern", "patterns", "concern", "concerns", "issue", "issues",
+                           "improvement", "improvements", "question", "questions"})
+_EDITOR_NOUNS = frozenset({"editor", "editors"})
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+# Sections whose statements may cite resolved and open results together (they describe what results share, not their state).
+_MIXED_SECTIONS = frozenset({"system_patterns", "uncertainty"})
 _CHANGED_REASONS = frozenset({"reappeared", "reappeared_after_resolution"})
 
 
@@ -267,10 +295,25 @@ class _Grounding:
     def text(self) -> str:
         return _norm(" \n ".join(text for row in self.rows for text in _result_texts(row)))
 
-    def numbers(self) -> frozenset[float]:
-        values = {abs(value) for row in self.rows for text in _result_texts(row) for _, value, _ in text_numbers(text)}
-        subjects = {(row["subject"]["subject_type"], row["subject"]["subject_id"]) for row in self.rows}
-        return frozenset(values | {0.0, 1.0, 100.0, float(len(self.rows)), float(len(subjects))})
+    def numbers(self) -> dict[str, set[float]]:
+        """The numbers the cited results write, by written form (plain, percent, date, minute / hour / day / week / month / year, and
+        ``by`` for a written difference)."""
+        forms: dict[str, set[float]] = {}
+        for row in self.rows:
+            for text in _result_texts(row):
+                for token, value, _, form, _ in _forms(text):
+                    forms.setdefault(form, set()).add(value)
+        return forms
+
+    def words(self) -> set[str]:
+        found = {token for row in self.rows for text in _result_texts(row) for token in _tokens(text)}
+        for row in self.rows:
+            subject = row.get("subject") or {}
+            found |= {token for value in (subject.get("subject_id"), subject.get("topic_key"), subject.get("case_type")) if value for token in _tokens(str(value))}
+        return found
+
+    def editor_subjects(self) -> int:
+        return len({row["subject"]["subject_id"] for row in self.rows if row["subject"]["subject_type"] == "editor"})
 
     def editors(self) -> set[str]:
         return set().union(*(_editors(row) for row in self.rows)) if self.rows else set()
@@ -292,6 +335,19 @@ def _raw_reasoning_fields(value: Any, path: str = "") -> Iterator[ExecutiveViola
     elif isinstance(value, (list, tuple)):
         for i, item in enumerate(value):
             yield from _raw_reasoning_fields(item, f"{path}/{i}")
+
+
+def _control_characters(value: Any, path: str = "") -> Iterator[ExecutiveViolation]:
+    if isinstance(value, str):
+        if _CONTROL.search(value):
+            yield ExecutiveViolation(ExecutiveCode.INVALID_TEXT, path or "<brief>", "control characters are not text")
+    elif isinstance(value, Mapping):
+        for key, item in value.items():
+            yield from _control_characters(str(key), f"{path}/{key}" if path else str(key))
+            yield from _control_characters(item, f"{path}/{key}" if path else str(key))
+    elif isinstance(value, (list, tuple)):
+        for i, item in enumerate(value):
+            yield from _control_characters(item, f"{path}/{i}")
 
 
 def _classify(ref: Any, known: frozenset[str], references: ReferenceIndex) -> ExecutiveCode | None:
@@ -330,13 +386,58 @@ def _reference_rules(path: str, row: Any, known: frozenset[str], references: Ref
     return found
 
 
-def _numbers(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
-    allowed = grounding.numbers()
+def _tokens(text: str) -> set[str]:
+    return {token for token in re.split(r"[^0-9a-z\u0600-\u06ff']+", _norm(text).replace("_", " ")) if token} | \
+        {token.removesuffix("'s") for token in re.split(r"[^0-9a-z\u0600-\u06ff']+", _norm(text).replace("_", " ")) if token}
+
+
+_LONG_UNIT_AFTER = re.compile(r"\s*(?:-\s*)?(weeks?|wks?|months?|years?|yrs?)\b")
+_DIFFERENCE_BEFORE = re.compile(r"\bby\s*$")
+
+
+def _forms(text: str) -> list[tuple[str, float, int, str, bool]]:
+    """``output_checks.written_numbers`` plus the forms it does not know: longer duration units and written differences ("by 5")."""
+    text = unicodedata.normalize("NFKC", text).translate(_HYPHENS)    # "editor‑label‑12" (U+2011) is an identifier, not "12"
     found = []
-    for token, value, decimals in text_numbers(text):
-        if (decimals and supported(value, decimals, allowed)) or (not decimals and value in allowed):
-            continue
-        found.append(ExecutiveViolation(ExecutiveCode.UNSUPPORTED_NUMBER, path, f"{token!r} is not written by any cited result"))
+    cursor = 0
+    for token, value, decimals, form, approximate in written_numbers(text):
+        start = text.find(token, cursor)
+        if start < 0:
+            start = text.find(token)
+        end = start + len(token)
+        cursor = max(cursor, end)
+        unit = _LONG_UNIT_AFTER.match(text, end) if form == "plain" else None
+        if unit is not None:
+            form = unit.group(1)[0]   # w / m / y
+            form = {"w": "week", "m": "month", "y": "year"}[form]
+        elif _DIFFERENCE_BEFORE.search(text[max(0, start - 8): start]):
+            form = f"by-{form}"
+        found.append((token, value, decimals, form, approximate))
+    return found
+
+
+def _numbers(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
+    """Every number is one the cited results write, **in the same form** (a count stays a count, a percentage a percentage, a date part a
+    date, a duration a duration with its unit). Derived: only the number of cited results ("two results") and of cited Editors."""
+    forms = grounding.numbers()
+    found = []
+    for token, value, decimals, form, approximate in _forms(text):
+        allowed = set(forms.get(form, set())) | ({0.0, 1.0} if form == "plain" else set())
+        if decimals or approximate:
+            ok = supported(value, decimals, frozenset(allowed))
+        else:
+            ok = value in allowed
+        if not ok and form == "plain" and not decimals:
+            following = re.search(r"\b" + re.escape(_norm(token)) + r"\s+([a-z']+)(?:\s+([a-z']+))?", _norm(text))
+            nouns = {word for word in (following.groups() if following else ()) if word}       # "two results", "two open results"
+            ok = (bool(nouns & _RESULT_NOUNS) and value == len(grounding.rows)) or \
+                (bool(nouns & _EDITOR_NOUNS) and value == grounding.editor_subjects() > 0)
+        if not ok:
+            found.append(ExecutiveViolation(ExecutiveCode.UNSUPPORTED_NUMBER, path, f"{token!r} ({form}) is not written by any cited result"))
+    source = grounding.text
+    for match in _MULTIPLIERS.finditer(_norm(text)):
+        if not re.search(r"\b" + re.escape(match.group(0)) + r"\b", source):
+            found.append(ExecutiveViolation(ExecutiveCode.UNSUPPORTED_NUMBER, path, f"{match.group(0)!r} is not written by any cited result"))
     return found
 
 
@@ -355,10 +456,32 @@ def _metrics(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViola
 
 
 def _entities(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
+    """Editor IDs (also written loosely, or with Unicode hyphens) the cited results concern; no other name the cited results do not use."""
     known = {_norm(editor) for editor in grounding.editors()}
     source = grounding.text
-    return [ExecutiveViolation(ExecutiveCode.UNKNOWN_ENTITY, path, f"{match.group(0)!r} is not an Editor the cited results concern")
-            for match in _EDITOR_ID.finditer(_norm(text)) if match.group(0) not in known and match.group(0) not in source]
+
+    def written(editor: str) -> bool:
+        return editor in known or re.search(r"(?<![\w-])" + re.escape(editor) + r"(?![\w-])", source) is not None
+
+    lowered = _norm(text)
+    found = [ExecutiveViolation(ExecutiveCode.UNKNOWN_ENTITY, path, f"{match.group(0)!r} is not an Editor the cited results concern")
+             for match in _EDITOR_ID.finditer(lowered) if not written(match.group(0))]
+    for match in _EDITOR_LABEL.finditer(lowered):
+        editor = f"editor-label-{match.group(1)}"
+        if not written(editor):
+            found.append(ExecutiveViolation(ExecutiveCode.UNKNOWN_ENTITY, path, f"{match.group(0)!r} is not an Editor the cited results concern"))
+    words = grounding.words() | _BRIEF_VOCABULARY | guardrails.ATLAS_VOCABULARY | guardrails.STOPWORDS | NUMBER_WORDS
+    for sentence in guardrails.sentences(unicodedata.normalize("NFKC", text)):
+        for match in _PROPER.finditer(sentence):
+            word = match.group(0)
+            if not word[0].isupper() or _norm(word.removesuffix("'s")) in words:
+                continue
+            initial = not sentence[: match.start()].strip(" \"'(-")
+            person_like = word.endswith("'s") or bool(_PERSON_AFTER.match(_norm(sentence[match.end():].strip())))
+            if initial and not person_like:
+                continue
+            found.append(ExecutiveViolation(ExecutiveCode.UNKNOWN_ENTITY, path, f"{word.removesuffix(chr(39) + 's')!r} is not named by the cited results"))
+    return found
 
 
 def _lifecycle(path: str, section: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
@@ -373,10 +496,31 @@ def _lifecycle(path: str, section: str, text: str, grounding: _Grounding) -> lis
     if statuses == {resolved}:
         if _found(_CURRENT, text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results are described as current"))
-        elif not _found(_RESOLVED_WORDING, text) and section != "unresolved_questions":
+        elif not _claims_resolved(text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results must be described as resolved"))
-    elif resolved not in statuses and _claims_resolved(text):
-        found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "an open result is described as resolved"))
+    elif resolved not in statuses:
+        if _claims_resolved(text):
+            found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "an open result is described as resolved"))
+    elif section not in _MIXED_SECTIONS:
+        # Resolved and open results in one statement: whatever it says about their state is true of only some of them.
+        found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "cite resolved and open results in separate statements"))
+    elif _found(_CURRENT, text) or _claims_resolved(text):
+        found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "a statement about resolved and open results describes their state"))
+    return found
+
+
+def _section(path: str, section: str, grounding: _Grounding) -> list[ExecutiveViolation]:
+    """Improvements cite favourable or resolved results; top concerns never cite a favourable one."""
+    found = []
+    if section == "important_improvements":
+        strays = [str(row["result_id"]) for row in grounding.rows
+                  if row["lifecycle_status"] != LifecycleStatus.RESOLVED.value and (row.get("subject") or {}).get("orientation") != "favourable"]
+        if strays:
+            found.append(ExecutiveViolation(ExecutiveCode.SECTION_MISMATCH, path, f"neither favourable nor resolved: {strays}"))
+    if section == "top_concerns":
+        strays = [str(row["result_id"]) for row in grounding.rows if (row.get("subject") or {}).get("orientation") == "favourable"]
+        if strays:
+            found.append(ExecutiveViolation(ExecutiveCode.SECTION_MISMATCH, path, f"a favourable result is not a concern: {strays}"))
     return found
 
 
@@ -384,8 +528,9 @@ def _questions(path: str, text: str, grounding: _Grounding) -> list[ExecutiveVio
     found = []
     if not text.strip().endswith("?"):
         found.append(ExecutiveViolation(ExecutiveCode.QUESTION_AS_FACT, path, "a management question must stay a question"))
-    if not any(row.get("open_questions") for row in grounding.rows):
-        found.append(ExecutiveViolation(ExecutiveCode.UNSUPPORTED_QUESTION, path, "no cited result has an open Atlas question"))
+    asked = {" ".join(_norm(str(q.get("text") or "")).split()) for row in grounding.rows for q in row.get("open_questions") or []}
+    if " ".join(_norm(text).split()) not in asked:
+        found.append(ExecutiveViolation(ExecutiveCode.UNSUPPORTED_QUESTION, path, "not one of the cited results' open Atlas questions"))
     return found
 
 
@@ -439,6 +584,7 @@ def validate_brief(candidate: Mapping[str, Any], inp: ExecutiveInput, expected: 
     if not isinstance(candidate, Mapping):
         return ExecutiveReport((ExecutiveViolation(ExecutiveCode.CONTRACT_INVALID, "<brief>", "not an object"),))
     violations: list[ExecutiveViolation] = list(_raw_reasoning_fields(candidate))
+    violations += _control_characters(candidate)
     known = inp.result_ids
     by_id = inp.by_id()
     seen_texts: dict[str, str] = {}
@@ -462,6 +608,7 @@ def validate_brief(candidate: Mapping[str, Any], inp: ExecutiveInput, expected: 
         violations += _metrics(text_path, text, grounding)
         violations += _entities(text_path, text, grounding)
         violations += _lifecycle(text_path, section, text, grounding)
+        violations += _section(text_path, section, grounding)
         violations += _safety(text_path, text, grounding)
         if section == "unresolved_questions":
             violations += _questions(text_path, text, grounding)

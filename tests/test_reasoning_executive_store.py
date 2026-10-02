@@ -22,7 +22,7 @@ from atlas_reasoning.executive_contracts import SECTIONS, ExecutiveBrief
 from atlas_reasoning.frozen import thaw
 from atlas_reasoning.provider import ProviderUnavailable
 from atlas_reasoning.store.calls import StoreCallRecorder
-from atlas_reasoning.store.executive import ExecutiveStore
+from atlas_reasoning.store.executive import ExecutiveStore, ExecutiveTransaction
 from atlas_reasoning.store.health import database_health
 from atlas_reasoning.store.migrate import apply_migrations
 from atlas_reasoning.store.repository import ReasoningStore, VersionConflict
@@ -293,6 +293,37 @@ class ExecutiveStoreTests(unittest.TestCase):
             outcome = self.synthesizer.synthesize(first.run_id)
         self.assertEqual((outcome.decision, outcome.skipped), (None, "executive_busy"))
         self.assertEqual(self.model.requests, [])
+
+    def test_a_candidate_the_database_cannot_store_never_loses_the_audit(self):
+        before, run_id = self.prepared()
+        nul = lambda payload: {**generic_answer(payload), "sections": {**generic_answer(payload)["sections"],
+                                                                     "uncertainty": [{"text": "Weak\x00.", "result_ids": [payload["results"][0]["result_id"]]}]}}
+        self.model.script(nul, nul)
+        outcome = self.synthesizer.synthesize(run_id)
+        self.assert_preserved(outcome, before, "validation:INVALID_TEXT")
+        row = self.executive_store.synthesis_runs(run_id)[-1]
+        self.assertEqual(row["error_codes"], ["INVALID_TEXT"])
+        self.assertEqual(row["rejected_candidate"]["sections"]["uncertainty"][0]["text"], "Weak\ufffd.")
+
+    def test_a_store_failure_on_commit_is_recorded_and_preserves_the_brief(self):
+        before, run_id = self.prepared()
+        original = ExecutiveTransaction.append_brief
+
+        def broken(tx, brief, *, expected_version):
+            raise RuntimeError("disk full")
+
+        ExecutiveTransaction.append_brief = broken
+        try:
+            outcome = self.synthesizer.synthesize(run_id)
+        finally:
+            ExecutiveTransaction.append_brief = original
+        self.assert_preserved(outcome, before, "store:RuntimeError")
+        self.assertEqual(self.executive_store.synthesis_runs(run_id)[-1]["failure"], "store:RuntimeError")
+
+    def test_the_input_is_read_from_one_snapshot(self):
+        with self.executive_store.snapshot() as tx:
+            self.assertEqual(tx._one("SHOW transaction_isolation")["transaction_isolation"], "repeatable read")
+            self.assertEqual(tx._one("SHOW transaction_read_only")["transaction_read_only"], "on")
 
     # --- migration and constraints --------------------------------------------------------------------------------------------
 

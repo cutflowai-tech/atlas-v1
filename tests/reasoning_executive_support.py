@@ -85,8 +85,9 @@ def generic_answer(payload: Mapping[str, Any]) -> dict[str, Any]:
     if changed:
         sections["what_changed"].append({"text": wording[changed[0]["lifecycle_status"]], "result_ids": [changed[0]["result_id"]]})
     open_results = [r for r in results if r["lifecycle_status"] != "resolved"]
-    if open_results:
-        sections["top_concerns"].append({"text": "This open result deserves attention first.", "result_ids": [open_results[0]["result_id"]]})
+    concerns = [r for r in open_results if r["subject"]["orientation"] != "favourable"]
+    if concerns:
+        sections["top_concerns"].append({"text": "This open result deserves attention first.", "result_ids": [concerns[0]["result_id"]]})
     asked = [r for r in open_results if r["open_questions"]]
     if asked:
         sections["unresolved_questions"].append({"text": asked[0]["open_questions"][0]["text"], "result_ids": [asked[0]["result_id"]]})
