@@ -153,8 +153,8 @@ Phase 17 (ExecutiveBrief) must consume these and must not depend on page markup 
 6. **Home insertion point.** `dashboard_html.home_page(home, ctx, lead_html=...)` places server-rendered HTML above
    `<section id="reasoning-results">` (after the page title and the status banners). **It is inserted as HTML, so it must be built only
    from escaped content** (`dashboard_html.esc`, `dashboard_i18n.t`, `dashboard_routes` addresses): model-written executive text is never
-   trusted HTML. `web_app` does not pass it yet; wiring a provider into `ReasoningWebApp` is the Phase 17 UI's change. Phase 16 creates no
-   executive home, navigation or brief.
+   trusted HTML. Since the Phase 17 UI, `ReasoningWebApp(..., executive=ExecutiveOverviewService)` passes the executive overview here
+   (`executive_html.overview_html`, built only from escaped content and these route builders; see `REASONING-V3-EXECUTIVE.md` §11).
 
 ## 9. Configuration
 

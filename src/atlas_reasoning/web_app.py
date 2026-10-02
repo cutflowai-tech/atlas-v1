@@ -45,6 +45,8 @@ from atlas_reasoning import dashboard_html as html
 from atlas_reasoning import dashboard_routes as routes
 from atlas_reasoning.dashboard import DashboardService, DashboardUnavailable
 from atlas_reasoning.dashboard_assets import CSS, JS
+from atlas_reasoning.executive_html import overview_html
+from atlas_reasoning.executive_overview import ExecutiveOverviewService
 from atlas_reasoning.management_api import ApiError, ApiSettings, ManagementAPI, Request, Response, api_settings, authorize_actor
 from atlas_reasoning.reasoning_read_api import ReasoningReadAPI, parse_version
 from atlas_reasoning.settings import ReasoningConfigError
@@ -99,10 +101,12 @@ def web_settings(env: Mapping[str, str] | None = None) -> WebSettings:
 class ReasoningWebApp:
     """The WSGI callable. Built by ``create_app`` (or directly in tests, with any ``DashboardService`` and ``ManagementAPI``)."""
 
-    def __init__(self, settings: WebSettings, service: DashboardService, management: ManagementAPI) -> None:
+    def __init__(self, settings: WebSettings, service: DashboardService, management: ManagementAPI, *,
+                 executive: ExecutiveOverviewService | None = None) -> None:
         self.settings = settings
         self.service = service
         self.management = management
+        self.executive = executive                 # Phase 17: read-only overview of the persisted ExecutiveBrief (home lead)
         self.read_api = ReasoningReadAPI(settings.api, service)
 
     # --- WSGI ---------------------------------------------------------------------------------------------------------------
@@ -216,7 +220,8 @@ class ReasoningWebApp:
             return html.teach_page(self.service.teachings_list(), ctx)
         result_id = match.group("result_id")
         if result_id is None:
-            return html.home_page(self.service.home(), ctx)
+            overview = self.executive.overview() if self.executive is not None else None     # read only: never synthesizes
+            return html.home_page(self.service.home(), ctx, lead_html=overview_html(overview, ctx) if overview is not None else "")
         routes.parse_result_id(result_id)
         sub = match.group("sub")
         if sub == "/history":
@@ -244,7 +249,8 @@ def create_app(env: Mapping[str, str] | None = None) -> ReasoningWebApp:
     sync = human_context.sync_service(store, backend_from_env(env))
     notes, questions, teachings = ManagerNotes(store, sync), AtlasQuestions(store, sync), TeachAtlas(store, sync)
     service = DashboardService(store, notes=notes, questions=questions, teachings=teachings)
-    return ReasoningWebApp(web, service, ManagementAPI(web.api, notes=notes, questions=questions, teachings=teachings))
+    return ReasoningWebApp(web, service, ManagementAPI(web.api, notes=notes, questions=questions, teachings=teachings),
+                           executive=ExecutiveOverviewService(store, service))
 
 
 LOOPBACK = ("127.0.0.1", "::1", "localhost")
