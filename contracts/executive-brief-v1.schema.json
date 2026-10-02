@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/executive-brief-v1.schema.json",
+  "title": "ExecutiveBriefV1",
+  "description": "Atlas's executive synthesis (REV/17), one version. Built only from validated canonical ReasoningResults: every visible statement references one or more canonical result_ids that were part of the synthesis input (input_results). It never references raw Monday data, Intelligence V2 findings or evidence records directly, and there is no field for hidden reasoning. Identity, version, run, input fingerprint, generator and timestamps are set deterministically by Python, never by the model.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "brief_id", "version", "scope", "run_id", "input_version", "input_fingerprint", "input_results", "omitted_result_count",
+               "sections", "generator", "prompt_version", "validator_version", "created_at"],
+  "properties": {
+    "contract_version": {"const": "executive-brief-v1"},
+    "brief_id": {"type": "string", "pattern": "^eb1_[0-9a-f]{32}$", "description": "Stable identity of the brief of one scope, kept across versions."},
+    "version": {"type": "integer", "minimum": 1},
+    "scope": {"enum": ["company"], "description": "What the brief covers. One company-wide brief in executive-brief-v1."},
+    "run_id": {"type": "string", "pattern": "^run_[0-9a-f]{32}$", "description": "The reasoning run this version was synthesized for."},
+    "input_version": {"type": "string", "minLength": 1},
+    "input_fingerprint": {"type": "string", "pattern": "^ei1_[0-9a-f]{64}$", "description": "SHA-256 of the canonical synthesis input. Equal input -> equal fingerprint; prose never takes part."},
+    "input_results": {
+      "type": "array",
+      "maxItems": 200,
+      "description": "The canonical result versions the synthesis saw, in input order. Only these may be referenced.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["result_id", "result_version", "lifecycle_status"],
+        "properties": {
+          "result_id": {"$ref": "#/$defs/result_id"},
+          "result_version": {"type": "integer", "minimum": 1},
+          "lifecycle_status": {"$ref": "#/$defs/eligible_lifecycle"}
+        }
+      }
+    },
+    "omitted_result_count": {"type": "integer", "minimum": 0, "description": "Eligible results left out of the bounded input (never referenceable)."},
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what_changed", "top_concerns", "important_improvements", "system_patterns", "editor_context", "unresolved_questions",
+                   "uncertainty", "inspect_next"],
+      "properties": {
+        "what_changed": {"$ref": "#/$defs/statements"},
+        "top_concerns": {"$ref": "#/$defs/statements"},
+        "important_improvements": {"$ref": "#/$defs/statements"},
+        "system_patterns": {"$ref": "#/$defs/statements"},
+        "editor_context": {"type": "array", "maxItems": 12, "items": {"$ref": "#/$defs/editor_statement"}},
+        "unresolved_questions": {"$ref": "#/$defs/statements"},
+        "uncertainty": {"$ref": "#/$defs/statements"},
+        "inspect_next": {"$ref": "#/$defs/statements"}
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "provider", "model", "request_ids"],
+      "description": "model: written by the pinned model through the gateway; deterministic_empty: no eligible canonical result, written by Python without a model call.",
+      "properties": {
+        "kind": {"enum": ["model", "deterministic_empty"]},
+        "provider": {"type": ["string", "null"], "minLength": 1},
+        "model": {"type": ["string", "null"], "minLength": 1},
+        "request_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "prompt_version": {"type": ["string", "null"], "minLength": 1},
+    "validator_version": {"type": "string", "minLength": 1},
+    "created_at": {"$ref": "#/$defs/timestamp"}
+  },
+  "$defs": {
+    "timestamp": {"type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"},
+    "result_id": {"type": "string", "pattern": "^rr1_[0-9a-f]{32}$"},
+    "eligible_lifecycle": {"enum": ["new", "active", "updated", "resolved"]},
+    "result_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/result_id"},
+      "description": "The canonical results the statement is about. At least one: there are no free-floating statements."
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement_id", "text", "result_ids"],
+      "properties": {
+        "statement_id": {"type": "string", "pattern": "^[a-z_]+-[1-9][0-9]*$", "description": "<section>-<position>, assigned by Python."},
+        "text": {"type": "string", "minLength": 1, "maxLength": 1200},
+        "result_ids": {"$ref": "#/$defs/result_ids"}
+      }
+    },
+    "editor_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement_id", "editor_id", "text", "result_ids"],
+      "properties": {
+        "statement_id": {"type": "string", "pattern": "^[a-z_]+-[1-9][0-9]*$"},
+        "editor_id": {"type": "string", "minLength": 1, "maxLength": 200, "description": "The Editor the statement is about; every referenced result concerns this Editor."},
+        "text": {"type": "string", "minLength": 1, "maxLength": 1200},
+        "result_ids": {"$ref": "#/$defs/result_ids"}
+      }
+    },
+    "statements": {"type": "array", "maxItems": 12, "items": {"$ref": "#/$defs/statement"}}
+  }
+}
