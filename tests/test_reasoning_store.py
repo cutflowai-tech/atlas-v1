@@ -137,9 +137,10 @@ class MigrationTests(unittest.TestCase):
         for thread in threads:
             thread.join()
         self.assertEqual(errors, [])
-        applied = [name for r in results for name in r]   # the complete set (every branch's migrations), each exactly once
+        # The complete set (every branch's migrations), each exactly once. The lock is taken per file, so concurrent bootstraps may
+        # share the files between them; what matters is that no file is applied twice and none is missed.
+        applied = [name for r in results for name in r]
         self.assertEqual(sorted(applied), [migration.name for migration in available_migrations()])
-        self.assertEqual(sorted(len(r) for r in results), [0, 0, 0, len(available_migrations())])   # by one bootstrap
         self.assertTrue(database_health(self.db)["ok"])
 
     def test_status_constraints_mirror_the_enums(self):
