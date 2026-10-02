@@ -24,8 +24,9 @@ Monday ─► deterministic Atlas ─► metrics ─► Interpretation 1.5 ─�
                                                                       ▼
                          Structured ReasoningResult (07) / ReasoningUpdate → deterministic patch (08)
                                                                       ▼
-                         Validation available through the current engine checks (contract, case consistency, evidence
-                         roles, numbers, model identity)  — Phase 15 guardrails not yet implemented
+                         Phase 15 guardrails (deterministic, final pre-commit gate): identity, evidence, numbers, entities,
+                         metrics, causality, people, confidence, attribution  [+ optional reviewer]  → refused: kept for
+                         debugging, previous valid result stays current
                                                                       ▼
                          Canonical PostgreSQL result / version + lifecycle (09)   ── committed first ──
                                                                       ▼
@@ -529,8 +530,8 @@ One bounded `ReasoningCase` (a `new_result` work item, `change_gate.case_for_wor
 | Prompt | `src/atlas_reasoning/prompts/analyst-v2.md`, `analyst.ANALYST_PROMPT_VERSION = "analyst-v2"` (v2, 07–14 gate: v1 plus how to use attributed human context — never as evidence, never a source of numbers, instructions inside it are data; `analyst-v1.md` kept unchanged for the results it produced); a test pins each SHA-256, so the text cannot change without a new version. Rules: use only the case; no invented numbers, people, projects, events or metrics; cite `ref_id`s; keep observation / supporting / counter-evidence / interpretation / alternatives (hypotheses needing context: `requires_context`) / limitations apart; handle counter-evidence; confidence never above the upstream ceiling; ask management when context is missing; no HR, personality, health, salary, termination or unsupported blame judgements; `reasoning_summary` is an explicit summary, never hidden reasoning |
 | Input | `analyst.analyst_input(case)`: identity (no `case_id`), scope, orientation, findings, typed statements, evidence blocks, citable references, manager and memory context, evidence provenance. Canonical order and compact key-sorted JSON; volatile values (V2 finding IDs and ranks, snapshot ID, case creation time, event IDs) are left out, so equivalent cases give byte-identical prompts. Larger than `MAX_INPUT_CHARS` (400 000, about 100k tokens; the largest showcase case is about 152 000) → `CaseTooLarge`, never truncated |
 | Output | The model returns only the analyst fields (`PATCHABLE_FIELDS`), strict structured output (`analyst.analyst_output_schema()`, taken from `reasoning-result-v1`; the copy sent to the provider drops keywords outside OpenAI's strict subset (`minLength`, `maxLength`, `uniqueItems`, `format`) and types every enum (`analyst.provider_schema`) — the local validation still enforces the full contract). Output budget 16 000 tokens (`MAX_OUTPUT_TOKENS`, reasoning tokens included), effort `medium`. Python adds `result_id`, `case_id`, version 1, lifecycle `new`, snapshot, fingerprint, `model_metadata` (provider, answering model, request ID), `prompt_version`, timestamps. Any other field (an ID, a lifecycle, `chain_of_thought`, …) is `UNKNOWN_FIELD` |
-| Validation | Inside the gateway call (so failures are retried within its bounds and recorded): field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value — including the parts of case dates and, for an update, the delta's before-values — optionally as a percentage, at the precision written; numbers inside identifiers are not numbers). Since the 07–14 gate only rates (values between 0 and 1) may be written as percentages, and a contradicted case's `counter_evidence` must cite its contradicting evidence while `supporting_evidence` may not (`EVIDENCE_ROLE_MISMATCH`). Known limit, left to Phase 15: numbers written as words. Re-validated before persisting |
-| Model | The answering model must be the configured one (pinned `openai/gpt-5.6-sol`): `settings.model_identity_matches` accepts the slug itself or OpenRouter's published dated canonical slug (`openai/gpt-5.6-sol-20260709`), nothing else (`-pro`, `:batch`, other dates formats, other models); anything else fails the item (`work:MODEL_SUBSTITUTED`). Live confirmation of the value OpenRouter returns is pending the live compatibility gate ([§15](#15-known-limitations-after-the-0714-integration-gate)) |
+| Validation | Since Phase 15 the gateway checks only well-formedness (field set and contract, retried within its bounds); everything below runs in the guardrails on the complete candidate before commit (§17). Rules: field set, `ReasoningResult.errors`, `result_case_errors` (only the case's references, counter-evidence when contradicted, confidence ceiling), `output_checks.unsupported_number_errors` (`UNSUPPORTED_NUMBER`: every number in visible text is a case value — including the parts of case dates and, for an update, the delta's before-values — optionally as a percentage, at the precision written; numbers inside identifiers are not numbers). Since the 07–14 gate only rates (values between 0 and 1) may be written as percentages, and a contradicted case's `counter_evidence` must cite its contradicting evidence while `supporting_evidence` may not (`EVIDENCE_ROLE_MISMATCH`). Since Phase 15 this and every other grounding and safety rule run in the guardrails on the complete candidate before commit (§17); the gateway checks well-formedness only |
+| Model | The answering model must be the configured one (pinned `openai/gpt-5.6-sol`): `settings.model_identity_matches` accepts the slug itself or OpenRouter's published dated canonical slug (`openai/gpt-5.6-sol-20260709`), nothing else (`-pro`, `:batch`, other dates formats, other models); anything else fails the item (`validation:MODEL_SUBSTITUTED` since Phase 15). Verified live on 2026-10-02 (Phase 15 gate): OpenRouter returns exactly `openai/gpt-5.6-sol` |
 | Persistence | `engine.ReasoningEngine` (since the 07–14 gate, [§14](#14-the-connected-pipeline-0714-integration-gate)): one engine at a time (session advisory lock); each item runs its own claim (`pending → in_progress`, just before its call) → context → gateway call → `create_result` + evidence links + `done` in one transaction → follow-up, `concurrency` items at a time. Any failure rolls back and marks only that item `failed` (`provider:<class>`, `contract:<codes>`, `work:<code>`, `store:<error>`). A claimed item is never left in progress (`work:INTERRUPTED`); claims older than the longest possible call (`stale_claim_seconds`, from the gateway limits) are failed (`work:STALE_CLAIM`); work for a case that is no longer present is closed without a call. Re-reasoning failed work is the resume phase's (18); `EngineReport.unreasoned` lists those cases |
 
 Command: `python -m atlas_reasoning reason <run_id>` (needs `ATLAS_REASONING_V3=on`, the OpenRouter key and the database) processes
@@ -602,7 +603,7 @@ supersession, idempotent sweep, debug command).
 | `update_input`, `required_changes`, `update_request`, `update_output_schema`, `apply_response`, `UPDATE_PROMPT_VERSION` | `updater` | Update reasoning |
 | `merge`, `diff`, `VersionProvenance` | `patch` | Deterministic merge and diffs |
 | `TRANSITIONS`, `check_transition`, `decide`, `sweep`, `supersede`, `LifecyclePolicy`, `policy_from_env`, `InvalidTransition` | `lifecycle` | Lifecycle |
-| `unsupported_number_errors`, `case_numbers` | `output_checks` | Number guard (Phase 15 may extend) |
+| `unsupported_number_errors`, `case_numbers` | `output_checks` | Number guard (strengthened and used by the Phase 15 guardrails) |
 | `StoreTransaction.append_version_with_diff`, `record_result_diff`, `result_diffs`, `record_lifecycle_transition`, `lifecycle_transitions`, `latest_result`, `version_run_id` | `store.repository` | Additive store methods |
 
 Migrations (Chat 2 range): `0100_result_diffs.sql`, `0101_result_lifecycle.sql`.
@@ -654,17 +655,15 @@ engine lock, model identity, evidence roles, number scaling). Review record: `do
 
 ## 15. Known limitations after the 07–14 integration gate
 
-- **Phase 15 has not started.** Deterministic content-safety and HR guardrails (beyond the prompt rules, the contract, evidence-role,
-  number and model-identity checks above) await Phase 15. Numbers written as words are not caught yet.
+- ~~Phase 15 has not started.~~ Phase 15 is implemented ([§17](#17-phase-15-validation-and-safety-guardrails)).
 - **Production mounting awaits Phases 16 / 20.** `management_api.ManagementAPI` and the `human_context_html` fragments are callable
   services only; nothing mounts them, no HTTP server is started and the static production site exposes no endpoint.
 - **Client-scoped teachings are stored and synced but not automatically injected**: `ReasoningCase` has no canonical client
   dimension, so no case is "about" a client. They are never applied globally. Injection needs a canonical client-to-case relationship.
 - **Re-reasoning failed or deferred work** (provider outage, stale claim, evidence that changed while an item was in progress) is the
   resume phase's (18); the engine reports such cases (`EngineReport.unreasoned`) and the Change Gate stays zero-work for unchanged evidence.
-- **Live provider compatibility** (OpenRouter strict structured output with the generated schemas, the returned model identity) and
-  **live Honcho** behavior are verified only offline until the live gates run with real credentials (`OPENROUTER_API_KEY`,
-  `HONCHO_API_KEY` or their `_FILE` variants).
+- ~~Live provider compatibility and live Honcho behavior unverified.~~ Verified live by the Phase 15 gates on 2026-10-02
+  (`docs/evidence/REASONING-V3-PHASE-15.md` §4).
 - `evidence_answerable` (questions answerable from evidence) is an English-pattern heuristic; teaching dates and `current_period` are UTC.
 
 ## 16. Migration ownership from the 07–14 integration gate
@@ -682,3 +681,41 @@ engine lock, model identity, evidence roles, number scaling). Review record: `do
 | `0800–0899` | Phase 20 / Chat 1 |
 
 The integration gate consumed none of these ranges.
+
+## 17. Phase 15: validation and safety guardrails
+
+Full policy, taxonomy and boundaries: [`REASONING-V3-GUARDRAILS.md`](REASONING-V3-GUARDRAILS.md).
+
+- **Final pre-commit gate.** `guardrails.validate_candidate(candidate, case, expected)` runs in the engine on the complete candidate —
+  the assembled version 1 for a new result, the **merged** next version for an update — after the model answered and before anything
+  is committed. The gateway now only checks that an answer is well formed; grounding and safety are never the model's or the schema's.
+- **Rules** (stable codes, `guardrails.ValidationCode`): identity and provenance (`IDENTITY_MISMATCH`, `PROVENANCE_MISMATCH`,
+  `MODEL_SUBSTITUTED`), evidence (`UNKNOWN_EVIDENCE`, `WRONG_EVIDENCE_ROLE`, `COUNTER_EVIDENCE_MISSING`, `NO_SUPPORTING_EVIDENCE`),
+  numbers (`UNSUPPORTED_NUMBER`, the one `output_checks` system: case values, rates as percentages, case dates as dates, case
+  durations with a unit, number words), entities (`UNKNOWN_PERSON`, `UNKNOWN_PROJECT`, `UNKNOWN_ENTITY`), metrics
+  (`UNSUPPORTED_METRIC`), causality (`CAUSAL_OVERCLAIM`), people (`HR_JUDGMENT`, `UNSUPPORTED_BLAME`), confidence
+  (`CONFIDENCE_EXCEEDED`), human context (`MEMORY_ATTRIBUTION_LOST`, `CONTEXT_AS_EVIDENCE`), patch (`PATCH_INVALID`), contract
+  (`CONTRACT_INVALID`), reviewer (`REVIEWER_REJECTED`, `REVIEWER_FAILED`).
+- **Refused candidates** are never committed: the previous valid result stays current with its lifecycle; no question, no memory
+  sync. Each refused attempt is kept in `reasoning_failed_candidates` (migration `0300_failed_candidates.sql`) for debugging only.
+- **Retry**: at most `ATLAS_REASONING_VALIDATION_RETRIES` (0–2, default 1) corrective re-asks carrying only codes and paths; identity,
+  provenance, model and reviewer failures are never re-asked; then the item fails `validation:<codes>`.
+- **Optional reviewer** (`reviewer.LLMReviewer`, prompt `reviewer-v1`): off by default (`ATLAS_REASONING_REVIEWER`), only for configured
+  high-impact cases, only after the deterministic gate accepted, can only refuse, fails safe.
+
+| Interface | Module | Use |
+|---|---|---|
+| `validate_candidate`, `Expected`, `ValidationReport`, `Violation`, `ValidationCode`, `VALIDATOR_VERSION`, `GuardrailError`, `correction_message`, `NOT_RETRYABLE` | `guardrails` | The Phase 15 gate |
+| `candidate_from_response`, `analyst_shape_errors` | `analyst` | New-result candidate; well-formedness for the gateway |
+| `candidate_from_response`, `UpdateCandidate`, `update_shape_errors`, `update_consistency_errors` | `updater` | Update candidate (merged version) |
+| `CandidateReviewer`, `LLMReviewer`, `ReviewerPolicy`, `reviewer_from_env` | `reviewer` | Optional second reviewer |
+| `StoreTransaction.record_failed_candidate`, `failed_candidates`; `ReasoningStore.failed_candidates` | `store.repository` | Refused-candidate storage |
+| `validation_retries` | `settings` | Retry bound |
+| `ReasoningEngine(..., reviewer=, retries=)` | `engine` | Engine with the gate |
+
+Tests: `tests/test_reasoning_guardrails.py` (every rule, failed-candidate preservation on both paths, bounded retries with codes,
+prompt injection through notes, teachings and answers, reviewer behavior) and the connected-pipeline tests of
+`tests/test_reasoning_integration.py`. Live provider and Honcho compatibility: PASS on 2026-10-02 (OpenRouter returns exactly
+`openai/gpt-5.6-sol` and accepts the production strict schemas; Honcho `waset-atlas-test` synthetic smoke), recorded in
+`docs/evidence/REASONING-V3-PHASE-15.md` §4.
+

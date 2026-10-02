@@ -23,7 +23,7 @@ from reasoning_fakes import analyst_answer, request_input, update_answer
 
 from atlas_reasoning import analyst, lifecycle, patch, updater
 from atlas_reasoning.change_gate import run_gate
-from atlas_reasoning.contracts import IMMUTABLE_RESULT_FIELDS, PATCHABLE_FIELDS, ContractViolation, ReasoningUpdate
+from atlas_reasoning.contracts import IMMUTABLE_RESULT_FIELDS, PATCHABLE_FIELDS, ContractViolation, ReasoningResult, ReasoningUpdate
 from atlas_reasoning.enums import ResultChangeKind, WorkKind, WorkStatus
 from atlas_reasoning.provider import ProviderResponse
 from atlas_reasoning.settings import PINNED_MODEL
@@ -312,15 +312,16 @@ class UpdateEngineTests(unittest.TestCase):
 
     def test_a_concurrent_writer_wins_and_the_stale_patch_is_dropped(self):
         report = self._change()
-        original = updater.apply_response
+        original = updater.candidate_from_response
 
         def racing(previous, case, response, **kwargs):
-            applied = original(previous, case, response, **kwargs)
-            with self.store.transaction() as tx:   # another worker appends version 2 first
-                tx.append_version_with_diff(applied.result, previous=previous, change_kind=ResultChangeKind.PATCHED, update=applied.update)
-            return applied
+            candidate = original(previous, case, response, **kwargs)
+            with self.store.transaction() as tx:   # another worker appends the next version first
+                tx.append_version_with_diff(ReasoningResult.from_dict(candidate.merged), previous=previous, change_kind=ResultChangeKind.PATCHED,
+                                            update=ReasoningUpdate.from_dict(candidate.update))
+            return candidate
 
-        with mock.patch.object(updater, "apply_response", side_effect=racing):
+        with mock.patch.object(updater, "candidate_from_response", side_effect=racing):
             outcome = next(o for o in self.engine.process_run(report.run_id).outcomes if o.case_id == self.case_id)
         self.assertEqual((outcome.status, outcome.error), ("failed", "store:VersionConflict"))
         self.assertEqual([h["version"] for h in self.store.result_history(self.result_id)], [1, 2, 3])

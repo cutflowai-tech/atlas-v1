@@ -201,9 +201,27 @@ def analyst_output_errors(output: Any, case: Mapping[str, Any]) -> list[str]:
     return result_case_errors(document, case) + unsupported_number_errors(output, case)
 
 
+def analyst_shape_errors(output: Any, case: Mapping[str, Any]) -> list[str]:
+    """Whether a model answer is a well-formed analyst answer (field set and the reasoning-v1 contract of the assembled result). The
+    gateway retries only this; grounding and safety are the Phase 15 guardrails' (``guardrails.validate_candidate``), which run on the
+    complete candidate before anything is committed."""
+    errors = field_set_errors(output, PATCHABLE_FIELDS)
+    if errors:
+        return errors
+    placeholder = Provenance(_PLACEHOLDER_RESULT_ID, "validation", "validation", ("validation",), ANALYST_PROMPT_VERSION, _PLACEHOLDER_TIME)
+    return result_errors(assemble_result(case, output, placeholder))
+
+
 def analyst_output(case: ReasoningCase) -> StructuredOutput:
     document = case.to_dict()
-    return StructuredOutput("atlas_analyst_result_v1", freeze(provider_schema(analyst_output_schema())), lambda value: analyst_output_errors(value, document))
+    return StructuredOutput("atlas_analyst_result_v1", freeze(provider_schema(analyst_output_schema())), lambda value: analyst_shape_errors(value, document))
+
+
+def candidate_from_response(case: ReasoningCase, response: ProviderResponse, *, provider: str, result_id: str, now: str) -> dict[str, Any]:
+    """The complete version-1 candidate for a well-formed answer: the model's analyst fields plus Python's identity and provenance.
+    Not validated here: the Phase 15 guardrails decide whether it may become canonical."""
+    provenance = Provenance(result_id, provider, response.model, (response.request_id,), ANALYST_PROMPT_VERSION, now)
+    return assemble_result(case.to_dict(), response.parsed, provenance)
 
 
 def analyst_request(case: ReasoningCase, *, run_id: str | None = None, work_item_id: str | None = None) -> ProviderRequest:
@@ -213,7 +231,9 @@ def analyst_request(case: ReasoningCase, *, run_id: str | None = None, work_item
 
 
 def result_from_response(case: ReasoningCase, response: ProviderResponse, *, provider: str, result_id: str, now: str) -> ReasoningResult:
-    """The validated ``ReasoningResult`` (version 1, lifecycle ``new``) for a successful analyst call."""
+    """The validated ``ReasoningResult`` (version 1, lifecycle ``new``) for a successful analyst call, checked by the Phase 07 rules
+    only. Not the engine's path: the engine commits only candidates the Phase 15 guardrails accepted (``candidate_from_response`` +
+    ``guardrails.validate_candidate``)."""
     document = case.to_dict()
     errors = analyst_output_errors(response.parsed, document)
     if errors:

@@ -13,37 +13,44 @@ abandoned claims, applies the deterministic lifecycle sweep, then runs every pen
    case that is no longer present is closed without a model call;
 2. **context**: the case receives its scoped human context (``reasoning_context.ContextHooks.prepare``: manager notes, management
    answers, teachings and validated memory; never evidence) and the injected items are audited under the call's request ID;
-3. **reason**: one gateway call (bounded concurrency, retries, ``llm_calls`` records); the answer is validated inside the call;
-4. **persist** (own transaction): the result is created (or, Phase 08, patched) together with the work item's ``done`` status — all
-   or nothing. Any failure rolls the transaction back and the item is marked ``failed`` with a short error (``provider:<error class>``,
-   ``contract:<codes>``, ``store:<error>``) in a separate transaction;
-5. **follow up** (after the commit, never inside it): the committed version's questions become canonical Atlas questions, then the
+3. **reason**: one gateway call (bounded concurrency, retries, ``llm_calls`` records); the gateway checks only that the answer is
+   well formed (shape and contract) and retries malformed JSON;
+4. **validate** (Phase 15): the complete candidate — the assembled version 1, or for an update the **merged** next version — passes
+   the deterministic guardrails (``guardrails.validate_candidate``: identity, evidence, numbers, entities, metrics, causality, people,
+   confidence, attribution) and, for configured high-impact cases, the optional reviewer. A refused candidate is recorded in
+   ``reasoning_failed_candidates`` and never committed; the model is re-asked with the refusal's codes at most
+   ``validation_retries`` times (default 1), then the item fails (``validation:<codes>``) and the previous valid result stays current;
+5. **persist** (own transaction): the accepted result is created (or, Phase 08, patched) together with the work item's ``done``
+   status — all or nothing. Any failure rolls the transaction back and the item is marked ``failed`` with a short error
+   (``provider:<error class>``, ``validation:<codes>``, ``store:<error>``) in a separate transaction;
+6. **follow up** (after the commit, never inside it; never for a refused candidate): the committed version's questions become canonical Atlas questions, then the
    result summary is copied to memory (``ContextHooks.after_commit``). A follow-up failure never touches the committed result.
 
 A failure — provider error, invalid output, store conflict — affects only its own work item. The model never sets identity,
 provenance or lifecycle (``analyst``), and the answering model must be the configured one (``settings.model_identity_matches``;
-``MODEL_SUBSTITUTED`` otherwise).
+``validation:MODEL_SUBSTITUTED`` otherwise).
 """
 
 from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from atlas_reasoning import analyst, lifecycle, updater
+from atlas_reasoning import analyst, guardrails, lifecycle, reviewer, updater
 from atlas_reasoning.change_gate import case_for_work
-from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, new_result_id
+from atlas_reasoning.contracts import ContractViolation, ReasoningCase, ReasoningResult, ReasoningUpdate, new_result_id
 from atlas_reasoning.delta import material_delta
 from atlas_reasoning.enums import LifecycleStatus, ResultChangeKind, WorkKind, WorkStatus
 from atlas_reasoning.gateway import ReasoningGateway, new_request_id
-from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
-from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext
-from atlas_reasoning.settings import model_identity_matches
+from atlas_reasoning.provider import Message, ProviderError, ProviderRequest, ProviderResponse
+from atlas_reasoning.reasoning_context import ContextHooks, FollowUp, HumanContext, PreparedCase
+from atlas_reasoning.reviewer import CandidateReviewer
+from atlas_reasoning.settings import validation_retries
 from atlas_reasoning.store.db import DatabaseError
 from atlas_reasoning.store.repository import ReasoningStore, StoreTransaction, WorkItemRow, WorkTransitionError
 
@@ -111,6 +118,8 @@ def error_code(error: BaseException) -> str:
     """A short, content-free description of a failure for ``reasoning_work_items.last_error``."""
     if isinstance(error, ProviderError):
         return f"provider:{error.error_class}"
+    if isinstance(error, guardrails.GuardrailError):
+        return f"validation:{','.join(error.report.codes)}"
     if isinstance(error, ContractViolation):
         return f"contract:{','.join(error.codes)}"
     if isinstance(error, WorkError):
@@ -127,11 +136,15 @@ class EngineBusy(RuntimeError):
 class ReasoningEngine:
     def __init__(self, store: ReasoningStore, gateway: ReasoningGateway, *, clock: Callable[[], str] = utc_now,
                  result_ids: Callable[[], str] = new_result_id, policy: lifecycle.LifecyclePolicy | None = None,
-                 context: ContextHooks | None = None) -> None:
+                 context: ContextHooks | None = None, reviewer: CandidateReviewer | None = None,
+                 retries: int | None = None) -> None:
         self.store, self.gateway, self.clock, self.result_ids = store, gateway, clock, result_ids
         self.policy = policy or lifecycle.policy_from_env()
         # Without an explicit context the canonical human context (PostgreSQL only, no memory backend) is still injected and audited.
         self.context: ContextHooks = context if context is not None else HumanContext(store, None)
+        # Phase 15: the optional second reviewer (None = off) and the bounded corrective re-asks after a refused candidate.
+        self.reviewer = reviewer
+        self.validation_retries = validation_retries() if retries is None else retries
 
     # --- public ---------------------------------------------------------------------------------------------------------------
 
@@ -210,16 +223,32 @@ class ReasoningEngine:
                 request = updater.update_request(ready.previous, case, run_id=item.run_id, work_item_id=item.work_item_id)
             else:
                 request = analyst.analyst_request(case, run_id=item.run_id, work_item_id=item.work_item_id)
-            request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
-            self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
-                                work_item_id=item.work_item_id, result_id=ready.previous.result_id if ready.previous else None)
         except Exception as error:  # noqa: BLE001 - recorded on the item
             return self._fail(item, error)
-        try:
-            response = self.gateway.call(request)
-        except ProviderError as error:
-            return self._fail(item, error)
-        outcome = self._complete(dataclasses.replace(ready, case=case), request, response)
+        ready = dataclasses.replace(ready, case=case)
+        result_id = ready.previous.result_id if ready.previous is not None else self.result_ids()
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                request = dataclasses.replace(request, context=dataclasses.replace(request.context, request_id=new_request_id()))
+                self.context.record(prepared, purpose=request.context.purpose, request_id=request.context.request_id, run_id=item.run_id,
+                                    work_item_id=item.work_item_id, result_id=ready.previous.result_id if ready.previous else None)
+            except Exception as error:  # noqa: BLE001
+                return self._fail(item, error)
+            try:
+                response = self.gateway.call(request)
+            except ProviderError as error:
+                return self._fail(item, error)
+            outcome, report = self._complete(ready, request, response, result_id, attempt, prepared)
+            if outcome is not None:
+                break
+            assert report is not None
+            if not report.retryable or attempt > self.validation_retries:
+                return self._fail(item, guardrails.GuardrailError(report))
+            # Bounded correction: the same request, the refused answer, and the refusal's codes and paths only.
+            request = dataclasses.replace(request, messages=(*request.messages, Message("assistant", response.content),
+                                                             Message("user", guardrails.correction_message(report))))
         if outcome.status == WorkStatus.DONE and outcome.result_id and outcome.version and outcome.change_kind:
             followup = self._follow_up(outcome, item.run_id)
             outcome = dataclasses.replace(outcome, followup=followup.to_dict())
@@ -282,23 +311,66 @@ class ReasoningEngine:
                         material_delta=material_delta(before, after, fingerprint_before=previous.evidence_fingerprint, fingerprint_after=item.fingerprint_after))
         return ReasoningCase.from_dict(document)
 
-    def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse) -> WorkOutcome:
+    def _complete(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse, result_id: str, attempt: int,
+                  prepared: PreparedCase) -> tuple[WorkOutcome | None, guardrails.ValidationReport | None]:
+        """Build the complete candidate, run the Phase 15 guardrails (and the optional reviewer) and commit only a candidate they accept.
+        Returns ``(outcome, None)`` when the item is finished (committed or failed) or ``(None, report)`` for a refused candidate."""
+        item, previous = ready.item, ready.previous
+        provider = self.gateway.transport.provider_name
         try:
-            self._check_model(response)
-            if ready.previous is not None:
-                return self._persist_update(ready, ready.previous, response)
-            return self._persist_new(ready, response)
+            case = ready.case.to_dict()
+            if previous is None:
+                candidate = analyst.candidate_from_response(ready.case, response, provider=provider, result_id=result_id, now=self.clock())
+                patch: updater.UpdateCandidate | None = None
+                extra: list[guardrails.Violation] = []
+            else:
+                patch = updater.candidate_from_response(previous, ready.case, response, provider=provider, now=self.clock(),
+                                                        lifecycle_status=previous.lifecycle_status.value)
+                candidate = patch.merged or {}
+                extra = guardrails.patch_violations(patch.errors)
+            # Expectations come from the work item and the request, never from the answer: the gated evidence state, the request ID.
+            expected = guardrails.Expected(case_id=item.case_id, result_id=result_id, version=previous.version + 1 if previous else 1,
+                                           source_snapshot_id=case["source_snapshot_id"],
+                                           evidence_fingerprint=item.fingerprint_after or case["evidence_fingerprint"],
+                                           prompt_version=updater.UPDATE_PROMPT_VERSION if previous else analyst.ANALYST_PROMPT_VERSION,
+                                           model=self.gateway.model, request_id=request.context.request_id,
+                                           previous=previous.to_dict() if previous is not None else None)
+            report = guardrails.validate_candidate(candidate, case, expected, extra=extra)
+            if report.ok and self.reviewer is not None and self.reviewer.applies(case):
+                review_id = new_request_id()      # the reviewer sees the same human context: its call is audited like any other
+                self.context.record(prepared, purpose=reviewer.REVIEW_PURPOSE, request_id=review_id, run_id=item.run_id,
+                                    work_item_id=item.work_item_id, result_id=previous.result_id if previous else None)
+                verdict = self.reviewer.review(case, candidate, run_id=item.run_id, work_item_id=item.work_item_id, request_id=review_id)
+                if not verdict.approved:
+                    report = guardrails.ValidationReport(verdict.violations)
+            if not report.ok:
+                self._record_refusal(ready, request, response, result_id, attempt, report, candidate, patch)
+                return None, report
+            if patch is not None and previous is not None:
+                return self._persist_update(ready, previous, patch), None
+            return self._persist_new(ready, ReasoningResult.from_dict(candidate)), None
         except Exception as error:  # noqa: BLE001 - rolled back; recorded on the item
-            return self._fail(ready.item, error)
+            return self._fail(item, error), None
 
-    def _check_model(self, response: ProviderResponse) -> None:
-        if not model_identity_matches(self.gateway.model, response.model):
-            raise WorkError("MODEL_SUBSTITUTED", f"answered by {response.model}, configured {self.gateway.model}")
-
-    def _persist_new(self, ready: _Claimed, response: ProviderResponse) -> WorkOutcome:
+    def _record_refusal(self, ready: _Claimed, request: ProviderRequest, response: ProviderResponse, result_id: str, attempt: int,
+                        report: guardrails.ValidationReport, candidate: Mapping[str, Any], patch: updater.UpdateCandidate | None) -> None:
+        """Keep the refused candidate for debugging (its own transaction; never a result version, never on the dashboard)."""
         item = ready.item
-        result = analyst.result_from_response(ready.case, response, provider=self.gateway.transport.provider_name, result_id=self.result_ids(),
-                                              now=self.clock())
+        stored = {"result": candidate or None, "update": patch.update if patch is not None else None}
+        LOG.warning("candidate refused work_item_id=%s case_id=%s attempt=%s codes=%s", item.work_item_id, item.case_id, attempt, ",".join(report.codes))
+        try:
+            with self.store.transaction() as tx:
+                tx.record_failed_candidate(case_id=item.case_id, run_id=item.run_id, work_item_id=item.work_item_id, result_id=result_id,
+                                           base_version=ready.previous.version if ready.previous else None, request_id=response.request_id,
+                                           purpose=request.context.purpose, attempt=attempt, validator_version=report.validator_version,
+                                           error_codes=report.codes, violations=[violation.to_dict() for violation in report.violations],
+                                           candidate={key: value for key, value in stored.items() if value is not None}, model=response.model,
+                                           prompt_version=request.context.prompt_version, evidence_fingerprint=ready.case.evidence_fingerprint)
+        except DatabaseError as error:
+            LOG.error("refused candidate not recorded work_item_id=%s error=%s", item.work_item_id, error_code(error))
+
+    def _persist_new(self, ready: _Claimed, result: ReasoningResult) -> WorkOutcome:
+        item = ready.item
         with self.store.transaction() as tx:
             tx.create_result(result, run_id=item.run_id, work_item_id=item.work_item_id)
             lifecycle.record_creation(tx, result, policy=self.policy, run_id=item.run_id, work_item_id=item.work_item_id)
@@ -306,23 +378,24 @@ class ReasoningEngine:
         LOG.info("result created work_item_id=%s case_id=%s result_id=%s", item.work_item_id, item.case_id, result.result_id)
         return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, result.result_id, 1, ResultChangeKind.CREATED.value)
 
-    def _persist_update(self, ready: _Claimed, previous: ReasoningResult, response: ProviderResponse) -> WorkOutcome:
+    def _persist_update(self, ready: _Claimed, previous: ReasoningResult, patch: updater.UpdateCandidate) -> WorkOutcome:
         item = ready.item
-        applied = updater.apply_response(previous, ready.case, response, provider=self.gateway.transport.provider_name, now=self.clock(),
-                                         lifecycle_status=previous.lifecycle_status.value)
-        if applied.is_patch:   # Python decides the lifecycle: an accepted patch marks an open card updated; a review keeps its status
+        assert patch.merged is not None
+        update = ReasoningUpdate.from_dict(patch.update)
+        result = ReasoningResult.from_dict(patch.merged)
+        if patch.is_patch:   # Python decides the lifecycle: an accepted patch marks an open card updated; a review keeps its status
             status = lifecycle.after_patch(previous.lifecycle_status)
-            applied = dataclasses.replace(applied, result=ReasoningResult.from_dict({**applied.result.to_dict(), "lifecycle_status": status.value}))
-        kind = ResultChangeKind.PATCHED if applied.is_patch else ResultChangeKind.NO_CHANGE_REVIEW
-        reason = f"patch: {', '.join(applied.update.changed_names)}" if applied.is_patch else "no_change_review"
+            result = ReasoningResult.from_dict({**result.to_dict(), "lifecycle_status": status.value})
+        kind = ResultChangeKind.PATCHED if patch.is_patch else ResultChangeKind.NO_CHANGE_REVIEW
+        reason = f"patch: {', '.join(update.changed_names)}" if patch.is_patch else "no_change_review"
         with self.store.transaction() as tx:
-            tx.append_version_with_diff(applied.result, previous=previous, change_kind=kind, update=applied.update, run_id=item.run_id,
+            tx.append_version_with_diff(result, previous=previous, change_kind=kind, update=update, run_id=item.run_id,
                                         work_item_id=item.work_item_id, reason=reason)
-            lifecycle.record_patch(tx, previous, applied.result, policy=self.policy, run_id=item.run_id, work_item_id=item.work_item_id)
+            lifecycle.record_patch(tx, previous, result, policy=self.policy, run_id=item.run_id, work_item_id=item.work_item_id)
             tx.set_work_item_status(item.work_item_id, WorkStatus.DONE)
         LOG.info("result %s work_item_id=%s case_id=%s result_id=%s version=%s", kind.value, item.work_item_id, item.case_id, previous.result_id,
-                 applied.result.version)
-        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, applied.result.version, kind.value)
+                 result.version)
+        return WorkOutcome(item.work_item_id, item.case_id, item.kind.value, WorkStatus.DONE.value, previous.result_id, result.version, kind.value)
 
     def _fail(self, item: WorkItemRow, error: BaseException) -> WorkOutcome:
         code = error_code(error)

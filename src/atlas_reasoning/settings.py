@@ -178,6 +178,15 @@ def gateway_settings(env: Mapping[str, str] | None = None) -> GatewaySettings:
     )
 
 
+VALIDATION_RETRIES_ENV = "ATLAS_REASONING_VALIDATION_RETRIES"
+
+
+def validation_retries(env: Mapping[str, str] | None = None) -> int:
+    """Corrective re-asks after the Phase 15 guardrails refuse a candidate (0-2, default 1): bounded, never a loop."""
+    env = os.environ if env is None else env
+    return int(_number(env, VALIDATION_RETRIES_ENV, 1, 0, 2, integer=True))
+
+
 def openrouter_settings(env: Mapping[str, str] | None = None) -> OpenRouterSettings:
     env = os.environ if env is None else env
     key = secret_value(env, OPENROUTER_KEY_ENV, OPENROUTER_KEY_FILE_ENV)
