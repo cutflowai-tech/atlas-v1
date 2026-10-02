@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from html import escape
 
+from atlas_reasoning.atlas_questions import MAX_ANSWER, Question
 from atlas_reasoning.management_api import PREFIX
 from atlas_reasoning.manager_notes import LABEL as NOTE_LABEL
 from atlas_reasoning.manager_notes import MAX_NOTE, Note
@@ -45,3 +46,40 @@ def note_panel(result_id: str, notes: Sequence[Note], *, csrf_token: str) -> str
             f'<label for="mi-{esc(result_id)}">Add your interpretation</label>'
             f'<textarea id="mi-{esc(result_id)}" name="body" maxlength="{MAX_NOTE}" rows="3" required></textarea>'
             f'<button type="submit">Save interpretation</button></form></section>')
+
+
+def question_panel(result_id: str, questions: Sequence[Question], *, csrf_token: str) -> str:
+    """Atlas's questions for management on one card: why each matters, its state, every answer (conflicts flagged), and controls to
+    answer or dismiss an open question. Not a chat: only questions Atlas asked can be answered."""
+    if not questions:
+        return ""
+    items = []
+    for question in questions:
+        qid = esc(question.question_id)
+        answers = []
+        for answer in question.answers:
+            conflict = '<span class="qa-conflict">Differs from an earlier answer</span>' if answer.conflicts_with_answer_id else ""
+            answers.append(f'<li class="qa-answer" data-source-type="manager_answer" data-answer-id="{esc(answer.answer_id)}">'
+                           f'<p class="qa-body">{_multiline(answer.body)}</p>'
+                           f'<p class="qa-meta">{esc(answer.author or "Management")} · <time datetime="{esc(answer.created_at)}">'
+                           f"{esc(answer.created_at)}</time> {conflict}</p></li>")
+        history = f'<ul class="qa-answers">{"".join(answers)}</ul>' if answers else ""
+        controls = ""
+        if question.state in ("open", "answered"):
+            label = "Answer" if question.state == "open" else "Add a newer answer"
+            controls = (f'<form class="qa-form" method="post" action="{PREFIX}/questions/{qid}/answers" data-csrf="{esc(csrf_token)}" data-json="true">'
+                        f'<label for="qa-{qid}">{label}</label>'
+                        f'<textarea id="qa-{qid}" name="body" maxlength="{MAX_ANSWER}" rows="2" required></textarea>'
+                        f'<button type="submit">Save answer</button></form>')
+        if question.state == "open":
+            controls += (f'<form class="qa-dismiss" method="post" action="{PREFIX}/questions/{qid}/dismiss" data-csrf="{esc(csrf_token)}" data-json="true">'
+                         f'<button type="submit">Dismiss</button></form>')
+        items.append(f'<li class="qa-question" data-question-id="{qid}" data-state="{esc(question.state)}" data-source-type="atlas_question">'
+                     f'<p class="qa-text">{esc(question.text)}</p>'
+                     f'<p class="qa-why">Why it matters: {esc(question.reason)}</p>'
+                     f'<p class="qa-state">{esc(question.state.capitalize())} · expects {esc(question.expected_context_type.replace("_", " "))}</p>'
+                     f"{history}{controls}</li>")
+    return (f'<section class="atlas-questions" data-result-id="{esc(result_id)}" aria-label="Questions for management">'
+            f'<h4 class="qa-title">Questions for management</h4>'
+            f'<p class="qa-label">Atlas needs business context it cannot see in Monday. Answers are management context, not evidence.</p>'
+            f'<ol class="qa-list">{"".join(items)}</ol></section>')

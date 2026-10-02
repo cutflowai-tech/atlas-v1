@@ -63,3 +63,28 @@ def seed_result(store: ReasoningStore, case: dict[str, Any] | None = None, *, qu
 
 def unique_editor() -> str:
     return f"editor-{uuid.uuid4().hex[:8]}"
+
+
+def patch_result(store: ReasoningStore, result: dict[str, Any], case: dict[str, Any], *, updated_at: str = "2026-09-29T00:05:00Z",
+                 **changes: Any) -> dict[str, Any]:
+    """Append the next version of ``result`` patching ``changes`` (patchable fields only); returns the new document."""
+    from atlas_reasoning.contracts import PATCHABLE_FIELDS, ReasoningUpdate
+    from atlas_reasoning.enums import ResultChangeKind
+
+    current = {key: value for key, value in result.items() if not key.startswith("_")}
+    update = {"contract_version": "reasoning-v1", "case_id": current["case_id"], "result_id": current["result_id"], "base_version": current["version"],
+              "action": "patch", "changed_fields": [{"field": name, "value": value} for name, value in changes.items()],
+              "preserved_fields": [name for name in PATCHABLE_FIELDS if name not in changes], "change_rationale": "Test patch.",
+              "evidence_fingerprint_before": current["evidence_fingerprint"], "evidence_fingerprint_after": case["evidence_fingerprint"]}
+    new = copy.deepcopy(current)
+    new.update(changes)
+    new.update(version=current["version"] + 1, updated_at=updated_at)
+    with store.transaction() as tx:
+        tx.append_result_version(ReasoningResult.from_dict(new), expected_version=current["version"], change_kind=ResultChangeKind.PATCHED,
+                                 update=ReasoningUpdate.from_dict(update))
+    new["_run_id"] = result.get("_run_id")
+    return new
+
+
+def question(text: str, reason: str = "Assignment context is not in Monday.", kind: str = "assignment_context") -> dict[str, str]:
+    return {"text": text, "reason": reason, "expected_context_type": kind}

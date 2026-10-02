@@ -114,3 +114,97 @@ def notes_for_results(tx: StoreTransaction, result_ids: Sequence[str]) -> list[d
 
 def note_revisions(tx: StoreTransaction, note_id: str) -> list[dict[str, Any]]:
     return tx._all("SELECT * FROM manager_note_revisions WHERE note_id = %s ORDER BY revision", (note_id,))
+
+
+# --- Atlas questions and management answers (Phase 13) ------------------------------------------------------------------------
+
+
+def latest_question(tx: StoreTransaction, case_id: str, dedup_key: str) -> dict[str, Any] | None:
+    """The open question with this key if any, else the most recently resolved one."""
+    return tx._one("""SELECT * FROM atlas_questions WHERE case_id = %s AND dedup_key = %s
+                      ORDER BY (state = 'open') DESC, updated_at DESC, question_id LIMIT 1 FOR UPDATE""", (case_id, dedup_key))
+
+
+def insert_question(tx: StoreTransaction, *, case_id: str, result_id: str, result_version: int, dedup_key: str, text: str, reason: str,
+                    expected_context_type: str, run_id: str | None) -> dict[str, Any] | None:
+    """A new open question, or ``None`` when an open question with the same key already exists (a concurrent run won)."""
+    return tx._one("""INSERT INTO atlas_questions (question_id, case_id, result_id, result_version, dedup_key, question_text, reason,
+                                                   expected_context_type, state, asked_in_run_id, last_asked_run_id)
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'open', %s, %s)
+                      ON CONFLICT (case_id, dedup_key) WHERE state = 'open' DO NOTHING RETURNING *""",
+                   (new_id("aq"), case_id, result_id, result_version, dedup_key, text, reason, expected_context_type, run_id, run_id))
+
+
+def repeat_question(tx: StoreTransaction, question_id: str, *, result_id: str, result_version: int, run_id: str | None) -> dict[str, Any]:
+    row = tx._one("""UPDATE atlas_questions SET ask_count = ask_count + 1, result_id = %s, result_version = %s, last_asked_run_id = %s,
+                            last_asked_at = now(), updated_at = now()
+                     WHERE question_id = %s RETURNING *""", (result_id, result_version, run_id, question_id))
+    assert row is not None
+    return row
+
+
+def record_ask(tx: StoreTransaction, *, case_id: str, result_id: str, result_version: int, run_id: str | None, dedup_key: str,
+               question_id: str | None, outcome: str, text: str) -> bool:
+    """One ask of one question by one result version; ``False`` when that version already recorded it (re-processing is a no-op)."""
+    row = tx._one("""INSERT INTO atlas_question_asks (ask_id, case_id, result_id, result_version, run_id, dedup_key, question_id, outcome, question_text)
+                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (result_id, result_version, dedup_key) DO NOTHING RETURNING ask_id""",
+                  (f"qa_{uuid.uuid4().hex}", case_id, result_id, result_version, run_id, dedup_key, question_id, outcome, text))
+    return row is not None
+
+
+def asks(tx: StoreTransaction, case_id: str) -> list[dict[str, Any]]:
+    return tx._all("SELECT * FROM atlas_question_asks WHERE case_id = %s ORDER BY asked_at, ask_id", (case_id,))
+
+
+def supersede_open_questions(tx: StoreTransaction, case_id: str, keep: Sequence[str]) -> list[str]:
+    rows = tx._all("""UPDATE atlas_questions SET state = 'superseded', resolved_at = now(), updated_at = now()
+                      WHERE case_id = %s AND state = 'open' AND NOT (question_id = ANY(%s)) RETURNING question_id""", (case_id, list(keep)))
+    return sorted(row["question_id"] for row in rows)
+
+
+def get_question(tx: StoreTransaction, question_id: str, *, lock: bool = False) -> dict[str, Any]:
+    row = tx._one(f"SELECT * FROM atlas_questions WHERE question_id = %s{' FOR UPDATE' if lock else ''}", (question_id,))
+    if row is None:
+        raise NotFound(f"question {question_id} does not exist")
+    return row
+
+
+def questions(tx: StoreTransaction, *, case_ids: Sequence[str] | None = None, result_id: str | None = None,
+              states: Sequence[str] | None = None) -> list[dict[str, Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if case_ids is not None:
+        clauses.append("case_id = ANY(%s)")
+        params.append(list(case_ids))
+    if result_id is not None:
+        clauses.append("result_id = %s")
+        params.append(result_id)
+    if states is not None:
+        clauses.append("state = ANY(%s)")
+        params.append(list(states))
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    return tx._all(f"SELECT * FROM atlas_questions {where} ORDER BY created_at, question_id", params)
+
+
+def resolve_question(tx: StoreTransaction, question_id: str, *, state: str, by: str | None, dismiss_reason: str | None = None) -> None:
+    tx._exec("""UPDATE atlas_questions SET state = %s, resolved_at = COALESCE(resolved_at, now()), resolved_by = COALESCE(%s, resolved_by),
+                       dismiss_reason = %s, updated_at = now()
+                WHERE question_id = %s""", (state, by, dismiss_reason, question_id))
+
+
+def insert_answer(tx: StoreTransaction, *, question_id: str, body: str, author: str | None, conflicts_with: str | None) -> dict[str, Any]:
+    row = tx._one("""INSERT INTO atlas_answers (answer_id, question_id, body, author, conflicts_with_answer_id) VALUES (%s, %s, %s, %s, %s)
+                     RETURNING *""", (new_id("aa"), question_id, body, author, conflicts_with))
+    assert row is not None
+    return row
+
+
+def answers(tx: StoreTransaction, question_ids: Sequence[str]) -> list[dict[str, Any]]:
+    return tx._all("SELECT * FROM atlas_answers WHERE question_id = ANY(%s) ORDER BY created_at, answer_id", (list(question_ids),))
+
+
+def get_answer(tx: StoreTransaction, answer_id: str) -> dict[str, Any]:
+    row = tx._one("SELECT * FROM atlas_answers WHERE answer_id = %s", (answer_id,))
+    if row is None:
+        raise NotFound(f"answer {answer_id} does not exist")
+    return row

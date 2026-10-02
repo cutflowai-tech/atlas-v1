@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from atlas_reasoning import manager_notes
+from atlas_reasoning import atlas_questions, manager_notes
 from atlas_reasoning.enums import NoteSource
 from atlas_reasoning.memory import MemoryBackend
 from atlas_reasoning.memory_context import ContextSource, MemoryContextAssembler, budget_from_env
@@ -19,12 +19,14 @@ from atlas_reasoning.store.repository import ReasoningStore
 
 def context_sources() -> list[ContextSource]:
     """Every canonical source of management context, in registration order."""
-    return [manager_notes.NoteContextSource()]
+    return [manager_notes.NoteContextSource(), atlas_questions.AnswerContextSource()]
 
 
 def sync_service(store: ReasoningStore, backend: MemoryBackend | None) -> MemorySyncService:
     """A sync service able to rebuild every kind of memory copy from PostgreSQL."""
-    return MemorySyncService(store, backend, resolvers={NoteSource.MANAGER_INTERPRETATION: manager_notes.note_records})
+    return MemorySyncService(store, backend, resolvers={NoteSource.MANAGER_INTERPRETATION: manager_notes.note_records,
+                                                       NoteSource.ATLAS_QUESTION: atlas_questions.question_records,
+                                                       NoteSource.MANAGER_ANSWER: atlas_questions.answer_records})
 
 
 def assembler(store: ReasoningStore, backend: MemoryBackend | None, env: Mapping[str, str] | None = None, **kwargs: Any) -> MemoryContextAssembler:

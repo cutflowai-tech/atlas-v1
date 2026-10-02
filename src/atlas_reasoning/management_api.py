@@ -25,6 +25,10 @@ GET         /results/{result_id}/notes              notes on a result
 POST        /results/{result_id}/notes              create a note ``{"body"}``
 PUT         /notes/{note_id}                        edit ``{"body", "expected_revision"}``
 GET         /notes/{note_id}/history                every revision
+GET         /results/{result_id}/questions          questions of the result's case, with answers
+GET         /questions/{question_id}                one question with its answer history
+POST        /questions/{question_id}/answers        answer ``{"body"}`` (a differing later answer is kept as a conflict)
+POST        /questions/{question_id}/dismiss        dismiss ``{"reason"?}``
 ==========  ======================================  ==================================================
 """
 
@@ -39,6 +43,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from atlas_reasoning.atlas_questions import AtlasQuestions, QuestionClosed
 from atlas_reasoning.manager_notes import ManagerNotes, NoteConflict
 from atlas_reasoning.settings import ReasoningConfigError, secret_value
 from atlas_reasoning.store.repository import NotFound
@@ -120,15 +125,22 @@ _ID = r"(?P<{}>[A-Za-z0-9_]{{1,80}})"
 
 
 class ManagementAPI:
-    def __init__(self, settings: ApiSettings, *, notes: ManagerNotes) -> None:
+    def __init__(self, settings: ApiSettings, *, notes: ManagerNotes, questions: AtlasQuestions | None = None) -> None:
         self.settings = settings
         self.notes = notes
+        self.questions = questions
         self.routes: list[Route] = []
         self.add("GET", "/csrf", lambda params, body, actor: {"token": self.csrf_token(actor)})
         self.add("GET", "/results/{result_id}/notes", lambda p, b, a: {"notes": [n.to_dict() for n in notes.for_result(p["result_id"])]})
         self.add("POST", "/results/{result_id}/notes", self._create_note, fields={"body"}, required={"body"})
         self.add("PUT", "/notes/{note_id}", self._update_note, fields={"body", "expected_revision"}, required={"body", "expected_revision"})
         self.add("GET", "/notes/{note_id}/history", lambda p, b, a: {"revisions": notes.history(p["note_id"])})
+        if questions is not None:
+            self.add("GET", "/results/{result_id}/questions",
+                     lambda p, b, a: {"questions": [q.to_dict() for q in questions.for_result(p["result_id"])]})
+            self.add("GET", "/questions/{question_id}", lambda p, b, a: {"question": questions.get(p["question_id"]).to_dict()})
+            self.add("POST", "/questions/{question_id}/answers", self._answer, fields={"body"}, required={"body"})
+            self.add("POST", "/questions/{question_id}/dismiss", self._dismiss, fields={"reason"})
 
     def add(self, method: str, template: str, handler: Handler, *, fields: set[str] | frozenset[str] = frozenset(),
             required: set[str] | frozenset[str] = frozenset()) -> None:
@@ -178,6 +190,8 @@ class ManagementAPI:
             return Response(404, {"error": "NOT_FOUND", "message": None})
         except NoteConflict:
             return Response(409, {"error": "CONFLICT", "message": "the item changed since it was read; reload and retry"})
+        except QuestionClosed:
+            return Response(409, {"error": "QUESTION_CLOSED", "message": "the question is no longer open"})
         except ValueError as error:
             return Response(400, {"error": "INVALID_REQUEST", "message": str(error)[:300]})
 
@@ -218,3 +232,13 @@ class ManagementAPI:
             raise ApiError(400, "INVALID_FIELD", "expected_revision must be a positive integer")
         written = self.notes.update(params["note_id"], body["body"], author=actor, expected_revision=revision)
         return {"note": written.note.to_dict(), "memory_sync": [outcome.status for outcome in written.sync]}
+
+    def _answer(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+        assert self.questions is not None
+        answer, created, sync = self.questions.answer(params["question_id"], body["body"], author=actor)
+        return {"answer": answer.to_dict(), "created": created, "question": self.questions.get(params["question_id"]).to_dict(),
+                "memory_sync": [outcome.status for outcome in sync]}
+
+    def _dismiss(self, params: dict[str, str], body: dict[str, Any], actor: str) -> Any:
+        assert self.questions is not None
+        return {"question": self.questions.dismiss(params["question_id"], author=actor, reason=body.get("reason")).to_dict()}

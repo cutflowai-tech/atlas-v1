@@ -203,7 +203,42 @@ Routes: `GET /csrf`, `GET|POST /results/{result_id}/notes`, `PUT /notes/{note_id
 and attributed, labelled "Management context, not evidence", `data-source-type="manager_interpretation"`, and a text box posting
 to the API. No script, no credentials.
 
-## 4. Tests
+## 4. Phase 13: Atlas questions and management answers
+
+`atlas_questions.AtlasQuestions` (tables `atlas_questions`, `atlas_answers` from `0001`; migration `0202_atlas_questions.sql` adds ask
+history, dismissal metadata and the state-transition trigger). Not a chat: only questions a committed result version asked can be
+answered.
+
+**From results.** Phases 07–09 call `record_result_questions(result_id, version=None, run_id=...)` after committing a version. Per
+question of `questions_for_management` (text, reason, `expected_context_type`):
+
+| Situation | Outcome (`atlas_question_asks.outcome`) |
+|---|---|
+| answerable from deterministic evidence (how many, which projects were late, the late rate, when delivered, …) | `suppressed_evidence` (no question) |
+| same `dedup_key` (normalized text) already open for the case | `repeated`: the open question's `ask_count`, latest result version and run are updated; no duplicate |
+| same key answered before | `suppressed_answered`: the answer is reused as context |
+| same key dismissed before | `suppressed_dismissed` |
+| otherwise | `created`: stored open, then copied to `result:<result_id>` (`atlas_question`, peer `atlas`) |
+
+Re-processing a version is a no-op (`UNIQUE (result_id, result_version, dedup_key)`); the database also allows only one open
+question per case and key, so concurrent runs create one question. When the current version no longer asks an open question it
+becomes `superseded`. States: `open → answered | dismissed | superseded` only (trigger).
+
+**Answers** (`answer(question_id, body, author=)`, source `manager_answer`): committed first (append-only), the question becomes
+`answered`, then copies go to the result session and the case subject's session (`editor:` / `video-type:`), and the question's
+own copy is retired. An identical answer (normalized) creates nothing. A different later answer is stored with
+`conflicts_with_answer_id` = the previous latest answer: both stay, `has_conflicting_answers` is true, and the context item states
+the conflict ("Conflict: management answered differently earlier (...): ..."). Dismissed or superseded questions take no answers;
+answered questions cannot be dismissed (`QuestionClosed`, 409).
+
+**Reuse.** `AnswerContextSource` gives the assembler the latest answer of every answered question of the case; a remembered answer
+from another case of the same Editor/Video Type is admitted while it is still its question's latest answer.
+
+API: `GET /results/{result_id}/questions`, `GET /questions/{question_id}`, `POST /questions/{question_id}/answers {"body"}`,
+`POST /questions/{question_id}/dismiss {"reason"?}`. Fragment: `human_context_html.question_panel` (question, why it matters,
+expected context, state, answer history with conflict badges, answer/dismiss controls; all text escaped).
+
+## 5. Tests
 
 `tests/test_reasoning_memory.py` (Phase 10): session naming and Honcho-safe IDs, pseudonymous peers, wrong-session refusal,
 raw-data leakage refusal, provenance, the Honcho client's request sequence, caching, per-environment workspace, error mapping and
@@ -221,3 +256,9 @@ sync, edit history and memory replacement, optimistic conflicts (also under conc
 then retry of the current revision only, correct-result isolation, notes as context never evidence, stale remembered revisions;
 API: create/edit/list/history, actor-only attribution, authentication, authorization, CSRF token bound to the actor, content type,
 origin, method, validation and size limits, settings.
+
+`tests/test_reasoning_atlas_questions.py` (Phase 13): dedup keys and the evidence-answerable guard; with PostgreSQL: stored fields
+and sync, no duplicate open question across repeated runs and versions, one question under concurrent runs, dismissal (retired copy,
+idempotent, no answers, not re-asked), supersession, answer persistence/attribution/sync and idempotence, suppression of answered
+questions, state and append-only triggers, conflicting answers preserved and flagged in context, answer reuse for the same Editor
+only, answers surviving a Honcho outage; HTML escaping; API answer/dismiss routes.
