@@ -15,7 +15,9 @@ REQUIRED_TABLES = ("reasoning_runs", "reasoning_cases", "reasoning_case_evidence
                    # Chat 3 (migrations 0200-0299)
                    "memory_injections", "atlas_question_asks", "engineering_review_flags",
                    # Phase 15 (migrations 0300-0399)
-                   "reasoning_failed_candidates")
+                   "reasoning_failed_candidates",
+                   # Phase 17 (migrations 0500-0599)
+                   "executive_briefs", "executive_brief_versions", "executive_brief_inputs", "executive_statement_refs", "executive_brief_runs")
 
 
 def database_health(db: Database) -> dict[str, Any]:

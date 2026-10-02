@@ -722,3 +722,21 @@ def correction_message(report: ValidationReport) -> str:
             "problems: cite only the case's references in their roles, use only the case's numbers and names, state causes only as "
             "possibilities, make no judgement about people, keep management context attributed and never present it as evidence, and do "
             "not claim more confidence than the evidence supports.")
+
+
+# --- one free-text statement written downstream of canonical results (Phase 17, additive) --------------------------------------------
+
+
+def statement_safety_violations(path: str, text: str, *, names: Iterable[str] = ()) -> list[Violation]:
+    """The causality, people and certainty rules above applied to one free-text statement written downstream of canonical results (the
+    Phase 17 executive brief). The statement is judged like an interpretive field: causality only hedged, no judgement about a person,
+    no blame (``names``: the people and Editors the cited results name), no claim of proof or certainty. Additive: nothing here changes
+    how a ReasoningResult candidate is validated."""
+    candidate = {"interpretation": {"statement": text}}
+    vocab = CaseVocabulary(frozenset(), "", frozenset(_norm(name) for name in names), frozenset(), frozenset(), frozenset(), ())
+    found = _causality(candidate) + _people(candidate, vocab)
+    for sentence in sentences(text):
+        lowered = _norm(sentence)
+        if any(not _negated_before(lowered, match.start()) for match in _CERTAINTY.finditer(lowered)):
+            found.append(Violation(ValidationCode.CONFIDENCE_EXCEEDED, path, "claims proof or certainty; Atlas evidence never proves"))
+    return [Violation(violation.code, path, violation.detail) for violation in found]

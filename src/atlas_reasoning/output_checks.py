@@ -235,3 +235,23 @@ def unsupported_number_errors(output: Mapping[str, Any], case: Mapping[str, Any]
             if not number_supported(text, value, decimals, start, end, base=base, percents=percents, dates=dates, durations=durations):
                 errors.append(f"UNSUPPORTED_NUMBER: {path}: {token!r} is not a value of the case")
     return errors
+
+
+def written_numbers(text: str) -> list[tuple[str, float, int, str, bool]]:
+    """(token, value, decimals, form, approximate) of every number in ``text``, by how it is written: ``percent``, ``date`` (a part of
+    a written date), ``minute`` / ``hour`` / ``day`` (a duration with that unit) or ``plain``. Additive (Phase 17): lets a downstream
+    text be held to the numbers another text writes, in the same form, with the rules ``number_supported`` applies to a case."""
+    spans = _date_spans(text)
+    found = []
+    for token, value, decimals, start, end in _numbers_with_positions(text):
+        unit = _unit(text, end)
+        if unit is not None:
+            form = unit
+        elif _PERCENT_AFTER.match(text, end):
+            form = "percent"
+        elif decimals == 0 and any(low <= start < high for low, high in spans):
+            form = "date"
+        else:
+            form = "plain"
+        found.append((token, value, decimals, form, bool(_APPROXIMATE_BEFORE.search(text[max(0, start - 20): start]))))
+    return found
