@@ -294,6 +294,22 @@ class ExecutiveStoreTests(unittest.TestCase):
         self.assertEqual((outcome.decision, outcome.skipped), (None, "executive_busy"))
         self.assertEqual(self.model.requests, [])
 
+    def test_an_identifier_in_statement_text_is_refused_and_preserves_the_brief(self):
+        before, run_id = self.prepared()
+
+        def leaking(payload):
+            value = generic_answer(payload)
+            first = payload["results"][0]["result_id"]
+            value["sections"]["uncertainty"] = [{"text": "Record ev1_564a539237a67903c806d3fb is weak.", "result_ids": [first]}]
+            return value
+
+        self.model.script(leaking, leaking)
+        outcome = self.synthesizer.synthesize(run_id)
+        self.assert_preserved(outcome, before, "validation:RAW_SOURCE_REFERENCE")
+        self.assertEqual(self.executive_store.synthesis_runs(run_id)[-1]["error_codes"], ["RAW_SOURCE_REFERENCE"])
+        for brief in self.executive_store.brief_history():
+            self.assertNotIn("ev1_564a539237a67903c806d3fb", str(brief.to_dict()))
+
     def test_a_candidate_the_database_cannot_store_never_loses_the_audit(self):
         before, run_id = self.prepared()
         nul = lambda payload: {**generic_answer(payload), "sections": {**generic_answer(payload)["sections"],
@@ -345,6 +361,10 @@ class ExecutiveStoreTests(unittest.TestCase):
             # an input row naming a result version that does not exist
             (("INSERT INTO executive_brief_inputs (brief_id, version, result_id, result_version, lifecycle_status, position) "
               "VALUES (%s, 1, %s, 99, 'active', 99)"), (brief.brief_id, brief.input_results[0].result_id)),
+            # an input row whose lifecycle is not the lifecycle of the result version it names
+            (("INSERT INTO executive_brief_inputs (brief_id, version, result_id, result_version, lifecycle_status, position) "
+              "SELECT %s, 1, v.result_id, v.version, CASE WHEN v.lifecycle_status = 'resolved' THEN 'active' ELSE 'resolved' END, 99 "
+              "FROM reasoning_result_versions v LIMIT 1"), (brief.brief_id,)),
             ("UPDATE executive_brief_versions SET validator_version = 'x' WHERE brief_id = %s", (brief.brief_id,)),
             ("DELETE FROM executive_brief_runs", ()),
             ("DELETE FROM executive_briefs", ()),

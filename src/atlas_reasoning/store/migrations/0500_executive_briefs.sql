@@ -60,6 +60,19 @@ CREATE TABLE executive_brief_inputs (
     FOREIGN KEY (result_id, result_version) REFERENCES reasoning_result_versions (result_id, version)
 );
 CREATE INDEX executive_brief_inputs_result_idx ON executive_brief_inputs (result_id);
+-- An input row's lifecycle is the lifecycle of the canonical result version it names (not just any eligible value).
+CREATE OR REPLACE FUNCTION executive_brief_input_lifecycle() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM reasoning_result_versions v
+                   WHERE v.result_id = NEW.result_id AND v.version = NEW.result_version AND v.lifecycle_status = NEW.lifecycle_status) THEN
+        RAISE EXCEPTION 'atlas_reasoning.executive_brief_inputs: % version % is not %', NEW.result_id, NEW.result_version, NEW.lifecycle_status
+            USING ERRCODE = 'integrity_constraint_violation';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+CREATE TRIGGER executive_brief_inputs_lifecycle BEFORE INSERT ON executive_brief_inputs
+    FOR EACH ROW EXECUTE FUNCTION executive_brief_input_lifecycle();
 CREATE TRIGGER executive_brief_inputs_append_only BEFORE UPDATE OR DELETE ON executive_brief_inputs
     FOR EACH ROW EXECUTE FUNCTION reasoning_forbid_change();
 

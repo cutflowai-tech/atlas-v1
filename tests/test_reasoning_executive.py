@@ -518,6 +518,50 @@ class ReviewFindingTests(unittest.TestCase):
         self.refused("PROJECTION", "top_concerns", "Late deliveries for editor-label-12 may spread to other editors soon.", 1)
 
 
+class ChatAReviewTests(unittest.TestCase):
+    """Regressions for Chat A's review of PR #38 (review 5394453752 on 68d10d2)."""
+
+    def test_source_identifiers_in_statement_text_are_refused(self):
+        cases = {
+            "Finding change.editor:1f35caa3e91fe30c shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            "Record ev1_564a539237a67903c806d3fb shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Case rc1_{'1' * 32} shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Evidence state ef1_{'2' * 64} is late for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Work item wi_{'3' * 32} is late for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Run run_{'4' * 32} shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Request req_{'5' * 32} shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",
+            f"Candidate fc_{'6' * 32} shows late deliveries for editor-label-12.": "FAILED_CANDIDATE_REFERENCE",
+            f"Result {rid(2)} also shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",       # not cited
+            f"Result {rid(1)} shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",           # cited: still not in text
+            "Record ev1_564a53 shows late deliveries for editor-label-12.": "RAW_SOURCE_REFERENCE",           # truncated
+        }
+        for text, code in cases.items():
+            with self.subTest(text=text):
+                report = check(with_statement("top_concerns", text, 1))
+                self.assertIn(code, report.codes)
+                self.assertTrue(report.retryable)
+
+    def test_identifier_like_words_are_not_ids(self):
+        for text in ("Late deliveries for editor-label-12 deserve attention.", "Ratio: 11 of 16 projects for editor-label-12 were late."):
+            report = check(with_statement("top_concerns", text, 1))
+            self.assertNotIn("RAW_SOURCE_REFERENCE", report.codes, text)
+
+    def test_rankings_within_the_team_are_unsupported_metrics(self):
+        for text in ("Editor-label-12 has the most late deliveries in the team.", "Editor-label-12 has the fewest on-time deliveries among editors.",
+                     "Editor-label-12 is later than any other editor.", "Editor-label-12 has more late projects than of any other editor."):
+            with self.subTest(text=text):
+                self.assertIn("UNSUPPORTED_METRIC", check(with_statement("top_concerns", text, 1)).codes)
+
+    def test_reference_ids_with_a_trailing_newline_are_refused(self):
+        report = check(with_statement("top_concerns", "Late deliveries deserve attention.", rid(1) + "\n"))
+        self.assertFalse(report.ok)
+
+    def test_lifecycle_settling_is_material_by_design(self):
+        # L2 disposition: new -> active (observed_again) changes the input, because "what changed" would otherwise keep calling it new.
+        settled = [row(1, "active", reason="observed_again", questions=(QUESTION,))] + standard_rows()[1:]
+        self.assertNotEqual(executive_input(settled).fingerprint, executive_input(standard_rows()).fingerprint)
+
+
 class IdentityTests(unittest.TestCase):
     def test_a_substituted_model_is_refused_and_not_retried(self):
         report = check(prov=provenance(model="openai/gpt-5.6-sol-pro"))

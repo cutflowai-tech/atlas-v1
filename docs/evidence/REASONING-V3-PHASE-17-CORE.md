@@ -99,4 +99,20 @@ Local verification at `f16cfc26add2745c97d16e4af5db508d2cf790c4` (PostgreSQL 17,
 | Dashboard unchanged / UI-inert | PASS (`IsolationTests`; all dashboard, UI, i18n and redesign suites green) |
 | Live provider gate | Not required: the request uses only strict-schema keywords and the pinned model path already verified live by Phase 15 (`maxItems` is not sent) |
 
-Exact-head CI: recorded on the Draft PR.
+Exact-head CI at `68d10d2`: Atlas CI run `37027352456`, `verify` SUCCESS (DB tests required; 457 reasoning tests).
+
+## 7. Chat A cross-review of PR #38 (review `5394453752` on `68d10d2`)
+
+| # | Finding | Disposition | Change | Regression test |
+|---|---|---|---|---|
+| M1 (required) | Raw source identifiers inside statement **text** were accepted (V2 finding IDs, `ev1_`, `rc1_`, `ef1_`, `wi_`, `run_`, `req_`, `fc_`, uncited `rr1_`) | FIXED | `executive_validator._identifiers_in_text`: unanchored scan of every statement text, also truncated IDs (≥ 6 hex); `fc_` → `FAILED_CANDIDATE_REFERENCE`, everything else (any `rr1_` included) → `RAW_SOURCE_REFERENCE`; retryable; correction message says so | U `ChatAReviewTests.test_source_identifiers_in_statement_text_are_refused`, `test_identifier_like_words_are_not_ids`; DB `test_an_identifier_in_statement_text_is_refused_and_preserves_the_brief` (refused, previous brief current, nothing committed, audit recorded) |
+| L1 | Ranking within the team ("the most late deliveries in the team", "of any other editor") accepted | FIXED | two ranking patterns in `_METRIC_TERMS` | U `test_rankings_within_the_team_are_unsupported_metrics` |
+| L2 | Lifecycle settling (`new → active`, `updated → active`) triggers a synthesis | KEPT, documented as intended | none (docs §4): the input carries the lifecycle; a brief still calling a settled card "new" / "updated" would be stale | U `test_lifecycle_settling_is_material_by_design` (also `test_material_reasoning_changes_change_the_fingerprint`; DB `test_material_reasoning_change_…`) |
+| L3 | `executive_brief_inputs.lifecycle_status` not tied in the database to the result version's lifecycle | FIXED | trigger `executive_brief_inputs_lifecycle` in `0500_executive_briefs.sql` (amended: the migration is unreleased, never applied outside disposable test databases) | DB `test_the_database_enforces_grounding_and_append_only_history` (mismatched lifecycle refused) |
+| Info | Statement text may contain markup / URLs; any presentation must escape it | Noted for Phase 17 UI | none in core | — |
+
+Own delta review: the identifier checks on `result_ids` now use `fullmatch` (a `$`-anchored pattern also accepts a trailing newline; such a
+reference was already refused as not in the input, so this is hygiene) — `test_reference_ids_with_a_trailing_newline_are_refused`.
+The prompt `executive-v1` is unchanged (it already forbids citing any identifier other than `result_ids`).
+
+Exact-head CI of the fix head: recorded on the Draft PR.

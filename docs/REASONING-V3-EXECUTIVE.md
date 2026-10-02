@@ -92,6 +92,9 @@ confidence, an answered question, an added or removed result does.
 | no eligible result | `synthesized_empty` | 0 | new deterministic empty version |
 | otherwise | `synthesized` (or `failed`) | ≥ 1 | new version only if the validator accepts |
 
+Lifecycle settling (`new → active`, `updated → active`) is material by design: the input carries the lifecycle, and a brief that still
+calls a settled result "new" or "updated" would be stale (Chat A review L2, disposition: intended).
+
 A failed run leaves the current brief's fingerprint different from the input, so the next synthesis tries again; the Change Gate's
 "same evidence → zero work" property carries through: same canonical reasoning → zero executive model work.
 
@@ -113,9 +116,9 @@ which it does not change. Codes (`ExecutiveCode`, stable):
 | Rule | Codes |
 |---|---|
 | Hidden reasoning | `RAW_REASONING_FIELD` (any reasoning-like key anywhere), `HIDDEN_REASONING_TEXT` |
-| References | `MISSING_RESULT_REFERENCE`, `INVALID_REFERENCE`, `DUPLICATE_REFERENCE`; outside the input: `RESULT_NOT_IN_INPUT` (canonical, not supplied), `FAILED_CANDIDATE_REFERENCE` (a refused Phase 15 candidate's result or `fc_` ID), `RAW_SOURCE_REFERENCE` (V2 finding, `ev1_`, `rc1_`, `ef1_`, work item, run, request, question, Monday item number), `UNKNOWN_RESULT` |
+| References | `MISSING_RESULT_REFERENCE`, `INVALID_REFERENCE`, `DUPLICATE_REFERENCE`; outside the input: `RESULT_NOT_IN_INPUT` (canonical, not supplied), `FAILED_CANDIDATE_REFERENCE` (a refused Phase 15 candidate's result or `fc_` ID), `RAW_SOURCE_REFERENCE` (V2 finding, `ev1_`, `rc1_`, `ef1_`, work item, run, request, question, Monday item number), `UNKNOWN_RESULT`. The same identifiers written **in statement text** (also truncated, ≥ 6 hex digits; any `rr1_` too) are refused: a statement names its sources only through `result_ids` |
 | Numbers | `UNSUPPORTED_NUMBER`: every number (digits, number words, ordinals, multipliers such as "doubled" / "half" / "second") is written by one of the **cited** results' input texts **in the same written form** (`output_checks.written_numbers`): a count stays a count, a percentage a percentage, a date part a date, a duration a duration in the same unit (minutes … years), a difference ("by 5") a difference. 100 is not free. The only derived numbers: the count of cited results next to a result noun ("two results") and of cited Editors next to "Editor(s)" |
-| Metrics | `UNSUPPORTED_METRIC`: score, index, rating, ranking, KPI, productivity, efficiency, percentile, grade, composite, utilization, ratio, throughput, velocity, turnaround, SLA, percentage, average, median, "<x> rate", and rankings / comparisons between subjects ("the slowest Editor", "the worst record", "of all editors", "later than every other", "lags behind" …), unless the cited results use the term |
+| Metrics | `UNSUPPORTED_METRIC`: score, index, rating, ranking, KPI, productivity, efficiency, percentile, grade, composite, utilization, ratio, throughput, velocity, turnaround, SLA, percentage, average, median, "<x> rate", and rankings / comparisons between subjects ("the slowest Editor", "the worst record", "of all editors", "the most late deliveries in the team", "of any other editor", "later than every other", "lags behind" …), unless the cited results use the term |
 | Entities | `UNKNOWN_ENTITY`: an Editor ID (also written loosely — "editor label-7", "label 7" — or with Unicode hyphens) the cited results do not concern; a capitalized name the cited results do not use (mid-sentence, or possessive / followed by a person verb at the start); `EDITOR_MISMATCH` (`editor_context` citing a result not about its `editor_id`) |
 | Lifecycle | `LIFECYCLE_CONTRADICTION`: a resolved result in `top_concerns`; only-resolved citations described as current / pressing / recurring / worsening, or not described as over; an open result described as over (one vocabulary both ways: resolved, stopped, ended, closed, fixed, gone, addressed, recovered, back on track, back to normal …); a resolved-only statement that turns against itself (a contrast followed by a present-state clause — "…, yet it is late again" — or "reopened", "is a risk", "again"); resolution words inside a "whether / if" clause are not claims; resolved and open results in one statement outside `system_patterns` / `uncertainty` (and there without state wording); `what_changed` citing no new / updated / resolved / reappeared result |
 | Sections | `SECTION_MISMATCH`: `important_improvements` cites only favourable or resolved results; `top_concerns` never a favourable one |
@@ -133,7 +136,7 @@ A refused answer is re-asked at most `ATLAS_REASONING_VALIDATION_RETRIES` times 
 |---|---|---|
 | `executive_briefs` | `brief_id`, `scope` UNIQUE | Identity and `current_version` (deferred FK to its version); identity immutable; no delete |
 | `executive_brief_versions` | (`brief_id`, `version`) | The full document per version, run, fingerprint, generator, model, prompt and validator versions; CHECKs tie JSON to columns; append-only |
-| `executive_brief_inputs` | (`brief_id`, `version`, `result_id`) | Every canonical result version of the input (FK to `reasoning_result_versions`); append-only |
+| `executive_brief_inputs` | (`brief_id`, `version`, `result_id`) | Every canonical result version of the input (FK to `reasoning_result_versions`; a trigger requires its `lifecycle_status` to be that version's); append-only |
 | `executive_statement_refs` | (`brief_id`, `version`, `statement_id`, `result_id`) | Statement → result references; FK to the version's **input** rows, so the database refuses a reference outside the input; append-only |
 | `executive_brief_runs` | `synthesis_id` | One row per synthesis run: decision, policy version, fingerprint, the version current afterwards, model calls, failure, codes, violations, a refused candidate (debug only, ≤ 256 KiB), model, prompt, request IDs; append-only |
 
@@ -186,8 +189,6 @@ outcome = ExecutiveSynthesizer(ExecutiveStore(store), gateway).synthesize(run_id
 - Direction words ("rose", "fell") are not checked against the numbers; differences must be written as the results write them.
 - The fingerprint ignores prompt and validator versions on purpose (no regeneration for freshness): after a prompt upgrade the brief is
   rewritten at the next material input change.
-- `executive_brief_inputs.lifecycle_status` is not tied by a constraint to the result version's lifecycle (that would need a new unique
-  key on another phase's table); Python writes both from the same row.
 - An input larger than `MAX_INPUT_CHARS` fails every run until it shrinks (no degraded brief).
 - Lifecycle wording is checked with an English phrase policy (like Phase 15's); brief text is English.
 - The resolved lookback counts runs, not time; with a long gap between runs a resolution stays visible for three runs.

@@ -159,6 +159,20 @@ _RAW_SOURCE_ID = re.compile(r"^(?:[a-z_.]+:[0-9a-f]{16}|ev1_[0-9a-f]{24}|rc1_[0-
                             r"req_[0-9a-f]{32}|call_[0-9a-f]{32}|q[a-z]?_[0-9a-f]{32}|\d{4,})$")
 
 
+# The same identifiers written inside statement text (unanchored; a truncated ID with at least six hex digits still counts). A
+# statement names its sources only through ``result_ids`` (review of PR #38, M1).
+_ID_IN_TEXT = re.compile(r"(?<![\w.:])(?:[a-z][a-z_.]*:[0-9a-f]{16}(?![0-9a-z])|(?:ev1|rc1|ef1|rr1|eb1|ei1|wi|run|req|call|fc|xs|qa|lt)_[0-9a-f]{6,})")
+
+
+def _identifiers_in_text(path: str, text: str) -> list[ExecutiveViolation]:
+    found = []
+    for match in _ID_IN_TEXT.finditer(_norm(text)):
+        token = match.group(0)
+        code = ExecutiveCode.FAILED_CANDIDATE_REFERENCE if token.startswith("fc_") else ExecutiveCode.RAW_SOURCE_REFERENCE
+        found.append(ExecutiveViolation(code, path, f"{token!r} in the text: a statement names its sources only through result_ids"))
+    return found
+
+
 def _references(row: Any) -> list[Any]:
     refs = row.get("result_ids") if isinstance(row, Mapping) else None
     return list(refs) if isinstance(refs, (list, tuple)) else []
@@ -272,7 +286,9 @@ _METRIC_TERMS = _words(r"scores?", r"scoring", r"index(?:es)?", r"indices", r"ra
                        # rankings and comparisons between subjects no result computes ("the slowest editor", "later than every other")
                        r"(?:the|its|their|'s) (?:second |third )?(?:slowest|fastest|worst|best|highest|lowest|biggest|largest|smallest|greatest|"
                        r"quickest|poorest|weakest|strongest)(?! confidence| limitation)(?= \w)", r"of all (?:the )?editors",
-                       r"(?:most|least) \w+ of all", r"top performers?", r"\w+er than (?:every|all|any|the) (?:other|others|rest)",
+                       r"(?:most|least) \w+ of all", r"top performers?",
+                       r"(?:the )?(?:most|fewest|least|more|fewer) [\w-]+(?: [\w-]+)? (?:in|of|among|across) (?:the )?(?:team|editors|all)\b",
+                       r"of any (?:other )?editors?", r"\w+er than (?:every|all|any|the) (?:other|others|rest)",
                        r"than the rest", r"lags? behind", r"lagging behind", r"ahead of (?:every|all|the) (?:other|others|rest)")
 _RATE = re.compile(r"\b([a-z][a-z-]*)\s+rates?\b")
 _RATE_MODIFIERS = frozenset({"the", "a", "an", "its", "their", "his", "her", "same", "similar", "higher", "lower", "high", "low", "overall", "current",
@@ -403,15 +419,15 @@ def _classify(ref: Any, known: frozenset[str], references: ReferenceIndex) -> Ex
         return ExecutiveCode.INVALID_REFERENCE
     if ref in known:
         return None
-    if _RESULT_ID.match(ref):
+    if _RESULT_ID.fullmatch(ref):
         if ref in references.canonical:
             return ExecutiveCode.RESULT_NOT_IN_INPUT
         if ref in references.failed_candidates:
             return ExecutiveCode.FAILED_CANDIDATE_REFERENCE
         return ExecutiveCode.UNKNOWN_RESULT
-    if _FAILED_CANDIDATE_ID.match(ref):
+    if _FAILED_CANDIDATE_ID.fullmatch(ref):
         return ExecutiveCode.FAILED_CANDIDATE_REFERENCE
-    if _RAW_SOURCE_ID.match(ref):
+    if _RAW_SOURCE_ID.fullmatch(ref):
         return ExecutiveCode.RAW_SOURCE_REFERENCE
     return ExecutiveCode.INVALID_REFERENCE
 
@@ -652,6 +668,7 @@ def validate_brief(candidate: Mapping[str, Any], inp: ExecutiveInput, expected: 
         if key in seen_texts:
             violations.append(ExecutiveViolation(ExecutiveCode.DUPLICATE_STATEMENT, f"{path}/text", f"repeats {seen_texts[key]}"))
         seen_texts.setdefault(key, path)
+        violations += _identifiers_in_text(f"{path}/text", text)
         if _found(_HIDDEN_TEXT, text) or _HIDDEN_MARKUP.search(_norm(text)):
             violations.append(ExecutiveViolation(ExecutiveCode.HIDDEN_REASONING_TEXT, f"{path}/text", "a statement exposes reasoning steps"))
         cited = tuple(by_id[ref] for ref in dict.fromkeys(ref for ref in _references(row) if isinstance(ref, str) and ref in known))
@@ -684,7 +701,7 @@ def correction_message(report: ExecutiveReport) -> str:
     lines = [f"- {violation.code.value} at {violation.path}" for violation in report.violations[:40]]
     return ("Atlas validation refused your previous answer. Problems (code at path):\n" + "\n".join(lines) +
             "\nReturn a complete corrected answer in the same JSON format that follows every rule of the system prompt. Cite only result_ids from "
-            "the input; use only numbers, measures and names the cited results write, in the same form; keep every result's lifecycle (resolved "
+            "the input and write no identifier in the text; use only numbers, measures and names the cited results write, in the same form; keep every result's lifecycle (resolved "
             "is never current, open is never over) and cite resolved and open results in separate statements; improvements cite favourable or "
             "resolved results, concerns never favourable ones; copy open questions word for word; rank nothing; state causes only as "
             "possibilities; make no judgement about people and do not claim more confidence than the results.")
