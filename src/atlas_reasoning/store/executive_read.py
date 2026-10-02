@@ -13,10 +13,12 @@ from atlas_reasoning.store.repository import StoreTransaction
 
 
 def latest_synthesis_run(tx: StoreTransaction, scope: str) -> dict[str, Any] | None:
-    """The most recent executive synthesis run of ``scope``: its decision, the class of its failure (the part before ``:``; never the
-    detail, never a refused candidate) and the brief version current after it."""
+    """The most recent executive synthesis run of ``scope`` that is not a lost version conflict (a conflict means another writer produced the
+    current brief): its decision, the class of its failure (the part before ``:``; never the detail, never a refused candidate) and the
+    brief version current after it."""
     return tx._one("""SELECT decision, split_part(coalesce(failure, ''), ':', 1) AS failure_class, brief_id, brief_version, created_at
-                      FROM executive_brief_runs WHERE scope = %s ORDER BY created_at DESC, synthesis_id DESC LIMIT 1""", (scope,))
+                      FROM executive_brief_runs WHERE scope = %s AND coalesce(failure, '') NOT LIKE 'conflict:%%'
+                      ORDER BY created_at DESC, synthesis_id DESC LIMIT 1""", (scope,))
 
 
 def pinned_titles(tx: StoreTransaction, pairs: Sequence[tuple[str, int]]) -> dict[tuple[str, int], str]:

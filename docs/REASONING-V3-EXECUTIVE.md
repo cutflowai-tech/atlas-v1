@@ -227,10 +227,15 @@ executive_html.overview_html  ─►  dashboard_html.home_page(..., lead_html=) 
 - **Moved on / resolved / replaced.** When the card has a newer version, the statement says so and links the current version; a resolved
   card is marked resolved; a superseded one links its replacement (`superseded_by`). The statement itself is shown exactly as stored.
 - **Preserved and failed runs.** An `unchanged` run leaves the page identical. When the latest run failed while this brief stayed
-  current, a notice says the last validated brief is shown — never the candidate, its codes or provider details.
+  current, a notice says the last validated brief is shown — never the candidate, its codes or provider details. A run that only lost a
+  version conflict is not counted (another writer produced the current brief). A stored brief that no longer satisfies its contract, or a
+  database failure, makes the overview "unavailable" while the cards below still render. The overview reads in a `READ ONLY` transaction.
+- **Resolved.** "Resolved since" only when the brief saw the card open; a card the brief already saw as resolved is just marked resolved.
 - **Text.** Statements are model-written and untrusted: escaped, `dir="auto"`, shown as stored in both languages (only the interface wording
   is localized). Provenance: brief ID, version, run, generator, model, prompt and validator versions, creation time, input size.
 - **No migration** and no change to any core module's behaviour.
 
-Tests: `tests/test_reasoning_executive_ui.py`.
+Tests: `tests/test_reasoning_executive_ui.py`. Known limitations: the overview, the cards and the cited results' current states are read
+in separate short transactions (a version committed in between shows on the next load); the isolation tests check direct imports (the
+read-only store module transitively imports the synthesizer module, which is never constructed or called on a page).
 

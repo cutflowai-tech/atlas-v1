@@ -22,6 +22,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from atlas_reasoning.contracts import ContractViolation
 from atlas_reasoning.dashboard import DashboardService, DashboardUnavailable
 from atlas_reasoning.executive_contracts import COMPANY_SCOPE, EDITOR_SECTION, SECTIONS, ExecutiveBrief
 from atlas_reasoning.store import executive_read as sql
@@ -114,13 +115,16 @@ class ExecutiveOverviewService:
         except DashboardUnavailable:
             return Overview("unavailable")
         except Exception as error:
-            if _db_error(error):
+            # A database failure, or a stored brief that no longer satisfies its contract (``ContractViolation`` from
+            # ``ExecutiveBrief.from_dict``): the overview is unavailable; the reasoning cards below must still render.
+            if _db_error(error) or isinstance(error, ContractViolation):
                 LOG.error("executive overview unavailable error=%s", type(error).__name__)
                 return Overview("unavailable")
             raise
 
     def _overview(self) -> Overview:
         with self.store.transaction() as tx:
+            tx.conn.execute("SET TRANSACTION READ ONLY")      # a page GET never writes
             brief = ExecutiveTransaction(tx.conn).current_brief(self.scope)
             if brief is None:
                 return Overview("none")

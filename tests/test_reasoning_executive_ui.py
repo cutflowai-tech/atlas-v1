@@ -341,6 +341,35 @@ class ExecutiveUITests(unittest.TestCase):
                          f"/reasoning/en/results/{result_id}/history", "/reasoning/en/teach", "/api/reasoning/read/results"):
                 self.assertEqual(call(self.app, "GET", path)[0], 200, path)
 
+    def test_a_stored_brief_that_no_longer_validates_never_breaks_the_home(self):
+        """Self-review M2: a brief row that no longer satisfies its contract (e.g. after a schema tightening) leaves the cards readable."""
+        report = self.run_snapshot()
+        self.synthesizer.synthesize(report.run_id)
+        with self.store.transaction() as tx:
+            tx._exec("ALTER TABLE executive_brief_versions DISABLE TRIGGER executive_brief_versions_append_only")
+            tx._exec("""UPDATE executive_brief_versions SET document = document || '{"chain_of_thought": "CORRUPTMARKER <script>x</script>"}'::jsonb""")
+            tx._exec("ALTER TABLE executive_brief_versions ENABLE TRIGGER executive_brief_versions_append_only")
+        for locale in ("en", "ar"):
+            page = self.get(f"/reasoning/{locale}/")
+            self.assertIn('data-state="executive_unavailable"', page)
+            self.assertIn('id="result-', page)
+            self.assertNotIn("CORRUPTMARKER", page)
+            self.assertNotIn("ContractViolation", page)
+
+    def test_a_lost_version_conflict_is_not_reported_as_a_failed_update(self):
+        """Self-review L4: a run that lost a version conflict recorded the winner's brief; that brief is the newest valid one."""
+        report = self.run_snapshot()
+        self.synthesizer.synthesize(report.run_id)
+        brief = self.current()
+        with self.executive_store.transaction() as tx:
+            tx.record_run(run_id=report.run_id, decision=Decision.FAILED, input_fingerprint=brief.input_fingerprint, brief_id=brief.brief_id,
+                          brief_version=brief.version, llm_calls=1, failure="conflict:VersionConflict")
+        self.assertNotIn("executive_latest_failed", self.get("/reasoning/en/"))
+        with self.executive_store.transaction() as tx:
+            tx.record_run(run_id=report.run_id, decision=Decision.FAILED, input_fingerprint=brief.input_fingerprint, brief_id=brief.brief_id,
+                          brief_version=brief.version, llm_calls=1, failure="provider:timeout")
+        self.assertIn("executive_latest_failed", self.get("/reasoning/en/"))
+
     def test_an_unreadable_brief_never_breaks_the_home(self):
         self.run_snapshot()
         broken = ExecutiveOverviewService(ReasoningStore(Database("postgresql://nobody@127.0.0.1:1/atlas_reasoning_test")), self.dashboard)
@@ -400,6 +429,26 @@ class ExecutiveRenderTests(unittest.TestCase):
         self.assertNotIn('"><b>', html)
         self.assertIn('data-state="superseded"', html)
         self.assertNotIn("rv-exec-replacement", html)                  # a non-canonical replacement ID is never linked
+
+    def test_a_card_resolved_before_the_brief_is_not_resolved_since(self):
+        """Self-review M1: a card the brief already saw as resolved is not reported as resolved *since*."""
+        rid = "rr1_" + "b" * 32
+        html = executive_html.cited_result(CitedResult(rid, 3, "resolved", "Done", True, 3, "resolved", None), PageContext("en"))
+        self.assertNotIn('data-state="resolved"', html)
+        self.assertNotIn('data-state="moved_on"', html)
+        self.assertIn('data-lifecycle="resolved"', html)
+        later = executive_html.cited_result(CitedResult(rid, 2, "active", "Done", True, 4, "resolved", None), PageContext("en"))
+        self.assertIn('data-state="resolved"', later)
+
+    def test_an_unpinned_or_missing_citation_never_links_the_present_day_card(self):
+        """Self-review L3 / L7: no present-day link without a pinned version; empty attributes rather than "None"."""
+        rid = "rr1_" + "c" * 32
+        html = executive_html.cited_result(CitedResult(rid, None, None, "", False, None, None, None), PageContext("en"))
+        self.assertNotIn("href", html)
+        self.assertNotIn('"None"', html)
+        missing = executive_html.cited_result(CitedResult(rid, 1, "active", "T", False, None, None, None), PageContext("en"))
+        self.assertIn('data-state="missing"', missing)
+        self.assertNotIn('"None"', missing)
 
     def test_overview_states_render_without_a_brief(self):
         for state, marker in (("none", "executive_none"), ("unavailable", "executive_unavailable")):

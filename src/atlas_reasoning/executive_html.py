@@ -22,8 +22,10 @@ def _link(href: str, label: str, cls: str = "") -> str:
 
 def cited_result(row: CitedResult, ctx: PageContext) -> str:
     """One cited card: the pinned version's card and evidence, and its state now."""
-    attrs = (f'data-result-id="{esc(row.result_id)}" data-pinned-version="{esc(row.pinned_version)}" '
-             f'data-current-version="{esc(row.current_version)}" data-lifecycle="{esc(row.current_lifecycle)}"')
+    attrs = (f'data-result-id="{esc(row.result_id)}" data-pinned-version="{esc(row.pinned_version or "")}" '
+             f'data-current-version="{esc(row.current_version or "")}" data-lifecycle="{esc(row.current_lifecycle or "")}"')
+    if row.pinned_version is None:                       # not in the brief's input (never expected): no unpinned, present-day link
+        return f'<li class="rv-exec-ref rv-ref-broken" {attrs}>{_code(row.result_id)}</li>'
     try:
         card = routes.card_path(ctx.locale, row.result_id, version=row.pinned_version)
         evidence = routes.evidence_path(ctx.locale, row.result_id, version=row.pinned_version)
@@ -41,7 +43,7 @@ def cited_result(row: CitedResult, ctx: PageContext) -> str:
         if row.moved_on:
             status.append(f'<span class="rv-exec-state" data-state="moved_on">{ctx.t("exec.moved_on", n=row.current_version)}</span> '
                           + _link(routes.card_path(ctx.locale, row.result_id), ctx.t("exec.open_current")))
-        if row.current_lifecycle == "resolved":
+        if row.current_lifecycle == "resolved" and row.pinned_lifecycle != "resolved":      # resolved *since* the brief
             status.append(f'<span class="rv-exec-state" data-state="resolved">{ctx.t("exec.resolved")}</span>')
         if row.current_lifecycle == "superseded":
             replacement = ""
