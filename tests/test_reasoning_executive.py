@@ -44,7 +44,7 @@ RUN = "run_" + "a" * 32
 BRIEF = "eb1_" + "c" * 32
 REQUEST = "req_" + "d" * 32
 NOW = "2026-10-02T00:00:00.000000Z"
-EXECUTIVE_V1_SHA256 = "9981191a5ff40e0b0aefe43526d05c71b5778310696d3a9bfad1e43091b694ee"
+EXECUTIVE_V1_SHA256 = "314644d7569f57eaf6f57b54666159c7eddac29ee4b2ca75eb4a2b9c902f1c71"
 
 
 def provenance(version: int = 1, model: str = PINNED_MODEL) -> BriefProvenance:
@@ -423,6 +423,32 @@ class ReviewFindingTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.refused("LIFECYCLE_CONTRADICTION", section, text, 4)
 
+    def test_more_ways_of_saying_it_is_over_or_still_current(self):
+        for text in ("Late deliveries for editor-label-12 were addressed this run.", "Late deliveries for editor-label-12 have recovered.",
+                     "Late deliveries for editor-label-12 are not a problem any longer.", "Deadlines for editor-label-12 are back on track.",
+                     "The deadline issue for editor-label-12 was eliminated.", "The deadline issue for editor-label-12 is behind us."):
+            with self.subTest(text=text):
+                self.refused("LIFECYCLE_CONTRADICTION", "what_changed", text, 1)
+        for section, text in (("what_changed", "The pattern was resolved, yet editor-label-15 is late on most projects."),
+                              ("what_changed", "The pattern was resolved and then reopened."),
+                              ("what_changed", "The pattern for editor-label-15 was resolved but is a serious risk."),
+                              ("important_improvements", "The pattern was resolved; it is a concern for the team lead.")):
+            with self.subTest(text=text):
+                self.refused("LIFECYCLE_CONTRADICTION", section, text, 4)
+
+    def test_valid_wording_is_not_refused(self):
+        rows = standard_rows()[:3] + [row(4, "resolved", subject_id="editor-label-15", reason="absent_for_configured_runs",
+                                          dimensions={"video_type": "shorts"})]
+        for section, text, n in (("uncertainty", "This means the pattern for editor-label-12 is tentative.", 1),
+                                 ("what_changed", "A second result about editor-label-12 was updated.", 2),
+                                 ("inspect_next", "Check whether the editor-label-12 deadline pattern holds.", 1),
+                                 ("important_improvements", "The pattern for editor-label-15 is resolved and needs no attention.", 4),
+                                 ("important_improvements", "Deadlines for editor-label-15 are back to normal.", 4),
+                                 ("important_improvements", "The resolved pattern for editor-label-15 concerned Shorts work.", 4),
+                                 ("what_changed", "The pattern for editor-label-15 was a concern and is now resolved.", 4)):
+            with self.subTest(text=text):
+                self.accepted(section, text, n, rows=rows)
+
     def test_resolved_and_open_results_are_not_mixed_in_a_state_statement(self):
         self.refused("LIFECYCLE_CONTRADICTION", "what_changed", "Late deliveries for editor-label-15 are still ongoing.", 4, 3)
         self.refused("LIFECYCLE_CONTRADICTION", "what_changed", "Late deliveries for editor-label-12 have been resolved.", 1, 4)
@@ -434,9 +460,13 @@ class ReviewFindingTests(unittest.TestCase):
                      "Editor-label-12 projects were 11 days late on average.", "100% of projects for editor-label-12 were late.",
                      "Late deliveries for editor-label-12 fell by 50%.", "Editor-label-12 projects were 5 weeks late.",
                      "Late deliveries for editor-label-12 doubled.", "Half of the projects for editor-label-12 were late.",
-                     "Editor-label-12 is the second slowest on deadlines.", "2 editors are late on deadlines."):
+                     "A quarter of the projects for editor-label-12 were late.", "2 editors are late on deadlines."):
             with self.subTest(text=text):
                 self.refused("UNSUPPORTED_NUMBER", "top_concerns", text, 1, 2)
+        for text in ("Editor-label-12 is the second slowest on deadlines.", "Editor-label-12 is the slowest editor on the team.",
+                     "Editor-label-12 has the worst deadline record of all editors."):
+            with self.subTest(text=text):
+                self.refused("UNSUPPORTED_METRIC", "top_concerns", text, 1, 2)
         self.accepted("top_concerns", "Late deliveries reached 69% against 50% before.", 1)
         self.accepted("top_concerns", "One editor has two results about late deliveries.", 1, 2)
 
@@ -471,6 +501,7 @@ class ReviewFindingTests(unittest.TestCase):
     def test_confidence_and_control_characters(self):
         self.refused("CONFIDENCE_EXCEEDED", "uncertainty", "Atlas is confident the team pattern is real.", 3)
         self.refused("INVALID_TEXT", "uncertainty", "Confidence is weak\x00.", 1)
+        self.refused("PROJECTION", "top_concerns", "Late deliveries for editor-label-12 will likely continue next month.", 1)
 
 
 class IdentityTests(unittest.TestCase):

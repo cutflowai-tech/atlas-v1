@@ -86,6 +86,7 @@ class ExecutiveCode(StrEnum):
     HR_JUDGMENT = "HR_JUDGMENT"
     UNSUPPORTED_BLAME = "UNSUPPORTED_BLAME"
     CONFIDENCE_EXCEEDED = "CONFIDENCE_EXCEEDED"
+    PROJECTION = "PROJECTION"
     IDENTITY_MISMATCH = "IDENTITY_MISMATCH"
     PROVENANCE_MISMATCH = "PROVENANCE_MISMATCH"
     MODEL_SUBSTITUTED = "MODEL_SUBSTITUTED"
@@ -208,9 +209,14 @@ def _negated(lowered: str, start: int) -> bool:
     return any(word in _NEGATORS or word.endswith("n't") for word in re.findall(r"[a-z']+", clause)[-4:])
 
 
+def _negated_after(lowered: str, end: int) -> bool:
+    """"needs no attention", "deserves no concern": the negation follows the phrase."""
+    return re.match(r"\s+(?:no|not|none|nothing)\b", lowered[end:]) is not None
+
+
 def _found(pattern: re.Pattern[str], text: str) -> bool:
     lowered = _norm(text)
-    return any(not _negated(lowered, match.start()) for match in pattern.finditer(lowered))
+    return any(not _negated(lowered, match.start()) and not _negated_after(lowered, match.end()) for match in pattern.finditer(lowered))
 
 
 _REASONING_KEY = re.compile(r"chain|thought|think|reasoning|scratch|analysis|deliberat|internal|hidden|rationale", re.IGNORECASE)
@@ -221,12 +227,19 @@ _HIDDEN_MARKUP = re.compile(r"</?\s*(?:think|thinking|reasoning|analysis)\b")
 _CURRENT = _words(r"still", r"remains? (?:a |an )?(?:concern|risk|issue|problem|open|active|unresolved|late|slow|high|elevated)", r"ongoing",
                   r"continues? to", r"continuing", r"persists?", r"persisting", r"currently", r"(?:is|are) active", r"(?:is|are) open",
                   r"current (?:concern|risk|issue|problem)", r"worsen(?:s|ed|ing)?", r"(?:getting|got|grows?|growing) worse", r"growing",
-                  r"needs?", r"deserves?", r"attention", r"urgent(?:ly)?", r"pressing", r"(?:has|have|had) returned", r"(?:is|are) back",
-                  r"came back", r"comes back", r"recurr(?:s|ed|ing|ence|ent)", r"keeps?", r"rising", r"increasing", r"escalat(?:es|ed|ing)")
+                  r"needs?", r"deserves?", r"attention", r"urgent(?:ly)?", r"pressing", r"(?:has|have|had) returned", r"(?:is|are) back(?! to normal)",
+                  r"came back", r"comes back", r"recurr(?:s|ed|ing|ence|ent)", r"keeps? (?:recurring|returning|coming back|happening|growing|rising)",
+                  r"rising", r"increasing", r"escalat(?:es|ed|ing)", r"re-?opened", r"re-?opening",
+                  r"(?:is|are|remains?) (?:still )?(?:a |an )?(?:serious |major |key |real |big |growing )?(?:risk|concern|problem|issue)s?")
+# A resolved-only statement that turns against its own resolution ("was resolved, yet …") describes something current.
+_CONTRAST = _words(r"but", r"yet", r"however", r"although", r"though", r"even so", r"nevertheless", r"still")
 # One vocabulary of "it is over", used in both directions: required for resolved-only statements, refused for open results.
 _RESOLUTION = _words(r"resolved", r"no longer", r"stopped", r"(?:has|have|had) ended", r"ended", r"went away", r"gone away", r"disappeared",
                      r"(?:is|are|was|were|been|got|now) (?:closed|fixed|gone|over|cleared|settled|solved|finished|done)", r"(?:has|have) cleared",
-                     r"cleared up", r"back to normal", r"normali[sz]ed", r"not (?:observed|seen|reported) (?:any more|anymore|again)")
+                     r"cleared up", r"back to normal", r"normali[sz]ed", r"not (?:observed|seen|reported) (?:any more|anymore|again)", r"addressed",
+                     r"recovered", r"(?:any|no) longer (?:a |an )?(?:problem|issue|concern|risk)",
+                     r"not (?:a |an )?(?:problem|issue|concern|risk) any ?(?:more|longer)", r"back on track", r"eliminated",
+                     r"behind (?:us|them|the team)", r"dealt with", r"under control", r"remedied", r"(?:is|are|was|were) corrected")
 
 
 def _claims_resolved(text: str) -> bool:
@@ -239,7 +252,11 @@ _HIGH_CONFIDENCE = _words(r"high(?:ly)? confiden(?:t|ce)", r"strong(?:ly)? confi
                           r"clear(?:ly)? (?:shows?|established|pattern)", r"well[- ]established", r"strong pattern")
 _METRIC_TERMS = _words(r"scores?", r"scoring", r"index(?:es)?", r"indices", r"ratings?", r"rankings?", r"ranked", r"kpis?", r"productivity",
                        r"efficiency", r"percentiles?", r"grades?", r"composite", r"utili[sz]ation", r"ratios?", r"throughput", r"velocity",
-                       r"turnaround", r"slas?", r"percentages?", r"averages?", r"means?", r"medians?")
+                       r"turnaround", r"slas?", r"percentages?", r"averages?", r"medians?",
+                       # rankings and superlatives no result computes
+                       r"slowest", r"fastest", r"worst", r"best", r"highest", r"lowest", r"biggest", r"largest", r"smallest", r"greatest",
+                       r"quickest", r"poorest", r"weakest", r"strongest", r"of all (?:the )?editors", r"on the (?:whole )?team", r"in the team",
+                       r"(?:most|least) \w+ of all", r"top performers?", r"bottom")
 _RATE = re.compile(r"\b([a-z][a-z-]*)\s+rates?\b")
 _RATE_MODIFIERS = frozenset({"the", "a", "an", "its", "their", "his", "her", "same", "similar", "higher", "lower", "high", "low", "overall", "current",
                              "previous", "baseline", "team", "team's", "editor's", "cohort", "peer", "average", "median", "typical", "rising", "falling",
@@ -251,13 +268,17 @@ _PROPER = re.compile(r"\b[^\W\d_]{2,}(?:'s)?\b")
 _PERSON_AFTER = _words(r"is", r"was", r"has", r"had", r"shows?", r"showed", r"delivered", r"missed", r"works?", r"worked", r"took", r"seems",
                        r"appears", r"tends", r"needs", r"did", r"does", r"handled", r"edited", r"submitted", r"failed")
 # Words an executive brief uses that need not appear in its cited results (never names).
-_BRIEF_VOCABULARY = frozenset(["result", "results", "card", "cards", "case", "cases", "concern", "concerns", "improvement", "improvements", "pattern", "patterns", "brief", "question", "questions", "open", "new", "updated", "active", "resolved", "reappeared", "review", "reviews", "inspect", "check", "compare", "confirm", "look", "consider", "start", "ask", "discuss", "deliveries", "delivery", "late", "lateness", "editors", "team", "teams", "both", "together", "across", "several"])
+_BRIEF_VOCABULARY = frozenset(["result", "results", "card", "cards", "case", "cases", "concern", "concerns", "improvement", "improvements", "pattern", "patterns", "brief", "question", "questions", "open", "new", "updated", "active", "resolved", "reappeared", "review", "reviews", "inspect", "check", "compare", "look", "consider", "start", "ask", "discuss", "deliveries", "delivery", "late", "lateness", "editors", "team", "teams", "both", "together", "across", "several"])
 # Multipliers and ordinals are numbers too ("doubled", "half", "the second slowest").
 _MULTIPLIERS = _words(r"doubl(?:e|ed|es|ing)", r"tripl(?:e|ed|es|ing)", r"quadrupl(?:e|ed|es|ing)", r"halv(?:e|ed|es|ing)", r"twice", r"thrice",
-                      r"half", r"second", r"third", r"fourth", r"fifth", r"\w+fold")
+                      r"half", r"quarters?", r"thirds", r"\w+fold")
 _RESULT_NOUNS = frozenset({"result", "results", "card", "cards", "case", "cases", "pattern", "patterns", "concern", "concerns", "issue", "issues",
                            "improvement", "improvements", "question", "questions"})
 _EDITOR_NOUNS = frozenset({"editor", "editors"})
+# Forecasts: no result projects anything forward.
+_PROJECTION = _words(r"will (?:likely |probably |almost certainly |soon )?(?:continue|keep|rise|fall|grow|increase|decrease|worsen|improve|"
+                     r"get worse|get better|reach|exceed|drop|recover|persist|repeat)", r"next (?:week|month|quarter|year|run|cycle)",
+                     r"going forward", r"in the coming (?:weeks|months)", r"is (?:likely|expected|projected|forecast) to", r"forecasts?", r"projected")
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 # Sections whose statements may cite resolved and open results together (they describe what results share, not their state).
 _MIXED_SECTIONS = frozenset({"system_patterns", "uncertainty"})
@@ -309,7 +330,8 @@ class _Grounding:
         found = {token for row in self.rows for text in _result_texts(row) for token in _tokens(text)}
         for row in self.rows:
             subject = row.get("subject") or {}
-            found |= {token for value in (subject.get("subject_id"), subject.get("topic_key"), subject.get("case_type")) if value for token in _tokens(str(value))}
+            values = [subject.get("subject_id"), subject.get("topic_key"), subject.get("case_type"), *(subject.get("dimensions") or {}).values()]
+            found |= {token for value in values if value for token in _tokens(str(value))}
         return found
 
     def editor_subjects(self) -> int:
@@ -494,7 +516,7 @@ def _lifecycle(path: str, section: str, text: str, grounding: _Grounding) -> lis
                                              in _CHANGED_REASONS for row in grounding.rows):
         found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "no cited result is new, updated, resolved or reappeared"))
     if statuses == {resolved}:
-        if _found(_CURRENT, text):
+        if _found(_CURRENT, text) or _found(_CONTRAST, text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results are described as current"))
         elif not _claims_resolved(text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results must be described as resolved"))
@@ -545,6 +567,8 @@ def _editor(path: str, row: Mapping[str, Any], grounding: _Grounding) -> list[Ex
 def _safety(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
     found = [ExecutiveViolation(ExecutiveCode(violation.code.value), violation.path, violation.detail)
              for violation in guardrails.statement_safety_violations(path, text, names=grounding.editors())]
+    if _found(_PROJECTION, text) and not re.search(_PROJECTION.pattern, grounding.text):
+        found.append(ExecutiveViolation(ExecutiveCode.PROJECTION, path, "a forecast no cited result makes"))
     levels = {str((row.get("confidence") or {}).get("level")) for row in grounding.rows}
     if levels and ConfidenceLevel.STRONG.value not in levels and _found(_HIGH_CONFIDENCE, text):
         found.append(ExecutiveViolation(ExecutiveCode.CONFIDENCE_EXCEEDED, path, "claims high confidence; no cited result is strong"))
@@ -629,6 +653,7 @@ def correction_message(report: ExecutiveReport) -> str:
     lines = [f"- {violation.code.value} at {violation.path}" for violation in report.violations[:40]]
     return ("Atlas validation refused your previous answer. Problems (code at path):\n" + "\n".join(lines) +
             "\nReturn a complete corrected answer in the same JSON format that follows every rule of the system prompt. Cite only result_ids from "
-            "the input, use only numbers and measures the cited results write, keep every result's lifecycle (resolved is never current), keep "
-            "questions as questions, state causes only as possibilities, make no judgement about people and do not claim more confidence "
-            "than the results.")
+            "the input; use only numbers, measures and names the cited results write, in the same form; keep every result's lifecycle (resolved "
+            "is never current, open is never over) and cite resolved and open results in separate statements; improvements cite favourable or "
+            "resolved results, concerns never favourable ones; copy open questions word for word; rank nothing; state causes only as "
+            "possibilities; make no judgement about people and do not claim more confidence than the results.")

@@ -36,12 +36,12 @@ def result(n: int, lifecycle: str = "active", **changes: Any) -> ReasoningResult
 
 def row(n: int, lifecycle: str = "active", *, subject_type: str = "editor", subject_id: str = "editor-label-12", reason: str | None = None,
         questions: tuple[tuple[str, str], ...] = (), patched: tuple[str, ...] = (), editors: tuple[str, ...] | None = None,
-        orientation: str = "adverse", topic: str = "deadline", **changes: Any) -> CanonicalResult:
+        orientation: str = "adverse", topic: str = "deadline", dimensions: dict[str, str] | None = None, **changes: Any) -> CanonicalResult:
     document = result(n, lifecycle, **changes)
     affected = editors if editors is not None else ((subject_id,) if subject_type == "editor" else ())
     return CanonicalResult(result=document, lifecycle_status=LifecycleStatus(lifecycle), current_version=document.version, case_type=f"{subject_type}_pattern"
                            if subject_type in ("editor", "team") else "workflow_pattern", subject_type=subject_type, subject_id=subject_id, topic_key=topic,
-                           dimensions={}, orientation=orientation, affected_editor_ids=affected, lifecycle_reason=reason, patched_fields=patched,
+                           dimensions=dimensions or {}, orientation=orientation, affected_editor_ids=affected, lifecycle_reason=reason, patched_fields=patched,
                            open_questions=questions)
 
 
