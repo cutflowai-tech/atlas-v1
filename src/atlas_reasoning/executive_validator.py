@@ -229,7 +229,8 @@ _CURRENT = _words(r"still", r"remains? (?:a |an )?(?:concern|risk|issue|problem|
                   r"current (?:concern|risk|issue|problem)", r"worsen(?:s|ed|ing)?", r"(?:getting|got|grows?|growing) worse", r"growing",
                   r"needs?", r"deserves?", r"attention", r"urgent(?:ly)?", r"pressing", r"(?:has|have|had) returned", r"(?:is|are) back(?! to normal)",
                   r"came back", r"comes back", r"recurr(?:s|ed|ing|ence|ent)", r"keeps? (?:recurring|returning|coming back|happening|growing|rising)",
-                  r"rising", r"increasing", r"escalat(?:es|ed|ing)", r"re-?opened", r"re-?opening",
+                  r"rising", r"increasing", r"escalat(?:es|ed|ing)", r"re-?opened", r"re-?opening", r"again",
+                  r"(?:is|are) (?:still |now |again )?(?:late|slow|behind)",
                   r"(?:is|are|remains?) (?:still )?(?:a |an )?(?:serious |major |key |real |big |growing )?(?:risk|concern|problem|issue)s?")
 # A resolved-only statement that turns against its own resolution ("was resolved, yet …") describes something current.
 _CONTRAST = _words(r"but", r"yet", r"however", r"although", r"though", r"even so", r"nevertheless", r"still")
@@ -239,13 +240,28 @@ _RESOLUTION = _words(r"resolved", r"no longer", r"stopped", r"(?:has|have|had) e
                      r"cleared up", r"back to normal", r"normali[sz]ed", r"not (?:observed|seen|reported) (?:any more|anymore|again)", r"addressed",
                      r"recovered", r"(?:any|no) longer (?:a |an )?(?:problem|issue|concern|risk)",
                      r"not (?:a |an )?(?:problem|issue|concern|risk) any ?(?:more|longer)", r"back on track", r"eliminated",
-                     r"behind (?:us|them|the team)", r"dealt with", r"under control", r"remedied", r"(?:is|are|was|were) corrected")
+                     r"behind (?:us|them|the team)", r"dealt with", r"under control", r"remedied", r"(?:is|are|was|were) corrected", r"wrapped up",
+                     r"now (?:delivers?|delivering|is|are) on time", r"on time now")
+
+
+_PRESENT_STATE = re.compile(r"\b(?:is|are|remains?|stays?|has|have|keeps?|shows?|continues?)\b")
+
+
+def _contradicting_contrast(text: str) -> bool:
+    """A resolved-only statement that turns against its resolution: a contrast ("but", "yet", "however" …) followed by a present-state
+    clause ("… yet editor-label-15 is late"). A contrast about the past or the evidence ("though its confidence was weak") is fine."""
+    lowered = _norm(text)
+    for match in _CONTRAST.finditer(lowered):
+        after = re.split(r"[.!?;]", lowered[match.end():])[0]
+        if _PRESENT_STATE.search(after) and not _claims_resolved(after):
+            return True
+    return False
 
 
 def _claims_resolved(text: str) -> bool:
     """A non-negated statement that something is over ("to be resolved" and "unresolved" are not claims)."""
     lowered = _norm(text)
-    return any(not _negated(lowered, match.start()) and not re.search(r"\bbe\s+$", lowered[: match.start()])
+    return any(not _negated(lowered, match.start()) and not re.search(r"\bbe\s+$", lowered[: match.start()]) and not _in_whether(lowered, match.start())
                for match in _RESOLUTION.finditer(lowered))
 _HIGH_CONFIDENCE = _words(r"high(?:ly)? confiden(?:t|ce)", r"strong(?:ly)? confiden(?:t|ce)", r"very confident", r"strong evidence",
                           r"(?:is|are|am|feels?|remains?) confident", r"confidently", r"with confidence",
@@ -253,10 +269,11 @@ _HIGH_CONFIDENCE = _words(r"high(?:ly)? confiden(?:t|ce)", r"strong(?:ly)? confi
 _METRIC_TERMS = _words(r"scores?", r"scoring", r"index(?:es)?", r"indices", r"ratings?", r"rankings?", r"ranked", r"kpis?", r"productivity",
                        r"efficiency", r"percentiles?", r"grades?", r"composite", r"utili[sz]ation", r"ratios?", r"throughput", r"velocity",
                        r"turnaround", r"slas?", r"percentages?", r"averages?", r"medians?",
-                       # rankings and superlatives no result computes
-                       r"slowest", r"fastest", r"worst", r"best", r"highest", r"lowest", r"biggest", r"largest", r"smallest", r"greatest",
-                       r"quickest", r"poorest", r"weakest", r"strongest", r"of all (?:the )?editors", r"on the (?:whole )?team", r"in the team",
-                       r"(?:most|least) \w+ of all", r"top performers?", r"bottom")
+                       # rankings and comparisons between subjects no result computes ("the slowest editor", "later than every other")
+                       r"(?:the|its|their|'s) (?:second |third )?(?:slowest|fastest|worst|best|highest|lowest|biggest|largest|smallest|greatest|"
+                       r"quickest|poorest|weakest|strongest)(?! confidence| limitation)(?= \w)", r"of all (?:the )?editors",
+                       r"(?:most|least) \w+ of all", r"top performers?", r"\w+er than (?:every|all|any|the) (?:other|others|rest)",
+                       r"than the rest", r"lags? behind", r"lagging behind", r"ahead of (?:every|all|the) (?:other|others|rest)")
 _RATE = re.compile(r"\b([a-z][a-z-]*)\s+rates?\b")
 _RATE_MODIFIERS = frozenset({"the", "a", "an", "its", "their", "his", "her", "same", "similar", "higher", "lower", "high", "low", "overall", "current",
                              "previous", "baseline", "team", "team's", "editor's", "cohort", "peer", "average", "median", "typical", "rising", "falling",
@@ -277,8 +294,17 @@ _RESULT_NOUNS = frozenset({"result", "results", "card", "cards", "case", "cases"
 _EDITOR_NOUNS = frozenset({"editor", "editors"})
 # Forecasts: no result projects anything forward.
 _PROJECTION = _words(r"will (?:likely |probably |almost certainly |soon )?(?:continue|keep|rise|fall|grow|increase|decrease|worsen|improve|"
-                     r"get worse|get better|reach|exceed|drop|recover|persist|repeat)", r"next (?:week|month|quarter|year|run|cycle)",
-                     r"going forward", r"in the coming (?:weeks|months)", r"is (?:likely|expected|projected|forecast) to", r"forecasts?", r"projected")
+                     r"get worse|get better|reach|exceed|drop|recover|persist|repeat|spread)", r"next (?:week|month|quarter|year|run|cycle)",
+                     r"going forward", r"in the coming (?:weeks|months)", r"is (?:likely|expected|projected|forecast) to", r"forecasts?", r"projected",
+                     r"(?:may|might|could) spread", r"spread to other", r"soon")
+_WHETHER = re.compile(r"\b(?:whether|if)\b")
+
+
+def _in_whether(lowered: str, start: int) -> bool:
+    """The phrase sits in a "whether / if" clause of its sentence: something to check, not a claim."""
+    head = lowered[:start]
+    sentence = re.split(r"[.!?;]\s", head)[-1]
+    return _WHETHER.search(sentence) is not None
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 # Sections whose statements may cite resolved and open results together (they describe what results share, not their state).
 _MIXED_SECTIONS = frozenset({"system_patterns", "uncertainty"})
@@ -516,7 +542,7 @@ def _lifecycle(path: str, section: str, text: str, grounding: _Grounding) -> lis
                                              in _CHANGED_REASONS for row in grounding.rows):
         found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "no cited result is new, updated, resolved or reappeared"))
     if statuses == {resolved}:
-        if _found(_CURRENT, text) or _found(_CONTRAST, text):
+        if _found(_CURRENT, text) or _contradicting_contrast(text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results are described as current"))
         elif not _claims_resolved(text):
             found.append(ExecutiveViolation(ExecutiveCode.LIFECYCLE_CONTRADICTION, path, "resolved results must be described as resolved"))
@@ -564,10 +590,15 @@ def _editor(path: str, row: Mapping[str, Any], grounding: _Grounding) -> list[Ex
     return []
 
 
-def _safety(path: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
+def _safety(path: str, section: str, text: str, grounding: _Grounding) -> list[ExecutiveViolation]:
+    # "Confirm whether …" is something to check, not a claim of certainty.
+    checking = re.match(r"\s*confirm (?:whether|if)\b", _norm(text)) is not None
     found = [ExecutiveViolation(ExecutiveCode(violation.code.value), violation.path, violation.detail)
-             for violation in guardrails.statement_safety_violations(path, text, names=grounding.editors())]
-    if _found(_PROJECTION, text) and not re.search(_PROJECTION.pattern, grounding.text):
+             for violation in guardrails.statement_safety_violations(path, text, names=grounding.editors())
+             if not (checking and violation.code.value == ExecutiveCode.CONFIDENCE_EXCEEDED.value)]
+    lowered = _norm(text)
+    if section != "inspect_next" and any(not _negated(lowered, m.start()) and not _in_whether(lowered, m.start()) for m in _PROJECTION.finditer(lowered)) \
+            and not re.search(_PROJECTION.pattern, grounding.text):
         found.append(ExecutiveViolation(ExecutiveCode.PROJECTION, path, "a forecast no cited result makes"))
     levels = {str((row.get("confidence") or {}).get("level")) for row in grounding.rows}
     if levels and ConfidenceLevel.STRONG.value not in levels and _found(_HIGH_CONFIDENCE, text):
@@ -633,7 +664,7 @@ def validate_brief(candidate: Mapping[str, Any], inp: ExecutiveInput, expected: 
         violations += _entities(text_path, text, grounding)
         violations += _lifecycle(text_path, section, text, grounding)
         violations += _section(text_path, section, grounding)
-        violations += _safety(text_path, text, grounding)
+        violations += _safety(text_path, section, text, grounding)
         if section == "unresolved_questions":
             violations += _questions(text_path, text, grounding)
         if section == EDITOR_SECTION:
