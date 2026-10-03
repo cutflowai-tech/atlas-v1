@@ -54,7 +54,7 @@ from atlas_reasoning.structured import inline_schema
 
 UPDATE_PROMPT_VERSION = "update-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
 UPDATE_PURPOSE = "update"
-UPDATE_INPUT_VERSION = "update-input-v1"
+UPDATE_INPUT_VERSION = "update-input-v2"   # v2: the shared case view groups evidence references (analyst-input-v2)
 OUTPUT_FIELDS = ("action", "change_rationale", "changed_fields", "preserved_fields", "patch")
 
 # Why a field cannot stay as it is (``fields_requiring_change``).

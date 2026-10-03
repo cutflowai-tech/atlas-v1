@@ -77,7 +77,7 @@ def policy_from_env(env: Mapping[str, str] | None = None) -> ReviewerPolicy | No
 
 
 def review_input(case: Mapping[str, Any], candidate: Mapping[str, Any]) -> dict[str, Any]:
-    return {"input_version": "review-input-v1", "case": case_evidence_input(case), "card": {name: candidate[name] for name in PATCHABLE_FIELDS}}
+    return {"input_version": "review-input-v2", "case": case_evidence_input(case), "card": {name: candidate[name] for name in PATCHABLE_FIELDS}}
 
 
 def review_output_schema() -> dict[str, Any]:
