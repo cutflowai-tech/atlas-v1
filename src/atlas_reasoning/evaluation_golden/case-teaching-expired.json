@@ -1,0 +1,66 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "teaching-expired",
+  "number": 11,
+  "title": "An expired teaching is never injected; a valid one is",
+  "requirement": "REV/19 #1 teaching expired",
+  "category": "human_context",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "expired_teaching_only",
+      "actions": [
+        {
+          "op": "human",
+          "kind": "expired_teaching"
+        },
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.context_sources": {
+          "excludes": [
+            "management_teaching"
+          ]
+        },
+        "focus.result": "created",
+        "focus.model_calls": 1,
+        "run.status": "complete"
+      }
+    },
+    {
+      "step_id": "valid_teaching_added",
+      "actions": [
+        {
+          "op": "human",
+          "kind": "teaching"
+        },
+        {
+          "op": "gate",
+          "evidence": "material_change"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.context_sources": {
+          "includes": [
+            "management_teaching"
+          ]
+        },
+        "focus.result": "kept",
+        "focus.content_versions": 1,
+        "run.status": "complete"
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "duplicate-work-prevention",
+  "number": 19,
+  "title": "A busy engine and repeated passes never duplicate work, cards, questions or calls",
+  "requirement": "REV/18 duplicate-work protection (Phase 18-A)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "gated",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        }
+      ]
+    },
+    {
+      "step_id": "engine_busy",
+      "actions": [
+        {
+          "op": "orchestrate_while_busy"
+        }
+      ],
+      "expect": {
+        "run.skipped": [
+          "engine_busy"
+        ],
+        "run.passes": 0,
+        "run.status": null,
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "work.open": 17
+      }
+    },
+    {
+      "step_id": "first_pass",
+      "actions": [
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "calls.reasoning": 17,
+        "results.created": 17,
+        "run.admitted": 17,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "repeated_pass",
+      "actions": [
+        {
+          "op": "orchestrate"
+        },
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.passes": 2,
+        "run.status": "complete",
+        "run.admitted": 0,
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "integrity.duplicates": 0,
+        "focus.questions_opened": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "circuit-breaker-outage",
+  "number": 18,
+  "title": "A provider outage opens the breaker: the rest is refused without calls; after the cooldown, resume recovers",
+  "requirement": "REV/18 circuit breaker / provider outage (Phase 18-B, run status failed)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {
+    "breaker_threshold": 1,
+    "breaker_cooldown_seconds": 60,
+    "gateway_concurrency": 1
+  },
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "outage",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "fault",
+          "kind": "provider_outage",
+          "target": "first_in_priority"
+        },
+        {
+          "op": "orchestrate",
+          "max_attempts": 1
+        }
+      ],
+      "expect": {
+        "run.status": "failed",
+        "run.reasons": [
+          "provider_outage"
+        ],
+        "circuit.state": "open",
+        "telemetry.refused_before_call": 16,
+        "run.calls_used": 1,
+        "calls.reasoning": 1,
+        "calls.failed": 1,
+        "results.created": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "cooldown_resume",
+      "actions": [
+        {
+          "op": "advance_clock",
+          "seconds": 61
+        },
+        {
+          "op": "resume",
+          "max_attempts": 1
+        }
+      ],
+      "expect": {
+        "circuit.state": "closed",
+        "run.retries": 16,
+        "run.status": "degraded",
+        "run.reasons": [
+          "unresolved_failures"
+        ],
+        "results.created": 16,
+        "calls.reasoning": 16,
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

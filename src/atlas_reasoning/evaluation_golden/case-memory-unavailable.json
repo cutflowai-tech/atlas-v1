@@ -1,0 +1,76 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "memory-unavailable",
+  "number": 12,
+  "title": "Contextual memory down: reasoning runs on canonical context and the run is degraded, never failed",
+  "requirement": "REV/19 #1 memory unavailable",
+  "category": "human_context",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "memory_down",
+      "actions": [
+        {
+          "op": "fault",
+          "kind": "memory_outage",
+          "target": "none"
+        },
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "run.status": "degraded",
+        "run.reasons": [
+          "memory_degraded"
+        ],
+        "run.executive_ready": true,
+        "focus.memory_status": [
+          "degraded"
+        ],
+        "focus.result": "created",
+        "results.created": 17,
+        "memory.degraded_calls": 17,
+        "work.open": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "memory_restored",
+      "actions": [
+        {
+          "op": "fault",
+          "kind": "memory_restore",
+          "target": "none"
+        },
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "integrity.duplicates": 0,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 0,
+        "focus.model_calls": 0,
+        "focus.questions_opened": 0
+      }
+    }
+  ]
+}

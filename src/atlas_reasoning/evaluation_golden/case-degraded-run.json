@@ -1,0 +1,59 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "degraded-run",
+  "number": 15,
+  "title": "One unrecoverable case failure isolates that case: the run is degraded, every other card is created",
+  "requirement": "REV/18 run status degraded (Phase 18-A)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "auth_failure",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "fault",
+          "kind": "provider_auth",
+          "target": "focus"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "run.status": "degraded",
+        "run.reasons": [
+          "unresolved_failures"
+        ],
+        "run.executive_ready": true,
+        "focus.result": "none",
+        "results.created": 16,
+        "calls.failed": 1,
+        "work.open": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "resume_does_not_retry",
+      "actions": [
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "degraded",
+        "run.calls_used": 0,
+        "run.retries": 0,
+        "calls.reasoning": 0,
+        "focus.result": "none",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

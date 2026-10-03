@@ -1,0 +1,50 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "contradiction-added",
+  "number": 5,
+  "title": "New contradicting evidence updates the same card and is counted as counter-evidence",
+  "requirement": "REV/19 #1 contradiction added",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "without_contradiction"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "contradiction_added",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.gate_action": "updated",
+        "focus.contradicting_findings": 1,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 1,
+        "focus.lifecycle": "updated",
+        "focus.model_calls": 1,
+        "results.created": 0,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

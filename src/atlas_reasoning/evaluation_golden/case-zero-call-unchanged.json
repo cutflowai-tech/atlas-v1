@@ -1,0 +1,50 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "zero-call-unchanged",
+  "number": 20,
+  "title": "An unchanged snapshot is skipped by the Change Gate and costs zero provider calls",
+  "requirement": "REV/18 zero-call unchanged processing (Phase 05 + 18)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "unchanged",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "run.executive_ready": true,
+        "run.calls_used": 0,
+        "run.admitted": 0,
+        "calls.reasoning": 0,
+        "telemetry.skipped_unchanged": 17,
+        "gate.unchanged": 17,
+        "work.open": 0,
+        "versions.content": 0,
+        "results.created": 0
+      }
+    }
+  ]
+}
