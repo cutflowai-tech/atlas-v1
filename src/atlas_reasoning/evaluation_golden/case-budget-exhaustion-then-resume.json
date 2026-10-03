@@ -1,0 +1,68 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "budget-exhaustion-then-resume",
+  "number": 17,
+  "title": "Budget exhaustion leaves the run partial; resume completes it without touching earlier cards",
+  "requirement": "REV/18 budget exhaustion and resume (Phase 18-A/B)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "exhausted",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate",
+          "budget": 3
+        }
+      ],
+      "expect": {
+        "run.status": "partial",
+        "run.calls_used": 3,
+        "work.open": 14,
+        "results.created": 3
+      }
+    },
+    {
+      "step_id": "resumed",
+      "actions": [
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "run.reasons": [],
+        "run.executive_ready": true,
+        "run.admitted": 14,
+        "calls.reasoning": 14,
+        "results.created": 14,
+        "work.open": 0,
+        "focus.result": "kept",
+        "focus.content_versions": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "idle_resume",
+      "actions": [
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "run.admitted": 0,
+        "calls.reasoning": 0,
+        "results.created": 0
+      }
+    }
+  ]
+}

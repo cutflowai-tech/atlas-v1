@@ -1,0 +1,85 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "teaching-added",
+  "number": 10,
+  "title": "A teaching for the focus Editor reaches its next update and never defeats the Change Gate",
+  "requirement": "REV/19 #1 teaching added",
+  "category": "human_context",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "teach",
+      "actions": [
+        {
+          "op": "human",
+          "kind": "teaching"
+        }
+      ]
+    },
+    {
+      "step_id": "teaching_same_evidence",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "integrity.duplicates": 0,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 0,
+        "focus.model_calls": 0,
+        "focus.questions_opened": 0
+      }
+    },
+    {
+      "step_id": "teaching_material_change",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "material_change"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.context_sources": {
+          "includes": [
+            "management_teaching"
+          ]
+        },
+        "focus.result": "kept",
+        "focus.content_versions": 1,
+        "focus.model_calls": 1,
+        "results.created": 0,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

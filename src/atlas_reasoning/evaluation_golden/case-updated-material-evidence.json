@@ -1,0 +1,84 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "updated-material-evidence",
+  "number": 2,
+  "title": "A material evidence change updates the same card (patch, not regeneration)",
+  "requirement": "REV/19 #1 updated; acceptance: material changes update cards",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "material_change",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "material_change"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.gate_action": "updated",
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 1,
+        "focus.change_kinds": {
+          "excludes": [
+            "created"
+          ]
+        },
+        "focus.model_calls": 1,
+        "calls.reasoning": 1,
+        "gate.updated": 1,
+        "gate.unchanged": 16,
+        "results.created": 0,
+        "run.status": "complete",
+        "focus.reasked_answered": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "second_material_change",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "material_change_2"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.gate_action": "updated",
+        "focus.result": "kept",
+        "focus.content_versions": 1,
+        "focus.change_kinds": {
+          "excludes": [
+            "created"
+          ]
+        },
+        "calls.reasoning": 1,
+        "results.created": 0,
+        "run.status": "complete",
+        "focus.reasked_answered": 0,
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "manager-note-added",
+  "number": 8,
+  "title": "A manager note never defeats the Change Gate and reaches the next update as attributed context",
+  "requirement": "REV/19 #1 manager note",
+  "category": "human_context",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "note",
+      "actions": [
+        {
+          "op": "human",
+          "kind": "note"
+        }
+      ]
+    },
+    {
+      "step_id": "note_same_evidence",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "integrity.duplicates": 0,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 0,
+        "focus.model_calls": 0,
+        "focus.questions_opened": 0,
+        "focus.context_sources": []
+      }
+    },
+    {
+      "step_id": "note_material_change",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "material_change"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.context_sources": {
+          "includes": [
+            "manager_interpretation"
+          ]
+        },
+        "focus.result": "kept",
+        "focus.content_versions": 1,
+        "focus.change_kinds": {
+          "excludes": [
+            "created"
+          ]
+        },
+        "focus.model_calls": 1,
+        "results.created": 0,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

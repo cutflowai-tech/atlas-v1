@@ -1,0 +1,65 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "resume-after-interruption",
+  "number": 16,
+  "title": "An interrupted claim is never taken over while young and is recovered once stale",
+  "requirement": "REV/18 resume after an interrupted run (Phase 18-A)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "gated",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        }
+      ]
+    },
+    {
+      "step_id": "young_claim",
+      "actions": [
+        {
+          "op": "claim",
+          "target": "focus"
+        },
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "partial",
+        "run.recovered": 0,
+        "focus.result": "none",
+        "results.created": 16,
+        "work.open": 1,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "stale_claim",
+      "actions": [
+        {
+          "op": "age_claims",
+          "seconds": 86400
+        },
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "run.recovered": 1,
+        "run.retries": 1,
+        "focus.result": "created",
+        "results.created": 1,
+        "focus.model_calls": 1,
+        "work.open": 0,
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

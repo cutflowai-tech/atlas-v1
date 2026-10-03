@@ -1,0 +1,77 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "provider-failure",
+  "number": 13,
+  "title": "A provider failure keeps the previous card; resume updates that same card exactly once",
+  "requirement": "REV/19 #1 provider failure",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "provider_down",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "material_change"
+        },
+        {
+          "op": "fault",
+          "kind": "provider_outage",
+          "target": "focus"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "run.status": "partial",
+        "run.reasons": [
+          "resumable_failures"
+        ],
+        "focus.result": "kept",
+        "focus.content_versions": 0,
+        "focus.model_calls": 1,
+        "calls.failed": 1,
+        "results.created": 0,
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "resumed",
+      "actions": [
+        {
+          "op": "resume"
+        }
+      ],
+      "expect": {
+        "run.status": "complete",
+        "run.retries": 1,
+        "focus.result": "kept",
+        "focus.content_versions": 1,
+        "focus.change_kinds": {
+          "excludes": [
+            "created"
+          ]
+        },
+        "results.created": 0,
+        "work.open": 0,
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

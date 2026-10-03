@@ -1,0 +1,87 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "unchanged-evidence",
+  "number": 1,
+  "title": "Unchanged evidence preserves every card with zero model work",
+  "requirement": "REV/19 #1 unchanged; acceptance: same evidence preserves cards; irrelevant changes do not trigger rewrites",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "same_evidence",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "integrity.duplicates": 0,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 0,
+        "focus.model_calls": 0,
+        "focus.questions_opened": 0,
+        "gate.unchanged": 17,
+        "gate.new": 0,
+        "gate.updated": 0,
+        "focus.gate_action": "unchanged",
+        "focus.lifecycle": "active"
+      }
+    },
+    {
+      "step_id": "non_material_change",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "non_material"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "calls.reasoning": 0,
+        "results.created": 0,
+        "versions.content": 0,
+        "run.status": "complete",
+        "run.calls_used": 0,
+        "integrity.duplicates": 0,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.content_versions": 0,
+        "focus.model_calls": 0,
+        "focus.questions_opened": 0,
+        "gate.unchanged": 17,
+        "gate.new": 0,
+        "gate.updated": 0,
+        "focus.gate_action": "unchanged",
+        "focus.lifecycle": "active",
+        "focus.change_kinds": []
+      }
+    }
+  ]
+}

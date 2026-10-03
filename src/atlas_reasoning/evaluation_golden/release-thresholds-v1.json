@@ -1,0 +1,22 @@
+{
+  "schema": "reasoning-release-thresholds-v1",
+  "version": "release-thresholds-v1",
+  "thresholds": [
+    {"metric": "case_identity_stability", "comparator": ">=", "bound": "1", "on_no_data": "fail",
+     "rationale": "Case identity is deterministic (Phase 04): the same semantic case must always keep its case_id. Any loss breaks card history, questions and memory scope."},
+    {"metric": "unnecessary_new_card_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "REV/19 acceptance: same evidence preserves cards and material changes update them. A second card for a case with a reusable card is churn management would see."},
+    {"metric": "unnecessary_field_rewrite_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "REV/19 acceptance: irrelevant changes do not trigger rewrites. Updates are patches (Phase 08): a field changes only with moved evidence and only when declared."},
+    {"metric": "grounding_failure_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "REV/19 acceptance: grounding thresholds are met. A committed card is the canonical output shown to management; every conclusion must trace to deterministic evidence."},
+    {"metric": "validation_rejection_rate", "comparator": "<=", "bound": "0.05", "on_no_data": "fail",
+     "rationale": "Refused candidates are safe (never committed) but cost a corrective call and delay a card. More than 1 refusal in 20 answers means the prompt or model does not fit the contract; that must be fixed before release, not absorbed by re-asks."},
+    {"metric": "lifecycle_churn_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "Lifecycle is deterministic (Phase 09): a card never flip-flops within a run, never cools while its case is present, and is never shown as current while its case is absent."},
+    {"metric": "duplicate_question_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "Repeated processing must never ask management the same question twice or re-ask an answered one (Phase 13)."},
+    {"metric": "expectation_failure_rate", "comparator": "<=", "bound": "0", "on_no_data": "fail",
+     "rationale": "Every golden case's structural expectations describe required behaviour; one failed expectation is a failed golden case."}
+  ]
+}
