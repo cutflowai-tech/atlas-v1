@@ -331,3 +331,21 @@ sudo /usr/bin/docker compose --env-file /etc/waset-atlas/atlas.env --project-dir
 
 Task 10 must verify the actual source run, publication pointer, EN/AR pages, evidence coverage, and
 absence of secrets before restarting the timer. None of these live commands is executed in Task 9.
+
+## 12. Reasoning V3 (prepared, not active)
+
+Production runs deterministic Atlas only. Reasoning V3 (REV/20) is **prepared in this repository and not deployed**:
+- No Reasoning V3 service, database, provider key, memory key, route or timer is installed by this runbook.
+- Sections 1–11 are unchanged by it.
+- Its rollout is a separately approved, staged operation. Every stage needs explicit human approval, and every host command in these documents is labelled DO NOT EXECUTE WITHOUT LIVE-ROLLOUT APPROVAL.
+
+- [`REASONING-V3-PRODUCTION-ROLLOUT.md`](REASONING-V3-PRODUCTION-ROLLOUT.md): topology, configuration (`deploy/production/reasoning.env.example`, `compose.reasoning.yaml`, `Dockerfile.reasoning`), migrations before writes, and the six stages with their verification and rollback.
+- [`REASONING-V3-RECOVERY.md`](REASONING-V3-RECOVERY.md): pre-enable backup, the isolated restore drill, the database restore decision path, capability rollback, partial-run recovery, and OpenRouter and Honcho outages.
+- [`REASONING-V3-MONITORING.md`](REASONING-V3-MONITORING.md): the monitoring checklist, built on the Phase 18-C reliability report and the Phase 19 evaluation report.
+- [`REASONING-V3-RELEASE-CHECKLIST.md`](REASONING-V3-RELEASE-CHECKLIST.md): release verification. A complete record never authorizes deployment by itself.
+
+Reasoning V3 never changes the deterministic path in this runbook:
+- `atlas-web` serves only `/`, `/en/` and `/ar/` from `published/current`.
+- `atlas-runtime` and the timer are unchanged.
+- `atlas_sync` and `atlas_commander` never import Reasoning V3.
+- Turning Reasoning V3 off (`ATLAS_REASONING_V3=off`) leaves the published site exactly as it is.
