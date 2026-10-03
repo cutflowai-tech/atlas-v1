@@ -1,0 +1,3 @@
+# Reasoning V3 (src/atlas_reasoning, docs/REASONING-V3.md): canonical state in PostgreSQL.
+# Not part of the production sync image (deploy/production/runtime-requirements.txt) until Reasoning V3 is rolled out (REV/20).
+psycopg[binary]>=3.2,<4

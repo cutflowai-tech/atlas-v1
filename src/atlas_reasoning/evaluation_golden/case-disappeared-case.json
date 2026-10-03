@@ -1,0 +1,72 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "disappeared-case",
+  "number": 4,
+  "title": "A disappeared case cools without a model call and its card returns when the case does",
+  "requirement": "REV/19 #1 disappeared",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "disappeared",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "focus_removed"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.gate_action": "disappeared",
+        "focus.present": false,
+        "focus.result": "kept",
+        "focus.lifecycle": "cooling",
+        "focus.model_calls": 0,
+        "focus.content_versions": 0,
+        "results.created": 0,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    },
+    {
+      "step_id": "reappeared",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.present": true,
+        "focus.result": "kept",
+        "focus.case_id_stable": true,
+        "focus.lifecycle": "active",
+        "focus.model_calls": 0,
+        "focus.content_versions": 0,
+        "results.created": 0,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

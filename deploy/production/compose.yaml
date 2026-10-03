@@ -11,8 +11,10 @@ services:
       - ALL
     group_add:
       - "${ATLAS_GID:-10001}"
+    # host ATLAS_HTTP_BIND:ATLAS_HTTP_PORT (default 127.0.0.1:18000) -> container port 8080 (nginx.conf `listen 8080`).
+    # Only the host side is configurable; the container port is fixed.
     ports:
-      - "${ATLAS_HTTP_BIND:-127.0.0.1}:${ATLAS_HTTP_PORT:-8080}:8080"
+      - "${ATLAS_HTTP_BIND:-127.0.0.1}:${ATLAS_HTTP_PORT:-18000}:8080"
     volumes:
       - type: bind
         source: ${ATLAS_HOST_DATA_DIR:-/var/lib/waset-atlas}

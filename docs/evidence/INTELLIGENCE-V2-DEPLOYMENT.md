@@ -9,7 +9,7 @@ Deployment of `feat/atlas-intelligence-v2` to the Atlas production host, followi
 |---|---|
 | Deployed commit (tested, pushed) | `ee0c19b3b5c64d8e340d1e191252c78737d5d646` (`origin/feat/atlas-intelligence-v2`, local HEAD == remote HEAD) |
 | Base | `ui-ux` `eccaa8c9735d51f92a866103b0c094774ade4f61` (unchanged); `main` `d9918d105fb0b130bd47dfcc996723341d8ac989` (unchanged, not merged) |
-| Local gate on that commit | `make test`: 751 tests, 0 failures, 3 skipped (Docker runtime tests without `ATLAS_RUN_DOCKER`); ruff and mypy clean |
+| Local gate on that commit | `make test`: 751 tests, 0 failures, 3 skipped (Docker runtime tests without `ATLAS_RUN_DOCKER_TESTS=1`); ruff and mypy clean |
 | Remote CI | not triggered: CI runs on pull requests and on pushes to `main` / `integration` only |
 
 This record is a documentation-only commit on top of the deployed commit; it changes no runtime file.

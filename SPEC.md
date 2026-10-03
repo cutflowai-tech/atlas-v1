@@ -37,4 +37,4 @@ For one known Editor, ingest real Monday activity and produce a traceable Editor
 - Payroll, disciplinary, surveillance, forecasting, or client-scoring features.
 - A broad dashboard suite before the one-Editor real-data vertical slice is verified.
 
-The contracts in `CONTRACTS.md` and rules in `docs/ATLAS_V1_RULES.md` are normative for the contract version they describe (1.4.0 is active; the 1.5.0 candidate's differences are listed in their own section). Unknown business definitions must remain explicit nulls or exceptions rather than being guessed.
+The contracts in `CONTRACTS.md` and rules in `docs/ATLAS_V1_RULES.md` are normative for the contract version they describe (1.4.0 is the default; 1.5.0 is the D52 production opt-in and its differences are listed in their own section). Unknown business definitions must remain explicit nulls or exceptions rather than being guessed.

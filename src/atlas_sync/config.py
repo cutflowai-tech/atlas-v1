@@ -28,6 +28,9 @@ ATLAS_MAX_CONSECUTIVE_FAILURES            no        Failed syncs in a row before
                                                     state (default 3).
 ATLAS_SYNC_MAX_DURATION_SECONDS           no        Time budget for one sync attempt; no new stage
                                                     or Monday request starts after it (default 7200).
+ATLAS_RETENTION_SECONDS                   no        Minimum age of Atlas-owned operational evidence
+                                                    before retention may remove it (default 345600,
+                                                    96 hours; at least 3600).
 ========================================  ========  ==============================================
 
 ``*`` Either ATLAS_DATA_DIR, or all three of ATLAS_RAW_DIR, ATLAS_BUILD_DIR and ATLAS_PUBLISH_DIR.

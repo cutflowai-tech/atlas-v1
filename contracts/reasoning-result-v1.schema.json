@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atlas.local/contracts/reasoning-result-v1.schema.json",
+  "title": "ReasoningResultV1",
+  "description": "Atlas's management reasoning about one case, one version. Every visible conclusion cites deterministic evidence references of its case. reasoning_summary is an explicit summary written for management, never raw or hidden chain-of-thought. Identity, lifecycle, provenance and timestamps are set deterministically, never by an LLM patch.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "result_id", "case_id", "version", "title", "observation", "reasoning_summary", "supporting_evidence", "counter_evidence",
+               "interpretation", "alternative_explanations", "confidence", "limitations", "management_significance", "questions_for_management",
+               "suggested_investigations", "lifecycle_status", "superseded_by", "source_snapshot_id", "evidence_fingerprint", "model_metadata",
+               "prompt_version", "created_at", "updated_at"],
+  "properties": {
+    "contract_version": {"$ref": "reasoning-common-v1.schema.json#/$defs/contract_version"},
+    "result_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/result_id"},
+    "case_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_id"},
+    "version": {"type": "integer", "minimum": 1},
+    "title": {"type": "string", "minLength": 1, "maxLength": 160},
+    "observation": {"$ref": "reasoning-common-v1.schema.json#/$defs/claim"},
+    "reasoning_summary": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"},
+    "supporting_evidence": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/claim"}, "minItems": 1},
+    "counter_evidence": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/claim"}},
+    "interpretation": {"$ref": "reasoning-common-v1.schema.json#/$defs/claim"},
+    "alternative_explanations": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["explanation", "evidence_refs", "requires_context"],
+        "properties": {
+          "explanation": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"},
+          "evidence_refs": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_refs"},
+          "requires_context": {"type": "boolean", "description": "true when the explanation depends on business context Atlas does not have (it then cites no evidence and is a hypothesis to check)."}
+        }
+      }
+    },
+    "confidence": {
+      "type": "object", "additionalProperties": false, "required": ["level", "rationale"],
+      "properties": {"level": {"$ref": "reasoning-common-v1.schema.json#/$defs/confidence_level"}, "rationale": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"}}
+    },
+    "limitations": {"type": "array", "items": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"}},
+    "management_significance": {"$ref": "reasoning-common-v1.schema.json#/$defs/claim"},
+    "questions_for_management": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["text", "reason", "expected_context_type"],
+        "properties": {
+          "text": {"$ref": "reasoning-common-v1.schema.json#/$defs/short_text"},
+          "reason": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"},
+          "expected_context_type": {"$ref": "reasoning-common-v1.schema.json#/$defs/expected_context_type"}
+        }
+      }
+    },
+    "suggested_investigations": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["text", "evidence_refs"],
+        "properties": {"text": {"$ref": "reasoning-common-v1.schema.json#/$defs/text"}, "evidence_refs": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_refs"}}
+      }
+    },
+    "lifecycle_status": {"$ref": "reasoning-common-v1.schema.json#/$defs/lifecycle_status"},
+    "superseded_by": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false, "required": ["case_id", "result_id"],
+         "properties": {"case_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/case_id"}, "result_id": {"$ref": "reasoning-common-v1.schema.json#/$defs/result_id"}}}
+      ]
+    },
+    "source_snapshot_id": {"type": "string", "minLength": 1},
+    "evidence_fingerprint": {"$ref": "reasoning-common-v1.schema.json#/$defs/evidence_fingerprint"},
+    "model_metadata": {
+      "type": "object", "additionalProperties": false, "required": ["provider", "model", "request_ids"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "model": {"type": "string", "minLength": 1},
+        "request_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true}
+      }
+    },
+    "prompt_version": {"type": "string", "minLength": 1, "maxLength": 100},
+    "created_at": {"$ref": "reasoning-common-v1.schema.json#/$defs/timestamp"},
+    "updated_at": {"$ref": "reasoning-common-v1.schema.json#/$defs/timestamp"}
+  }
+}

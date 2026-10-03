@@ -1,0 +1,41 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "partial-run",
+  "number": 14,
+  "title": "A call budget stops new work: the run is partial and the rest stays pending",
+  "requirement": "REV/18 run status partial (Phase 18-A)",
+  "category": "reliability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-12|deadline",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "budget_three",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate",
+          "budget": 3
+        }
+      ],
+      "expect": {
+        "run.status": "partial",
+        "run.reasons": [
+          "work_deferred"
+        ],
+        "run.executive_ready": false,
+        "run.calls_used": 3,
+        "run.admitted": 3,
+        "run.deferred": 14,
+        "calls.reasoning": 3,
+        "results.created": 3,
+        "work.open": 14,
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

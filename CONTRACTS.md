@@ -11,6 +11,7 @@ The JSON Schemas under `contracts/` are the machine-readable V1 boundary. Fixtur
 | `deadline-metric` | Deadline result | compares Ready For Approval with Monday Requested ETA |
 | `quality-metric` | Quality result | value originates from an approved Monday Performance Label |
 | `editor-profile` | Evidence API response | Editor is the subject; metrics retain their own evidence; AI annotation is optional |
+| `reasoning-case-v1` / `reasoning-result-v1` / `reasoning-update-v1` (+ `reasoning-common-v1`) | Reasoning V3 contracts `reasoning-v1` (feature-flagged, default off; `docs/REASONING-V3.md` §3) | Downstream of Intelligence V2 only; never an input to any deterministic output; deterministic `case_id`; every visible conclusion cites deterministic evidence references of its case; no field for raw chain-of-thought; unknown fields rejected; an update is a patch that cannot touch identity, lifecycle, provenance or timestamps |
 | `intelligence-v2` | Optional investigation document (contract 1.5.0+, feature-gated; published since D53, 2026-09-30) | Independently versioned; never an input to any metric, state or status; every finding has typed statements, Monday evidence records with event IDs, confidence, limitations and its parameters' approval state; no score or rank of people; only `approved_only` output may be published (`docs/INTELLIGENCE-V2.md`) |
 
 Metric payload contracts retain their own version declared in each schema. The immutable executable contract 1.5 boundary is

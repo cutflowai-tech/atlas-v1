@@ -26,6 +26,21 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
+    services:
+      # Disposable PostgreSQL for the Reasoning V3 state tests (make reasoning); nothing else uses it.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas-ci-only
+          POSTGRES_DB: atlas_reasoning_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U atlas -d atlas_reasoning_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -104,6 +119,24 @@ jobs:
         run: make ui-v15
       - name: Redesign snapshot, verdict engine and judgment-first UI tests
         run: make redesign
+      # The Phase 20-B isolated restore drill needs pg_dump/pg_restore at least as new as the postgres:17 service; the runner's own
+      # client is older. Install the matching client from the official PostgreSQL (PGDG) apt repository via postgresql-common's script.
+      - name: PostgreSQL 17 client for the isolated restore drill
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          /usr/lib/postgresql/17/bin/pg_restore --version
+      - name: Reasoning V3 foundation tests (boundary, contracts, state, identity, change gate, gateway)
+        env:
+          ATLAS_REASONING_TEST_DATABASE_URL: postgresql://atlas:atlas-ci-only@localhost:5432/atlas_reasoning_test
+          ATLAS_REASONING_REQUIRE_DB_TESTS: "1"
+          # The restore drill must run here (a skip is a failure); with the PostgreSQL 17 client tools installed above.
+          ATLAS_REASONING_REQUIRE_RESTORE_DRILL: "1"
+          ATLAS_RESTORE_DRILL_PG_BIN: /usr/lib/postgresql/17/bin
+        run: make reasoning
       - name: Status dashboard UI tests
         run: make status-ui
       - name: Sync status and data health tests

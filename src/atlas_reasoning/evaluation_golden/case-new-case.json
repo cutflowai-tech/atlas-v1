@@ -1,0 +1,55 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "new-case",
+  "number": 3,
+  "title": "A case never seen before gets exactly one new card; existing cards are untouched",
+  "requirement": "REV/19 #1 new",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|editor|editor-label-99|speed",
+  "runtime": {},
+  "metric_exclusions": {},
+  "steps": [
+    {
+      "step_id": "baseline",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ]
+    },
+    {
+      "step_id": "new_topic",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "new_topic"
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.gate_action": "new",
+        "focus.result": "created",
+        "focus.case_id_stable": null,
+        "focus.content_versions": 1,
+        "focus.change_kinds": [
+          "created"
+        ],
+        "focus.lifecycle": "new",
+        "focus.model_calls": 1,
+        "results.created": 1,
+        "gate.new": 1,
+        "gate.unchanged": 17,
+        "calls.reasoning": 1,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}

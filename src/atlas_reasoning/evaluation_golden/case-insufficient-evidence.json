@@ -1,0 +1,48 @@
+{
+  "schema": "reasoning-golden-case-v1",
+  "fixture_id": "insufficient-evidence",
+  "number": 7,
+  "title": "Weak evidence caps confidence: an overclaiming answer is refused and only a card within the ceiling is published",
+  "requirement": "REV/19 #1 insufficient evidence; Phase 15 confidence ceiling",
+  "category": "stability",
+  "dataset": "showcase-v1",
+  "focus": "case-identity-v1|workflow_stage|post_editor|post_editor_delay",
+  "runtime": {
+    "validation_retries": 1
+  },
+  "metric_exclusions": {
+    "validation_rejection_rate": "fault injected on purpose: the scripted model's refused answers are the scenario, not a measurement of model quality"
+  },
+  "steps": [
+    {
+      "step_id": "overclaim_refused",
+      "actions": [
+        {
+          "op": "gate",
+          "evidence": "showcase"
+        },
+        {
+          "op": "fault",
+          "kind": "overclaim",
+          "target": "focus",
+          "count": 1
+        },
+        {
+          "op": "orchestrate"
+        }
+      ],
+      "expect": {
+        "focus.validation_refusals": 1,
+        "focus.model_calls": 2,
+        "focus.result": "created",
+        "focus.confidence": "weak",
+        "focus.lifecycle": "new",
+        "validation.refusals": 1,
+        "telemetry.corrective_reasks": 1,
+        "results.created": 17,
+        "run.status": "complete",
+        "integrity.duplicates": 0
+      }
+    }
+  ]
+}
