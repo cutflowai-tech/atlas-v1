@@ -1,0 +1,104 @@
+# Reasoning V3 live topology (REV/20 rollout; docs/REASONING-V3-LIVE-TOPOLOGY.md). Loaded together with compose.yaml and
+# compose.reasoning.yaml:
+#
+#   docker compose --env-file /etc/waset-atlas/atlas.env --env-file /etc/waset-atlas/reasoning.env --project-directory /opt/waset-atlas/current \
+#     -f deploy/production/compose.yaml -f deploy/production/compose.reasoning.yaml -f deploy/production/compose.reasoning-live.yaml ...
+#
+# - reasoning-db: the canonical Reasoning V3 PostgreSQL. Only on the internal `reasoning-db` network: no port, no outbound route.
+# - reasoning-web: the production WSGI process (gunicorn atlas_reasoning.wsgi:application). It publishes one port on host loopback only,
+#   for the host reverse proxy. Rollout, actor, allow-list, CSRF and Origin rules are the application's (atlas_reasoning.web_app).
+# - reasoning-ops: unchanged command surface; it joins the database network and reads the published deterministic site read-only, so
+#   `gate` runs on the server (REASONING-V3-PRODUCTION-ROLLOUT.md §2.3).
+# - Profile-gated: `docker compose up` of compose.yaml still starts only atlas-web. Secrets only as read-only files.
+services:
+  reasoning-db:
+    image: ${ATLAS_REASONING_DB_IMAGE:-postgres:17-bookworm@sha256:639ab7ceb90e13123085b741fb31ef493fba25463002f6da665352e7b534b652}
+    profiles: ["reasoning-live"]
+    user: "999:999"
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    shm_size: 128m
+    environment:
+      POSTGRES_DB: atlas_reasoning
+      POSTGRES_USER: atlas_reasoning
+      POSTGRES_PASSWORD_FILE: /run/secrets/reasoning_db_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - type: bind
+        source: ${ATLAS_REASONING_HOST_DB_DIR:-/var/lib/waset-atlas-reasoning/postgres}
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: ${ATLAS_REASONING_HOST_DB_PASSWORD_FILE:-/etc/waset-atlas/secrets/reasoning_db_password}
+        target: /run/secrets/reasoning_db_password
+        read_only: true
+    tmpfs:
+      - /var/run/postgresql:size=1m,mode=2775,uid=999,gid=999
+      - /tmp:size=32m,mode=1777
+    networks:
+      - reasoning-db
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "atlas_reasoning", "-d", "atlas_reasoning"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  reasoning-ops:
+    networks:
+      - default
+      - reasoning-db
+    volumes:
+      - type: bind
+        source: ${ATLAS_HOST_DATA_DIR:-/var/lib/waset-atlas}
+        target: /var/lib/waset-atlas
+        read_only: true
+
+  reasoning-web:
+    extends:
+      file: compose.reasoning.yaml
+      service: reasoning-ops
+    profiles: ["reasoning-live"]
+    restart: unless-stopped
+    entrypoint: ["gunicorn"]
+    command: ["--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "60", "--worker-tmp-dir", "/tmp",
+              "--access-logfile", "-", "atlas_reasoning.wsgi:application"]
+    # host loopback only -> container 8080; the host reverse proxy is the only client.
+    ports:
+      - "127.0.0.1:${ATLAS_REASONING_WEB_PORT:-18002}:8080"
+    environment:
+      ATLAS_REASONING_MANAGERS: ${ATLAS_REASONING_MANAGERS:-}
+      ATLAS_REASONING_ALLOWED_ORIGINS: ${ATLAS_REASONING_ALLOWED_ORIGINS:-}
+      ATLAS_REASONING_ACTOR_HEADER: ${ATLAS_REASONING_ACTOR_HEADER:-}
+      ATLAS_REASONING_CSRF_SECRET_FILE: /run/secrets/reasoning_csrf_secret
+      ATLAS_REASONING_DIAGNOSTICS_URL: ${ATLAS_REASONING_DIAGNOSTICS_URL:-}
+      ATLAS_REASONING_MONDAY_ITEM_URL: ${ATLAS_REASONING_MONDAY_ITEM_URL:-}
+    volumes:
+      - type: bind
+        source: ${ATLAS_REASONING_HOST_CSRF_SECRET_FILE:-/etc/waset-atlas/secrets/reasoning_csrf_secret}
+        target: /run/secrets/reasoning_csrf_secret
+        read_only: true
+    networks:
+      - default
+      - reasoning-db
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8080), 3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  reasoning-db:
+    internal: true

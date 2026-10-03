@@ -120,6 +120,29 @@ class FingerprintTests(unittest.TestCase):
                     statement["params"]["cohort_label"] = "Renamed Video Type"
         self.assertEqual({k: (d["orientation"], d["evidence_fingerprint"]) for k, d in documents(payload_with(changed)).items()}, expected)
 
+    def test_several_records_of_one_item_in_a_block_become_one_reference(self):
+        # Production unknown_status_spans lists one record per span, and a project can have two spans (no cycle) in one block.
+        changed = rows()
+        row = next(r for r in changed if any(b["records"] for b in r["supporting_evidence"]))
+        block = next(b for b in row["supporting_evidence"] if b["records"])
+        first = block["records"][0]
+        second = dict(first, event_ids=["span-2-start", "span-2-end"], source_timestamps=["2026-07-20T00:00:00Z"],
+                      values={**first["values"], "phase": "post_editor"})
+        block["records"].insert(1, second)
+        document = next(d for d in documents(payload_with(changed)).values()
+                        if any(ref["finding_id"] == row["finding_id"] for ref in d["current_evidence"]["references"]))
+        self.assertEqual(case_errors(document), [])
+        merged = [ref for ref in document["current_evidence"]["references"]
+                  if ref["finding_id"] == row["finding_id"] and ref["monday_item_id"] == first["monday_item_id"] and ref["evidence_code"] == block["code"]]
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["event_ids"], [*first["event_ids"], "span-2-start", "span-2-end"])
+        self.assertEqual(merged[0]["source_timestamps"], [*first["source_timestamps"], "2026-07-20T00:00:00Z"])
+        self.assertEqual(merged[0]["values"], {"records": [first["values"], second["values"]]})
+        # An identical repeated record adds nothing.
+        block["records"].insert(1, copy.deepcopy(first))
+        again = next(d for d in documents(payload_with(changed)).values() if d["case_id"] == document["case_id"])
+        self.assertEqual(again["evidence_fingerprint"], document["evidence_fingerprint"])
+
     def test_fingerprint_is_verifiable_from_the_case_itself(self):
         document = documents(snapshots.reasoning_input())[DEADLINE_12]
         tampered = copy.deepcopy(document)

@@ -46,17 +46,40 @@ def _finding_ref(row: Contribution) -> dict[str, Any]:
             "sample_size": finding.sample_size, "rank": finding.rank, "limitations": sorted(set(finding.limitations))}
 
 
+def _unique(values: Iterable[str]) -> list[str]:
+    return list(dict.fromkeys(values))
+
+
+def _merge_reference(existing: dict[str, Any], reference: dict[str, Any], values: list[dict[str, Any]]) -> None:
+    """Fold a second record with the same reference identity into ``existing``. An evidence reference is one item (and cycle) of
+    one block, but a block may list several records for it: ``unknown_status_spans`` lists one record per span, and a project can
+    have several spans (for example one in the editor phase and one after it). Nothing is dropped: the event IDs and source
+    timestamps are joined in record order, and differing values are kept as ``{"records": [...]}`` in record order."""
+    for field in ("editor_id", "video_type_key"):
+        if existing[field] != reference[field]:
+            raise EvidenceError(f"{reference['member_key']}: two records for item {reference['monday_item_id']} in block "
+                                f"{reference['evidence_code']} disagree on {field}")
+    existing["event_ids"] = _unique([*existing["event_ids"], *reference["event_ids"]])
+    existing["source_timestamps"] = _unique([*existing["source_timestamps"], *reference["source_timestamps"]])
+    if reference["values"] not in values:
+        values.append(reference["values"])
+    existing["values"] = values[0] if len(values) == 1 else {"records": list(values)}
+
+
 def _references(row: Contribution, block: EvidenceBlockRef) -> list[dict[str, Any]]:
     references: dict[str, dict[str, Any]] = {}
+    values: dict[str, list[dict[str, Any]]] = {}
     for record in block.records:
         ref_id = evidence_ref_id(row.member_key, block.role, block.code, record.monday_item_id, record.cycle_id)
         reference = {"ref_id": ref_id, "member_key": row.member_key, "finding_id": row.finding.finding_id, "role": block.role,
                      "evidence_code": block.code, "monday_item_id": record.monday_item_id, "cycle_id": record.cycle_id, "editor_id": record.editor_id,
                      "video_type_key": record.cohort_key, "event_ids": list(record.event_ids), "source_timestamps": list(record.source_timestamps),
                      "values": thaw(record.values)}
-        existing = references.setdefault(ref_id, reference)
-        if existing != reference:
-            raise EvidenceError(f"{row.member_key}: two different records for item {record.monday_item_id} in block {block.code}")
+        if ref_id in references:
+            _merge_reference(references[ref_id], reference, values[ref_id])
+        else:
+            references[ref_id] = reference
+            values[ref_id] = [reference["values"]]
     return list(references.values())
 
 
