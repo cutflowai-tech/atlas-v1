@@ -298,6 +298,43 @@ def load_reasoning_input(site: Path) -> ReasoningInput:
     return build_reasoning_input(intelligence=json.loads(intelligence_path.read_text()), publication=publication, profiles=profiles)
 
 
+# --- the synthetic showcase dataset (Phase 19 evaluation; additive) ---------------------------------------------------------------
+
+SHOWCASE_DATASET = "showcase-v1"
+_showcase_cache: dict[str, tuple[Any, Any, Any]] = {}
+
+
+def showcase_documents() -> tuple[dict[str, Any], dict[str, Any], tuple[dict[str, Any], ...]]:
+    """The documents a contract 1.5.0 site build writes for the **synthetic showcase extract** (``atlas_commander.demo``: no Monday,
+    no network, no credential): Intelligence V2, ``publication.json`` and every Editor Profile, built at the showcase's fixed
+    ``GENERATED_AT``. This is the Phase 19 golden dataset (``evaluation_types.GOLDEN_DATASET``); evaluation reads Atlas through this
+    boundary like everything else in Reasoning V3. Returns deep copies (callers may derive evidence variants); built once per process."""
+    if SHOWCASE_DATASET not in _showcase_cache:
+        from atlas_commander.demo import GENERATED_AT, showcase_extract
+        from atlas_commander.investigation.engine import build_intelligence
+        from atlas_commander.profile import build_editor_profile, profiled_editors
+        from atlas_commander.profile_cli import reconstruct_extract
+        from atlas_commander.publication import site_publication
+        from atlas_commander.runtime import load_contract_version
+
+        contract = load_contract_version("1.5.0")
+        result = reconstruct_extract(showcase_extract(), contract)
+        profiles = {row["editor_id"]: build_editor_profile(result, contract, row["editor_id"], GENERATED_AT) for row in profiled_editors(result)}
+        intelligence = build_intelligence(result, contract, GENERATED_AT, profiles=profiles)
+        publication = site_publication(result, contract, GENERATED_AT)
+        if publication is None:  # pragma: no cover - the showcase is always publishable
+            raise ReasoningInputUnavailable("the showcase extract has no publication")
+        _showcase_cache[SHOWCASE_DATASET] = (freeze(intelligence), freeze(publication), freeze(tuple(profiles.values())))
+    intelligence, publication, profiles = _showcase_cache[SHOWCASE_DATASET]
+    return thaw(intelligence), thaw(publication), tuple(thaw(profiles))
+
+
+def showcase_reasoning_input() -> ReasoningInput:
+    """``build_reasoning_input`` of ``showcase_documents()``."""
+    intelligence, publication, profiles = showcase_documents()
+    return build_reasoning_input(intelligence=intelligence, publication=publication, profiles=profiles)
+
+
 def _statement(row: Mapping[str, Any]) -> UpstreamStatement:
     return UpstreamStatement(str(row["level"]), str(row["code"]), STATEMENT_KINDS[row["level"]], freeze_map(row.get("params")))
 
