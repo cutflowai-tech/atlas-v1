@@ -58,19 +58,32 @@ class LiveComposeTests(unittest.TestCase):
 
     def test_hardening(self):
         blocks = services(text(LIVE))
-        for name in ("reasoning-db", "reasoning-web"):
+        ops = services(text(PRODUCTION / "compose.reasoning.yaml"))["reasoning-ops"]
+        for name, user in (("reasoning-db", 'user: "999:999"'), ("reasoning-web", 'user: "${ATLAS_UID:-10001}:${ATLAS_GID:-10001}"')):
             block = blocks[name]
-            if name == "reasoning-db":
-                for line in ("read_only: true", "- no-new-privileges:true", "cap_drop:\n      - ALL", 'user: "999:999"'):
-                    self.assertIn(line, block)
-            else:     # inherits user, read_only, no-new-privileges and cap_drop from reasoning-ops
-                self.assertIn("extends:\n      file: compose.reasoning.yaml\n      service: reasoning-ops", block)
-            self.assertNotRegex(block, r"(?m)^\s+(privileged|pid|ipc|cap_add|devices|network_mode):")
+            for line in ("read_only: true", "- no-new-privileges:true", "cap_drop:\n      - ALL", user, "/tmp:size=32m,mode=1777"):
+                self.assertIn(line, block, name)
+            self.assertNotRegex(block, r"(?m)^\s+(privileged|pid|ipc|cap_add|devices|network_mode|extends):")
+        self.assertIn(user, ops)
+
+    def test_web_environment_is_the_operations_allow_list_plus_web_settings(self):
+        def environment(block: str) -> dict[str, str]:
+            body = block.split("environment:\n", 1)[1].split("    volumes:\n", 1)[0]
+            return {m.group(1): m.group(2).strip() for m in re.finditer(r"(?m)^\s+([A-Z][A-Z0-9_]+): ?(.*)$", body)}
+
+        ops = environment(services(text(PRODUCTION / "compose.reasoning.yaml"))["reasoning-ops"])
+        web = environment(services(text(LIVE))["reasoning-web"])
+        self.assertEqual({name: web[name] for name in ops}, ops)        # same names and the same defaults: no drift
+        self.assertEqual(set(web) - set(ops), {"ATLAS_REASONING_MANAGERS", "ATLAS_REASONING_ALLOWED_ORIGINS", "ATLAS_REASONING_ACTOR_HEADER",
+                                               "ATLAS_REASONING_CSRF_SECRET_FILE", "ATLAS_REASONING_DIAGNOSTICS_URL",
+                                               "ATLAS_REASONING_MONDAY_ITEM_URL"})
 
     def test_secrets_are_read_only_files(self):
         compose = text(LIVE)
         mounts = re.findall(r"source: (\S+)\n\s+target: (/run/secrets/\S+)\n\s+read_only: true", compose)
-        self.assertEqual({target for _, target in mounts}, {"/run/secrets/reasoning_db_password", "/run/secrets/reasoning_csrf_secret"})
+        self.assertEqual({target for _, target in mounts}, {"/run/secrets/reasoning_db_password", "/run/secrets/reasoning_csrf_secret",
+                                                          "/run/secrets/reasoning_database_url", "/run/secrets/openrouter_api_key",
+                                                          "/run/secrets/honcho_api_key"})
         for source, _ in mounts:
             self.assertRegex(source, r"^\$\{ATLAS_REASONING_HOST_[A-Z_]+_FILE:-/etc/waset-atlas/secrets/[a-z_]+\}$")
         for name in ("ATLAS_REASONING_DATABASE_URL", "OPENROUTER_API_KEY", "HONCHO_API_KEY", "ATLAS_REASONING_CSRF_SECRET"):

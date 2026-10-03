@@ -11,7 +11,7 @@ deployment (`compose.yaml`, `nginx.conf`, the hourly `waset-atlas.timer`) is unc
 | Service | Role | Exposure |
 |---|---|---|
 | `reasoning-db` | Canonical Reasoning V3 PostgreSQL 17 (pinned digest), database and role `atlas_reasoning` | Internal `reasoning-db` network only: no port and no outbound route |
-| `reasoning-web` | `gunicorn atlas_reasoning.wsgi:application`. The entry point is exactly `web_app.create_app()` | `127.0.0.1:${ATLAS_REASONING_WEB_PORT:-18002}` for the host reverse proxy |
+| `reasoning-web` | `gunicorn atlas_reasoning.wsgi:application` on the reasoning image, with the `reasoning-ops` hardening and environment allow-list plus the web settings. The entry point is exactly `web_app.create_app()` | `127.0.0.1:${ATLAS_REASONING_WEB_PORT:-18002}` for the host reverse proxy |
 | `reasoning-ops` | The Phase 20-B operations service, unchanged commands (`migrate`, `db-health`, `gate`, `reason`, …) | No port. It joins `reasoning-db` and reads `/var/lib/waset-atlas` read-only for `gate` |
 
 `reasoning-db` and `reasoning-web` use the `reasoning-live` profile. `reasoning-ops` keeps `reasoning-operations`. A plain `up` of
@@ -23,7 +23,7 @@ Every credential is a file under `/etc/waset-atlas/secrets/` and is mounted read
 
 | File | Reader |
 |---|---|
-| `reasoning_database_url` | `reasoning-ops`, `reasoning-web` (`postgresql://atlas_reasoning:…@reasoning-db:5432/atlas_reasoning`) |
+| `reasoning_database_url` | `reasoning-ops`, `reasoning-web` (role and database `atlas_reasoning` on host `reasoning-db`, port 5432) |
 | `reasoning_db_password` | `reasoning-db` (uid 999) |
 | `openrouter_api_key`, `honcho_api_key` | `reasoning-ops`, `reasoning-web` |
 | `reasoning_csrf_secret` | `reasoning-web` (at least 32 bytes) |

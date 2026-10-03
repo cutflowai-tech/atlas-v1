@@ -5,7 +5,7 @@
 #     -f deploy/production/compose.yaml -f deploy/production/compose.reasoning.yaml -f deploy/production/compose.reasoning-live.yaml ...
 #
 # - reasoning-db: the canonical Reasoning V3 PostgreSQL. Only on the internal `reasoning-db` network: no port, no outbound route.
-# - reasoning-web: the production WSGI process (gunicorn atlas_reasoning.wsgi:application). It publishes one port on host loopback only,
+# - reasoning-web: the production WSGI process (same image, hardening and env allow-list as reasoning-ops) (gunicorn atlas_reasoning.wsgi:application). It publishes one port on host loopback only,
 #   for the host reverse proxy. Rollout, actor, allow-list, CSRF and Origin rules are the application's (atlas_reasoning.web_app).
 # - reasoning-ops: unchanged command surface; it joins the database network and reads the published deterministic site read-only, so
 #   `gate` runs on the server (REASONING-V3-PRODUCTION-ROLLOUT.md §2.3).
@@ -62,18 +62,49 @@ services:
         read_only: true
 
   reasoning-web:
-    extends:
-      file: compose.reasoning.yaml
-      service: reasoning-ops
+    image: ${ATLAS_REASONING_IMAGE:-waset-atlas-reasoning:production}
     profiles: ["reasoning-live"]
+    user: "${ATLAS_UID:-10001}:${ATLAS_GID:-10001}"
+    read_only: true
+    init: true
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     entrypoint: ["gunicorn"]
     command: ["--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "60", "--worker-tmp-dir", "/tmp",
               "--access-logfile", "-", "atlas_reasoning.wsgi:application"]
     # host loopback only -> container 8080; the host reverse proxy is the only client.
     ports:
       - "127.0.0.1:${ATLAS_REASONING_WEB_PORT:-18002}:8080"
+    # The reasoning-ops allow-list (compose.reasoning.yaml), then the web-only settings.
     environment:
+      ATLAS_REASONING_V3: ${ATLAS_REASONING_V3:-off}
+      # `-on` (no colon): only an UNSET variable defaults to on; an explicitly blank value stays blank, which the application reads as
+      # off (fail-safe for the processing kill switch). Operators still set `=off` explicitly.
+      ATLAS_REASONING_EXECUTION: ${ATLAS_REASONING_EXECUTION-on}
+      ATLAS_REASONING_AUDIENCE: ${ATLAS_REASONING_AUDIENCE:-none}
+      ATLAS_REASONING_CARDS_PRIMARY: ${ATLAS_REASONING_CARDS_PRIMARY:-off}
+      ATLAS_REASONING_HUMAN_CONTEXT: ${ATLAS_REASONING_HUMAN_CONTEXT:-off}
+      ATLAS_REASONING_EXECUTIVE_HOME: ${ATLAS_REASONING_EXECUTIVE_HOME:-off}
+      ATLAS_REASONING_MODEL: ${ATLAS_REASONING_MODEL:-}
+      ATLAS_REASONING_ALLOW_MODEL_OVERRIDE: ${ATLAS_REASONING_ALLOW_MODEL_OVERRIDE:-off}
+      ATLAS_REASONING_DATABASE_URL_FILE: /run/secrets/reasoning_database_url
+      OPENROUTER_API_KEY_FILE: /run/secrets/openrouter_api_key
+      ATLAS_REASONING_MEMORY: ${ATLAS_REASONING_MEMORY:-off}
+      ATLAS_REASONING_ENVIRONMENT: ${ATLAS_REASONING_ENVIRONMENT:-production}
+      HONCHO_API_KEY_FILE: /run/secrets/honcho_api_key
+      ATLAS_REASONING_LLM_TIMEOUT_SECONDS: ${ATLAS_REASONING_LLM_TIMEOUT_SECONDS:-120}
+      ATLAS_REASONING_LLM_MAX_RETRIES: ${ATLAS_REASONING_LLM_MAX_RETRIES:-3}
+      ATLAS_REASONING_LLM_BACKOFF_SECONDS: ${ATLAS_REASONING_LLM_BACKOFF_SECONDS:-2}
+      ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS: ${ATLAS_REASONING_LLM_MAX_BACKOFF_SECONDS:-60}
+      ATLAS_REASONING_LLM_CONCURRENCY: ${ATLAS_REASONING_LLM_CONCURRENCY:-4}
+      ATLAS_REASONING_RUN_CALL_BUDGET: ${ATLAS_REASONING_RUN_CALL_BUDGET:-200}
+      ATLAS_REASONING_EXECUTIVE_CALL_BUDGET: ${ATLAS_REASONING_EXECUTIVE_CALL_BUDGET:-3}
+      ATLAS_REASONING_BREAKER_THRESHOLD: ${ATLAS_REASONING_BREAKER_THRESHOLD:-5}
+      ATLAS_REASONING_BREAKER_COOLDOWN_SECONDS: ${ATLAS_REASONING_BREAKER_COOLDOWN_SECONDS:-60}
+      ATLAS_REASONING_VALIDATION_RETRIES: ${ATLAS_REASONING_VALIDATION_RETRIES:-1}
       ATLAS_REASONING_MANAGERS: ${ATLAS_REASONING_MANAGERS:-}
       ATLAS_REASONING_ALLOWED_ORIGINS: ${ATLAS_REASONING_ALLOWED_ORIGINS:-}
       ATLAS_REASONING_ACTOR_HEADER: ${ATLAS_REASONING_ACTOR_HEADER:-}
@@ -82,9 +113,23 @@ services:
       ATLAS_REASONING_MONDAY_ITEM_URL: ${ATLAS_REASONING_MONDAY_ITEM_URL:-}
     volumes:
       - type: bind
+        source: ${ATLAS_REASONING_HOST_DATABASE_URL_FILE:-/etc/waset-atlas/secrets/reasoning_database_url}
+        target: /run/secrets/reasoning_database_url
+        read_only: true
+      - type: bind
+        source: ${ATLAS_REASONING_HOST_OPENROUTER_KEY_FILE:-/etc/waset-atlas/secrets/openrouter_api_key}
+        target: /run/secrets/openrouter_api_key
+        read_only: true
+      - type: bind
+        source: ${ATLAS_REASONING_HOST_HONCHO_KEY_FILE:-/etc/waset-atlas/secrets/honcho_api_key}
+        target: /run/secrets/honcho_api_key
+        read_only: true
+      - type: bind
         source: ${ATLAS_REASONING_HOST_CSRF_SECRET_FILE:-/etc/waset-atlas/secrets/reasoning_csrf_secret}
         target: /run/secrets/reasoning_csrf_secret
         read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
     networks:
       - default
       - reasoning-db
