@@ -19,6 +19,10 @@
     python -m atlas_reasoning memory-health [--dry-run]
                                                       check the Honcho memory configuration (--dry-run: no network call) or
                                                       get-or-create the environment's workspace
+    python -m atlas_reasoning evaluate run|review-template|review-validate ...
+                                                      the Phase 19 evaluation runner (offline by default, on a disposable test
+                                                      database; exit 0 only on PASS) and the human review checklist
+                                                      (atlas_reasoning.evaluation_cli)
     python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, copy teachings that came into effect,
                                                       then re-send pending or failed memory copies rebuilt from canonical rows
 
@@ -226,6 +230,13 @@ def cmd_memory_health(args: argparse.Namespace) -> int:
     return 0 if report["ok"] else 1
 
 
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    from atlas_reasoning import evaluation_cli
+    from atlas_reasoning.openrouter_client import OpenRouterTransport
+
+    return evaluation_cli.main(args.evaluate_args, live_transport=OpenRouterTransport)
+
+
 def cmd_memory_sync(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.human_context import sync_service
@@ -256,6 +267,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "provider-health": (cmd_provider_health, "check the OpenRouter configuration or connectivity"),
     "memory-health": (cmd_memory_health, "check the Honcho memory configuration or connectivity"),
     "memory-sync": (cmd_memory_sync, "re-send pending or failed memory copies"),
+    "evaluate": (cmd_evaluate, "run the Phase 19 evaluation or the human review checklist (see: evaluate --help)"),
 }
 
 
@@ -282,6 +294,8 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--dry-run", action="store_true", help="validate configuration only; no network call")
         elif name == "memory-sync":
             command.add_argument("--limit", type=int, default=100)
+        elif name == "evaluate":
+            command.add_argument("evaluate_args", nargs=argparse.REMAINDER, help="evaluation_cli arguments")
     return root
 
 
