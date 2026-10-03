@@ -186,7 +186,7 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(sent["material_delta"], self.case.to_dict()["material_delta"])
         self.assertTrue(sent["material_delta"]["changed_values"])
         self.assertEqual(sent["fields_requiring_change"], {"observation": ["uses_numbers_no_longer_in_the_case"]})
-        self.assertEqual(len(sent["evidence_references"]), len(self.case.current_evidence.references))
+        self.assertEqual(len(analyst.flat_evidence_references(sent)), len(self.case.current_evidence.references))
         self.assertEqual(updater.update_messages(self.v1, self.case), updater.update_messages(self.v1, self.case))
         for name in ("result_id", "case_id"):
             self.assertNotIn(getattr(self.v1, name), request.messages[1].content)

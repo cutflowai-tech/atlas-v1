@@ -19,6 +19,7 @@ from collections import deque
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from atlas_reasoning.analyst import flat_evidence_references
 from atlas_reasoning.contracts import PATCHABLE_FIELDS
 from atlas_reasoning.provider import ProviderError, ProviderRequest, ProviderResponse
 from atlas_reasoning.settings import PINNED_MODEL
@@ -41,7 +42,7 @@ def _refs(case: Mapping[str, Any]) -> tuple[list[str], list[str]]:
     contradicting_members = {row["member_key"] for row in case["contradicting_findings"]}
     support: list[str] = []
     contra: list[str] = []
-    for ref in case["evidence_references"]:
+    for ref in flat_evidence_references(case):
         (contra if ref["role"] == "contradicting" or ref["member_key"] in contradicting_members else support).append(ref["ref_id"])
     return support, contra
 

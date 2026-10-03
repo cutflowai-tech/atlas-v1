@@ -199,7 +199,7 @@ class IntegrationTests(unittest.TestCase):
         self.assertIn(answer.body, context["body"])
         self.assertEqual(context["author"], BOSS)
         self.assertNotIn(answer.body, self.evidence_text(payload))
-        self.assertNotIn(answer.answer_id, {ref["ref_id"] for ref in payload["evidence_references"]})
+        self.assertNotIn(answer.answer_id, {ref["ref_id"] for ref in analyst.flat_evidence_references(payload)})
         # The answered question is not asked again by the new version.
         self.assertEqual(self.open_questions(case_id), [])
         outcome = next(o for o in engine_report.outcomes if o.case_id == case_id)
