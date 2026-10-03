@@ -88,8 +88,9 @@ fill them from `PG*` variables), and inherited `PG*` variables are removed befor
   - no password on the command line.
 
 The full drill needs `pg_dump`/`pg_restore` at least as new as the server. Where they are missing it is **skipped with that reason**, unless
-`ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1` is set. Where CI's runner tools are older than its PostgreSQL 17 service, CI runs the verification and guard tests and reports the full drill as
-skipped with that reason; the full drill then runs on the release workstation (evidence in the Phase 20-B PR). **This is an isolated drill. It is not
+`ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1` is set, which turns that skip into a failure. **CI runs the full drill mandatorily:** it
+installs the PostgreSQL 17 client from the official PGDG repository (matching the `postgres:17` service), and the Reasoning V3 step sets
+`ATLAS_RESTORE_DRILL_PG_BIN=/usr/lib/postgresql/17/bin` and `ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1`. A static test pins this wiring. **This is an isolated drill. It is not
 evidence of a production backup or restore.**
 
 Run it on the release workstation before each release (checklist item `isolated_restore_drill`), against two **disposable test

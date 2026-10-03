@@ -458,6 +458,11 @@ class RestoreDrillGuardTests(unittest.TestCase):
             restore_drill.backup("postgresql://atlas@db:5432/atlas_reasoning_test", Path(tempfile.gettempdir()) / "never", env={})
 
 
+def drill_env() -> dict[str, str]:
+    """The drill's tool selection from the test environment (CI points it at the PostgreSQL 17 client); never anything else."""
+    return {name: os.environ[name] for name in ("ATLAS_RESTORE_DRILL_PG_BIN",) if os.environ.get(name)}
+
+
 def _tools_or_skip(url: str) -> None:
     required = os.environ.get("ATLAS_REASONING_REQUIRE_RESTORE_DRILL") == "1"
     try:
@@ -498,7 +503,7 @@ class IsolatedRestoreDrillTests(unittest.TestCase):
         release = {"integration_sha": "a" * 40, "model": "openai/gpt-5.6-sol", "migration_version": "0600", "evaluation_report_sha256": "b" * 64}
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "backup"
-            report = restore_drill.drill(test_database_url() or "", self.target, env={}, out=out, release=release)
+            report = restore_drill.drill(test_database_url() or "", self.target, env=drill_env(), out=out, release=release)
             self.assertEqual({path.name for path in out.iterdir()}, {restore_drill.DUMP_NAME, restore_drill.MANIFEST_NAME})
             self.assertEqual(out.stat().st_mode & 0o777, 0o700)
             for path in out.iterdir():
@@ -506,6 +511,11 @@ class IsolatedRestoreDrillTests(unittest.TestCase):
             manifest = restore_drill.load_manifest(out)
         self.assertTrue(report["ok"], report)
         self.assertEqual(report["label"], restore_drill.DRILL_LABEL)
+        versions = report["backup"]["versions"]
+        for tool in ("pg_dump", "pg_restore"):
+            self.assertGreaterEqual(restore_drill._major(versions[tool]), restore_drill._major(versions["server"]), versions)
+        if drill_env():
+            self.assertTrue(restore_drill.find_tools(drill_env()).pg_dump.startswith(drill_env()["ATLAS_RESTORE_DRILL_PG_BIN"]))
         self.assertTrue(all(report["checks"].values()), report["checks"])
         self.assertEqual(report["release"], release)
         for table in (*RESULT_TABLES[:2], *BRIEF_TABLES[:2], "manager_notes", "atlas_answers", "teachings", "llm_calls", "reasoning_runs",
@@ -518,7 +528,7 @@ class IsolatedRestoreDrillTests(unittest.TestCase):
         Scenario().seed()
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = restore_drill.main(["drill", "--source-url", test_database_url() or "", "--target-url", self.target], env={})
+            code = restore_drill.main(["drill", "--source-url", test_database_url() or "", "--target-url", self.target], env=drill_env())
         document = json.loads(out.getvalue())
         self.assertEqual((code, document["ok"]), (0, True))
         self.assertNotIn("postgresql://", out.getvalue())

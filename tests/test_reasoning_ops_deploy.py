@@ -449,6 +449,31 @@ class ReleaseChecklistTests(unittest.TestCase):
                 self.assertEqual(release_checklist.main(["validate", str(path)]), 2)
 
 
+class ContinuousIntegrationTests(unittest.TestCase):
+    """CI runs the isolated restore drill mandatorily, with client tools matching the PostgreSQL service (a skip there is a failure)."""
+
+    def test_the_restore_drill_is_mandatory_in_ci_with_matching_client_tools(self):
+        ci = text(ROOT / ".github" / "workflows" / "ci.yml")
+        server = re.search(r"image: postgres:(\d+)", ci)
+        assert server is not None
+        install = ci.index("postgresql-client-")
+        step = ci.index("- name: Reasoning V3 foundation tests")
+        self.assertLess(install, step)                                       # installed before the Reasoning V3 suite runs
+        self.assertIn("/usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y", ci)   # the official PGDG repository
+        self.assertIn(f"postgresql-client-{server.group(1)}", ci)
+        reasoning = ci[step:].split("\n      - name:", 1)[0]
+        self.assertIn('ATLAS_REASONING_REQUIRE_RESTORE_DRILL: "1"', reasoning)
+        self.assertIn(f"ATLAS_RESTORE_DRILL_PG_BIN: /usr/lib/postgresql/{server.group(1)}/bin", reasoning)
+        self.assertIn('ATLAS_REASONING_REQUIRE_DB_TESTS: "1"', reasoning)
+        self.assertIn("make reasoning", reasoning)
+
+    def test_ci_permissions_and_credentials_are_unchanged(self):
+        ci = text(ROOT / ".github" / "workflows" / "ci.yml")
+        self.assertTrue(ci.startswith("name: Atlas CI\n\npermissions:\n  contents: read\n  pull-requests: read\n"))
+        self.assertEqual(ci.count("secrets."), 0)
+        self.assertEqual(len(re.findall(r"POSTGRES_PASSWORD: atlas-ci-only", ci)), 1)
+
+
 class RunbookTests(unittest.TestCase):
     def test_runbooks_exist_and_never_instruct_destructive_or_unsafe_actions(self):
         for name, path in DOCS.items():

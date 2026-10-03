@@ -128,8 +128,16 @@ Interface requirements returned to Phase 20-A or the PM (`REASONING-V3-PRODUCTIO
 - The password never reaches a command line.
 - Targets must be test-named, distinct, not the canonical URL, and must state host and port. Inherited `PG*` variables are removed.
 
-This is **an isolated drill and not a production backup or restore test**. In CI the runner's client tools may be older than the
-PostgreSQL 17 service. Then the full drill is reported skipped with that reason, and the verification and guard tests still run.
+This is **an isolated drill and not a production backup or restore test**.
+
+**CI runs it mandatorily (blocking correction on head `0f634c2`).** CI run `37109452089` on `0f634c2` skipped `IsolatedRestoreDrillTests`.
+The runner's client was PostgreSQL 16.15 against the 17.11 service, and the workflow did not set `ATLAS_REASONING_REQUIRE_RESTORE_DRILL`.
+That CI success and the old local PASS are **invalid for acceptance**. The fix:
+- **Client tools.** CI installs `postgresql-client-17` from the official PGDG repository (`postgresql-common`'s `apt.postgresql.org.sh`).
+- **Required drill.** The Reasoning V3 step sets `ATLAS_RESTORE_DRILL_PG_BIN=/usr/lib/postgresql/17/bin` and `ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1`, so a skip is a failure.
+- **Tool selection in the tests.** The drill tests now honour `ATLAS_RESTORE_DRILL_PG_BIN`; they previously passed `env={}` and fell back to `PATH`. They assert that the client majors are at least the server's major.
+- **Regression guard.** `test_the_restore_drill_is_mandatory_in_ci_with_matching_client_tools` pins the wiring, and `test_ci_permissions_and_credentials_are_unchanged` shows no permission or credential change.
+- **No other CI change.** No step was weakened and no skip was turned into a PASS.
 
 ### 3.2 Offline outage scenarios
 
@@ -149,27 +157,28 @@ PostgreSQL 17 service. Then the full drill is reported skipped with that reason,
 
 ### 3.3 Gates on the final tree
 
-Final gate on staged tree `a5e96e06eecccda34219c7fc6e8e251e4199a524`. The environment:
+Final gate after the blocking CI correction, on staged tree `2ede2dc154c675cc9702dccf05d00b36cc778a11`. It supersedes the gate on
+`a5e96e0` and head `0f634c2`, which are invalid for acceptance. The environment:
 - PostgreSQL 17.11 (disposable `atlas_reasoning_p20b_test` plus its `_restore` drill target);
-- `ATLAS_REASONING_REQUIRE_DB_TESTS=1` and `ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1`;
+- `ATLAS_REASONING_REQUIRE_DB_TESTS=1`, `ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1` and `ATLAS_RESTORE_DRILL_PG_BIN` pointing at the PostgreSQL 17 client (the same variables CI sets);
 - no `OPENROUTER*`, `HONCHO*` or `ATLAS_REASONING_DATABASE_URL` set;
 - no Docker daemon.
 
 | Gate | Result |
 |---|---|
-| `make test` | **exit 0, 1723 tests, 41 suites**. Only skips: **4 Docker** (`ATLAS_RUN_DOCKER_TESTS`): the 3 established ones plus the new reasoning-image build test |
-| `make reasoning` | **798 OK** |
-| Phase 20-B tests | `test_reasoning_ops_deploy` **39**, `test_reasoning_ops_recovery` **18**. The recovery suite includes the full isolated restore drill (required), the provider and Honcho outages, capability rollback, migrations before writes, the monitoring-field walk and the drill guards |
+| `make test` | **exit 0, 1725 tests, 41 suites**. Only skips: **4 Docker** (`ATLAS_RUN_DOCKER_TESTS`): the 3 established ones plus the reasoning-image build test |
+| `make reasoning` | **800 OK** |
+| Phase 20-B tests | `test_reasoning_ops_deploy` **41** (including `ContinuousIntegrationTests`: drill mandatory in CI, matching client, permissions and credentials unchanged); `test_reasoning_ops_recovery` **18**. Both `IsolatedRestoreDrillTests` **ran and passed** (not skipped) with the PostgreSQL 17 client. Also the provider and Honcho outages, capability rollback, migrations before writes, the monitoring-field walk and the drill guards |
+| Required drill fails closed | With `ATLAS_REASONING_REQUIRE_RESTORE_DRILL=1` and the tools missing, the drill tests **fail** (`FAILED (errors=1)`), never skip |
 | Production and deployment tests | `test_production_deploy` 8, `test_production_container` 10 (3 Docker skips). Deterministic deployment files are unchanged |
-| Phase 19 | `test_reasoning_evaluation` 60, `test_reasoning_evaluation_runner` 43 (the golden suite, byte-equal with the 19-A driver), `test_reasoning_evaluation_live` 17 |
+| Phase 19 | `test_reasoning_evaluation` 60, `test_reasoning_evaluation_runner` 43, `test_reasoning_evaluation_live` 17 |
 | Phase 18 | `test_reasoning_run_control` 26, `test_reasoning_reliability` 59; also `test_reasoning_guardrails` 60, `test_reasoning_executive` 106 |
-| Migration health and replay | 10 OK, including clean, repeatable and healthy; replay is idempotent; a changed migration is refused; concurrent bootstrap is safe |
+| Migration health and replay | OK (clean, repeatable and healthy; replay idempotent; changed migration refused; concurrent bootstrap safe) |
 | Golden-site, deterministic, i18n, UI | All `make test` targets OK |
-| Static deployment and config validation | Overlay structure, interpolation (both `:-` and `-` forms), hardening parity, no ports, secrets as files, the env template matches settings, every documented switch reaches the container |
 | `ruff check src tests deploy/production/reasoning_ops` | All checks passed |
-| `mypy src` / `mypy --disallow-untyped-defs deploy/production/reasoning_ops` | No issues (183 / 4 files) |
-| Credential scan (`secret_scan.py`, 178 tracked files including `.github`) | **pass**, 0 findings |
-| Phase 20-A independence | No `atlas_*` import in the release checklist; no Phase 20-A import, stand-in or conditional skip anywhere |
+| `mypy src` / `mypy --disallow-untyped-defs deploy/production/reasoning_ops` | No issues |
+| Credential scan (178 tracked files including `.github`) | **pass**, 0 findings |
+| Phase 20-A independence | No `atlas_*` import in the release checklist; no Phase 20-A import, stand-in or conditional skip |
 
 ## 4. Independent adversarial self-review
 
@@ -192,7 +201,7 @@ Lows:
 
 | # | Finding | Outcome |
 |---|---|---|
-| L1 | The full drill can't run in CI (runner tool versions) | Documented. CI changes are outside this phase's ownership |
+| L1 | The full drill can't run in CI (runner tool versions) | **Fixed** after the blocking correction on `0f634c2`, with the CI change assigned to Phase 20-B as an operations/CI correction: the PostgreSQL 17 client from PGDG, the drill mandatory in CI, and a static test |
 | L2 | The image is never built | A gated Docker build test was added (skipped here: no Docker) |
 | L3 | The tools are not linted | Lint and types are run explicitly; see §3.3 |
 | L4 | Secret-scan gaps | Fixed: libpq keyword passwords, JSON keys, driver URLs, `.github` in the surface, literal-only allow |
