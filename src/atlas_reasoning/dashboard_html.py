@@ -61,6 +61,8 @@ class PageContext:
     diagnostics_url: str = "/{locale}/dashboard.html"
     monday_item_url: str | None = None
     switch_path: str | None = None
+    rollout_banner: str = ""             # Phase 20-A: "internal" (internal review) or "beta" (management beta); "" when primary
+    human_context: bool = True           # Phase 20-A: notes / answers / Teach Atlas interactions enabled
 
     @property
     def dir(self) -> str:
@@ -196,16 +198,18 @@ def page(title: str, main: str, ctx: PageContext) -> str:
     switch = ctx.switch_path or routes.home_path(ctx.other)
     nav = (f'<header class="rv-top"><nav class="rv-nav" aria-label="{ctx.t("nav.label")}">'
            f'<a class="rv-brand" href="{esc(home)}"><bdi dir="ltr">{ctx.t("brand")}</bdi> · {ctx.t("nav.home")}</a>'
-           f'<a href="{esc(teach)}">{ctx.t("nav.teach")}</a>'
+           + (f'<a href="{esc(teach)}">{ctx.t("nav.teach")}</a>' if ctx.human_context else "") +
            f'<a href="{esc(ctx.diagnostics())}">{ctx.t("nav.diagnostics")}</a>'
            f'<a class="rv-lang" href="{esc(switch)}" hreflang="{ctx.other}" lang="{ctx.other}" dir="{DIRECTION[ctx.other]}">'
            f'{t(ctx.other, "lang.name")}</a></nav></header>')
+    rollout = (f'<p class="rv-banner" role="note" data-state="rollout_{ctx.rollout_banner}">{ctx.t(f"rollout.{ctx.rollout_banner}")} '
+               f'<a href="{esc(ctx.diagnostics())}">{ctx.t("home.diagnostics_link")}</a></p>' if ctx.rollout_banner else "")
     messages = (f' data-msg-saving="{ctx.t("form.saving")}" data-msg-saved="{ctx.t("form.saved")}" data-msg-failed="{ctx.t("form.failed")}"')
     return (f'<!doctype html><html lang="{ctx.locale}" dir="{ctx.dir}"><head><meta charset="utf-8">'
             f'<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">'
             f'<meta name="referrer" content="no-referrer"><title>{esc(title)}</title><link rel="stylesheet" href="{ASSET_CSS}"></head>'
             f'<body{messages}><a class="rv-skip" href="#main">{ctx.t("skip")}</a>{nav}'
-            f'<noscript><p class="rv-banner" data-state="no_script">{ctx.t("noscript")}</p></noscript>'
+            f'<noscript><p class="rv-banner" data-state="no_script">{ctx.t("noscript")}</p></noscript>{rollout}'
             f'<main id="main" class="rv-main" tabindex="-1">{main}</main><script src="{ASSET_JS}" defer></script></body></html>')
 
 
@@ -335,6 +339,8 @@ def _reasoning(card: ResultCard, ctx: PageContext) -> str:
 
 
 def _management(card: ResultCard, context: HumanContext, ctx: PageContext) -> str:
+    if not ctx.human_context:
+        return f'<p class="rv-unavailable" role="status" data-state="human_context_disabled">{ctx.t("source.management_disabled")}</p>'
     if not context.available:
         return f'<p class="rv-unavailable" role="status" data-state="human_context_unavailable">{ctx.t("source.management_unavailable")}</p>'
     rid = card.summary.result_id

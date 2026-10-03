@@ -26,6 +26,12 @@ Security assumptions (unchanged from Phases 12-14, now enforced for every route)
 
 With ``ATLAS_REASONING_V3`` off, ``create_app`` refuses to start (``ReasoningDisabled``); legacy Atlas needs none of this.
 
+Rollout (Phase 20-A, ``rollout``): ``create_app`` serves only what the validated ``RolloutConfig`` enables, checked **before** and
+**in addition to** every rule above (it never relaxes one). With no audience (shadow) every reasoning route is a plain 404; the read API
+needs an audience; the management API and the Teach Atlas page need ``ATLAS_REASONING_HUMAN_CONTEXT``; the ExecutiveBrief leads the home
+only with ``ATLAS_REASONING_EXECUTIVE_HOME``. Internal review and management beta are marked on every page. A disabled capability hides,
+it never deletes. ``ReasoningWebApp`` built directly (tests, embedding) without a rollout keeps the full Phase 16/17 composition.
+
 Local preview only: ``python -m atlas_reasoning.web_app --port 8765`` (loopback addresses only).
 """
 
@@ -43,12 +49,13 @@ from typing import Any
 
 from atlas_reasoning import dashboard_html as html
 from atlas_reasoning import dashboard_routes as routes
-from atlas_reasoning.dashboard import DashboardService, DashboardUnavailable
+from atlas_reasoning.dashboard import DashboardService, DashboardUnavailable, HumanContext
 from atlas_reasoning.dashboard_assets import CSS, JS
 from atlas_reasoning.executive_html import overview_html
 from atlas_reasoning.executive_overview import ExecutiveOverviewService
 from atlas_reasoning.management_api import ApiError, ApiSettings, ManagementAPI, Request, Response, api_settings, authorize_actor
 from atlas_reasoning.reasoning_read_api import ReasoningReadAPI, parse_version
+from atlas_reasoning.rollout import RolloutConfig
 from atlas_reasoning.settings import ReasoningConfigError
 from atlas_reasoning.store.repository import NotFound
 
@@ -102,12 +109,13 @@ class ReasoningWebApp:
     """The WSGI callable. Built by ``create_app`` (or directly in tests, with any ``DashboardService`` and ``ManagementAPI``)."""
 
     def __init__(self, settings: WebSettings, service: DashboardService, management: ManagementAPI, *,
-                 executive: ExecutiveOverviewService | None = None) -> None:
+                 executive: ExecutiveOverviewService | None = None, rollout: RolloutConfig | None = None) -> None:
         self.settings = settings
+        self.rollout = rollout if rollout is not None else RolloutConfig.full()
         self.service = service
         self.management = management
         self.executive = executive                 # Phase 17: read-only overview of the persisted ExecutiveBrief (home lead)
-        self.read_api = ReasoningReadAPI(settings.api, service)
+        self.read_api = ReasoningReadAPI(settings.api, service, human_context=self.rollout.human_context)
 
     # --- WSGI ---------------------------------------------------------------------------------------------------------------
 
@@ -136,6 +144,8 @@ class ReasoningWebApp:
     def route(self, environ: Mapping[str, Any], method: str) -> tuple[int, dict[str, str], bytes]:
         path = str(environ.get("PATH_INFO") or "/")
         query = str(environ.get("QUERY_STRING") or "")
+        if not self._served(path):        # rollout first: a capability that is off does not exist (no auth hint, no route)
+            return 404, {"Content-Type": "text/plain; charset=utf-8"}, b"Not Found"
         if path in ASSETS:
             if method not in ("GET", "HEAD"):
                 return 405, {"Content-Type": "text/plain; charset=utf-8", "Allow": "GET, HEAD"}, b"Method Not Allowed"
@@ -150,6 +160,14 @@ class ReasoningWebApp:
         if path.startswith("/api/reasoning/"):
             return self._json(self.management.handle(self._request(environ, method, path, query, body=True)))
         return 404, {"Content-Type": "text/plain; charset=utf-8"}, b"Not Found"
+
+    def _served(self, path: str) -> bool:
+        """Whether the rollout serves ``path`` at all. Every route this app knows is under ``/reasoning`` or ``/api/reasoning``."""
+        if not self.rollout.reasoning_visible:
+            return False
+        if path.startswith("/api/reasoning/") and not (path == "/api/reasoning/read" or path.startswith("/api/reasoning/read/")):
+            return self.rollout.human_context           # the management API is human-context interaction only
+        return True
 
     # --- API mounting ---------------------------------------------------------------------------------------------------------
 
@@ -185,7 +203,11 @@ class ReasoningWebApp:
     def _context(self, locale: str, actor: str | None, path: str, version: int | None) -> html.PageContext:
         switch = path.replace(f"/{locale}/", f"/{'ar' if locale == 'en' else 'en'}/", 1) + (f"?version={version}" if version else "")
         return html.PageContext(locale, csrf_token=self.management.csrf_token(actor) if actor else "", diagnostics_url=self.settings.diagnostics_url,
-                                monday_item_url=self.settings.monday_item_url, switch_path=switch)
+                                monday_item_url=self.settings.monday_item_url, switch_path=switch, **self._presentation())
+
+    def _presentation(self) -> dict[str, Any]:
+        banner = "internal" if self.rollout.internal_review else "beta" if self.rollout.management_beta else ""
+        return {"rollout_banner": banner, "human_context": self.rollout.human_context}
 
     @staticmethod
     def _html(status: int, page: str, extra: Mapping[str, str] | None = None) -> tuple[int, dict[str, str], bytes]:
@@ -194,14 +216,14 @@ class ReasoningWebApp:
     def page(self, environ: Mapping[str, Any], method: str, path: str, query: str) -> tuple[int, dict[str, str], bytes]:
         match = _PAGE.fullmatch(path)
         locale = match.group("locale") if match else routes.DEFAULT_LOCALE
-        error_ctx = html.PageContext(locale, diagnostics_url=self.settings.diagnostics_url)
+        error_ctx = html.PageContext(locale, diagnostics_url=self.settings.diagnostics_url, **self._presentation())
         if method not in ("GET", "HEAD"):
             return self._html(405, html.error_page("method", error_ctx), {"Allow": "GET, HEAD"})
         try:
             actor = authorize_actor(self.settings.api, self.actor(environ))
         except ApiError as error:
             return self._html(error.status, html.error_page("unauthenticated" if error.status == 401 else "forbidden", error_ctx))
-        if match is None:
+        if match is None or (match.group("teach") and not self.rollout.human_context):
             return self._html(404, html.error_page("not_found", error_ctx))
         try:
             version = parse_version(urllib.parse.parse_qs(query, max_num_fields=4))
@@ -220,7 +242,8 @@ class ReasoningWebApp:
             return html.teach_page(self.service.teachings_list(), ctx)
         result_id = match.group("result_id")
         if result_id is None:
-            overview = self.executive.overview() if self.executive is not None else None     # read only: never synthesizes
+            show = self.executive is not None and self.rollout.executive_home
+            overview = self.executive.overview() if show and self.executive is not None else None     # read only: never synthesizes
             return html.home_page(self.service.home(), ctx, lead_html=overview_html(overview, ctx) if overview is not None else "")
         routes.parse_result_id(result_id)
         sub = match.group("sub")
@@ -230,7 +253,8 @@ class ReasoningWebApp:
         trace = self.service.evidence(result_id, card.shown_version)
         if sub == "/evidence":
             return html.evidence_page(card, trace, ctx)
-        return html.card_page(card, self.service.human_context(result_id), trace, self.service.history(result_id), ctx)
+        context = self.service.human_context(result_id) if self.rollout.human_context else HumanContext(available=False)   # off: not even read
+        return html.card_page(card, context, trace, self.service.history(result_id), ctx)
 
 
 def create_app(env: Mapping[str, str] | None = None) -> ReasoningWebApp:
@@ -239,18 +263,20 @@ def create_app(env: Mapping[str, str] | None = None) -> ReasoningWebApp:
     from atlas_reasoning.atlas_questions import AtlasQuestions
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.manager_notes import ManagerNotes
+    from atlas_reasoning.rollout import rollout_config
     from atlas_reasoning.store.db import Database
     from atlas_reasoning.store.repository import ReasoningStore
     from atlas_reasoning.teach_atlas import TeachAtlas
 
     settings.require_enabled(env)
+    rollout = rollout_config(env)          # validated before anything else: an invalid combination refuses to start
     web = web_settings(env)
     store = ReasoningStore(Database(settings.database_url(env)))
     sync = human_context.sync_service(store, backend_from_env(env))
     notes, questions, teachings = ManagerNotes(store, sync), AtlasQuestions(store, sync), TeachAtlas(store, sync)
     service = DashboardService(store, notes=notes, questions=questions, teachings=teachings)
     return ReasoningWebApp(web, service, ManagementAPI(web.api, notes=notes, questions=questions, teachings=teachings),
-                           executive=ExecutiveOverviewService(store, service))
+                           executive=ExecutiveOverviewService(store, service), rollout=rollout)
 
 
 LOOPBACK = ("127.0.0.1", "::1", "localhost")

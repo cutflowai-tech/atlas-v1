@@ -47,9 +47,10 @@ def parse_version(query: dict[str, list[str]]) -> int | None:
 
 
 class ReasoningReadAPI:
-    def __init__(self, settings: ApiSettings, service: DashboardService) -> None:
+    def __init__(self, settings: ApiSettings, service: DashboardService, *, human_context: bool = True) -> None:
         self.settings = settings
         self.service = service
+        self.human_context = human_context
         self.routes = [
             (re.compile(f"^{PREFIX}/results$"), self._home),
             (re.compile(f"^{PREFIX}/results/{_RESULT}$"), self._card),
@@ -91,6 +92,9 @@ class ReasoningReadAPI:
 
     def _card(self, params: dict[str, str], query: dict[str, list[str]]) -> Any:
         card = self.service.card(params["result_id"], parse_version(query))
+        if not self.human_context:          # Phase 20-A rollout: human context off is not shown here either (and not read)
+            return {"card": card.to_dict(), "human_context": {"available": False, "disabled": True, "label": "management_context", "notes": [],
+                                                              "note_history": {}, "questions": []}}
         return {"card": card.to_dict(), "human_context": self.service.human_context(params["result_id"]).to_dict()}
 
     def _evidence(self, params: dict[str, str], query: dict[str, list[str]]) -> Any:
