@@ -1,0 +1,13 @@
+# Exact runtime-only dependency set of the Reasoning V3 operations image (Dockerfile.reasoning). Development/test packages are absent.
+# The deterministic Atlas image (runtime-requirements.txt) is unchanged and never contains psycopg.
+attrs==24.2.0
+jsonschema==4.23.0
+jsonschema-specifications==2024.10.1
+referencing==0.35.1
+rpds-py==0.22.3
+rfc3339-validator==0.1.4
+six==1.17.0
+# Canonical Reasoning V3 state (PostgreSQL). typing-extensions is psycopg's own requirement on Python < 3.13.
+psycopg==3.3.6
+psycopg-binary==3.3.6
+typing-extensions==4.12.2

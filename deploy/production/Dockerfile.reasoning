@@ -1,0 +1,34 @@
+# Reasoning V3 operations image (Phase 20-B preparation; not deployed). Same pinned base and hardening as Dockerfile.app.
+# It runs the operator commands of `python -m atlas_reasoning` (migrate, db-health, reason, memory-sync, provider-health --dry-run, …)
+# against the canonical PostgreSQL. It serves no HTTP and starts no reasoning by itself: the default command prints help.
+FROM python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
+
+ARG ATLAS_UID=10001
+ARG ATLAS_GID=10001
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/waset-atlas/src
+
+WORKDIR /opt/waset-atlas
+
+COPY deploy/production/reasoning-runtime-requirements.txt /tmp/reasoning-runtime-requirements.txt
+RUN python -m pip install --no-cache-dir --disable-pip-version-check -r /tmp/reasoning-runtime-requirements.txt \
+    && rm /tmp/reasoning-runtime-requirements.txt \
+    && groupadd --gid "${ATLAS_GID}" atlas \
+    && useradd --uid "${ATLAS_UID}" --gid "${ATLAS_GID}" --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin atlas
+
+COPY src/ src/
+COPY config/ config/
+COPY contracts/ contracts/
+
+RUN chown -R root:root /opt/waset-atlas \
+    && chmod -R a-w /opt/waset-atlas \
+    && find /opt/waset-atlas -type d -exec chmod 0555 {} + \
+    && find /opt/waset-atlas -type f -exec chmod 0444 {} +
+
+USER ${ATLAS_UID}:${ATLAS_GID}
+
+ENTRYPOINT ["python", "-m", "atlas_reasoning"]
+# Safe image startup: prints command help; no database, provider or memory connection.
+CMD ["--help"]
