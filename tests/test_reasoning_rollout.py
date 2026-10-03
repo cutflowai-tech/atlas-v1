@@ -121,6 +121,7 @@ class RolloutConfigTests(unittest.TestCase):
             {V3: "on", AUDIENCE_ENV: "internal", CARDS_PRIMARY_ENV: "on"},               # primary for management only
             {V3: "on", AUDIENCE_ENV: "internal", EXECUTIVE_HOME_ENV: "on"},
             {V3: "on", EXECUTIVE_HOME_ENV: "on"},                                          # executive-primary without visible reasoning
+            {V3: "on", AUDIENCE_ENV: "management", EXECUTIVE_HOME_ENV: "on"},             # executive home over beta cards (review L-3)
             {V3: "on", HUMAN_CONTEXT_ENV: "on"},                                           # human writes without a reasoning surface
             {V3: "off", HUMAN_CONTEXT_ENV: "on"},                                          # validated even with the master switch off
         ]
@@ -129,6 +130,9 @@ class RolloutConfigTests(unittest.TestCase):
                 rollout_config(env)
         with self.assertRaises(RolloutError):
             RolloutConfig(True, True, Audience.NONE, False, True, False)                # the type itself refuses, not only the parser
+        for bad in ((True, True, "management"), ("off", True, Audience.NONE), (True, 1, Audience.NONE)):     # review L-1: types too
+            with self.subTest(bad=bad), self.assertRaises(RolloutError):
+                RolloutConfig(*bad)  # type: ignore[arg-type]
 
     def test_unknown_values_are_refused_without_echoing_anything_else(self):
         for env in ({V3: "on", AUDIENCE_ENV: "everyone"}, {V3: "maybe"}, {V3: "on", EXECUTION_ENV: "sometimes"},
@@ -599,6 +603,42 @@ class EligibilityTests(unittest.TestCase):
         self.assertIn("metadata: missing commit", eligibility(self.run, incomplete, self.rollout).reasons)
         self.assertIn("rollout: the metadata does not describe this rollout configuration",
                       eligibility(self.run, self.metadata, config_of("cards_primary")).reasons)
+
+    def test_readiness_needs_every_piece_of_evidence_and_never_authorizes_rollout(self):
+        """Actual release readiness (PM decision): repository eligibility + live evidence + human review + explicit approval. The
+        complete case uses a *synthetic* live run (the repository never has real live evidence); rollout_authorized stays false."""
+        from atlas_reasoning import evaluation_review
+        from atlas_reasoning.release_metadata import APPROVAL_SCHEMA, release_readiness
+
+        repository = eligibility(self.run, self.metadata, self.rollout)
+        live = {**copy.deepcopy(self.run), "mode": "live"}
+        review = evaluation_review.template(live)
+        review.update(reviewer="Release owner", reviewed_at="2026-10-03")
+        for item in review["items"]:
+            item["rating"] = "meets"
+        approval = {"schema": APPROVAL_SCHEMA, "approved_by": "Release owner", "approved_at": "2026-10-03", "stage": "shadow", "commit": COMMIT,
+                    "report_sha256": live["report_sha256"]}
+        ready = release_readiness(repository, self.metadata, self.rollout, live_run=live, review=review, approval=approval)
+        self.assertEqual((ready.actual_release_ready, ready.rollout_authorized, ready.missing), (True, False, ()))
+        self.assertFalse(ready.to_dict()["rollout_authorized"])
+        failing = copy.deepcopy(review)
+        failing["items"][0].update(rating="fails", notes="Wrong evidence.")
+        variants = {
+            "no live": {"review": review, "approval": approval},
+            "offline as live": {"live_run": self.run, "review": review, "approval": approval},
+            "no review": {"live_run": live, "approval": approval},
+            "failing review": {"live_run": live, "review": failing, "approval": approval},
+            "no approval": {"live_run": live, "review": review},
+            "approval for another commit": {"live_run": live, "review": review, "approval": {**approval, "commit": "f" * 40}},
+            "approval for stage off": {"live_run": live, "review": review, "approval": {**approval, "stage": "off"}},
+        }
+        for name, evidence in variants.items():
+            with self.subTest(name):
+                result = release_readiness(repository, self.metadata, self.rollout, **evidence)
+                self.assertEqual((result.actual_release_ready, result.rollout_authorized), (False, False))
+                self.assertTrue(result.missing)
+        not_eligible = eligibility(None, self.metadata, self.rollout)
+        self.assertFalse(release_readiness(not_eligible, self.metadata, self.rollout, live_run=live, review=review, approval=approval).actual_release_ready)
 
     def test_eligibility_never_reads_threshold_values(self):
         """Phase 19 is the authority: eligibility trusts its PASS, checks integrity and binding, and never re-evaluates a metric."""

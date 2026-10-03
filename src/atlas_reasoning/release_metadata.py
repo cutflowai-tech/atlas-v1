@@ -40,7 +40,7 @@ _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 REQUIRED = ("metadata_version", "commit", "reasoning_package", "reasoning_contract", "executive_contract", "model", "pinned_model",
             "analyst_prompt", "update_prompt", "executive_prompt", "reviewer_prompt", "guardrails_validator", "executive_validator",
             "evaluation_schema", "golden_fixture_digest", "release_thresholds", "latest_migration", "migrations", "migrations_sha256",
-            "rollout_version", "rollout", "software_versions")
+            "migrations_content_sha256", "prompts_content_sha256", "rollout_version", "rollout", "software_versions")
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,12 @@ def release_metadata(*, commit: str | None, env: Mapping[str, str], rollout: Rol
     metadata is incomplete rather than wrong). ``env`` supplies the effective model and, unless ``rollout`` is given, the rollout."""
     from atlas_reasoning.rollout import rollout_config
 
-    migrations = [migration.name for migration in available_migrations()]
+    available = available_migrations()
+    migrations = [migration.name for migration in available]
+    # Content binding (review M-2): the migration SQL (the same sha256 ``schema_migrations`` stores per migration) and the prompt texts.
+    content = "\n".join(f"{m.version}\t{m.name}\t{m.checksum}" for m in available)
+    prompts = {version: analyst.prompt_sha256(version) for version in (analyst.ANALYST_PROMPT_VERSION, updater.UPDATE_PROMPT_VERSION,
+                                                                         executive.EXECUTIVE_PROMPT_VERSION, reviewer.REVIEWER_PROMPT_VERSION)}
     state = rollout if rollout is not None else rollout_config(env)
     return ReleaseMetadata({
         "metadata_version": METADATA_VERSION,
@@ -89,7 +94,9 @@ def release_metadata(*, commit: str | None, env: Mapping[str, str], rollout: Rol
         "release_thresholds": RELEASE_THRESHOLDS_VERSION,
         "latest_migration": migrations[-1] if migrations else None,
         "migrations": migrations,
-        "migrations_sha256": hashlib.sha256("\n".join(migrations).encode()).hexdigest() if migrations else None,
+        "migrations_sha256": hashlib.sha256("\n".join(migrations).encode()).hexdigest() if migrations else None,     # the file names
+        "migrations_content_sha256": hashlib.sha256(content.encode()).hexdigest() if migrations else None,         # names and SQL content
+        "prompts_content_sha256": prompts,
         "rollout_version": ROLLOUT_VERSION,
         "rollout": state.to_dict(),
         "software_versions": software_versions(),
@@ -149,3 +156,82 @@ def eligibility(evaluation_run: Mapping[str, Any] | None, metadata: ReleaseMetad
         reasons.append("rollout: the metadata does not describe this rollout configuration")
     mode = run.get("mode")
     return Eligibility(not reasons, tuple(reasons), mode if isinstance(mode, str) else None)
+
+
+# --- actual release readiness (Phase 20 reconciliation; PM decision) ---------------------------------------------------------------
+
+APPROVAL_SCHEMA = "reasoning-release-approval-v1"
+ROLLOUT_NOT_AUTHORIZED = "rollout authorization is an explicit human decision outside this repository; no code path grants it"
+
+
+@dataclass(frozen=True)
+class Readiness:
+    """Actual release readiness = repository eligibility + live-provider Phase 19 evidence + human management review + explicit
+    approval. ``rollout_authorized`` is always false: readiness is input to a human rollout decision, never the decision."""
+
+    actual_release_ready: bool
+    missing: tuple[str, ...]
+    repository_eligible: bool
+
+    @property
+    def rollout_authorized(self) -> bool:
+        return False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"actual_release_ready": self.actual_release_ready, "rollout_authorized": self.rollout_authorized,
+                "repository_eligible": self.repository_eligible, "missing": list(self.missing), "rollout_note": ROLLOUT_NOT_AUTHORIZED,
+                "requires": ["repository eligibility (Phase 20-A)", "live-provider Phase 19 evaluation evidence", "human management review",
+                             "explicit release approval"]}
+
+
+def release_readiness(repository: Eligibility, metadata: ReleaseMetadata, rollout: RolloutConfig, *, live_run: Mapping[str, Any] | None = None,
+                      review: Mapping[str, Any] | None = None, approval: Mapping[str, Any] | None = None) -> Readiness:
+    """Fail closed: every missing, invalid or unbound piece of evidence is listed and makes the release not ready.
+
+    - ``repository``: ``eligibility`` of the Phase 19 release evaluation (offline is enough for repository eligibility).
+    - ``live_run``: a Phase 19 runner result in **live** mode that is itself eligible for this software (same versions, fixtures,
+      thresholds, pinned model, intact report).
+    - ``review``: a completed human management review (``evaluation_review``) bound to that live run's report, with no item rated ``fails``.
+    - ``approval``: an explicit ``reasoning-release-approval-v1`` record naming the approver, the time, a REV/20 stage, this release's
+      commit and the live report's sha256.
+    """
+    from atlas_reasoning import evaluation_review
+    from atlas_reasoning.rollout import STAGES
+
+    missing: list[str] = [] if repository.eligible else ["repository: not eligible (" + "; ".join(repository.reasons) + ")"]
+    live = live_run if isinstance(live_run, Mapping) else None
+    if live is None:
+        missing.append("live: no live-provider Phase 19 evaluation evidence")
+    elif live.get("mode") != "live":
+        missing.append(f"live: the evaluation evidence is {live.get('mode')!r}, not a live-provider run")
+    else:
+        live_check = eligibility(live, metadata, rollout)
+        if not live_check.eligible:
+            missing.append("live: the live evaluation is not a release PASS of this software (" + "; ".join(live_check.reasons) + ")")
+    record = review if isinstance(review, Mapping) else None
+    if record is None:
+        missing.append("review: no human management review")
+    else:
+        problems = evaluation_review.validate(record, run=live)
+        if live is None:
+            problems = [*problems, "the review is not bound to a live evaluation run"]
+        if problems:
+            missing.append("review: " + "; ".join(problems))
+        elif evaluation_review.summarize(record)["fails"]:
+            missing.append("review: items rated fails: " + ", ".join(evaluation_review.summarize(record)["fails"]))
+    stages = {stage.name for stage in STAGES if stage.number > 0}
+    if not isinstance(approval, Mapping):
+        missing.append("approval: no explicit release approval")
+    else:
+        if approval.get("schema") != APPROVAL_SCHEMA:
+            missing.append(f"approval: not a {APPROVAL_SCHEMA} record")
+        for name in ("approved_by", "approved_at"):
+            if not isinstance(approval.get(name), str) or not approval[name].strip():
+                missing.append(f"approval: {name} is required")
+        if approval.get("stage") not in stages:
+            missing.append("approval: stage must be one of " + ", ".join(sorted(stages)))
+        if approval.get("commit") != metadata.fields.get("commit") or not metadata.fields.get("commit"):
+            missing.append("approval: not bound to this release commit")
+        if live is None or approval.get("report_sha256") != live.get("report_sha256"):
+            missing.append("approval: not bound to the live evaluation report")
+    return Readiness(not missing, tuple(missing), repository.eligible)

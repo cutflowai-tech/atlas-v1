@@ -31,6 +31,9 @@
     python -m atlas_reasoning release-eligibility --evaluation RUN.json [--commit SHA]
                                                       whether this release may go forward: a Phase 19 release PASS of this software,
                                                       complete metadata, a valid rollout (exit 0 only when eligible)
+    python -m atlas_reasoning release-readiness --evaluation RUN.json [--live RUN.json] [--review REVIEW.json] [--approval APPROVAL.json]
+                                                      actual release readiness: repository eligibility + live-provider Phase 19 evidence +
+                                                      human review + explicit approval (exit 0 only when ready; never authorizes rollout)
     python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, copy teachings that came into effect,
                                                       then re-send pending or failed memory copies rebuilt from canonical rows
 
@@ -301,6 +304,29 @@ def cmd_release_eligibility(args: argparse.Namespace) -> int:
     return 0 if result.eligible else 1
 
 
+def _json_file(path: str | None, what: str) -> Any:
+    if path is None:
+        return None
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise settings.ReasoningConfigError(f"cannot read the {what} {Path(path).name}: {type(error).__name__}") from None
+
+
+def cmd_release_readiness(args: argparse.Namespace) -> int:
+    import os
+
+    from atlas_reasoning.release_metadata import eligibility, release_metadata, release_readiness
+
+    config = rollout.rollout_config()
+    metadata = release_metadata(commit=_commit(args.commit), env=os.environ, rollout=config)
+    repository = eligibility(_json_file(args.evaluation, "evaluation result"), metadata, config)
+    result = release_readiness(repository, metadata, config, live_run=_json_file(args.live, "live evaluation result"),
+                               review=_json_file(args.review, "review record"), approval=_json_file(args.approval, "approval record"))
+    _print(result.to_dict())
+    return 0 if result.actual_release_ready else 1
+
+
 def cmd_memory_sync(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.human_context import sync_service
@@ -335,6 +361,7 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "rollout": (cmd_rollout, "show the validated Phase 20 rollout state (or --stages)"),
     "release-metadata": (cmd_release_metadata, "show this release's metadata (exit 1 when incomplete)"),
     "release-eligibility": (cmd_release_eligibility, "check release eligibility against a Phase 19 evaluation result"),
+    "release-readiness": (cmd_release_readiness, "actual release readiness: eligibility + live evidence + human review + approval"),
 }
 
 
@@ -365,10 +392,14 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("evaluate_args", nargs=argparse.REMAINDER, help="evaluation_cli arguments")
         elif name == "rollout":
             command.add_argument("--stages", action="store_true", help="list the REV/20 stages and their variables")
-        elif name in ("release-metadata", "release-eligibility"):
+        elif name in ("release-metadata", "release-eligibility", "release-readiness"):
             command.add_argument("--commit", help="the release commit (default: this checkout's HEAD)")
-            if name == "release-eligibility":
+            if name in ("release-eligibility", "release-readiness"):
                 command.add_argument("--evaluation", required=True, help="the Phase 19 evaluation run JSON (evaluate run --output)")
+            if name == "release-readiness":
+                command.add_argument("--live", help="the live-provider Phase 19 evaluation run JSON")
+                command.add_argument("--review", help="the completed human management review record (evaluate review-validate)")
+                command.add_argument("--approval", help="the explicit reasoning-release-approval-v1 record")
     return root
 
 

@@ -15,7 +15,7 @@ The flags (validated together; an invalid combination is a configuration error, 
                                                 ``internal`` (internal review), ``management`` (management beta, or primary).
 ``ATLAS_REASONING_CARDS_PRIMARY``   off         reasoning-first cards are the primary management card experience (needs management).
 ``ATLAS_REASONING_HUMAN_CONTEXT``   off         manager notes, Atlas Question answers and Teach Atlas interactions (needs an audience).
-``ATLAS_REASONING_EXECUTIVE_HOME``  off         the ExecutiveBrief leads the reasoning home (needs management).
+``ATLAS_REASONING_EXECUTIVE_HOME``  off         the ExecutiveBrief leads the reasoning home (needs management and cards primary).
 ==================================  ==========  ===================================================================================
 
 Every user-visible capability defaults **off**, so ``ATLAS_REASONING_V3=on`` alone is the shadow stage. The six REV/20 stages are
@@ -77,6 +77,9 @@ class RolloutConfig:
     executive_home_flag: bool = False
 
     def __post_init__(self) -> None:
+        flags = (self.enabled, self.execution_flag, self.cards_primary_flag, self.human_context_flag, self.executive_home_flag)
+        if not all(isinstance(flag, bool) for flag in flags) or not isinstance(self.audience_flag, Audience):
+            raise RolloutError("invalid Reasoning V3 rollout: flags must be booleans and the audience an Audience")   # review L-1
         problems = dependency_errors(self.audience_flag, self.cards_primary_flag, self.human_context_flag, self.executive_home_flag)
         if problems:
             raise RolloutError("invalid Reasoning V3 rollout: " + "; ".join(problems))
@@ -122,7 +125,7 @@ class RolloutConfig:
 
     @property
     def primary_surface(self) -> Surface:
-        if self.executive_home and self.cards_primary:
+        if self.executive_home:                    # validated: only with cards primary
             return Surface.EXECUTIVE_BRIEF
         return Surface.REASONING_CARDS if self.cards_primary else Surface.DETERMINISTIC_DASHBOARD
 
@@ -147,6 +150,9 @@ def dependency_errors(audience: Audience, cards_primary: bool, human_context: bo
         problems.append(f"{CARDS_PRIMARY_ENV}=on needs {AUDIENCE_ENV}=management (primary for management, not {audience.value})")
     if executive_home and audience != Audience.MANAGEMENT:
         problems.append(f"{EXECUTIVE_HOME_ENV}=on needs {AUDIENCE_ENV}=management (an executive home nobody is shown is a contradiction)")
+    elif executive_home and not cards_primary:
+        # Review L-3: an executive home over beta cards would lead the home while the banner says the deterministic dashboard is primary.
+        problems.append(f"{EXECUTIVE_HOME_ENV}=on needs {CARDS_PRIMARY_ENV}=on (the executive home leads a primary reasoning experience)")
     if human_context and audience == Audience.NONE:
         problems.append(f"{HUMAN_CONTEXT_ENV}=on needs a reasoning surface ({AUDIENCE_ENV}=internal or management)")
     return problems

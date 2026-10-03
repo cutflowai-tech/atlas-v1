@@ -39,7 +39,8 @@ Base: Phase 19 closure `74c015f59498484b7d04a7b35ee903361062d7df`. There is no m
 these three genuine dependencies, are configuration errors (`RolloutError`, exit 2):
 
 - `CARDS_PRIMARY` needs `AUDIENCE=management`.
-- `EXECUTIVE_HOME` needs `AUDIENCE=management`.
+- `EXECUTIVE_HOME` needs `AUDIENCE=management` and `CARDS_PRIMARY` (reconciliation, review L-3: an executive home over beta cards
+  would contradict the beta banner).
 - `HUMAN_CONTEXT` needs `AUDIENCE` set to `internal` or `management`.
 
 Validation runs even with the master switch off. A capability is never enabled implicitly: a credential, a database URL or the memory
@@ -61,13 +62,10 @@ Any other valid combination reports as `custom`, for example a stage with `EXECU
 
 `python -m atlas_reasoning rollout` prints the effective, content-free state.
 
-`--commit`, if given, sets the release commit. Otherwise the commit is the source checkout's HEAD. It is left empty, which makes the
-metadata incomplete, in three cases: outside a git checkout, in a repository that is not this package's own, or when the checkout has
-uncommitted changes.
-
 ## 3. What each capability does in the application
 
-- **Shadow and off.** Every route of the reasoning web app returns a plain `404 Not Found`: pages, assets, the read API and the
+- **Off.** `create_app` refuses to start (`ReasoningDisabled`), exactly as before Phase 20.
+- **Shadow.** Every route of the reasoning web app returns a plain `404 Not Found`: pages, assets, the read API and the
   management API, for any actor. The response is indistinguishable from a route that does not exist and gives no authentication
   hint. Processing (`gate`, `reason`) runs if `EXECUTION` is on. All Phase 15–19 safeguards apply unchanged, because the rollout only
   gates entry points. Nothing in the engine, guardrails or store reads it, and a test enforces this.
@@ -111,7 +109,7 @@ an access change: an operator step, separately approved, with no code change.
 Moving between stages means changing these variables and restarting the reasoning processes. Nothing in the application deletes,
 rewrites or migrates canonical state on a change of capability. The tests prove it with a per-table row count and content hash of
 every `atlas_reasoning` table. That state includes results, history, briefs, notes, answers, teachings, the audit trail, `llm_calls`
-and the memory log. It is identical across a full stage 6 → 0 → 6 walk, and the presentation returns byte for byte.
+and the memory log. It is identical across a full stage 6 → 0 → 6 walk. Byte-for-byte return of the presentation is tested for the beta home and the executive lead.
 
 Rollback order (most visible first):
 
@@ -158,6 +156,22 @@ Fields are derived from code and validated configuration, never typed in:
 The output is deterministic: sorted, with no timestamp. It never contains a key, password, token, URL or path, and a test asserts
 this on both values and field names. Exit 1 when incomplete.
 
+`--commit`, if given, sets the release commit. Otherwise the commit is the source checkout's HEAD. It is left empty, which makes the
+metadata incomplete, in three cases: outside a git checkout, in a repository that is not this package's own, or when the checkout has
+uncommitted changes.
+
+**Binding (reconciliation, review M-2).**
+
+| Field | What it hashes |
+|---|---|
+| `migrations_sha256` | The migration file **names** only |
+| `migrations_content_sha256` | Version, name and SQL checksum of every migration. This is the checksum `schema_migrations` records, so the gate cross-checks it against a migrated database through Phase 20-B's restore-drill reader |
+| `prompts_content_sha256` | The sha256 of each prompt text (analyst, update, executive and reviewer) |
+
+The Phase 19 runner JSON carries no commit. It is bound to the release through the report's versions, golden digest and thresholds,
+and through this metadata for the commit. Keeping the run JSON, the metadata output and the release record together is the
+operator's documented binding (Phase 20-B release record and RECOVERY §2.4).
+
 ## 8. Release eligibility (`python -m atlas_reasoning release-eligibility --evaluation RUN.json [--commit SHA]`)
 
 The input to Phase 20 verification. A release is eligible only when all of these hold:
@@ -184,12 +198,40 @@ is a repository-side input, not release approval. Final approval still needs:
 The version binding covers the Phase 19 `software_versions`. The executive and reviewer prompt, validator and contract versions are
 recorded in the metadata but are not part of Phase 19's evaluated set.
 
+## 8a. Actual release readiness (`python -m atlas_reasoning release-readiness`)
+
+PM decision: **repository eligibility is not release readiness.** `release_readiness` reports `actual_release_ready=true` only when all
+of these hold:
+
+1. The release is repository-eligible (§8).
+2. A **live-provider** Phase 19 evaluation (mode `live`) is itself eligible for this software.
+3. A completed human management review (`evaluate review-validate`) is bound to that live report, with no item rated `fails`.
+4. An explicit `reasoning-release-approval-v1` record names the approver, the time, a stage (1–6), this release's commit and the live
+   report's sha256.
+
+Anything missing, invalid or unbound is listed, and the result is false. **`rollout_authorized` is always false:** no code path grants
+it. Exit 0 only when actually ready.
+
+The repository never contains live evidence or approvals, so at repository-prep time the result is `actual_release_ready=false`,
+`rollout_authorized=false`.
+
+## 8b. Phase 20 reconciliation gates (`tests/test_reasoning_phase20_reconciliation.py`)
+
+These are blocking, automatic tests on real Phase 20-A code and real Phase 20-B artifacts, with no mocks.
+
+| Gate | What it checks |
+|---|---|
+| `P20A_RELEASE_METADATA_COMPLETE` | The metadata is complete for the checkout's commit. Its content hashes match the prompt files and the migrations a migrated database records. Phase 20-B's backup release record accepts its identifiers. |
+| `P20A_ROLLOUT_STAGE_MATCH` | Every stage (0–6), passed through Phase 20-B's overlay `environment:` allow-list under Compose's interpolation rules, arrives as exactly that stage. The env template is stage 0, a blank kill switch stays off, the rollout plan's six stages are in order, and `rollout --stages` agrees. |
+| `P20A_REPOSITORY_ELIGIBILITY_CONTRACT` | The real offline Phase 19 release evaluation of the tree (every golden case) reproduces the approved Phase 19 report sha256 (`3b8e9781…a44a`, pinned), and `release-eligibility` accepts it. |
+| Fail-closed readiness | Without live and/or human evidence, `actual_release_ready=false` and `rollout_authorized=false`, both in `release_readiness` and in Phase 20-B's `release_checklist`. |
+
 ## 9. Handoff to Phase 20-B (interfaces, no files touched)
 
 - **Variables and stages:** §2 above, and `python -m atlas_reasoning rollout --stages` as machine-readable JSON. Runbook stage changes
   and rollbacks should use exactly these.
 - **State check:** `python -m atlas_reasoning rollout` (exit 2 on an invalid configuration). Run it before restarting with a new stage.
-- **Release gate:** `release-metadata` and `release-eligibility`.
+- **Release gate:** `release-metadata`, `release-eligibility` and `release-readiness`.
 - **Primary-surface routing:** `primary_surface`, plus the proxy and allow-list per audience. These are proposals for Phase 20-B's
   deployment documents and need separate approval.
 - **Processing kill switch:** `ATLAS_REASONING_EXECUTION=off`; `gate` and `reason` exit 2 with `ExecutionDisabled`.
