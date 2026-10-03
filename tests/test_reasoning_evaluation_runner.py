@@ -430,6 +430,24 @@ class ReviewChecklistTests(unittest.TestCase):
         for item in evaluation_review.CHECKLIST:
             self.assertTrue(item.question.endswith("?") and item.look_for)
 
+    def test_the_lifecycle_item_uses_the_canonical_lifecycle_vocabulary(self):
+        # Ties the checklist to the Phase 09 lifecycle contract: a renamed, added or removed LifecycleStatus (or a non-canonical state
+        # written into the guidance) fails here.
+        import re
+
+        from atlas_reasoning.enums import LifecycleStatus
+
+        item = next(item for item in evaluation_review.CHECKLIST if item.item_id == "lifecycle_correctness")
+        named = re.search(r"\(([^)]*)\)", item.question)
+        assert named is not None
+        self.assertEqual(tuple(state.strip() for state in named.group(1).split(",")), tuple(status.value for status in LifecycleStatus))
+        self.assertEqual(evaluation_review.LIFECYCLE_STATES, tuple(status.value for status in LifecycleStatus))
+        text = f"{item.question} {item.look_for}".lower()
+        for word in ("monitoring", "stale", "archived", "dormant", "closed", "expired"):
+            self.assertNotIn(word, text)
+        templated = next(row for row in evaluation_review.template()["items"] if row["item_id"] == "lifecycle_correctness")
+        self.assertEqual(templated["question"], item.question)
+
     def test_a_blank_template_is_not_a_valid_review(self):
         problems = evaluation_review.validate(evaluation_review.template())
         self.assertIn("reviewer is required", problems)

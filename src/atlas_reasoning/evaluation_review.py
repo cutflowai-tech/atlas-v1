@@ -17,9 +17,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from atlas_reasoning.enums import LifecycleStatus
+
 REVIEW_SCHEMA = "reasoning-management-review-v1"
 RATINGS = ("meets", "concern", "fails", "not_applicable")
 NEEDS_NOTES = frozenset({"concern", "fails", "not_applicable"})
+# The canonical result lifecycle (``enums.LifecycleStatus``, Phase 09): the review names exactly these states, never others.
+LIFECYCLE_STATES = tuple(status.value for status in LifecycleStatus)
 
 
 @dataclass(frozen=True)
@@ -44,8 +48,9 @@ CHECKLIST: tuple[ReviewItem, ...] = (
     ReviewItem("unnecessary_churn", "Did cards stay stable when the evidence did not materially change?",
                "Rewritten wording, new cards for the same topic, or status flips across runs without a material change.",
                ("unnecessary_new_card_rate", "unnecessary_field_rewrite_rate", "case_identity_stability")),
-    ReviewItem("lifecycle_correctness", "Are the lifecycle states right (active, monitoring, stale, resolved) and their transitions justified?",
-               "Cards kept active after their evidence disappeared; resolution without a reason; flip-flopping states.",
+    ReviewItem("lifecycle_correctness", f"Are the lifecycle states right ({', '.join(LIFECYCLE_STATES)}) and their transitions justified?",
+               "Cards kept active after their evidence disappeared; a card cooling while its case is still present; resolution without a "
+               "reason; flip-flopping states.",
                ("lifecycle_churn_rate",)),
     ReviewItem("atlas_questions_quality", "Are the Atlas Questions specific, answerable by a manager, and about context Monday cannot show?",
                "Questions the data already answers; leading or loaded questions; questions about a person's character."),

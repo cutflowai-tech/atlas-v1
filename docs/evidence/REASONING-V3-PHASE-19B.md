@@ -133,3 +133,35 @@ An independent read-only review agent and I reviewed the full diff. Every findin
 - An offline release run takes about 90 s, and the new test modules add about 4 minutes to `make reasoning` (two full 20-case runs: the runner and the driver).
 - `test_no_network_is_used` proves no Python-level socket or OpenRouter HTTP call is made. The database uses libpq, which is out of its scope.
 - 19-A L1 (thresholds are not runtime-pinned) and L3 (churn would count direct-fact resolutions) are inherited and unchanged. L2 (doc counts) belongs to the 19-A docs, which this phase does not edit.
+
+## 7. Review delta after `d86808b` (independent Phase 19-A review)
+
+**Finding: Low, accepted.** The `lifecycle_correctness` guidance in the review checklist named lifecycle states that do not exist (`monitoring`, `stale`). The canonical lifecycle (`enums.LifecycleStatus`, Phase 09) is `new, active, updated, cooling, resolved, superseded`.
+
+**Fix (`evaluation_review.py` only).**
+- The guidance now lists the states from `enums.LifecycleStatus` itself (`LIFECYCLE_STATES`). The enum is reused, not duplicated or changed.
+- The `look_for` text adds the `cooling`-while-present case.
+
+**Regression test.** `ReviewChecklistTests.test_the_lifecycle_item_uses_the_canonical_lifecycle_vocabulary` checks that:
+- the states named in the question equal the `LifecycleStatus` values, in order;
+- no non-canonical state word appears;
+- the review template carries the same text.
+
+I verified that it **fails on the `d86808b` wording** and passes on the fix.
+
+**Scope.**
+- No frozen Phase 19-A schema, metric, threshold, fixture, digest, evaluation semantics or migration changed.
+- The runner, live mode and result codes are unchanged.
+- The review stays release input only.
+
+Delta gates, at the final tree (PostgreSQL 17, `ATLAS_REASONING_REQUIRE_DB_TESTS=1`, no credentials):
+
+| Gate | Result |
+|---|---|
+| `make test` | **exit 0, 1666 tests**. Only the 3 Docker tests are skipped. |
+| `make reasoning` | **741 OK** |
+| Runner and live tests (targeted) | **exit 0, 60 OK** (43 + 17) |
+| Checklist tests | 6 OK |
+| `test_reasoning_evaluation` (19-A) | 60 OK, unchanged |
+| Migration health and replay | OK |
+| ruff, mypy | clean (183 files) |
