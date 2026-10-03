@@ -23,6 +23,14 @@
                                                       the Phase 19 evaluation runner (offline by default, on a disposable test
                                                       database; exit 0 only on PASS) and the human review checklist
                                                       (atlas_reasoning.evaluation_cli)
+    python -m atlas_reasoning rollout [--stages]       the validated Phase 20 rollout state (effective capabilities, the REV/20 stage);
+                                                      --stages lists the six stages and their variables (exit 2 when invalid)
+    python -m atlas_reasoning release-metadata [--commit SHA]
+                                                      the release metadata: commit, model, prompt / contract / validator versions,
+                                                      evaluation schema, thresholds, migrations, rollout (exit 1 when incomplete)
+    python -m atlas_reasoning release-eligibility --evaluation RUN.json [--commit SHA]
+                                                      whether this release may go forward: a Phase 19 release PASS of this software,
+                                                      complete metadata, a valid rollout (exit 0 only when eligible)
     python -m atlas_reasoning memory-sync [--limit N] retire expired teaching copies, copy teachings that came into effect,
                                                       then re-send pending or failed memory copies rebuilt from canonical rows
 
@@ -39,7 +47,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from atlas_reasoning import settings
+from atlas_reasoning import rollout, settings
 from atlas_reasoning.reasoning_input_boundary import ReasoningInputError
 from atlas_reasoning.store.db import Database, DatabaseError
 
@@ -116,7 +124,7 @@ def cmd_gate(args: argparse.Namespace) -> int:
     from atlas_reasoning.reasoning_input_boundary import load_reasoning_input
     from atlas_reasoning.store.repository import ReasoningStore
 
-    settings.require_enabled()
+    rollout.require_execution()      # the master switch, then the Phase 20 execution flag
     report = run_gate(load_reasoning_input(Path(args.site_dir)), ReasoningStore(_database()))
     output = report.to_dict()
     for decision in output["decisions"]:
@@ -151,7 +159,7 @@ def cmd_reason(args: argparse.Namespace) -> int:
     from atlas_reasoning.store.calls import StoreCallRecorder
     from atlas_reasoning.store.repository import ReasoningStore
 
-    settings.require_enabled()
+    rollout.require_execution()      # the master switch, then the Phase 20 execution flag
     router = settings.openrouter_settings()
     store = ReasoningStore(_database())
     store.get_run(args.run_id)
@@ -237,6 +245,62 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return evaluation_cli.main(args.evaluate_args, live_transport=OpenRouterTransport)
 
 
+def _commit(value: str | None) -> str | None:
+    """``--commit``, else this source checkout's HEAD. None — the metadata is then incomplete, never guessed — outside a git checkout,
+    in a checkout that is not this package's own repository, or when the checkout has uncommitted changes (HEAD would not describe it)."""
+    if value:
+        return value
+    import subprocess
+
+    package = Path(__file__).resolve().parent
+
+    def git(*args: str) -> str | None:
+        try:
+            result = subprocess.run(["git", *args], cwd=package, capture_output=True, text=True, check=False, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return result.stdout if result.returncode == 0 else None
+
+    top, head, status = git("rev-parse", "--show-toplevel"), git("rev-parse", "HEAD"), git("status", "--porcelain")
+    if top is None or head is None or status is None or Path(top.strip()).resolve() != package.parents[1] or status.strip():
+        return None
+    return head.strip()
+
+
+def cmd_rollout(args: argparse.Namespace) -> int:
+    if args.stages:
+        _print({"version": rollout.ROLLOUT_VERSION, "stages": [{"number": stage.number, "name": stage.name, "description": stage.description,
+                                                                "env": dict(stage.env)} for stage in rollout.STAGES]})
+        return 0
+    _print(rollout.rollout_config().to_dict())
+    return 0
+
+
+def cmd_release_metadata(args: argparse.Namespace) -> int:
+    import os
+
+    from atlas_reasoning.release_metadata import release_metadata
+
+    metadata = release_metadata(commit=_commit(args.commit), env=os.environ)
+    _print({"metadata": metadata.to_dict(), "complete": metadata.complete, "missing": metadata.missing()})
+    return 0 if metadata.complete else 1
+
+
+def cmd_release_eligibility(args: argparse.Namespace) -> int:
+    import os
+
+    from atlas_reasoning.release_metadata import eligibility, release_metadata
+
+    config = rollout.rollout_config()
+    try:
+        run = json.loads(Path(args.evaluation).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise settings.ReasoningConfigError(f"cannot read the evaluation result {Path(args.evaluation).name}: {type(error).__name__}") from None
+    result = eligibility(run, release_metadata(commit=_commit(args.commit), env=os.environ, rollout=config), config)
+    _print(result.to_dict())
+    return 0 if result.eligible else 1
+
+
 def cmd_memory_sync(args: argparse.Namespace) -> int:
     from atlas_reasoning.honcho_client import backend_from_env
     from atlas_reasoning.human_context import sync_service
@@ -268,6 +332,9 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "memory-health": (cmd_memory_health, "check the Honcho memory configuration or connectivity"),
     "memory-sync": (cmd_memory_sync, "re-send pending or failed memory copies"),
     "evaluate": (cmd_evaluate, "run the Phase 19 evaluation or the human review checklist (see: evaluate --help)"),
+    "rollout": (cmd_rollout, "show the validated Phase 20 rollout state (or --stages)"),
+    "release-metadata": (cmd_release_metadata, "show this release's metadata (exit 1 when incomplete)"),
+    "release-eligibility": (cmd_release_eligibility, "check release eligibility against a Phase 19 evaluation result"),
 }
 
 
@@ -296,6 +363,12 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--limit", type=int, default=100)
         elif name == "evaluate":
             command.add_argument("evaluate_args", nargs=argparse.REMAINDER, help="evaluation_cli arguments")
+        elif name == "rollout":
+            command.add_argument("--stages", action="store_true", help="list the REV/20 stages and their variables")
+        elif name in ("release-metadata", "release-eligibility"):
+            command.add_argument("--commit", help="the release commit (default: this checkout's HEAD)")
+            if name == "release-eligibility":
+                command.add_argument("--evaluation", required=True, help="the Phase 19 evaluation run JSON (evaluate run --output)")
     return root
 
 
