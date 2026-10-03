@@ -44,9 +44,11 @@ sys.path.insert(0, str(PRODUCTION))
 
 from reasoning_ops import release_checklist, restore_drill
 
-# The approved Phase 19 evidence: the canonical report of the offline release evaluation at PHASE19_CLOSURE (74c015f), byte-identical on
-# 19-B's evidence, the post-merge gate and every Phase 20 head since. A change of evaluated software must re-establish (and re-approve) it.
-APPROVED_PHASE19_REPORT_SHA256 = "3b8e9781d39f444b1c38940d5a03bf27ac65bacfcb4b9d36ff09b6a7ae64a44a"
+# The approved Phase 19 evidence: the canonical report of the offline release evaluation. A change of evaluated software must
+# re-establish (and re-approve) it. 3b8e9781…a44a was the report from PHASE19_CLOSURE (74c015f) to analyst-v2/update-v2. It was
+# re-established for analyst-v3/update-v3 (docs/evidence/REASONING-V3-PROMPT-V3.md): the only report difference is those two prompt
+# versions, and every metric, threshold and coverage value is identical.
+APPROVED_PHASE19_REPORT_SHA256 = "67dabca2a4d3885d7d7f6eae14651cc003bbd6caac094f0062aca926e2ba6c59"
 _COMPOSE_LINE = re.compile(r"^\s+(ATLAS_REASONING_[A-Z0-9_]+):\s*\$\{([A-Z0-9_]+)(:?-)([^}]*)\}\s*$")
 
 
