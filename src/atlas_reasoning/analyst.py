@@ -9,7 +9,9 @@ and timestamps. The model therefore cannot create or change a case ID, a result 
 
 Determinism of the input. ``analyst_input(case)`` serializes only what the analyst needs, in a canonical order (findings by member
 key, statements by member, level and code, evidence blocks and references sorted, keys sorted, compact JSON) and without volatile
-values (Intelligence V2 finding IDs and ranks, snapshot ID, case creation time, event IDs). Two cases with the same identity,
+values (Intelligence V2 finding IDs and ranks, snapshot ID, case creation time, event IDs). Evidence references are grouped per
+(``member_key``, ``role``, ``evidence_code``), the fields every record of one block shares, so those are written once per block (input
+v2; lossless, ``flat_evidence_references`` restores the per-record list). Two cases with the same identity,
 evidence and context therefore produce byte-identical prompts (``tests/test_reasoning_analyst.py``). An input larger than
 ``MAX_INPUT_CHARS`` is refused (``CaseTooLarge``) instead of being truncated: the model either sees the whole case or nothing.
 
@@ -29,7 +31,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -47,7 +49,7 @@ from atlas_reasoning.structured import inline_schema
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 ANALYST_PROMPT_VERSION = "analyst-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
 ANALYST_PURPOSE = "analyst"
-ANALYST_INPUT_VERSION = "analyst-input-v1"
+ANALYST_INPUT_VERSION = "analyst-input-v2"   # v2: evidence references grouped per (member_key, role, evidence_code); lossless
 MAX_INPUT_CHARS = 400_000   # default of ATLAS_REASONING_MAX_INPUT_CHARS (Phase 18); about 100k tokens; the largest showcase case is ~152k
 MAX_OUTPUT_TOKENS = 16_000   # default of ATLAS_REASONING_MAX_OUTPUT_TOKENS; reasoning tokens count against it on OpenRouter
 REASONING_EFFORT = "medium"
@@ -84,10 +86,33 @@ def _finding(row: Mapping[str, Any]) -> dict[str, Any]:
             "limitations": sorted(row["limitations"])}
 
 
+_GROUP_KEYS = ("member_key", "role", "evidence_code")
+
+
 def _reference(ref: Mapping[str, Any]) -> dict[str, Any]:
     return {"ref_id": ref["ref_id"], "member_key": ref["member_key"], "role": ref["role"], "evidence_code": ref["evidence_code"],
             "monday_item_id": ref["monday_item_id"], "cycle_id": ref["cycle_id"], "editor_id": ref["editor_id"],
             "video_type_key": ref["video_type_key"], "source_timestamps": sorted(ref["source_timestamps"]), "values": ref["values"]}
+
+
+def _reference_groups(references: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The citable references, grouped by the fields every record of one evidence block shares (``member_key``, ``role``,
+    ``evidence_code``), which are written once per group instead of once per record. Lossless: every other field of every record is
+    kept unchanged, and ``flat_evidence_references`` restores exactly the per-record list (input v1). Groups are sorted by their
+    keys and records by ``ref_id``."""
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for ref in references:
+        row = _reference(ref)
+        groups.setdefault((row["member_key"], row["role"], row["evidence_code"]), []).append(
+            {key: value for key, value in row.items() if key not in _GROUP_KEYS})
+    return [{"member_key": member_key, "role": role, "evidence_code": code, "records": sorted(rows, key=lambda row: row["ref_id"])}
+            for (member_key, role, code), rows in sorted(groups.items())]
+
+
+def flat_evidence_references(case_input: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The per-record reference list of a case input (the input v1 shape, sorted by ``ref_id``), rebuilt from its groups."""
+    return sorted(({**{key: group[key] for key in _GROUP_KEYS}, **record} for group in case_input["evidence_references"] for record in group["records"]),
+                  key=lambda row: row["ref_id"])
 
 
 def case_evidence_input(case: Mapping[str, Any]) -> dict[str, Any]:
@@ -105,7 +130,7 @@ def case_evidence_input(case: Mapping[str, Any]) -> dict[str, Any]:
                              key=lambda row: (row["member_key"], _LEVEL_ORDER[row["level"]], row["code"], canonical_json(row["params"]))),
         "evidence_blocks": sorted((dict(block) for block in evidence["blocks"]),
                                   key=lambda row: (row["member_key"], row["role"], row["evidence_code"], canonical_json(row))),
-        "evidence_references": sorted((_reference(ref) for ref in evidence["references"]), key=lambda row: row["ref_id"]),
+        "evidence_references": _reference_groups(evidence["references"]),
         "manager_context": sorted(({key: row[key] for key in ("source_type", "body", "author", "recorded_at")} for row in case["manager_context"]),
                                   key=lambda row: (row["recorded_at"], row["source_type"], row["body"])),
         "memory_context": sorted(({key: row[key] for key in ("source_type", "body", "recorded_at")} for row in memory["items"]),

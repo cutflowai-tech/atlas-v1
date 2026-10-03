@@ -68,7 +68,19 @@ deploy/production/compose.reasoning-live.yaml`.
 - **Backup:** `C exec reasoning-db pg_dump --format=custom --schema=atlas_reasoning --no-owner --no-privileges -U atlas_reasoning atlas_reasoning`
   writes to a root-only file. Keep the release record with it (`REASONING-V3-RECOVERY.md` §2).
 
-## 5. Rollback
+## 5. Daily schedule
+
+Reasoning runs **once per day** by operator decision (2026-10-03). The hourly deterministic sync (`waset-atlas.timer`) is unchanged.
+
+- `waset-atlas-reasoning.timer` runs at 03:40 UTC (06:40 Cairo) and starts `waset-atlas-reasoning.service`, a hardened oneshot.
+- The service runs `deploy/production/reasoning-daily.sh`:
+  1. `gate` on `/var/lib/waset-atlas/published/current`.
+  2. `reason <run_id>`, only when the gate created LLM or lifecycle work.
+- Unchanged evidence therefore makes no LLM call. Budgets, the breaker and the rollout switches are the application's.
+- To pause, run `systemctl disable --now waset-atlas-reasoning.timer`, or set `ATLAS_REASONING_EXECUTION=off`. With execution off,
+  `gate` exits 2 and the unit reports the refusal.
+
+## 6. Rollback
 
 Rollback follows `REASONING-V3-ROLLOUT.md` §4 and `REASONING-V3-RECOVERY.md` §3. It never deletes reasoning rows.
 

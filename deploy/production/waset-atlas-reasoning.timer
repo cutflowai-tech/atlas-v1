@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the Waset Atlas Reasoning V3 pass once per day
+Documentation=file:/opt/waset-atlas/current/docs/REASONING-V3-LIVE-TOPOLOGY.md
+
+[Timer]
+# 03:40 UTC (06:40 Cairo): after an hourly deterministic publish, before the working day. Once per day by operator decision.
+OnCalendar=*-*-* 03:40:00 UTC
+Persistent=true
+AccuracySec=1min
+Unit=waset-atlas-reasoning.service
+
+[Install]
+WantedBy=timers.target
