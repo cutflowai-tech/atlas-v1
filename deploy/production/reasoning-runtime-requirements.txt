@@ -11,3 +11,6 @@ six==1.17.0
 psycopg==3.3.6
 psycopg-binary==3.3.6
 typing-extensions==4.12.2
+# Production WSGI server of the Reasoning V3 web process (compose.reasoning-live.yaml, reasoning-web). packaging is gunicorn's requirement.
+gunicorn==23.0.0
+packaging==25.0
