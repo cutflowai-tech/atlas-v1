@@ -22,7 +22,7 @@ contradicted case, confidence never above the upstream ceiling) and ``output_che
 ``reasoning_summary`` is the explicit summary written for management; there is no field for hidden reasoning and any unknown
 field is refused.
 
-Prompt: ``prompts/analyst-v2.md`` (``ANALYST_PROMPT_VERSION``; v2 adds the rules for attributed human context, v1 is kept for the
+Prompt: ``prompts/analyst-v3.md`` (``ANALYST_PROMPT_VERSION``; v3 states the exact wording the guardrails check, v2 adds the rules for attributed human context; v1 and v2 are kept for the
 results it produced). Changing the prompt text requires a new version; a test pins the
 prompt's SHA-256.
 """
@@ -47,7 +47,7 @@ from atlas_reasoning.settings import reliability_settings
 from atlas_reasoning.structured import inline_schema
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
-ANALYST_PROMPT_VERSION = "analyst-v2"   # v2 (07-14 integration): how to use human context; v1 kept for history
+ANALYST_PROMPT_VERSION = "analyst-v3"   # v3: the exact wording the guardrails check; v2 (human context) and v1 kept for history
 ANALYST_PURPOSE = "analyst"
 ANALYST_INPUT_VERSION = "analyst-input-v2"   # v2: evidence references grouped per (member_key, role, evidence_code); lossless
 MAX_INPUT_CHARS = 400_000   # default of ATLAS_REASONING_MAX_INPUT_CHARS (Phase 18); about 100k tokens; the largest showcase case is ~152k

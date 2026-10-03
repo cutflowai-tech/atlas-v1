@@ -32,6 +32,7 @@ from atlas_reasoning.store.repository import ReasoningStore, StoreTransaction
 # Changing the update prompt text requires a new UPDATE_PROMPT_VERSION; update this pin together with the version.
 UPDATE_V1_SHA256 = "40a7849f176823e1c53e8b7dce5a48ba8e9951d2605f9349c93297ea38e3bded"
 UPDATE_V2_SHA256 = "6c9abbecc90fe0c215c7da6c9b4b55878b8e40cabf53049363f7435e18e31ed8"
+UPDATE_V3_SHA256 = "6ce5d7cfac5fbfa629e8321a336f6037108e3e757b419f3117a20f466073258c"
 
 
 def canonical(value) -> str:
@@ -76,7 +77,7 @@ class MergeTests(unittest.TestCase):
         for name in ("contract_version", "result_id", "case_id", "created_at", "superseded_by", "lifecycle_status"):
             self.assertEqual(after[name], before[name], name)
         self.assertEqual((after["version"], after["evidence_fingerprint"], after["source_snapshot_id"], after["updated_at"], after["prompt_version"]),
-                         (2, self.case.evidence_fingerprint, self.case.source_snapshot_id, LATER, "update-v2"))
+                         (2, self.case.evidence_fingerprint, self.case.source_snapshot_id, LATER, "update-v3"))
         self.assertEqual(after["model_metadata"], {"provider": "fake", "model": PINNED_MODEL, "request_ids": ["req_" + "2" * 32]})
         update = applied.update.to_dict()
         self.assertEqual((update["case_id"], update["result_id"], update["base_version"], update["evidence_fingerprint_before"],
@@ -173,13 +174,15 @@ class MergeTests(unittest.TestCase):
             self.assertIn(code, caught.exception.codes)
 
     def test_update_prompt_is_separate_versioned_and_complete(self):
-        self.assertEqual(updater.UPDATE_PROMPT_VERSION, "update-v2")
-        self.assertNotEqual(analyst.prompt_text("update-v2"), analyst.prompt_text("analyst-v2"))
+        self.assertEqual(updater.UPDATE_PROMPT_VERSION, "update-v3")
+        self.assertNotEqual(analyst.prompt_text("update-v3"), analyst.prompt_text("analyst-v3"))
         self.assertEqual(analyst.prompt_sha256("update-v1"), UPDATE_V1_SHA256)
         self.assertEqual(analyst.prompt_sha256("update-v2"), UPDATE_V2_SHA256)
-        self.assertIn("Human context is not evidence", analyst.prompt_text("update-v2"))
+        self.assertEqual(analyst.prompt_sha256("update-v3"), UPDATE_V3_SHA256)
+        self.assertIn("Human context is not evidence", analyst.prompt_text("update-v3"))
+        self.assertIn("## Wording Atlas checks automatically", analyst.prompt_text("update-v3"))
         request = updater.update_request(self.v1, self.case, run_id="run_" + "1" * 32)
-        self.assertEqual((request.context.purpose, request.context.prompt_version), ("update", "update-v2"))
+        self.assertEqual((request.context.purpose, request.context.prompt_version), ("update", "update-v3"))
         sent = request_input(request)
         self.assertEqual(sent["previous_result"], {"version": 1, "fields": {n: self.v1.to_dict()[n] for n in PATCHABLE_FIELDS}})
         self.assertEqual(sent["fingerprints"], {"before": self.v1.evidence_fingerprint, "after": self.case.evidence_fingerprint})
@@ -231,7 +234,7 @@ class UpdateEngineTests(unittest.TestCase):
             self.assertIsNotNone(tx.open_result(self.case_id))
             self.assertEqual(tx._one("SELECT count(*) AS n FROM reasoning_results WHERE case_id = %s", (self.case_id,))["n"], 1)
         self.assertEqual([(h["version"], h["change_kind"], h["prompt_version"]) for h in history],
-                         [(1, "created", "analyst-v2"), (2, "lifecycle", "analyst-v2"), (3, "patched", "update-v2")])
+                         [(1, "created", "analyst-v3"), (2, "lifecycle", "analyst-v3"), (3, "patched", "update-v3")])
         self.assertEqual(v1_row, self.v1_row, "version 1 is never rewritten")
         v2 = history[2]["document"]
         self.assertEqual(v2["lifecycle_status"], "updated")
