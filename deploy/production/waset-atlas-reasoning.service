@@ -1,0 +1,33 @@
+[Unit]
+Description=Waset Atlas Reasoning V3 daily pass (Change Gate, then reasoning for changed cases only)
+Documentation=file:/opt/waset-atlas/current/docs/REASONING-V3-LIVE-TOPOLOGY.md
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+ConditionPathExists=/etc/waset-atlas/reasoning.env
+ConditionPathExists=/opt/waset-atlas/current/deploy/production/compose.reasoning-live.yaml
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/waset-atlas/current
+ExecStart=/opt/waset-atlas/current/deploy/production/reasoning-daily.sh
+Restart=no
+TimeoutStartSec=2h
+TimeoutStopSec=1min
+UMask=0027
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waset-atlas-reasoning
+
+[Install]
+WantedBy=multi-user.target

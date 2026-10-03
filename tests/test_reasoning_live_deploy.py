@@ -113,6 +113,52 @@ class LiveComposeTests(unittest.TestCase):
         self.assertNotRegex(doc, r"(?i)\bDROP (TABLE|SCHEMA|DATABASE)\b|rm -rf|down -v|volume rm")
 
 
+class DailyScheduleTests(unittest.TestCase):
+    def test_timer_runs_once_per_day_and_the_hourly_sync_is_unchanged(self):
+        timer = text(PRODUCTION / "waset-atlas-reasoning.timer")
+        calendars = re.findall(r"(?m)^OnCalendar=(.+)$", timer)
+        self.assertEqual(calendars, ["*-*-* 03:40:00 UTC"])
+        self.assertIn("Unit=waset-atlas-reasoning.service", timer)
+        self.assertIn("OnCalendar=hourly", text(PRODUCTION / "waset-atlas.timer"))
+        self.assertNotIn("reasoning", text(PRODUCTION / "waset-atlas.service").lower())
+
+    def test_service_is_a_hardened_oneshot_running_the_script(self):
+        service = text(PRODUCTION / "waset-atlas-reasoning.service")
+        for line in ("Type=oneshot", "Restart=no", "NoNewPrivileges=yes", "ProtectSystem=strict", "ProtectHome=yes",
+                     "ExecStart=/opt/waset-atlas/current/deploy/production/reasoning-daily.sh", "ConditionPathExists=/etc/waset-atlas/reasoning.env"):
+            self.assertIn(line, service)
+
+    def test_script_gates_first_and_reasons_only_when_there_is_work(self):
+        script = text(PRODUCTION / "reasoning-daily.sh")
+        self.assertTrue(script.startswith("#!/bin/sh\n"))
+        self.assertIn("set -eu", script)
+        for name in ("compose.yaml", "compose.reasoning.yaml", "compose.reasoning-live.yaml"):
+            self.assertIn(f"$ROOT/deploy/production/{name}", script)
+        self.assertIn("--env-file /etc/waset-atlas/atlas.env --env-file /etc/waset-atlas/reasoning.env", script)
+        self.assertIn("reasoning-ops gate /var/lib/waset-atlas/published/current", script)
+        self.assertIn('if [ "$work" -eq 0 ]; then', script)
+        self.assertLess(script.index("reasoning-ops gate"), script.index("reasoning-ops reason"))
+        commands = re.findall(r"reasoning-ops ([a-z-]+)", script)
+        self.assertEqual(commands, ["gate", "reason"])       # no migrate, memory-sync, evaluate or provider calls of its own
+        self.assertTrue((PRODUCTION / "reasoning-daily.sh").stat().st_mode & 0o111)
+
+    def test_script_skips_reason_when_the_gate_reports_no_work(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = Path(tmp) / "calls"
+            fake = Path(tmp) / "docker"
+            fake.write_text("#!/bin/sh\necho \"$@\" >> " + str(calls) + "\n"
+                            "case \"$*\" in *\" gate \"*) echo '{\"run_id\": \"run_x\", \"counts\": {\"llm_work_items\": '\"$WORK\"', \"lifecycle_work_items\": 0}}';; esac\n",
+                            encoding="utf-8")
+            fake.chmod(0o755)
+            script = text(PRODUCTION / "reasoning-daily.sh").replace("/usr/bin/docker", str(fake))
+            for work, expected in (("0", ["gate"]), ("3", ["gate", "reason"])):
+                calls.write_text("", encoding="utf-8")
+                result = subprocess.run(["sh", "-c", script], env={**os.environ, "WORK": work}, capture_output=True, text=True, timeout=60, check=False)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                ran = [re.search(r"reasoning-ops ([a-z-]+)", line).group(1) for line in calls.read_text().splitlines()]
+                self.assertEqual(ran, expected, work)
+
+
 class WsgiEntryPointTests(unittest.TestCase):
     def run_wsgi(self, extra: dict[str, str]) -> subprocess.CompletedProcess[str]:
         script = ("import io, json, sys\n"
