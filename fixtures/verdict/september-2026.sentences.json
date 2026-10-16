@@ -6,7 +6,7 @@
    "params": {
     "speed_pct": 23.3,
     "late_pct": 54.5,
-    "team_pct": 58.9
+    "team_pct": 59.8
    }
   },
   "reasons": [
@@ -34,7 +34,7 @@
      "late": 12,
      "n": 22,
      "late_pct": 54.5,
-     "team_pct": 58.9
+     "team_pct": 59.8
     }
    },
    {
@@ -67,7 +67,7 @@
      "late": 7,
      "n": 13,
      "late_pct": 53.8,
-     "team_pct": 58.9
+     "team_pct": 59.5
     }
    },
    {
@@ -114,7 +114,7 @@
      "late": 12,
      "n": 14,
      "late_pct": 85.7,
-     "team_pct": 58.9
+     "team_pct": 55.6
     }
    },
    {
@@ -137,24 +137,15 @@
   ]
  },
  "Sobhy": {
-  "tier": "watch",
+  "tier": "steady",
   "headline": {
-   "key": "verdict.headline.watch.late",
+   "key": "verdict.headline.steady.default",
    "params": {
     "late_pct": 66.7,
-    "team_pct": 58.9
+    "team_pct": 58.5
    }
   },
   "reasons": [
-   {
-    "key": "verdict.reason.late_above_team",
-    "params": {
-     "late": 4,
-     "n": 6,
-     "late_pct": 66.7,
-     "team_pct": 58.9
-    }
-   },
    {
     "key": "verdict.reason.volume_below_median",
     "params": {
@@ -183,15 +174,6 @@
     "key": "verdict.reason.few_completed_none_overdue",
     "params": {
      "completed": 2
-    }
-   },
-   {
-    "key": "verdict.reason.late_below_team",
-    "params": {
-     "late": 1,
-     "n": 2,
-     "late_pct": 50.0,
-     "team_pct": 58.9
     }
    },
    {
@@ -239,9 +221,10 @@
     }
    },
    {
-    "key": "verdict.reason.overdue_open",
+    "key": "verdict.reason.completed_in_window",
     "params": {
-     "count": 1
+     "completed": 0,
+     "lifetime_completed": 2
     }
    }
   ]
@@ -267,7 +250,7 @@
      "late": 7,
      "n": 15,
      "late_pct": 46.7,
-     "team_pct": 58.9
+     "team_pct": 60.5
     }
    },
    {
@@ -284,7 +267,7 @@
    "key": "verdict.headline.steady.default",
    "params": {
     "late_pct": 58.3,
-    "team_pct": 58.9
+    "team_pct": 59.1
    }
   },
   "reasons": [
@@ -294,7 +277,7 @@
      "late": 14,
      "n": 24,
      "late_pct": 58.3,
-     "team_pct": 58.9
+     "team_pct": 59.1
     }
    },
    {
@@ -328,7 +311,7 @@
    "key": "verdict.headline.steady.default",
    "params": {
     "late_pct": 61.1,
-    "team_pct": 58.9
+    "team_pct": 58.6
    }
   },
   "reasons": [
@@ -338,7 +321,7 @@
      "late": 11,
      "n": 18,
      "late_pct": 61.1,
-     "team_pct": 58.9
+     "team_pct": 58.6
     }
    },
    {
@@ -382,7 +365,7 @@
      "late": 8,
      "n": 15,
      "late_pct": 53.3,
-     "team_pct": 58.9
+     "team_pct": 59.7
     }
    },
    {

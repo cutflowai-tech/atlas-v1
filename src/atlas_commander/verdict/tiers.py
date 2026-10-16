@@ -25,6 +25,12 @@ def points_above(rate: float | None, team_rate: float | None, config: VerdictCon
     return round((rate - team_rate) * 100, int(config["precision.rate_digits"]) - 2)
 
 
+def late_above_for_verdict(metrics: Mapping[str, Any], config: VerdictConfig) -> float | None:
+    """Points above the other Editors' late rate that a verdict may use: only a comparison the approved Deadline rule classifies
+    (D45 samples), so a handful of projects never makes an Editor Weakest."""
+    return points_above(metrics["late_rate"], metrics["team_late_rate"], config) if metrics["late_classified"] else None
+
+
 def speed_for_verdict(metrics: Mapping[str, Any]) -> float | None:
     """The speed difference a verdict may use: only a comparison the approved Speed rule classifies (D52 samples)."""
     return metrics["speed_delta_pct"] if metrics["speed_classified"] else None
@@ -43,7 +49,7 @@ def assign_tier(metrics: Mapping[str, Any], overdue: int, config: VerdictConfig,
     completed = metrics["completed"]
     if completed == 0 or (completed < config["tier.low_activity_below_completed"] and overdue == 0):
         return LOW_ACTIVITY
-    above = points_above(metrics["late_rate"], metrics["team_late_rate"], config)
+    above = late_above_for_verdict(metrics, config)
     speed = speed_for_verdict(metrics)
     if above is not None and (above >= config["tier.weakest_late_above_team_pp"]
                               or (speed is not None and speed >= config["tier.weakest_speed_pct"] and above > 0)):
@@ -65,7 +71,7 @@ def _clamp(value: float, config: VerdictConfig) -> float:
 def dimension_points(metrics: Mapping[str, Any], median_completed: float | None, config: VerdictConfig) -> dict[str, float | None]:
     """0–100 points per dimension; ``score.neutral`` is exactly the team level. None when the dimension has no usable value."""
     neutral = config["score.neutral"]
-    above = points_above(metrics["late_rate"], metrics["team_late_rate"], config)
+    above = late_above_for_verdict(metrics, config)
     speed = speed_for_verdict(metrics)
     return {
         "deadlines": None if above is None else _clamp(neutral - above * config["score.deadline_points_per_pp"], config),

@@ -21,7 +21,7 @@ class DecisionsTests(unittest.TestCase):
         names = {e["editor_id"]: e["display_name"] for e in document["editors"]}
         rows = [(d["horizon"], d["type"], [names[i] for i in d["owner_editor_ids"]], d["owner_role"]) for d in document["decisions"]]
         self.assertEqual(rows, [
-            ("today", "overdue_open_work", ["Refaat", "Michael", "Mario"], None),          # the most overdue first
+            ("today", "overdue_open_work", ["Mario"], None),          # In Progress work only (D55); Revisions items are context
             ("this_week", "weakest_editor", ["Refaat"], "editors_manager"),
             ("this_week", "scheduling_runway", [], "scheduling_owner"),
             ("ask", "low_activity", ["Ahmed", "Michael", "Mohamed Mansour (Office)", "Samra"], None),
@@ -31,8 +31,8 @@ class DecisionsTests(unittest.TestCase):
 
     def test_today_lists_the_three_overdue_projects(self):
         today = verdicts()["decisions"][0]
-        self.assertEqual(today["title"], {"key": "verdict.decision.overdue_open_work", "params": {"count": 3, "names": ["Refaat", "Michael", "Mario"]}})
-        self.assertEqual([m["params"]["item_id"] for m in today["evidence"]], ["3202025538", "3109734616", "3248937694"])   # most overdue first
+        self.assertEqual(today["title"], {"key": "verdict.decision.overdue_open_work", "params": {"count": 1, "names": ["Mario"]}})
+        self.assertEqual([m["params"]["item_id"] for m in today["evidence"]], ["3248937694"])
         self.assertEqual(today["confidence"], "high")
 
     def test_weakest_and_scheduling_carry_their_evidence(self):

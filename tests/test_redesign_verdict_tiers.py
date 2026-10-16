@@ -11,14 +11,20 @@ TOP = Standing(in_top_share=True, worse_dimensions=())
 MIDDLE = Standing(in_top_share=False, worse_dimensions=())
 
 
-def m(completed=12, late_pp=0.0, speed=None, classified=True):
-    return {"completed": completed, "late_rate": round(TEAM + late_pp / 100, 4), "team_late_rate": TEAM, "speed_delta_pct": speed,
-            "speed_classified": classified and speed is not None}
+def m(completed=12, late_pp=0.0, speed=None, classified=True, late_classified=True):
+    return {"completed": completed, "late_rate": round(TEAM + late_pp / 100, 4), "team_late_rate": TEAM, "late_classified": late_classified,
+            "speed_delta_pct": speed, "speed_classified": classified and speed is not None}
 
 
 class TierRuleTests(unittest.TestCase):
     def tier(self, metrics, overdue=0, standing=MIDDLE):
         return assign_tier(metrics, overdue, CONFIG, standing)
+
+    def test_a_late_rate_the_deadline_rule_does_not_classify_never_moves_the_tier(self):
+        # D55: below the D45 samples (10 Editor / 60 comparator projects) the late comparison is shown, never judged.
+        self.assertEqual(self.tier(m(completed=6, late_pp=40, late_classified=False)), STEADY)
+        self.assertEqual(self.tier(m(completed=6, late_pp=6, late_classified=False)), STEADY)
+        self.assertEqual(self.tier(m(completed=6, late_pp=10, speed=35, late_classified=False)), WATCH)   # speed alone still can
 
     def test_low_activity(self):
         self.assertEqual(self.tier(m(completed=0), overdue=2), LOW_ACTIVITY)          # zero projects always

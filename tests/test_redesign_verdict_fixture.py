@@ -12,7 +12,8 @@ from atlas_commander.verdict.config import load_config
 from atlas_commander.verdict.engine import SCHEMA
 from atlas_commander.verdict.inputs import metrics, normalize
 
-EXPECTED_TIERS = {"Will": "best", "Anas": "steady", "Refaat": "weakest", "Sobhy": "watch",
+# Sobhy (4 of 6 late) was Watch under D54; D55 judges a late rate only when the approved Deadline rule classifies it (10 projects).
+EXPECTED_TIERS = {"Will": "best", "Anas": "steady", "Refaat": "weakest", "Sobhy": "steady",
                   "Mohamed Mansour (Office)": "low_activity", "Samra": "low_activity"}
 
 
@@ -68,7 +69,10 @@ class MetricsTests(unittest.TestCase):
         self.assertIsNone(got["Sobhy"]["speed_label"])                       # no comparable peers: "n/a"
         self.assertFalse(got["Mohamed Mansour (Office)"]["speed_classified"])   # one project: shown, never used for a verdict
         self.assertTrue(got["Refaat"]["speed_classified"])
-        self.assertEqual({round(m["team_late_rate"] * 100) for m in got.values()}, {59})
+        # D55: each Editor is compared with the other Editors (76 of 129 late in the team, the Editor's own projects removed).
+        self.assertEqual((got["Refaat"]["team_late_rate"], got["Will"]["team_late_rate"]), (round(64 / 115, 4), round(64 / 107, 4)))
+        self.assertTrue(got["Refaat"]["late_classified"])
+        self.assertFalse(got["Sobhy"]["late_classified"])                    # 6 projects: below the D45 minimum of 10
 
     def test_quality_is_not_measured_unless_there_is_something_to_show(self):
         got = fixture_metrics()

@@ -128,7 +128,7 @@ def synthetic_extract() -> dict[str, Any]:
     return {
         "retrieved_at": GENERATED_AT,
         "board_id": BOARD,
-        "ingestion": {"retrieved_at": GENERATED_AT, "complete_history_item_ids": []},
+        "ingestion": {"retrieved_at": GENERATED_AT},   # synthetic: history completeness is not claimed either way
         "activity": {"boards": [{"activity_logs": logs}]},
         "items": {"items": [_current_item("30", 6, "In Progress"), _current_item("31", 6, "Revisions")]},
     }
@@ -263,7 +263,7 @@ def showcase_extract() -> dict[str, Any]:
     return {
         "retrieved_at": GENERATED_AT,
         "board_id": BOARD,
-        "ingestion": {"retrieved_at": GENERATED_AT, "complete_history_item_ids": []},
+        "ingestion": {"retrieved_at": GENERATED_AT},   # synthetic: history completeness is not claimed either way
         "activity": {"boards": [{"activity_logs": logs}]},
         "items": {"items": current},
     }

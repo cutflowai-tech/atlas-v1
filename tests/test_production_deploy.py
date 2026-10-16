@@ -126,6 +126,26 @@ class ProductionDeploymentTests(unittest.TestCase):
         self.assertNotIn("rm -rf", book)
         self.assertNotIn("find /var/lib/waset-atlas -delete", book)
 
+    def test_host_proxy_requires_authentication_for_every_path_and_is_not_indexed(self):
+        proxy = self.text(DEPLOY / "host-proxy.nginx.conf")
+        tls_server = proxy.split("listen 443", 1)[1]
+        self.assertIn('auth_basic "Atlas";', tls_server)
+        self.assertIn("auth_basic_user_file /etc/nginx/atlas.htpasswd;", tls_server)
+        self.assertNotRegex(tls_server, r"auth_basic\s+off")
+        self.assertIn("proxy_pass http://127.0.0.1:18000;", tls_server)
+        self.assertIn('X-Robots-Tag "noindex, nofollow"', tls_server)
+        self.assertIn("return 301 https://", proxy.split("listen 443", 1)[0])
+        self.assertIn('X-Robots-Tag "noindex, nofollow"', self.text(DEPLOY / "nginx.conf"))
+
+    def test_runbook_makes_access_control_and_its_check_mandatory(self):
+        book = self.text(RUNBOOK)
+        self.assertIn("Access control (mandatory before exposure)", book)
+        self.assertIn("deploy/production/host-proxy.nginx.conf", book)
+        self.assertIn("scripts/check-public-access https://atlas.wasetco.com", book)
+        check = self.text(ROOT / "scripts/check-public-access")
+        self.assertIn("set -eu", check)
+        self.assertIn("401|403", check)
+
     def test_fake_monday_cycle_status_lock_and_rollback_use_production_layout(self):
         data = Path(tempfile.mkdtemp(prefix="atlas-production-layout-"))
         try:

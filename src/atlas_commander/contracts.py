@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,17 @@ def _timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def deadline_delta_seconds(ready_for_approval_at: str, requested_eta: str) -> int:
+    """Whole seconds from the Requested ETA to Ready For Approval, rounded away from zero.
+
+    The sign is exactly the sign of the true difference (D5, no tolerance): a sub-second late or
+    early delivery is ``+1``/``-1``, never ``0``; ``0`` means the two instants are identical.
+    """
+    exact = _timestamp(ready_for_approval_at) - _timestamp(requested_eta)
+    seconds = exact.total_seconds()
+    return math.ceil(seconds) if seconds > 0 else math.floor(seconds)
+
+
 def semantic_codes(instance: Any, schema_name: str) -> list[str]:
     if isinstance(instance, list):
         event_ids = [event.get("event_id") for event in instance if isinstance(event, dict)]
@@ -64,7 +76,7 @@ def semantic_codes(instance: Any, schema_name: str) -> list[str]:
         observed = instance.get("requested_eta_observed_at")
         if schema_name == "deadline-metric-v1.2.schema.json" and observed and _timestamp(observed) > _timestamp(instance["ready_for_approval_at"]):
             codes.append("REQUESTED_ETA_SET_AFTER_READY_FOR_APPROVAL")
-        delta = int((_timestamp(instance["ready_for_approval_at"]) - _timestamp(instance["requested_eta"])).total_seconds())
+        delta = deadline_delta_seconds(instance["ready_for_approval_at"], instance["requested_eta"])
         if instance.get("delta_seconds") != delta:
             codes.append("DEADLINE_DELTA_MISMATCH")
         expected = "early" if delta < 0 else "on_time" if delta == 0 else "late"

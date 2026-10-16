@@ -17,7 +17,7 @@ class ConfidenceTests(unittest.TestCase):
         self.assertEqual(sobhy["confidence"], "low")
         self.assertIn("few_projects", sobhy["confidence_reasons"])       # 6 < 10 completed projects: High -> Medium
         self.assertIn("missing_dimension", sobhy["confidence_reasons"])  # no speed comparison: Medium -> Low
-        self.assertEqual(sobhy["tier"], "watch")                         # the verdict stays
+        self.assertEqual(sobhy["tier"], "steady")                        # 6 projects: the late rate is shown, not judged (D55)
 
     def test_will_twenty_two_projects_is_medium_and_says_why(self):
         will = editor(verdicts(), "Will")

@@ -8,9 +8,10 @@ import unittest
 
 import monday_factory as mf
 
+from atlas_commander import cycles as c
 from atlas_commander.contracts import validate
 from atlas_commander.cycles import ETA_AT_READY_FOR_APPROVAL, NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL
-from atlas_commander.metrics import MetricPolicy, deadline_eligible, deadline_result, deadline_summary
+from atlas_commander.metrics import MetricPolicy, deadline_eligible, deadline_result, deadline_summary, speed_eligible
 from atlas_commander.pipeline import reconstruct_cycles
 from atlas_commander.profile import build_editor_profile
 from atlas_commander.runtime import ACTIVE_CONTRACT_VERSION, load_contract_version
@@ -161,6 +162,84 @@ class DeadlineV12Tests(unittest.TestCase):
         self.assertEqual((row["deadline_result"], row["requested_eta"], row["requested_eta_observed_at"], row["requested_eta_changes_ignored_after_ready_for_approval"],
                           row["client_revision_events"]), ("late", "2026-09-02T12:00:00Z", "2026-09-01T09:05:00Z", 1, 1))
         self.assertEqual(profile["trend"]["deadline_by_month"][0]["late"], 1)
+
+
+class FirstPassTests(unittest.TestCase):
+    """Only a provable first pass is measured: anything that could make a later round look like the first is excluded with a reason."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.contracts = {version: load_contract_version(version) for version in ("1.4.0", "1.5.0")}
+
+    def only_cycle(self, logs, contract, ingestion=None):
+        result = reconstruct_cycles(mf.payload(*logs), contract, ingestion={"retrieved_at": NOW, **(ingestion or {})})
+        (cycle,) = result.cycles
+        return cycle
+
+    def assert_measured(self, cycle, expected):
+        self.assertEqual((speed_eligible(cycle), deadline_eligible(cycle)), (expected, expected), (cycle.flags, cycle.exclusions))
+
+    def test_item_without_proven_complete_history_is_excluded(self):
+        # Reopened inside the window: its first pass happened before the ingested history began.
+        reopened = [mf.editor("1-ed", "1", "2026-09-10T08:00:00Z", [WILL]), mf.video_type("1-vt", "1", "2026-09-10T08:00:01Z", [4]),
+                    mf.status("1-s0", "1", "2026-09-10T09:00:00Z", "Done", "Revisions"),
+                    mf.status("1-s1", "1", "2026-09-10T10:00:00Z", "Revisions", "In Progress"),
+                    mf.status("1-s2", "1", "2026-09-11T14:00:00Z", "In Progress", "Ready For Approval"),
+                    mf.eta("1-eta", "1", "2026-09-10T09:00:02Z", "2026-09-11", "09:00:00")]
+        for version, contract in self.contracts.items():
+            with self.subTest(version):
+                unproven = self.only_cycle(reopened, contract, {"complete_history_item_ids": ["2"]})
+                self.assertIn(c.HISTORY_START_NOT_OBSERVED, unproven.exclusions)
+                self.assert_measured(unproven, False)
+                proven = self.only_cycle(project("1", mf.eta("1-eta", "1", "2026-09-01T09:00:02Z", "2026-09-03", "09:00:00")), contract,
+                                         {"complete_history_item_ids": ["1"]})
+                self.assertNotIn(c.HISTORY_START_NOT_OBSERVED, proven.exclusions)
+                self.assert_measured(proven, True)
+                # No completeness claim at all (e.g. synthetic demo data): nothing is inferred either way.
+                self.assertNotIn(c.HISTORY_START_NOT_OBSERVED, self.only_cycle(reopened, contract).exclusions)
+
+    def test_ready_for_approval_before_first_in_progress_is_excluded(self):
+        logs = [mf.editor("1-ed", "1", "2026-09-01T07:00:00Z", [WILL]), mf.video_type("1-vt", "1", "2026-09-01T07:00:01Z", [4]),
+                mf.status("1-s0", "1", "2026-09-01T08:00:00Z", "Create File", "Ready For Approval"),
+                mf.status("1-s1", "1", "2026-09-01T10:00:00Z", "Ready For Approval", "In Progress"),
+                mf.status("1-s2", "1", "2026-09-01T16:00:00Z", "In Progress", "Ready For Approval"),
+                mf.eta("1-eta", "1", "2026-09-01T07:00:02Z", "2026-09-01", "12:00:00")]
+        for version, contract in self.contracts.items():
+            with self.subTest(version):
+                cycle = self.only_cycle(logs, contract)
+                self.assertIn(c.READY_FOR_APPROVAL_BEFORE_START, cycle.flags)
+                self.assertIn(c.READY_FOR_APPROVAL_BEFORE_START, cycle.exclusions)
+                self.assert_measured(cycle, False)
+
+    def test_undo_at_or_before_ready_for_approval_excludes_the_cycle(self):
+        eta = mf.eta("1-eta", "1", "2026-09-01T09:00:02Z", "2026-09-02", "14:00:00")
+        accidental = [mf.status("1-x1", "1", "2026-09-01T11:00:00Z", "In Progress", "Ready For Approval"),
+                      mf.status("1-x2", "1", "2026-09-01T11:01:00Z", "Ready For Approval", "In Progress", undo=True)]
+        editor_undo = [mf._log("1-x3", "1", mf.EDITOR, "2026-09-01T12:00:00Z", None, None, column_type="dropdown", undo=True)]
+        # The accidental Ready For Approval is undone a minute later, after it ended the cycle; and an undo after the item moved on.
+        moved_on = [mf.status("1-x5", "1", "2026-09-03T09:00:00Z", "Ready For Approval", "Sent"),
+                    mf.status("1-x4", "1", "2026-09-03T11:00:00Z", "Sent", "Ready For Approval", undo=True)]
+        for version, contract in self.contracts.items():
+            with self.subTest(version):
+                for name, extra in (("status", accidental), ("editor", editor_undo)):
+                    cycle = self.only_cycle(project("1", eta, *extra, rfa="2026-09-02T15:00:00Z"), contract)
+                    self.assertIn(c.UNDO_WITHIN_CYCLE_WINDOW, cycle.exclusions, name)
+                    self.assert_measured(cycle, False)
+                cycle = self.only_cycle(project("1", eta, *moved_on), contract)
+                self.assertNotIn(c.UNDO_WITHIN_CYCLE_WINDOW, cycle.exclusions)
+                self.assert_measured(cycle, True)
+
+    def test_sub_second_deadline_difference_is_never_on_time(self):
+        eta = mf.eta("1-eta", "1", "2026-09-01T09:00:02Z", "2026-09-02", "18:00:00")
+        cases = {"2026-09-02T18:00:00.700000Z": (1, "late"), "2026-09-02T17:59:59.100000Z": (-1, "early"),
+                 "2026-09-02T18:00:00Z": (0, "on_time")}
+        for version, contract in self.contracts.items():
+            for rfa, expected in cases.items():
+                with self.subTest(version=version, rfa=rfa):
+                    cycle = self.only_cycle(project("1", eta, rfa=rfa), contract)
+                    metric = deadline_result(cycle, MetricPolicy.from_contract(contract), NOW)["metric"]
+                    self.assertEqual((metric["delta_seconds"], metric["result"]), expected)
+                    self.assertEqual(validate(metric, "deadline-metric-v1.2.schema.json"), [])
 
 
 if __name__ == "__main__":

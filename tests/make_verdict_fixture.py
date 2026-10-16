@@ -19,6 +19,9 @@ RETRIEVED = "2026-09-30T13:10:00Z"
 WINDOW = {"current": {"window": "current", "timezone": "Africa/Cairo", "start_date": "2026-08-31", "end_date_exclusive": "2026-09-30", "completed_days": 30},
           "comparison": {"window": "comparison", "timezone": "Africa/Cairo", "start_date": "2026-08-01", "end_date_exclusive": "2026-08-31", "completed_days": 30}}
 H = 3600
+# Contract 1.5 Deadline component (D45, D52): the Editor against every other Editor, compared only with enough projects on both sides.
+DEADLINE_BETTER_BAND, DEADLINE_WORSE_BAND = -0.15, 0.15
+DEADLINE_MINIMUM_EDITOR, DEADLINE_MINIMUM_COMPARATOR = 10, 60
 
 # editor_id, name, lifetime, active, (late, classifiable) now, (late, classifiable) before, speed row or None, positive quality rate, runway (late, short)
 EDITORS = [
@@ -46,6 +49,21 @@ def rate(late: int, total: int) -> float | None:
     return round(late / total, 4) if total else None
 
 
+def deadline(editor_id, now):
+    """The Deadline component the profile publishes: facts against the other Editors (leave-one-out) and its D45 state."""
+    peers = [e[4] for e in EDITORS if e[0] != editor_id]
+    peer_late, peer_n = sum(late for late, _ in peers), sum(n for _, n in peers)
+    mine, theirs = rate(*now), rate(peer_late, peer_n)
+    facts = {"deadline_classifiable_projects": now[1], "late": now[0], "absolute_late_rate": mine, "comparator_projects": peer_n,
+             "comparator_late": peer_late, "comparator_late_rate": theirs,
+             "late_rate_difference": round(now[0] / now[1] - peer_late / peer_n, 4) if now[1] and peer_n else None}
+    if not now[1] or now[1] < DEADLINE_MINIMUM_EDITOR or peer_n < DEADLINE_MINIMUM_COMPARATOR:
+        return {"state": "not_classifiable", "reason": "insufficient_sample", "rule_status": "approved", "facts": facts}
+    difference = now[0] / now[1] - peer_late / peer_n
+    state = "positive" if difference < DEADLINE_BETTER_BAND else "negative" if difference > DEADLINE_WORSE_BAND else "neutral"
+    return {"state": state, "reason": None, "rule_status": "approved", "facts": facts}
+
+
 def summary(editor_id, name, lifetime, active, now, before, speed, positive, _runway):
     rows = []
     if speed:
@@ -65,8 +83,7 @@ def summary(editor_id, name, lifetime, active, now, before, speed, positive, _ru
             "window": WINDOW,
             "coverage": {"current_projects": now[1]},
             "components": {
-                "deadline": {"state": "neutral", "rule_status": "approved",
-                             "facts": {"deadline_classifiable_projects": now[1], "late": now[0], "absolute_late_rate": rate(*now)}},
+                "deadline": deadline(editor_id, now),
                 "speed": {"state": "neutral", "rule_status": "approved", "video_types": rows},
                 "quality": {"state": "not_classifiable", "reason": "rule_not_approved", "rule_status": "rule_not_approved", "facts": quality_facts},
             },

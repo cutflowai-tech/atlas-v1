@@ -11,20 +11,21 @@ CONFIG = load_config()
 
 
 def metrics(completed, late_rate, speed, classified=True, team=0.59):
-    return {"completed": completed, "late_rate": late_rate, "team_late_rate": team, "speed_delta_pct": speed, "speed_classified": classified}
+    return {"completed": completed, "late_rate": late_rate, "team_late_rate": team, "late_classified": late_rate is not None,
+            "speed_delta_pct": speed, "speed_classified": classified}
 
 
 class ScoreTests(unittest.TestCase):
     def test_normal_case_follows_the_formula(self):
-        # Will in the fixture: 12 of 22 late (team 76 of 129), 23.3% faster, 22 projects against a ranked median of 15.
-        points = dimension_points(metrics(22, 0.5455, -23.3, team=0.5891), 15, CONFIG)
-        self.assertAlmostEqual(points["deadlines"], 50 + (58.91 - 54.55) * 2, places=6)
+        # Will in the fixture: 12 of 22 late (the other Editors 64 of 107), 23.3% faster, 22 projects against a ranked median of 15.
+        points = dimension_points(metrics(22, 0.5455, -23.3, team=0.5981), 15, CONFIG)
+        self.assertAlmostEqual(points["deadlines"], 50 + (59.81 - 54.55) * 2, places=6)
         self.assertAlmostEqual(points["speed"], 50 + 23.3 * 1.25, places=6)
         self.assertAlmostEqual(points["volume"], 50 + (22 / 15 - 1) * 50, places=6)
         value, missing = score(points, CONFIG, quality_approved=False)
         self.assertEqual(missing, [])
         self.assertEqual(value, round(0.40 * points["deadlines"] + 0.35 * points["speed"] + 0.25 * points["volume"], 1))
-        self.assertEqual(editor(verdicts(), "Will")["score"], 69.5)
+        self.assertEqual(editor(verdicts(), "Will")["score"], 70.2)
 
     def test_a_missing_speed_dimension_redistributes_its_weight(self):
         points = dimension_points(metrics(15, 0.4667, None, classified=False, team=0.5891), 15, CONFIG)

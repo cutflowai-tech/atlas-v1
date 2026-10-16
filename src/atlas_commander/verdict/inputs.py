@@ -11,9 +11,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from atlas_commander.cycles import START_STATUS
 from atlas_commander.verdict.config import VerdictConfig
 
 NOT_CLASSIFIABLE = "not_classifiable"
+CLASSIFIED_STATES = frozenset({"positive", "neutral", "negative"})
 SECONDS_PER_HOUR = 3600
 
 
@@ -23,7 +25,8 @@ def _hours(seconds: float | None) -> float | None:
 
 @dataclass(frozen=True)
 class Speed:
-    """The Editor's primary Video Type comparison: the same row the overview card shows (first classified, else the largest)."""
+    """The Editor's primary Video Type comparison: the same row the overview card shows (the classified Video Type with the most of the
+    Editor's projects, else the Video Type with the most of the Editor's projects)."""
 
     labels: tuple[str, ...]
     classified: bool
@@ -69,6 +72,8 @@ class EditorInputs:
     deadline_classifiable: int
     late_count: int | None
     late_rate: float | None
+    comparator_late_rate: float | None   # the other Editors' late rate in the same window (D45: the Editor excluded)
+    late_classified: bool                # the approved Deadline rule classifies this comparison (D45 samples met)
     previous_classifiable: int
     previous_late: int | None
     speed: Speed | None
@@ -108,10 +113,11 @@ class TeamInputs:
 # --------------------------------------------------------------------------------------------------- reading
 
 def _primary_speed(view: Mapping[str, Any]) -> Speed | None:
+    """The largest-sample row: classified rows first, then by the Editor's project count; ties by cohort order (rows arrive sorted)."""
     rows = view["components"]["speed"]["video_types"]
-    row = next((r for r in rows if r["verdict"] != NOT_CLASSIFIABLE), rows[0] if rows else None)
-    if row is None:
+    if not rows:
         return None
+    row = min(rows, key=lambda r: (r["verdict"] == NOT_CLASSIFIABLE, -r["editor_projects"]))
     return Speed(labels=tuple(row["cohort_labels"]), classified=row["verdict"] != NOT_CLASSIFIABLE, delta_pct=row["editor_vs_comparator_pct"],
                  editor_hours=_hours(row["editor_median_seconds"]), peer_hours=_hours(row["comparator_median_seconds"]),
                  editor_projects=row["editor_projects"])
@@ -136,8 +142,11 @@ def _findings_by_type(intelligence: Mapping[str, Any] | None, finding_type: str)
 
 
 def _overdue(intelligence: Mapping[str, Any] | None, names: Mapping[str, str]) -> list[tuple[str, Overdue]]:
-    """Open projects already past their Requested ETA (Intelligence V2 ``risk.open_work``, a direct fact of the snapshot). The
-    finding's evidence records give each item's Editor ID and Video Type; the Editor's name is the fallback."""
+    """Open first-pass projects already past their Requested ETA (Intelligence V2 ``risk.open_work``, a direct fact of the snapshot).
+    The finding's evidence records give each item's Editor ID and Video Type; the Editor's name is the fallback.
+
+    Only items in ``In Progress`` count. An item in Revisions or Internal Revisions carries the ETA the shared account resets on
+    entering revision (D19); missing it is revision context, never a signal against the Editor (D31)."""
     out: list[tuple[str, Overdue]] = []
     by_name = {name: editor_id for editor_id, name in names.items()}
     video_types = (intelligence or {}).get("video_types") or {}
@@ -146,6 +155,8 @@ def _overdue(intelligence: Mapping[str, Any] | None, names: Mapping[str, str]) -
         records = {str(r["monday_item_id"]): r for evidence in finding.get("supporting_evidence") or [] if evidence["code"] == "open_work_past_eta"
                    for r in evidence.get("records") or []}
         for item in params.get("items") or []:
+            if item["status"] != START_STATUS:
+                continue
             record = records.get(str(item["monday_item_id"])) or {}
             editor_id = record.get("editor_id") if record.get("editor_id") in names else by_name.get(item["editor_name"])
             if editor_id is not None:
@@ -196,6 +207,8 @@ def normalize(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any] | No
             active=s["current_workload"].get("active_work_count") or 0, lifetime_completed=s["sample"]["completed_projects"],
             deadline_classifiable=classifiable, late_count=deadline.get("late") if classifiable else None,
             late_rate=deadline.get("absolute_late_rate") if classifiable else None,
+            comparator_late_rate=deadline.get("comparator_late_rate") if classifiable else None,
+            late_classified=bool(classifiable) and view["components"]["deadline"]["state"] in CLASSIFIED_STATES,
             previous_classifiable=previous_classifiable,
             previous_late=_count((change or {}).get("comparison"), previous_classifiable) if previous_classifiable else None,
             speed=_primary_speed(view), quality_approved=quality.get("rule_status") == "approved", quality_state=quality.get("state"),
@@ -233,10 +246,11 @@ def own_speed_change(editor: EditorInputs) -> OwnChange | None:
     return next((c for c in changes if c.cohort_label == primary), max(changes, key=lambda c: c.sample, default=None))
 
 
-def late_tone(late_rate: float | None, team_late_rate: float | None, config: VerdictConfig) -> str:
+def late_tone(late_rate: float | None, team_late_rate: float | None, config: VerdictConfig, classified: bool = True) -> str:
     """The late-rate bar's colour (T3.3), decided here so the page only renders it: bad above the team rate plus
-    ``display.late_bad_above_team_pp``, warn above the team rate, good otherwise."""
-    if late_rate is None or team_late_rate is None:
+    ``display.late_bad_above_team_pp``, warn above the team rate, good otherwise; neutral when the approved Deadline rule does not
+    classify the comparison (D45 samples), as the speed pill is (D52)."""
+    if late_rate is None or team_late_rate is None or not classified:
         return "neutral"
     above = round((late_rate - team_late_rate) * 100, int(config["precision.rate_digits"]) - 2)
     if above > config["display.late_bad_above_team_pp"]:
@@ -281,13 +295,15 @@ def metrics(editor: EditorInputs, team: TeamInputs, config: VerdictConfig) -> di
         "late_rate": _round(editor.late_rate, rate_digits),
         "late_count": editor.late_count,
         "deadline_classifiable": editor.deadline_classifiable,
-        "team_late_rate": _round(team.late_rate, rate_digits),
+        # The comparison rate is the other Editors' (D45, leave-one-out); the whole team's rate stays on the team verdict.
+        "team_late_rate": _round(editor.comparator_late_rate, rate_digits),
+        "late_classified": editor.late_classified and editor.late_rate is not None and editor.comparator_late_rate is not None,
         "speed_delta_pct": _round(speed.delta_pct, pct_digits) if speed and speed.peer_hours is not None else None,
         "speed_label": label,
         "speed_classified": bool(speed and speed.classified and speed.delta_pct is not None),
         "own_speed_delta_pct": _round(own.difference, pct_digits) if own else None,
         "quality": quality,
-        "late_tone": late_tone(editor.late_rate, team.late_rate, config),
+        "late_tone": late_tone(editor.late_rate, editor.comparator_late_rate, config, editor.late_classified),
         **speed_reading(speed.delta_pct if speed and speed.peer_hours is not None else None, bool(speed and speed.classified), config),
     }
 

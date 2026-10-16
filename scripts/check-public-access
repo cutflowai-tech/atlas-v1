@@ -1,0 +1,21 @@
+#!/bin/sh
+# Fails unless every public Atlas route refuses unauthenticated access (401/403, or a redirect to a login).
+# Usage: scripts/check-public-access [https://atlas.wasetco.com]
+set -eu
+
+base=${1:-https://atlas.wasetco.com}
+status=0
+for path in / /en/ /ar/ /en/dashboard.html /ar/dashboard.html; do
+  code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' "$base$path") || code=000
+  case $code in
+    401|403) printf '%s\tPROTECTED\t%s\n' "$path" "$code" ;;
+    301|302|303|307|308)
+      location=$(curl -s -o /dev/null -m 20 -w '%{redirect_url}' "$base$path")
+      case $location in
+        "$base"/*) printf '%s\tOPEN\t%s redirect inside Atlas: %s\n' "$path" "$code" "$location"; status=1 ;;
+        *) printf '%s\tPROTECTED\t%s -> %s\n' "$path" "$code" "$location" ;;
+      esac ;;
+    *) printf '%s\tOPEN\t%s\n' "$path" "$code"; status=1 ;;
+  esac
+done
+exit $status

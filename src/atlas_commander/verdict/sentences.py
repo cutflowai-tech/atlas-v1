@@ -15,7 +15,7 @@ from typing import Any
 from atlas_commander.verdict.config import VerdictConfig
 from atlas_commander.verdict.inputs import EditorInputs, msg
 from atlas_commander.verdict.reasoning import RUNWAY_EXPLAINS, RUNWAY_NOT_EXPLAINING, RunwayResult
-from atlas_commander.verdict.tiers import BEST, LOW_ACTIVITY, STEADY, WATCH, WEAKEST, points_above, speed_for_verdict
+from atlas_commander.verdict.tiers import BEST, LOW_ACTIVITY, STEADY, WATCH, WEAKEST, late_above_for_verdict, speed_for_verdict
 
 
 @dataclass(frozen=True)
@@ -45,7 +45,7 @@ def _round(value: float, config: VerdictConfig) -> float:
 
 def _late(c: Context, config: VerdictConfig) -> dict[str, Any] | None:
     m = c.metrics
-    above = points_above(m["late_rate"], m["team_late_rate"], config)
+    above = late_above_for_verdict(m, config)
     if above is None:
         return None
     key = "late_above_team" if above > 0 else "late_below_team" if above < 0 else "late_at_team"
@@ -146,7 +146,7 @@ def headline(c: Context, config: VerdictConfig) -> dict[str, Any]:
     """``verdict.headline.<tier>.<variant>``: the tier and the strongest fact behind it."""
     m = c.metrics
     late_pct, team_pct = _pct(m["late_rate"], config), _pct(m["team_late_rate"], config)
-    above = points_above(m["late_rate"], m["team_late_rate"], config)
+    above = late_above_for_verdict(m, config)
     speed = speed_for_verdict(m)
     own = None if c.own_change_mirrored else m["own_speed_delta_pct"]
     slower = speed is not None and speed >= config["display.speed_same_band_pct"]

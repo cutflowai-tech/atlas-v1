@@ -253,7 +253,9 @@ class SiteArtifactTests(unittest.TestCase):
         for page in ("en/dashboard.html", "ar/dashboard.html"):
             html = (build / page).read_text()
             self.assertIn('data-section="intelligence"', html)
-            section = html.split('data-section="intelligence"')[1].split("</section>")[0]
+            # The team overview section; Editor profiles carry their own data-section="intelligence" blocks.
+            section = html.split('id="intelligence" data-section="intelligence"')[1].split("</section>")[0]
+            self.assertTrue(top)
             self.assertEqual(re.findall(r'<article class="iv-card" data-finding="([^"]+)"', section), top)
             for finding in document["findings"]:
                 self.assertIn(f'<template id="iv2-{finding["finding_id"].replace(".", "-").replace(":", "-")}"', html)

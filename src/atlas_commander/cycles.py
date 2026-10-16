@@ -8,7 +8,14 @@ One Monday item yields at most one work cycle under the approved rules:
   that original cycle and never open a new one;
 * a cycle without an end is retained as open (right-censored) and excluded from
   completed-duration aggregates;
-* duplicate, discontinuous and undone transitions are ignored for timing and flagged.
+* duplicate and discontinuous transitions are ignored for timing and flagged;
+* a cycle is excluded, with a reason, when its first pass cannot be proven from the
+  ingested history: the item's history is not proven complete
+  (``HISTORY_START_NOT_OBSERVED``), a ``Ready For Approval`` precedes the first
+  ``In Progress`` (``READY_FOR_APPROVAL_BEFORE_START``), or an undo action on a tracked
+  column falls before the item's next status change after the cycle's ``Ready For
+  Approval`` (``UNDO_WITHIN_CYCLE_WINDOW``): the undo may have reverted the cycle's own
+  boundary or attributes, and what it reverted is not established.
 
 Only the first completed cycle is measured; later ``In Progress -> Ready For
 Approval`` rounds are retained as evidence (``post_cycle_event_ids``) and are never
@@ -55,6 +62,8 @@ NON_POSITIVE_DURATION = "NON_POSITIVE_DURATION"
 MISSING_EDITOR_EVENT = "MISSING_EDITOR_EVENT"
 EDITOR_CHANGED_WITHIN_CYCLE = "EDITOR_CHANGED_WITHIN_CYCLE"
 MISSING_VIDEO_TYPE_EVENT = "MISSING_VIDEO_TYPE_EVENT"
+HISTORY_START_NOT_OBSERVED = "HISTORY_START_NOT_OBSERVED"
+UNDO_WITHIN_CYCLE_WINDOW = "UNDO_WITHIN_CYCLE_WINDOW"
 
 # Informational flags: the cycle stays in aggregates and the flag travels with it.
 REPEATED_IN_PROGRESS = "REPEATED_IN_PROGRESS"
@@ -70,6 +79,7 @@ UNRESOLVED_PREVIOUS_STATUS = "UNRESOLVED_PREVIOUS_STATUS"
 _HARMLESS_QUARANTINE = frozenset({"DUPLICATE_EVENT_ID", "STATUS_CLEARED"})
 CAPTIONS_WITHIN_CYCLE = "CAPTIONS_WITHIN_CYCLE"
 DELIVERED_BEFORE_READY_FOR_APPROVAL = "DELIVERED_BEFORE_READY_FOR_APPROVAL"
+# Both a flag and an exclusion: the first Ready For Approval precedes the measured start.
 READY_FOR_APPROVAL_BEFORE_START = "READY_FOR_APPROVAL_BEFORE_START"
 CLIENT_REVISION_WITHIN_CYCLE = "CLIENT_REVISION_WITHIN_CYCLE"
 VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL = "VIDEO_TYPE_CHANGED_AFTER_READY_FOR_APPROVAL"
@@ -277,6 +287,10 @@ def build_item_cycle(
     blocking_quarantine = [entry for entry in quarantined if entry.get("reason") not in _HARMLESS_QUARANTINE]
     if blocking_quarantine:
         _add(record.flags, UNMAPPED_STATUS_IN_HISTORY)
+    # Without proof that the item's whole history was ingested, the first observed In Progress may be a later round.
+    if history_coverage is not None and history_coverage.get("proven") and not history_coverage.get("complete_history"):
+        _add(record.exclusions, HISTORY_START_NOT_OBSERVED)
+    undo_moments = [parse_time(event["occurred_at"]) for event in all_events if str(event["event_id"]) in undo]
 
     timeline: list[Mapping[str, Any]] = []
     for event in all_events:
@@ -309,6 +323,7 @@ def build_item_cycle(
         return None
     if any(event["to_status"] == END_STATUS for event in timeline[:start_index]):
         _add(record.flags, READY_FOR_APPROVAL_BEFORE_START)
+        _add(record.exclusions, READY_FOR_APPROVAL_BEFORE_START)
     start = timeline[start_index]
     record.in_progress_event = start
     end_index = next((index for index in range(start_index + 1, len(timeline)) if timeline[index]["to_status"] == END_STATUS), None)
@@ -332,8 +347,11 @@ def build_item_cycle(
         moment = source.get("occurred_at") if isinstance(source, Mapping) else None
         if window_end is None or not isinstance(moment, str) or parse_time(moment) <= window_end:
             _add(record.exclusions, UNMAPPED_STATUS_WITHIN_CYCLE_WINDOW)
+    # Undo actions up to the item's next status change after Ready For Approval can revert this cycle's boundary or attributes.
+    undo_window_close: datetime | None = None
     if end_index is not None:
         later = timeline[end_index + 1:]
+        undo_window_close = parse_time(later[0]["occurred_at"]) if later else None
         record.post_cycle_event_ids = [event["event_id"] for event in later]
         record.later_ready_for_approval_event_ids = [event["event_id"] for event in later if event["to_status"] == END_STATUS]
 
@@ -357,8 +375,11 @@ def build_item_cycle(
     for change in sorted(changes, key=lambda change: change.sort_key):
         if change.is_undo_action:
             _add(record.flags, UNDO_ACTION_IGNORED)
+            undo_moments.append(parse_time(change.occurred_at))
             continue
         by_column.setdefault(change.column_id, []).append(change)
+    if any(undo_window_close is None or moment <= undo_window_close for moment in undo_moments):
+        _add(record.exclusions, UNDO_WITHIN_CYCLE_WINDOW)
     # A status an item was created with (e.g. a duplicated item) is not a transition; it is kept as a flag only.
     if any(change.source == "create_pulse" and change.value for change in by_column.get(policy.status_column_id, [])):
         _add(record.flags, INITIAL_STATUS_AT_CREATION)

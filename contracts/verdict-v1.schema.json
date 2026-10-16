@@ -80,7 +80,7 @@
         "based_on": {"type": "array", "items": {"enum": ["deadlines", "speed", "volume", "quality"]}},
         "metrics": {
           "type": "object", "additionalProperties": false,
-          "required": ["completed", "active", "lifetime_completed", "late_rate", "late_count", "deadline_classifiable", "team_late_rate", "speed_delta_pct",
+          "required": ["completed", "active", "lifetime_completed", "late_rate", "late_count", "deadline_classifiable", "team_late_rate", "late_classified", "speed_delta_pct",
                        "speed_label", "speed_classified", "own_speed_delta_pct", "quality", "late_tone", "speed_band", "speed_tone"],
           "properties": {
             "completed": {"type": "integer", "minimum": 0},
@@ -89,13 +89,14 @@
             "late_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
             "late_count": {"type": ["integer", "null"], "minimum": 0},
             "deadline_classifiable": {"type": "integer", "minimum": 0},
-            "team_late_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "team_late_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "The other Editors' late rate in the same window (D45: the Editor excluded)"},
+            "late_classified": {"type": "boolean", "description": "true when the approved Deadline rule classifies the comparison (D45 samples); only then does the late rate move the tier, score or headline"},
             "speed_delta_pct": {"type": ["number", "null"]},
             "speed_label": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/msg"}]},
             "speed_classified": {"type": "boolean", "description": "true when the Video Type comparison meets the approved Speed sample rules (D52)"},
             "own_speed_delta_pct": {"type": ["number", "null"]},
             "quality": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/msg"}]},
-            "late_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the late-rate bar: bad above the team rate plus display.late_bad_above_team_pp, warn above the team rate, good otherwise; neutral without a late rate"},
+            "late_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the late-rate bar: bad above the team rate plus display.late_bad_above_team_pp, warn above the team rate, good otherwise; neutral without a late rate or when the comparison is unclassified (D45)"},
             "speed_band": {"enum": ["faster", "same", "slower", null], "description": "How the speed comparison reads: same within display.speed_same_band_pct, otherwise faster or slower; null without a comparison"},
             "speed_tone": {"enum": ["good", "warn", "bad", "neutral"], "description": "Colour of the speed pill: good faster, warn slower up to display.speed_bad_above_pct, bad beyond it; neutral when the same, unclassified (D52) or missing"}
           }

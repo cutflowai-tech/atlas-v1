@@ -44,7 +44,9 @@ class HeadlineTests(unittest.TestCase):
     def test_the_strongest_fact_leads_the_reasons(self):
         document = verdicts()
         self.assertEqual(editor(document, "Anas")["reasons"][0]["key"], "verdict.reason.mirrors_team_late_rate")
-        self.assertEqual(editor(document, "Sobhy")["reasons"][0]["key"], "verdict.reason.late_above_team")
+        # 4 of 6 late is below the D45 samples: not a reason (D55); the first fact is the small volume.
+        self.assertEqual(editor(document, "Sobhy")["reasons"][0]["key"], "verdict.reason.volume_below_median")
+        self.assertNotIn("verdict.reason.late_above_team", [r["key"] for r in editor(document, "Sobhy")["reasons"]])
         self.assertEqual(editor(document, "Mario")["reasons"][0]["key"], "verdict.reason.overdue_open")
         self.assertEqual(editor(document, "Will")["reasons"][0]["key"], "verdict.reason.volume_above_median")
 

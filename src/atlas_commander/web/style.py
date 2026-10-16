@@ -142,6 +142,7 @@ bdi,code,time{unicode-bidi:isolate}code{font:12px/1.4 var(--mono);background:var
 .v-late-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;background:var(--v-tone)}
 .v-late-team{position:absolute;inset-block:-4px;inline-size:2px;margin-inline-start:-1px;border-radius:1px;background:var(--v-fg)}
 .v-late-v{flex:none;min-inline-size:3.2em;text-align:end;font:600 13px/1 var(--v-num);color:var(--v-tone)}
+.v-late[data-tone=neutral] .v-late-v{color:var(--v-fg)}
 .v-late-none{font-size:13px;color:var(--v-muted)}
 .v-pill,.v-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font:500 12.5px/1.5 var(--v-body);white-space:nowrap}.v-pill{display:inline-block}
 .v-pill{--v-tone:var(--v-muted);background:var(--v-surface);box-shadow:inset 0 0 0 1px var(--v-line);color:var(--v-tone)}

@@ -124,6 +124,32 @@ Do not expose port 18000 directly. The web container serves the real relative
 root page, which leads to English; `/ar/` remains the Arabic route. No browser-language detection is
 performed.
 
+## 4a. Access control (mandatory before exposure)
+
+Atlas pages contain per-Editor performance evaluations. `https://atlas.wasetco.com` must refuse
+every unauthenticated request. The web container itself has no authentication and binds only
+`127.0.0.1:18000`; the host reverse proxy is the access-control boundary.
+
+Install the reviewed template `deploy/production/host-proxy.nginx.conf` (HTTP basic auth over TLS;
+replace with SSO such as oauth2-proxy or Cloudflare Access when available):
+
+```sh
+sudo install -o root -g www-data -m 0640 /dev/null /etc/nginx/atlas.htpasswd
+sudo htpasswd -B /etc/nginx/atlas.htpasswd MANAGER_NAME
+sudo install -o root -g root -m 0644 deploy/production/host-proxy.nginx.conf /etc/nginx/sites-available/atlas
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+After every deploy and every proxy change, verify from a machine outside the host:
+
+```sh
+scripts/check-public-access https://atlas.wasetco.com
+```
+
+It exits non-zero if any route answers without authentication. Do not announce or share the URL
+while it reports `OPEN`.
+
 ## 5. Normal operation
 
 ```sh

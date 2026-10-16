@@ -85,7 +85,8 @@ def _sentence_sweep():
     for tier, runway, mirror, (rate, n, late), (speed, classified), own, completed, active, overdue, mirrored in itertools.product(
             messages.TIERS, runways, mirrors, lates, speeds, (None, 26.3, -12.0), (0, 2, 14, 24), (0, 1), (0, 2), (False, True)):
         editor = dataclasses.replace(base, overdue=tuple(Overdue(str(i), "Revisions", None, 3.0) for i in range(overdue)))
-        metrics = {"late_rate": rate, "team_late_rate": 0.589, "late_count": late, "deadline_classifiable": n, "speed_delta_pct": speed,
+        metrics = {"late_rate": rate, "team_late_rate": 0.589, "late_classified": rate is not None, "late_count": late,
+                   "deadline_classifiable": n, "speed_delta_pct": speed,
                    "speed_classified": classified, "speed_label": label if speed is not None else None, "own_speed_delta_pct": own,
                    "completed": completed, "active": active, "lifetime_completed": 60}
         context = sentences.Context(editor=editor, metrics=metrics, tier=tier, ranked=completed >= 5, median_completed=15.0 if completed >= 5 else None,

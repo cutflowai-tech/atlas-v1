@@ -105,8 +105,9 @@ class LateBarTests(unittest.TestCase):
         self.assertEqual(late_tone(0.5891, 0.589, config), "warn")
         self.assertEqual(late_tone(0.589, 0.589, config), "good")
         self.assertEqual(late_tone(None, 0.589, config), "neutral")
+        self.assertEqual(late_tone(0.80, 0.589, config, classified=False), "neutral")   # below the D45 samples: shown, not judged
         tones = {e["display_name"]: e["metrics"]["late_tone"] for e in verdicts()["editors"]}
-        self.assertEqual((tones["Refaat"], tones["Sobhy"], tones["Will"], tones["Samra"]), ("bad", "warn", "good", "neutral"))
+        self.assertEqual((tones["Refaat"], tones["Sobhy"], tones["Will"], tones["Samra"]), ("bad", "neutral", "good", "neutral"))
 
 
 class LabelTests(unittest.TestCase):
@@ -308,7 +309,7 @@ class VerdictBandTests(unittest.TestCase):
         self.assertIn('<p class="v-eyebrow">This month\'s verdict</p><h1 id="v-band-h">Headline.</h1><p class="v-band-s">Supporting.</p>', band)
         self.assertEqual(len(re.findall(r'class="v-kpi"', band)), 3)                      # never more than three tiles
         self.assertIn('data-tone="warn" data-kpi="late_rate"><span class="v-kpi-v"><bdi dir="ltr">59%</bdi>', band)   # 58.9 -> 59%
-        self.assertIn('data-tone="bad" data-kpi="overdue"><span class="v-kpi-v"><data value="3">3</data>', band)
+        self.assertIn('data-tone="bad" data-kpi="overdue"><span class="v-kpi-v"><data value="1">1</data>', band)
         self.assertIn('data-kpi="short_runway_share"><span class="v-kpi-v"><bdi dir="ltr">77%</bdi>', band)
         self.assertIn("الحكم هذا الشهر", ui.verdict_band(Html("x"), Html("y"), [], AR))
         self.assertNotIn("v-kpis", ui.verdict_band(Html("x"), Html("y"), [], EN))

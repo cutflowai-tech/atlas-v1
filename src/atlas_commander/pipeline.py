@@ -8,7 +8,9 @@ optional ingestion metadata describing what the ingestion can prove about covera
      "complete_history_item_ids": [...], "complete_history_basis": "..."}
 
 An item's Requested ETA history is labelled complete only when its ID is listed in
-``complete_history_item_ids``; otherwise it is "observed in ingested evidence".
+``complete_history_item_ids``; otherwise it is "observed in ingested evidence". When the
+ingestion supplies that list, an item missing from it has no proven first pass and its
+cycle is excluded (``HISTORY_START_NOT_OBSERVED``).
 
 Every stage keeps what it could not use: status logs that fail normalization,
 activity logs that cannot be parsed, and cycles excluded from aggregates are all
@@ -66,6 +68,7 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
     item_snapshots = {column: item_column_snapshots(items_payload, column, meta.get("retrieved_at")) for column in sorted(tracked)} if items_payload is not None else {}
     snapshots = item_snapshots.get(board["requested_eta_column_id"], {})
     complete_ids = {str(value) for value in meta.get("complete_history_item_ids") or []}
+    coverage_proven = "complete_history_item_ids" in meta
     result = CycleReconstruction(contract["contract_version"], normalized.accepted, normalized.quarantined, rejected, changes, transitions, snapshots,
                                  item_snapshots, meta)
 
@@ -79,8 +82,8 @@ def reconstruct_cycles(activity_payload: Mapping[str, Any], contract: Mapping[st
         items.setdefault((event["monday_board_id"], event["monday_item_id"]), None)
     policy = CyclePolicy.from_contract(contract)
     for board_id, item_id in sorted(items):
-        coverage = {"complete_history": item_id in complete_ids, "activity_log_window": meta.get("activity_log_window"),
-                    "basis": meta.get("complete_history_basis")}
+        coverage = {"complete_history": item_id in complete_ids, "proven": coverage_proven,
+                    "activity_log_window": meta.get("activity_log_window"), "basis": meta.get("complete_history_basis")}
         cycle = build_item_cycle(board_id, item_id, normalized.accepted, changes, policy, undo_ids, quarantined_by_item.get(item_id, ()),
                                  eta_snapshot=snapshots.get(item_id), history_coverage=coverage)
         if cycle is not None:

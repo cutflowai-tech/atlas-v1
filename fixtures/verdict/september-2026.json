@@ -40,11 +40,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 22,
         "late": 12,
-        "absolute_late_rate": 0.5455
+        "absolute_late_rate": 0.5455,
+        "comparator_projects": 107,
+        "comparator_late": 64,
+        "comparator_late_rate": 0.5981,
+        "late_rate_difference": -0.0527
        }
       },
       "speed": {
@@ -122,11 +127,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 13,
         "late": 7,
-        "absolute_late_rate": 0.5385
+        "absolute_late_rate": 0.5385,
+        "comparator_projects": 116,
+        "comparator_late": 69,
+        "comparator_late_rate": 0.5948,
+        "late_rate_difference": -0.0564
        }
       },
       "speed": {
@@ -203,12 +213,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "negative",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 14,
         "late": 12,
-        "absolute_late_rate": 0.8571
+        "absolute_late_rate": 0.8571,
+        "comparator_projects": 115,
+        "comparator_late": 64,
+        "comparator_late_rate": 0.5565,
+        "late_rate_difference": 0.3006
        }
       },
       "speed": {
@@ -285,12 +300,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "not_classifiable",
+       "reason": "insufficient_sample",
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 6,
         "late": 4,
-        "absolute_late_rate": 0.6667
+        "absolute_late_rate": 0.6667,
+        "comparator_projects": 123,
+        "comparator_late": 72,
+        "comparator_late_rate": 0.5854,
+        "late_rate_difference": 0.0813
        }
       },
       "speed": {
@@ -368,12 +388,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "not_classifiable",
+       "reason": "insufficient_sample",
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 2,
         "late": 1,
-        "absolute_late_rate": 0.5
+        "absolute_late_rate": 0.5,
+        "comparator_projects": 127,
+        "comparator_late": 75,
+        "comparator_late_rate": 0.5906,
+        "late_rate_difference": -0.0906
        }
       },
       "speed": {
@@ -452,12 +477,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "not_classifiable",
+       "reason": "insufficient_sample",
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 0,
         "late": 0,
-        "absolute_late_rate": null
+        "absolute_late_rate": null,
+        "comparator_projects": 129,
+        "comparator_late": 76,
+        "comparator_late_rate": 0.5891,
+        "late_rate_difference": null
        }
       },
       "speed": {
@@ -519,12 +549,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "not_classifiable",
+       "reason": "insufficient_sample",
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 0,
         "late": 0,
-        "absolute_late_rate": null
+        "absolute_late_rate": null,
+        "comparator_projects": 129,
+        "comparator_late": 76,
+        "comparator_late_rate": 0.5891,
+        "late_rate_difference": null
        }
       },
       "speed": {
@@ -587,11 +622,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 15,
         "late": 7,
-        "absolute_late_rate": 0.4667
+        "absolute_late_rate": 0.4667,
+        "comparator_projects": 114,
+        "comparator_late": 69,
+        "comparator_late_rate": 0.6053,
+        "late_rate_difference": -0.1386
        }
       },
       "speed": {
@@ -654,11 +694,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 24,
         "late": 14,
-        "absolute_late_rate": 0.5833
+        "absolute_late_rate": 0.5833,
+        "comparator_projects": 105,
+        "comparator_late": 62,
+        "comparator_late_rate": 0.5905,
+        "late_rate_difference": -0.0071
        }
       },
       "speed": {
@@ -736,11 +781,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 18,
         "late": 11,
-        "absolute_late_rate": 0.6111
+        "absolute_late_rate": 0.6111,
+        "comparator_projects": 111,
+        "comparator_late": 65,
+        "comparator_late_rate": 0.5856,
+        "late_rate_difference": 0.0255
        }
       },
       "speed": {
@@ -818,11 +868,16 @@
      "components": {
       "deadline": {
        "state": "neutral",
+       "reason": null,
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 15,
         "late": 8,
-        "absolute_late_rate": 0.5333
+        "absolute_late_rate": 0.5333,
+        "comparator_projects": 114,
+        "comparator_late": 68,
+        "comparator_late_rate": 0.5965,
+        "late_rate_difference": -0.0632
        }
       },
       "speed": {
@@ -899,12 +954,17 @@
      },
      "components": {
       "deadline": {
-       "state": "neutral",
+       "state": "not_classifiable",
+       "reason": "insufficient_sample",
        "rule_status": "approved",
        "facts": {
         "deadline_classifiable_projects": 0,
         "late": 0,
-        "absolute_late_rate": null
+        "absolute_late_rate": null,
+        "comparator_projects": 129,
+        "comparator_late": 76,
+        "comparator_late_rate": 0.5891,
+        "late_rate_difference": null
        }
       },
       "speed": {

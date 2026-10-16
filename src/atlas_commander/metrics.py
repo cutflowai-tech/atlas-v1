@@ -22,8 +22,8 @@ from dataclasses import dataclass
 from statistics import median
 from typing import Any
 
-from atlas_commander.contracts import validate
-from atlas_commander.cycles import COMPLETED, ETA_AT_READY_FOR_APPROVAL, LATEST_ETA, NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL, CycleRecord, parse_time
+from atlas_commander.contracts import deadline_delta_seconds, validate
+from atlas_commander.cycles import COMPLETED, ETA_AT_READY_FOR_APPROVAL, LATEST_ETA, NO_ETA_AT_OR_BEFORE_READY_FOR_APPROVAL, CycleRecord
 from atlas_commander.video_type import VideoTypeMapping, partition_by_cohort
 
 CONTRACT_VERSION = "1.0.0"
@@ -129,7 +129,7 @@ def deadline_result(cycle: CycleRecord, policy: MetricPolicy, calculated_at: str
         return None
     assert cycle.ready_for_approval_at is not None and cycle.requested_eta is not None and cycle.editor_id is not None
     ready = cycle.ready_for_approval_at
-    delta = int((parse_time(ready) - parse_time(cycle.requested_eta)).total_seconds())
+    delta = deadline_delta_seconds(ready, cycle.requested_eta)
     event_ids = [cycle.ready_for_approval_event["event_id"]] if cycle.ready_for_approval_event else []
     if cycle.requested_eta_event_id and cycle.requested_eta_event_id not in event_ids:
         event_ids.append(cycle.requested_eta_event_id)

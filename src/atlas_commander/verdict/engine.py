@@ -22,7 +22,7 @@ from atlas_commander.verdict.reasoning import (
 )
 from atlas_commander.verdict.sentences import Context, headline, reasons
 from atlas_commander.verdict.team import team_verdict
-from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, points_above, rank, score, speed_for_verdict
+from atlas_commander.verdict.tiers import Scored, Standing, assign_tier, dimension_points, late_above_for_verdict, rank, score, speed_for_verdict
 
 DOCUMENT_VERSION = "1.0.0"
 VERDICT_VERSION = "verdict-v1.0"
@@ -66,7 +66,7 @@ def build_verdicts(dashboard: Mapping[str, Any], intelligence: Mapping[str, Any]
 
 def _worse_dimensions(m: Mapping[str, Any], median_completed: float | None, config: VerdictConfig) -> tuple[str, ...]:
     """Dimensions on which the Editor is worse than the team (a Best Editor has none)."""
-    above = points_above(m["late_rate"], m["team_late_rate"], config)
+    above = late_above_for_verdict(m, config)
     speed = speed_for_verdict(m)
     worse = []
     if above is not None and above > 0:
